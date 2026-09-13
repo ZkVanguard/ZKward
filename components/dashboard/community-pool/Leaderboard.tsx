@@ -192,8 +192,8 @@ export const Leaderboard = memo(function Leaderboard({
             )}
           </h3>
           <p className="pool-inner-subheading text-[11px] sm:text-xs text-gray-500 dark:text-gray-400 mb-3 leading-relaxed">
-            All deposits are routed through the single treasury proxy. Real addresses are never
-            disclosed.
+            Direct on-chain shareholders, ranked by share balance. Set a display name in your
+            wallet profile to appear as a label instead of an address.
           </p>
           <div className="space-y-2">
             {entries
