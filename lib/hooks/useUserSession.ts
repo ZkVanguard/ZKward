@@ -20,11 +20,11 @@
  * used here require PrivyProvider in the tree.
  */
 
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useChainId } from 'wagmi';
 import { usePrivy, useLogout } from '@privy-io/react-auth';
 import { usePrivyEmbeddedAddress, usePrivyEmbeddedStatus } from '@/lib/evm-wallet/usePrivyEmbeddedAddress';
-import { useWalletProfile } from './useWalletProfile';
+import { useWalletProfile, useSetWalletProfile } from './useWalletProfile';
 import { useTokenBalances, type TokenBalances } from './useTokenBalances';
 
 const HEDERA_TESTNET_ID = 296;
@@ -60,8 +60,25 @@ export interface UserSession {
 
 interface PrivyUserLike {
   email?: { address?: string } | null;
-  google?: { email?: string } | null;
+  google?: { email?: string; name?: string } | null;
   createdAt?: number | string;
+}
+
+/**
+ * Derive a display name from a Privy user identity. Google `name` wins
+ * (comes from OAuth profile, real full name); otherwise title-case the
+ * email prefix. Returns null for wallet-only users — nothing to derive.
+ */
+function deriveDisplayName(user: PrivyUserLike | null): string | null {
+  const googleName = user?.google?.name?.trim();
+  if (googleName) return googleName.slice(0, 40);
+  const email = user?.email?.address ?? user?.google?.email ?? null;
+  if (!email) return null;
+  const prefix = email.split('@')[0];
+  if (!prefix) return null;
+  const parts = prefix.split(/[.\-_]/).filter(Boolean);
+  const nice = parts.map((p) => p.charAt(0).toUpperCase() + p.slice(1)).join(' ');
+  return (nice || prefix).slice(0, 40);
 }
 
 export function useUserSession(): UserSession {
@@ -72,6 +89,24 @@ export function useUserSession(): UserSession {
   const balances = useTokenBalances(address);
   const { user } = usePrivy() as { user: PrivyUserLike | null };
   const { logout } = useLogout();
+  const setProfile = useSetWalletProfile();
+
+  // Auto-populate the wallet_profiles display name from the Privy user
+  // identity the first time a Google/email user's embedded wallet lands
+  // without a name. Without this, fresh users show as "no name set" in
+  // the Leaderboard until they visit ProfileTab. Guarded per-address so
+  // we don't fight a user who deliberately clears their name.
+  const autoSetForAddress = useRef<string | null>(null);
+  useEffect(() => {
+    if (!privyStatus.ready || !privyStatus.authenticated || !address) return;
+    if (profile === undefined) return; // still loading
+    if (profile.displayName) return; // already named
+    if (autoSetForAddress.current === address.toLowerCase()) return;
+    const derived = deriveDisplayName(user);
+    if (!derived) return;
+    autoSetForAddress.current = address.toLowerCase();
+    setProfile.mutate({ address, displayName: derived });
+  }, [privyStatus.ready, privyStatus.authenticated, address, profile, user, setProfile]);
 
   return useMemo<UserSession>(() => {
     const emailAddress = user?.email?.address ?? user?.google?.email ?? null;
