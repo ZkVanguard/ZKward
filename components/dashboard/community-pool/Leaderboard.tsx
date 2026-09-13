@@ -5,6 +5,66 @@ import { Award, Shield, ExternalLink, CheckCircle2, Database } from 'lucide-reac
 import type { LeaderboardEntry } from './types';
 import { formatPercent } from './utils';
 import { WalletAvatar } from '@/components/ui/WalletAvatar';
+import { useWalletProfile } from '@/lib/hooks/useWalletProfile';
+
+const RANK_STYLES = [
+  'bg-yellow-500 text-white',
+  'bg-gray-400 text-white',
+  'bg-orange-600 text-white',
+];
+
+/**
+ * Single leaderboard row. Reads its own profile via React Query so
+ * when useSetWalletProfile mutates + invalidates walletProfileKey(addr),
+ * the row rerenders with the fresh display name — no need to refetch
+ * the whole leaderboard endpoint. The entry.displayName from the parent
+ * (baked at fetch time) is the fallback for the first paint.
+ */
+const LeaderboardRow = memo(function LeaderboardRow({
+  entry,
+  rank,
+}: {
+  entry: LeaderboardEntry;
+  rank: number;
+}) {
+  const { data: fresh } = useWalletProfile(entry.walletAddress);
+  const truncated = `${entry.walletAddress.slice(0, 6)}…${entry.walletAddress.slice(-4)}`;
+  const displayName = (fresh?.displayName ?? entry.displayName)?.trim() || null;
+  return (
+    <div className="flex items-center justify-between gap-3 p-2 sm:p-3 rounded-lg bg-gray-50 dark:bg-gray-700/50 min-w-0">
+      <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+        <span
+          className={`w-6 h-6 flex items-center justify-center rounded-full text-xs font-bold flex-shrink-0 ${
+            RANK_STYLES[rank] || 'bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300'
+          }`}
+        >
+          {rank + 1}
+        </span>
+        <WalletAvatar address={entry.walletAddress} name={displayName} size={32} />
+        <div className="flex flex-col min-w-0 flex-1">
+          <span className="text-[13px] sm:text-sm font-semibold text-label-primary truncate">
+            {displayName ?? truncated}
+          </span>
+          {displayName ? (
+            <span className="text-[10px] sm:text-[11px] text-label-tertiary font-mono truncate">
+              {truncated}
+            </span>
+          ) : (
+            <span className="text-[9px] sm:text-[10px] text-label-tertiary">no name set</span>
+          )}
+        </div>
+      </div>
+      <div className="text-right flex-shrink-0">
+        <p className="text-xs sm:text-sm font-semibold text-gray-900 dark:text-white tabular-nums">
+          {entry.shares.toFixed(2)} shares
+        </p>
+        <p className="text-[11px] sm:text-xs text-gray-500 dark:text-gray-400 tabular-nums">
+          {formatPercent(entry.percentage)}
+        </p>
+      </div>
+    </div>
+  );
+});
 interface LeaderboardProps {
   entries: LeaderboardEntry[];
   /** Total member count (may exceed `entries.length` if the leaderboard is
@@ -25,12 +85,6 @@ interface LeaderboardProps {
     assets?: string[];
   };
 }
-
-const RANK_STYLES = [
-  'bg-yellow-500 text-white',
-  'bg-gray-400 text-white',
-  'bg-orange-600 text-white',
-];
 
 // Treasury addresses for EVM chains
 const POOL_PROXY_WALLETS: Record<string, { address: string; name: string }> = {
@@ -198,50 +252,9 @@ export const Leaderboard = memo(function Leaderboard({
           <div className="space-y-2">
             {entries
               .filter((user) => user?.walletAddress)
-              .map((user, index) => {
-                const truncated = `${user.walletAddress.slice(0, 6)}…${user.walletAddress.slice(-4)}`;
-                const displayName = user.displayName?.trim() || null;
-                return (
-                  <div
-                    key={user.walletAddress}
-                    className="flex items-center justify-between gap-3 p-2 sm:p-3 rounded-lg bg-gray-50 dark:bg-gray-700/50 min-w-0"
-                  >
-                    <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
-                      <span
-                        className={`w-6 h-6 flex items-center justify-center rounded-full text-xs font-bold flex-shrink-0 ${
-                          RANK_STYLES[index] ||
-                          'bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300'
-                        }`}
-                      >
-                        {index + 1}
-                      </span>
-                      <WalletAvatar address={user.walletAddress} name={displayName} size={32} />
-                      <div className="flex flex-col min-w-0 flex-1">
-                        <span className="text-[13px] sm:text-sm font-semibold text-label-primary truncate">
-                          {displayName ?? truncated}
-                        </span>
-                        {displayName ? (
-                          <span className="text-[10px] sm:text-[11px] text-label-tertiary font-mono truncate">
-                            {truncated}
-                          </span>
-                        ) : (
-                          <span className="text-[9px] sm:text-[10px] text-label-tertiary">
-                            no name set
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    <div className="text-right flex-shrink-0">
-                      <p className="text-xs sm:text-sm font-semibold text-gray-900 dark:text-white tabular-nums">
-                        {user.shares.toFixed(2)} shares
-                      </p>
-                      <p className="text-[11px] sm:text-xs text-gray-500 dark:text-gray-400 tabular-nums">
-                        {formatPercent(user.percentage)}
-                      </p>
-                    </div>
-                  </div>
-                );
-              })}
+              .map((user, index) => (
+                <LeaderboardRow key={user.walletAddress} entry={user} rank={index} />
+              ))}
           </div>
         </>
       )}
