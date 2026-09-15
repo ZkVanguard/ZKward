@@ -61,6 +61,7 @@ async function handle(request: NextRequest): Promise<NextResponse> {
     //   2. In-flight opens: active > 20 min, updated_at ≈ created_at (0 reconciler
     //      touches) — closes the 15-min window the closed-rate can't see.
     let phantomRatePctLastHour = 0;
+    let phantomTotalLastHour = 0;
     let inFlightPhantomOpenCount = 0;
     try {
       const { query } = await import('@/lib/db/postgres');
@@ -87,6 +88,7 @@ async function handle(request: NextRequest): Promise<NextResponse> {
       const total = Number(closedRow[0]?.total ?? 0);
       const phantoms = Number(closedRow[0]?.phantoms ?? 0);
       phantomRatePctLastHour = total > 0 ? (phantoms / total) * 100 : 0;
+      phantomTotalLastHour = total;
       inFlightPhantomOpenCount = Number(openRow[0]?.open_phantoms ?? 0);
     } catch { /* best-effort */ }
 
@@ -103,6 +105,7 @@ async function handle(request: NextRequest): Promise<NextResponse> {
       now,
       profitLockZeroSinceMs,
       phantomRatePctLastHour,
+      phantomTotalLastHour,
       inFlightPhantomOpenCount,
     });
 

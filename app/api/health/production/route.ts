@@ -176,10 +176,14 @@ async function checkPhantomRate(): Promise<Component & { ratePct?: number; total
 
     // Escalate to worst-of. Open-phantom absolute count trips independently
     // so alert-response can HALT_TRADER before the reconciler window closes.
+    // Sample gate on rate-based checks: matches PHANTOM_RATE_MIN_SAMPLE in
+    // alert-response-loop. Below 5 closes/hour a single legitimate zero-move
+    // fill reads as 100% phantom and false-tripped 'down' status.
+    const RATE_SAMPLE_MIN = 5;
     if (openPhantoms >= 3) return { status: 'down', ratePct, total, phantoms, openPhantoms, detail: `${openPhantoms} in-flight phantom opens — trader firing ghost orders` };
-    if (ratePct > 5) return { status: 'down', ratePct, total, phantoms, openPhantoms, detail: `${ratePct.toFixed(1)}% of last-hour closes have $0 realized — exchange fills unreliable` };
+    if (ratePct > 5 && total >= RATE_SAMPLE_MIN) return { status: 'down', ratePct, total, phantoms, openPhantoms, detail: `${ratePct.toFixed(1)}% of last-hour closes have $0 realized (${total} closes) — exchange fills unreliable` };
     if (openPhantoms >= 1) return { status: 'warn', ratePct, total, phantoms, openPhantoms, detail: `${openPhantoms} in-flight phantom open(s) — active hedge(s) never touched by reconciler` };
-    if (ratePct > 1) return { status: 'warn', ratePct, total, phantoms, openPhantoms, detail: `${ratePct.toFixed(1)}% phantom rate (> 1% threshold)` };
+    if (ratePct > 1 && total >= RATE_SAMPLE_MIN) return { status: 'warn', ratePct, total, phantoms, openPhantoms, detail: `${ratePct.toFixed(1)}% phantom rate (${total} closes, > 1% threshold)` };
     if (total === 0) return { status: 'ok', ratePct: 0, total: 0, phantoms: 0, openPhantoms, detail: 'no hedges closed in last hour' };
     return { status: 'ok', ratePct, total, phantoms, openPhantoms };
   } catch (e: any) {
