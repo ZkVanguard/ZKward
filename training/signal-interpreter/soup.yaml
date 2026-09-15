@@ -1,0 +1,65 @@
+# Soup training config — Signal Interpreter (Task A)
+#
+# Fine-tunes Qwen 2.5 7B Instruct to extract structured trading signals
+# from prediction-market titles. Deployed via Ollama once trained.
+#
+# Sized for RTX 3070 laptop (8GB VRAM) using QLoRA (4-bit base) + LoRA
+# adapters + gradient checkpointing. Soup's layer-streaming keeps the
+# base weights in RAM and pages layers into VRAM.
+#
+# ── Prep ──────────────────────────────────────────────────────────────
+#   pip install "soup-cli[train]"
+#   cd training/signal-interpreter
+#   soup data validate ./train.jsonl        # sanity check
+#   soup data stats    ./train.jsonl        # length distribution
+#
+# ── Train ─────────────────────────────────────────────────────────────
+#   soup train                              # honors this file
+#   # or: soup train --epochs 5 --lr 1e-4   # override on the CLI
+#
+# ── After training ────────────────────────────────────────────────────
+#   soup merge ./output/adapter --to ./output/merged
+#   ollama create zkward-signal-interp:qwen2.5-7b -f ./Modelfile
+#   # then flip SIGNAL_INTERPRETER_ENABLED=1 in prod env
+#
+# ── Config ────────────────────────────────────────────────────────────
+
+base: Qwen/Qwen2.5-7B-Instruct
+task: sft
+
+data:
+  train: ./train.jsonl
+  val: ./val.jsonl
+  # Test set is held out — never fed to Soup. Use it for post-training
+  # eval only (see AI_TRAINING_WORKFLOW.md).
+  format: sharegpt         # {messages: [{role, content}, ...]}
+  max_length: 1024         # titles are short; 1024 is generous
+  packing: false           # keep per-example loss clean for a labeling task
+
+training:
+  epochs: 3
+  lr: 2e-4                 # standard LoRA lr (10x higher than full-FT)
+  batch_size: auto         # Soup picks based on VRAM headroom
+  gradient_accumulation_steps: 4
+  warmup_ratio: 0.03
+  lr_scheduler: cosine
+  weight_decay: 0.01
+  quantization: 4bit       # QLoRA — bnb 4-bit base weights
+  train_on_responses_only: true  # loss on assistant turn only — labels only
+  lora:
+    r: 16
+    alpha: 32
+    dropout: 0.05
+    target_modules: auto   # Soup picks Q/K/V/O/gate/up/down for Qwen2.5
+
+eval:
+  strategy: epoch          # eval on val at end of each epoch
+  save_strategy: epoch
+  save_total_limit: 2      # keep 2 latest checkpoints to save disk
+
+logging:
+  log_steps: 25
+  # wandb: your-project    # uncomment to log to W&B; otherwise stdout only
+
+output: ./output
+seed: 42

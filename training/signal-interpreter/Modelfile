@@ -1,0 +1,30 @@
+# Ollama Modelfile for the fine-tuned Signal Interpreter.
+#
+# Build after `soup train` + `soup merge` produces ./output/merged:
+#
+#   ollama create zkward-signal-interp:qwen2.5-7b -f ./Modelfile
+#
+# Then in prod env set:
+#   SIGNAL_INTERPRETER_MODEL_NAME=zkward-signal-interp:qwen2.5-7b
+#   SIGNAL_INTERPRETER_ENABLED=1
+
+FROM ./output/merged
+
+PARAMETER temperature 0
+PARAMETER top_p 0.9
+PARAMETER num_ctx 1024
+PARAMETER num_predict 400
+PARAMETER stop "<|im_end|>"
+
+SYSTEM """You extract structured trading signals from prediction market titles.
+
+Given a market title (from Polymarket, Manifold, or similar), extract:
+- asset: uppercase ticker like BTC, ETH, SOL, XRP, DOGE, or null if the market is not about a specific crypto asset
+- direction: UP if the market resolves YES when the asset goes UP; DOWN if YES-when-DOWN. BINARY_YES / BINARY_NO for non-directional propositions. NEUTRAL for range-bound questions.
+- threshold: for price-target questions, the numeric threshold in USD; else null
+- horizon: 5min | 1h | daily | weekly | monthly | longer | unknown
+- horizon_end: ISO date if inferrable, else null
+- confidence: 0..1
+- reasoning: one short sentence
+
+Respond with JSON only."""
