@@ -128,6 +128,25 @@ export async function GET(request: NextRequest): Promise<NextResponse<EdgeResult
     );
   }
 
+  // Piggyback: shadow paper-trader on Hedera testnet vault. Same signals,
+  // same tick cadence, mark-price fills with 13 bp round-trip + 11% APR
+  // funding. Isolated state under `paper-trader:*` keys, hedge rows under
+  // chain='hedera-testnet' + portfolio_id=-3. Non-fatal — a paper failure
+  // must never block the real trader. QStash 10-schedule cap means we
+  // can't add a standalone cron; piggyback is the shipping constraint.
+  try {
+    const { PaperTrader } = await import('@/lib/services/paper-trader/PaperTrader');
+    await PaperTrader.runTick().catch((e) => {
+      logger.warn('[PaperTrader] piggyback tick failed (non-fatal)', {
+        error: e instanceof Error ? e.message : String(e),
+      });
+    });
+  } catch (e) {
+    logger.warn('[PaperTrader] piggyback import failed (non-fatal)', {
+      error: e instanceof Error ? e.message : String(e),
+    });
+  }
+
   const adminKey = (process.env.BLUEFIN_PRIVATE_KEY || process.env.SUI_POOL_ADMIN_KEY || '').trim();
   if (!adminKey) {
     return NextResponse.json({
