@@ -27,6 +27,11 @@ export interface SimulatedFillParams {
   entryPrice: number;
 }
 
+export interface SourceSnapshot {
+  key: string;             // normalized (see source-calibrator.normalizeSourceKey)
+  direction: 'UP' | 'DOWN' | 'NEUTRAL';
+}
+
 export interface SimulatedPosition {
   asset: string;
   side: Side;
@@ -36,6 +41,11 @@ export interface SimulatedPosition {
   leverage: number;
   openedAt: number;
   openFeeUsd: number;
+  // Signal sources present at open (with normalized keys). Used at close
+  // to record per-source outcomes against the actual price move. Optional
+  // for backward-compat with positions written before the calibrator
+  // landed.
+  sourceSnapshot?: SourceSnapshot[];
 }
 
 export interface SimulatedCloseResult {

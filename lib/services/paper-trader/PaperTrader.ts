@@ -29,8 +29,10 @@ import {
   simulateClose,
   markToMarket,
   type SimulatedPosition,
+  type SourceSnapshot,
   type Side,
 } from './simulated-executor';
+import { normalizeSourceKey, recordSourceOutcome } from '@/lib/services/ai/source-calibrator';
 
 // ── Config (env-tunable) ─────────────────────────────────────────────────
 export const PAPER_UNIVERSE = (process.env.PAPER_TRADER_ASSETS || 'BTC,ETH,SOL,XRP,DOGE')
@@ -192,10 +194,22 @@ export class PaperTrader {
       return { action: 'skipped', reason: `notional too small ($${notionalUsd.toFixed(2)})`, nav };
     }
 
-    const position = simulateOpen(
-      { asset, side, notionalUsd, leverage: PAPER_LEVERAGE, entryPrice: markPrice },
-      now,
-    );
+    // Snapshot the source list at open so we can score each source against
+    // the actual price move at close. Store normalized keys so rolling-
+    // title markets (Polymarket / Delphi 5-min) accumulate in one bucket.
+    const rawSources = scan.best.prediction.sources ?? [];
+    const sourceSnapshot: SourceSnapshot[] = rawSources.map((s: any) => ({
+      key: normalizeSourceKey(s.name ?? '', s.type ?? ''),
+      direction: (s.direction ?? 'NEUTRAL') as 'UP' | 'DOWN' | 'NEUTRAL',
+    }));
+
+    const position: SimulatedPosition = {
+      ...simulateOpen(
+        { asset, side, notionalUsd, leverage: PAPER_LEVERAGE, entryPrice: markPrice },
+        now,
+      ),
+      sourceSnapshot,
+    };
 
     const orderId = `paper_${asset}_${Math.floor(now / 1000)}`;
     await setCronState(KEY_POSITION, position);
@@ -247,6 +261,24 @@ export class PaperTrader {
   ): Promise<TickResult> {
     const result = simulateClose(pos, exitPrice, now);
     const newNav = nav + result.realizedPnlUsd;
+
+    // Per-source outcome recording — the training signal for the meta-
+    // learner. Actual direction is the sign of the price move; each
+    // source's snapshot direction gets scored against it. NEUTRAL on
+    // either side is a no-op inside recordSourceOutcome.
+    const actualDirection: 'UP' | 'DOWN' | 'NEUTRAL' =
+      exitPrice > pos.entryPrice ? 'UP' : exitPrice < pos.entryPrice ? 'DOWN' : 'NEUTRAL';
+    if (pos.sourceSnapshot && pos.sourceSnapshot.length > 0) {
+      await Promise.all(
+        pos.sourceSnapshot.map((s) =>
+          recordSourceOutcome({
+            sourceKey: s.key,
+            sourceDirection: s.direction,
+            actualDirection,
+          }).catch(() => undefined),
+        ),
+      );
+    }
 
     await setCronState(KEY_POSITION, null);
     const orderId = await getCronState<string>(KEY_ORDER_ID);
