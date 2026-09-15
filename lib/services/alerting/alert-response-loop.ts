@@ -43,11 +43,20 @@ export interface EvaluateInput {
   now?: number;
   profitLockZeroSinceMs?: number; // when profit-lock crossed 0% risk (undefined = not there)
   phantomRatePctLastHour?: number;
+  // Total closed-hedge sample size the pct was computed over. Rule 3 halts
+  // trader + autohedge; a single $0-PnL close in a quiet hour gives a
+  // legitimate rate=100% that would otherwise trip both. Gate below.
+  phantomTotalLastHour?: number;
   // Count of active hedges older than 20 min never touched by the reconciler
   // — the in-flight blind spot the closed-hedge rate can't see for 15 min.
   // Any nonzero count trips HALT so trader can't fire 3+ ghost opens in a row.
   inFlightPhantomOpenCount?: number;
 }
+
+// Rate-based rule can only halt once at least this many closed hedges
+// exist in the last hour. Below this, a single 0-PnL close (which can be
+// a legitimate ~zero-move fill) reads as 100% phantom and false-halts.
+export const PHANTOM_RATE_MIN_SAMPLE = 5;
 
 export async function evaluateAutoResponse(input: EvaluateInput): Promise<AutoResponse[]> {
   const now = input.now ?? Date.now();
@@ -77,16 +86,22 @@ export async function evaluateAutoResponse(input: EvaluateInput): Promise<AutoRe
     });
   }
 
-  // Rule 3: phantom rate > 1% for > 1h (single check; caller memoizes)
-  if ((input.phantomRatePctLastHour ?? 0) > 1) {
+  // Rule 3: phantom rate > 1% for > 1h AND sample >= PHANTOM_RATE_MIN_SAMPLE.
+  // Sample gate added 2026-09-15 after a single legitimate ~zero-move SOL
+  // close in a quiet hour tripped rate=100% and false-halted both trader
+  // and autohedge for 24h. Rule 4 still covers real breaches: in-flight
+  // phantom opens halt at count>=1 with no sample gate.
+  const phantomTotal = input.phantomTotalLastHour ?? 0;
+  const phantomRatePct = input.phantomRatePctLastHour ?? 0;
+  if (phantomRatePct > 1 && phantomTotal >= PHANTOM_RATE_MIN_SAMPLE) {
     responses.push({
       type: 'HALT_TRADER',
-      reason: `phantom hedge rate ${input.phantomRatePctLastHour!.toFixed(2)}% > 1% threshold — exchange fills unreliable`,
+      reason: `phantom hedge rate ${phantomRatePct.toFixed(2)}% > 1% threshold (${phantomTotal} closes) — exchange fills unreliable`,
       triggeredBy: [],
     });
     responses.push({
       type: 'HALT_AUTOHEDGE',
-      reason: `phantom hedge rate ${input.phantomRatePctLastHour!.toFixed(2)}% > 1% threshold — exchange fills unreliable`,
+      reason: `phantom hedge rate ${phantomRatePct.toFixed(2)}% > 1% threshold (${phantomTotal} closes) — exchange fills unreliable`,
       triggeredBy: [],
     });
   }

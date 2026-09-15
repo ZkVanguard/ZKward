@@ -137,11 +137,12 @@ describe('evaluateAutoResponse — UNWIND_ALL_SPOT rule (24h profit-lock)', () =
 });
 
 describe('evaluateAutoResponse — phantom rate rule', () => {
-  it('fires HALT_TRADER + HALT_AUTOHEDGE when rate > 1%', async () => {
+  it('fires HALT_TRADER + HALT_AUTOHEDGE when rate > 1% and sample >= 5', async () => {
     const responses = await evaluateAutoResponse({
       alertLog: [],
       now: NOW,
       phantomRatePctLastHour: 2.5,
+      phantomTotalLastHour: 10,
     });
     expect(responses.filter(r => r.type === 'HALT_TRADER')).toHaveLength(1);
     expect(responses.filter(r => r.type === 'HALT_AUTOHEDGE')).toHaveLength(1);
@@ -152,6 +153,7 @@ describe('evaluateAutoResponse — phantom rate rule', () => {
       alertLog: [],
       now: NOW,
       phantomRatePctLastHour: 1.0,
+      phantomTotalLastHour: 10,
     });
     expect(responses.filter(r => r.type === 'HALT_TRADER')).toHaveLength(0);
   });
@@ -161,6 +163,7 @@ describe('evaluateAutoResponse — phantom rate rule', () => {
       alertLog: [],
       now: NOW,
       phantomRatePctLastHour: 0,
+      phantomTotalLastHour: 10,
     });
     expect(responses).toEqual([]);
   });
@@ -169,6 +172,48 @@ describe('evaluateAutoResponse — phantom rate rule', () => {
     const responses = await evaluateAutoResponse({
       alertLog: [],
       now: NOW,
+    });
+    expect(responses).toEqual([]);
+  });
+
+  // Sample-size gate: single-fill 100% rate is not proof of exchange failure.
+  // Real regression: 2026-09-15 one legitimate zero-move SOL close in a quiet
+  // hour tripped rate=100% and false-halted both trader + autohedge for 24h.
+  it('does NOT fire on 100% rate with 1-close sample (false-halt guard)', async () => {
+    const responses = await evaluateAutoResponse({
+      alertLog: [],
+      now: NOW,
+      phantomRatePctLastHour: 100,
+      phantomTotalLastHour: 1,
+    });
+    expect(responses).toEqual([]);
+  });
+
+  it('does NOT fire on 100% rate with 4-close sample (just below gate)', async () => {
+    const responses = await evaluateAutoResponse({
+      alertLog: [],
+      now: NOW,
+      phantomRatePctLastHour: 100,
+      phantomTotalLastHour: 4,
+    });
+    expect(responses).toEqual([]);
+  });
+
+  it('DOES fire on 20% rate with 5-close sample (gate boundary)', async () => {
+    const responses = await evaluateAutoResponse({
+      alertLog: [],
+      now: NOW,
+      phantomRatePctLastHour: 20,
+      phantomTotalLastHour: 5,
+    });
+    expect(responses.filter(r => r.type === 'HALT_TRADER')).toHaveLength(1);
+  });
+
+  it('does NOT fire when phantomTotalLastHour is undefined (defensive default)', async () => {
+    const responses = await evaluateAutoResponse({
+      alertLog: [],
+      now: NOW,
+      phantomRatePctLastHour: 50,
     });
     expect(responses).toEqual([]);
   });
@@ -215,6 +260,7 @@ describe('evaluateAutoResponse — composition', () => {
       now: NOW,
       profitLockZeroSinceMs: NOW - 26 * 60 * 60 * 1000,
       phantomRatePctLastHour: 3,
+      phantomTotalLastHour: 10,
     });
     // SHRINK_SPOT + UNWIND_ALL_SPOT + HALT_TRADER + HALT_AUTOHEDGE = 4
     expect(responses).toHaveLength(4);
@@ -236,6 +282,7 @@ describe('evaluateAutoResponse — composition', () => {
       now: NOW,
       profitLockZeroSinceMs: NOW - 26 * 60 * 60 * 1000,
       phantomRatePctLastHour: 3,
+      phantomTotalLastHour: 10,
     });
     for (const r of responses) {
       expect(r.reason).toBeTruthy();
