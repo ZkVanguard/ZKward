@@ -46,14 +46,21 @@ interface RawExample {
 type Direction = 'UP' | 'DOWN' | 'NEUTRAL' | 'BINARY_YES' | 'BINARY_NO';
 type Horizon = '5min' | '1h' | 'daily' | 'weekly' | 'monthly' | 'longer' | 'unknown';
 
+interface SelfReflectiveMeta {
+  novelty: number;              // 0..1
+  improvement_ask: string;
+  generalization_note: string;
+}
+
 interface Label {
-  asset: string | null;         // uppercase ticker: BTC/ETH/SOL/... or null if unclear
-  direction: Direction;         // UP/DOWN/NEUTRAL for directional, BINARY_YES/NO for propositions
-  threshold: number | null;     // for price-target markets — the threshold price
+  asset: string | null;
+  direction: Direction;
+  threshold: number | null;
   horizon: Horizon;
-  horizon_end: string | null;   // ISO date if inferrable
-  confidence: number;           // 0..1 — LLM's own confidence
-  reasoning: string;            // one short sentence
+  horizon_end: string | null;
+  confidence: number;
+  reasoning: string;
+  meta: SelfReflectiveMeta;     // model tells us how to make the next iteration smarter
 }
 
 interface Labeled extends RawExample {
@@ -78,18 +85,13 @@ function parseArgs() {
   };
 }
 
-const SYSTEM_PROMPT = `You extract structured trading signals from prediction market titles.
-
-Given a market title (from Polymarket, Manifold, or similar), extract:
-- asset: uppercase ticker like BTC, ETH, SOL, XRP, DOGE, or null if the market is not about a specific crypto asset (e.g. politics, sports)
-- direction: UP if the market resolves YES when the asset goes UP; DOWN if YES-when-DOWN. Use BINARY_YES / BINARY_NO for non-directional propositions (e.g. "will there be a rate cut?"). NEUTRAL only for range-bound questions.
-- threshold: for price-target questions ("above $68K"), the numeric threshold in USD. null if not applicable.
-- horizon: 5min | 1h | daily | weekly | monthly | longer | unknown
-- horizon_end: ISO date if inferrable, else null
-- confidence: your own 0..1 confidence in the extraction. Low if the title is ambiguous.
-- reasoning: one short sentence explaining your extraction.
-
-Respond with a JSON object ONLY. No prose, no code fences. If you're not confident, still respond with your best guess and set confidence low.`;
+// System prompt imported from lib/services/ai/model-constitution.ts (single
+// source of truth). Auto-labeler + runtime service + Modelfile + training
+// data all use the SAME prompt so weights encode a consistent purpose.
+async function loadSystemPrompt(): Promise<string> {
+  const { SIGNAL_INTERPRETER_SYSTEM } = await import('../../lib/services/ai/model-constitution');
+  return SIGNAL_INTERPRETER_SYSTEM;
+}
 
 function buildUserPrompt(ex: RawExample): string {
   const parts = [`Title: ${ex.title}`];
@@ -148,6 +150,17 @@ async function callLLM(system: string, user: string): Promise<LLMResult> {
     } catch {
       return { ok: false, raw: text, error: 'JSON.parse failed', provider: OLLAMA_MODEL };
     }
+    const meta: SelfReflectiveMeta = {
+      novelty: Math.max(0, Math.min(1, Number(parsed?.meta?.novelty ?? 0))),
+      improvement_ask:
+        typeof parsed?.meta?.improvement_ask === 'string'
+          ? parsed.meta.improvement_ask.slice(0, 200)
+          : '',
+      generalization_note:
+        typeof parsed?.meta?.generalization_note === 'string'
+          ? parsed.meta.generalization_note.slice(0, 200)
+          : '',
+    };
     const label: Label = {
       asset: typeof parsed.asset === 'string' ? parsed.asset.toUpperCase() : null,
       direction: (['UP', 'DOWN', 'NEUTRAL', 'BINARY_YES', 'BINARY_NO'] as const).includes(parsed.direction)
@@ -160,6 +173,7 @@ async function callLLM(system: string, user: string): Promise<LLMResult> {
       horizon_end: typeof parsed.horizon_end === 'string' ? parsed.horizon_end : null,
       confidence: Math.max(0, Math.min(1, Number(parsed.confidence ?? 0.5))),
       reasoning: typeof parsed.reasoning === 'string' ? parsed.reasoning.slice(0, 200) : '',
+      meta,
     };
     return { ok: true, label, provider: OLLAMA_MODEL };
   } catch (e) {
@@ -174,13 +188,14 @@ async function processBatch(examples: RawExample[], concurrency: number, provide
   const review: Labeled[] = [];
   let done = 0;
   const total = examples.length;
+  const systemPrompt = await loadSystemPrompt();
 
   const queue = [...examples];
   const workers = Array.from({ length: concurrency }, async () => {
     while (queue.length > 0) {
       const ex = queue.shift();
       if (!ex) break;
-      const result = await callLLM(SYSTEM_PROMPT, buildUserPrompt(ex));
+      const result = await callLLM(systemPrompt, buildUserPrompt(ex));
       const label: Label = result.ok && result.label
         ? result.label
         : {
@@ -191,6 +206,7 @@ async function processBatch(examples: RawExample[], concurrency: number, provide
             horizon_end: null,
             confidence: 0,
             reasoning: result.error ? `AUTO-FAIL: ${result.error}` : 'no output',
+            meta: { novelty: 0, improvement_ask: '', generalization_note: '' },
           };
       const row: Labeled = {
         ...ex,

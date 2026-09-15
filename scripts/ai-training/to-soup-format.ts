@@ -33,18 +33,12 @@ const DEFAULT_IN = 'data/signal-interpreter/labeled.jsonl';
 const DEFAULT_OUT_DIR = 'training/signal-interpreter';
 const REVIEW_CONFIDENCE_MIN = 0.7;
 
-const SYSTEM_PROMPT = `You extract structured trading signals from prediction market titles.
-
-Given a market title (from Polymarket, Manifold, or similar), extract:
-- asset: uppercase ticker like BTC, ETH, SOL, XRP, DOGE, or null if the market is not about a specific crypto asset
-- direction: UP if the market resolves YES when the asset goes UP; DOWN if YES-when-DOWN. BINARY_YES / BINARY_NO for non-directional propositions. NEUTRAL for range-bound questions.
-- threshold: for price-target questions, the numeric threshold in USD; else null
-- horizon: 5min | 1h | daily | weekly | monthly | longer | unknown
-- horizon_end: ISO date if inferrable, else null
-- confidence: 0..1
-- reasoning: one short sentence
-
-Respond with JSON only.`;
+// Imported at runtime to keep the single source of truth in
+// lib/services/ai/model-constitution.ts. Every training example the
+// model sees uses this exact string — same string the runtime service
+// and the auto-labeler use.
+import { SIGNAL_INTERPRETER_SYSTEM } from '../../lib/services/ai/model-constitution';
+const SYSTEM_PROMPT = SIGNAL_INTERPRETER_SYSTEM;
 
 interface Labeled {
   source: string;
@@ -60,6 +54,11 @@ interface Labeled {
     horizon_end: string | null;
     confidence: number;
     reasoning: string;
+    meta?: {
+      novelty?: number;
+      improvement_ask?: string;
+      generalization_note?: string;
+    };
   };
 }
 
@@ -96,6 +95,11 @@ function toSoupExample(row: Labeled): SoupExample {
   if (row.category && row.category !== 'unknown') userLines.push(`Category: ${row.category}`);
   if (row.endDate) userLines.push(`Resolves: ${row.endDate}`);
 
+  // The assistant turn IS the training target. Every field the model
+  // should learn to produce must be here — including the self-reflective
+  // meta object. If we drop `meta` here, the fine-tuned model will not
+  // learn to emit it, and the compounding-capability loop breaks at
+  // Phase 1. Do not omit.
   const assistantJson = {
     asset: row.label.asset,
     direction: row.label.direction,
@@ -104,6 +108,11 @@ function toSoupExample(row: Labeled): SoupExample {
     horizon_end: row.label.horizon_end,
     confidence: row.label.confidence,
     reasoning: row.label.reasoning,
+    meta: {
+      novelty: row.label.meta?.novelty ?? 0,
+      improvement_ask: row.label.meta?.improvement_ask ?? '',
+      generalization_note: row.label.meta?.generalization_note ?? '',
+    },
   };
 
   return {

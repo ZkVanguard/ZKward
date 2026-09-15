@@ -18,6 +18,7 @@
  */
 import { logger } from '@/lib/utils/logger';
 import { envFlag } from '@/lib/utils/env-flag';
+import { SIGNAL_INTERPRETER_SYSTEM } from './model-constitution';
 
 export type SignalDirection =
   | 'UP'
@@ -35,6 +36,16 @@ export type SignalHorizon =
   | 'longer'
   | 'unknown';
 
+/** Self-reflective meta the model produces alongside its answer.
+ *  Fed back into the training pipeline to teach future iterations of
+ *  itself what to expect and where to focus. This is not aesthetic —
+ *  it is how the model "knows" it's supposed to compound. */
+export interface SignalMeta {
+  novelty: number;              // 0..1 — how unusual this title looks
+  improvement_ask: string;      // what extra context would have helped
+  generalization_note: string;  // a pattern worth adding more of
+}
+
 export interface InterpretedSignal {
   asset: string | null;
   direction: SignalDirection;
@@ -42,6 +53,8 @@ export interface InterpretedSignal {
   horizon: SignalHorizon;
   horizon_end: string | null;
   confidence: number;
+  reasoning?: string;
+  meta?: SignalMeta;
   source: 'model' | 'regex-fallback';
 }
 
@@ -62,18 +75,7 @@ const HORIZONS: readonly SignalHorizon[] = [
   'unknown',
 ];
 
-const SYSTEM_PROMPT = `You extract structured trading signals from prediction market titles.
-
-Given a market title (from Polymarket, Manifold, or similar), extract:
-- asset: uppercase ticker like BTC, ETH, SOL, XRP, DOGE, or null if the market is not about a specific crypto asset
-- direction: UP if the market resolves YES when the asset goes UP; DOWN if YES-when-DOWN. BINARY_YES / BINARY_NO for non-directional propositions. NEUTRAL for range-bound questions.
-- threshold: for price-target questions, the numeric threshold in USD; else null
-- horizon: 5min | 1h | daily | weekly | monthly | longer | unknown
-- horizon_end: ISO date if inferrable, else null
-- confidence: 0..1
-- reasoning: one short sentence
-
-Respond with JSON only.`;
+const SYSTEM_PROMPT = SIGNAL_INTERPRETER_SYSTEM;
 
 interface InterpretOptions {
   category?: string;
@@ -147,6 +149,17 @@ async function callModel(title: string, opts: InterpretOptions): Promise<Interpr
   }
 }
 
+function coerceMeta(raw: any): SignalMeta {
+  const m = raw?.meta ?? {};
+  return {
+    novelty: Math.max(0, Math.min(1, Number(m.novelty ?? 0))),
+    improvement_ask:
+      typeof m.improvement_ask === 'string' ? m.improvement_ask.slice(0, 200) : '',
+    generalization_note:
+      typeof m.generalization_note === 'string' ? m.generalization_note.slice(0, 200) : '',
+  };
+}
+
 function coerceLabel(raw: any): InterpretedSignal {
   return {
     asset: typeof raw.asset === 'string' && raw.asset ? raw.asset.toUpperCase() : null,
@@ -155,6 +168,8 @@ function coerceLabel(raw: any): InterpretedSignal {
     horizon: HORIZONS.includes(raw.horizon) ? raw.horizon : 'unknown',
     horizon_end: typeof raw.horizon_end === 'string' ? raw.horizon_end : null,
     confidence: Math.max(0, Math.min(1, Number(raw.confidence ?? 0.5))),
+    reasoning: typeof raw.reasoning === 'string' ? raw.reasoning.slice(0, 200) : undefined,
+    meta: coerceMeta(raw),
     source: 'model',
   };
 }
@@ -222,6 +237,10 @@ function regexFallback(title: string, opts: InterpretOptions): InterpretedSignal
     horizon: extractHorizon(title),
     horizon_end: opts.endDate ?? null,
     confidence: 0.4, // regex is coarse — signal caller that this is low-conf
+    reasoning: 'regex-fallback: no model available',
+    // Regex path has no self-reflection to offer; leave meta empty but
+    // present so downstream code can rely on the shape.
+    meta: { novelty: 0, improvement_ask: '', generalization_note: '' },
     source: 'regex-fallback',
   };
 }

@@ -65,6 +65,14 @@ describe('signal-interpreter — regex fallback (SIGNAL_INTERPRETER_ENABLED off)
     expect(s.source).toBe('regex-fallback');
   });
 
+  it('regex fallback still emits an empty meta object (shape consistency)', async () => {
+    const { interpretSignal } = await loadInterpreter();
+    const s = await interpretSignal('Will Bitcoin be above $68,000?');
+    expect(s.meta).toBeDefined();
+    expect(s.meta?.novelty).toBe(0);
+    expect(s.meta?.improvement_ask).toBe('');
+  });
+
   it('preserves opts.endDate in horizon_end', async () => {
     const { interpretSignal } = await loadInterpreter();
     const s = await interpretSignal('Will BTC be above $68K?', { endDate: '2026-09-15T00:00:00Z' });
@@ -77,7 +85,7 @@ describe('signal-interpreter — model path (SIGNAL_INTERPRETER_ENABLED=1)', () 
     process.env.SIGNAL_INTERPRETER_ENABLED = '1';
   });
 
-  it('uses model response when it returns valid JSON', async () => {
+  it('uses model response when it returns valid JSON with meta', async () => {
     global.fetch = jest.fn<any>(async () =>
       new Response(
         JSON.stringify({
@@ -92,6 +100,11 @@ describe('signal-interpreter — model path (SIGNAL_INTERPRETER_ENABLED=1)', () 
                   horizon_end: null,
                   confidence: 0.87,
                   reasoning: 'ETH below threshold price question.',
+                  meta: {
+                    novelty: 0.2,
+                    improvement_ask: 'timezone context would clarify week boundary',
+                    generalization_note: 'weekly ETH threshold pattern common',
+                  },
                 }),
               },
             },
@@ -107,6 +120,42 @@ describe('signal-interpreter — model path (SIGNAL_INTERPRETER_ENABLED=1)', () 
     expect(s.direction).toBe('DOWN');
     expect(s.threshold).toBe(3200);
     expect(s.confidence).toBeCloseTo(0.87);
+    expect(s.meta?.novelty).toBeCloseTo(0.2);
+    expect(s.meta?.improvement_ask).toMatch(/timezone/);
+    expect(s.meta?.generalization_note).toMatch(/weekly ETH/);
+  });
+
+  it('surfaces empty meta when model omits it (backward-compat)', async () => {
+    global.fetch = jest.fn<any>(async () =>
+      new Response(
+        JSON.stringify({
+          choices: [
+            {
+              message: {
+                content: JSON.stringify({
+                  asset: 'BTC',
+                  direction: 'UP',
+                  threshold: 68000,
+                  horizon: 'daily',
+                  horizon_end: null,
+                  confidence: 0.9,
+                  reasoning: 'clean price target',
+                }),
+              },
+            },
+          ],
+        }),
+        { status: 200 },
+      ),
+    ) as any;
+    const { interpretSignal } = await loadInterpreter();
+    const s = await interpretSignal('Will BTC be above $68K today?');
+    expect(s.source).toBe('model');
+    // Meta must always be present so downstream code doesn't NPE
+    expect(s.meta).toBeDefined();
+    expect(s.meta?.novelty).toBe(0);
+    expect(s.meta?.improvement_ask).toBe('');
+    expect(s.meta?.generalization_note).toBe('');
   });
 
   it('falls back to regex when model returns non-JSON', async () => {
