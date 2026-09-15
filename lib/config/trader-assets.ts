@@ -14,7 +14,14 @@
 
 export type SupportedAsset = 'BTC' | 'ETH' | 'SUI' | 'SOL';
 
-export const DEFAULT_TRADER_ASSETS: SupportedAsset[] = ['BTC', 'ETH', 'SUI', 'SOL'];
+// SUI is a venue-supported perp (SUI-PERP is in BLUEFIN_PAIRS) but has NO
+// directional-signal source in the aggregator — no Polymarket 5-min SUI
+// binary, no Manifold SUI markets, no Delphi SUI feed. `scanAndPickBest`
+// would skip it every tick regardless of it being here. Removing it from
+// the runtime scan list keeps the type union honest (SUI can still be
+// traded programmatically e.g. by the pool's autohedge) while eliminating
+// dead scan cycles.
+export const DEFAULT_TRADER_ASSETS: SupportedAsset[] = ['BTC', 'ETH', 'SOL'];
 
 /**
  * Effective trader universe honouring the POLYMARKET_EDGE_ASSETS env
