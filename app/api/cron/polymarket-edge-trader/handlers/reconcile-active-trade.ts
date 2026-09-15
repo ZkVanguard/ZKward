@@ -37,7 +37,9 @@ import {
   DEFER_EXTEND_MS,
   SIGNAL_FLIP_SCORE_COLLAPSE,
   MAX_ALIGNED_DEFER_COUNT,
+  MIN_CONFIDENCE,
 } from './config';
+import { evaluateSignalFlip } from './signal-flip';
 
 export interface ReconcileArgs {
   bf: BluefinService;
@@ -173,15 +175,14 @@ export async function reconcileActiveTrade(args: ReconcileArgs): Promise<NextRes
       );
       const livePred = liveScan.all[active.asset];
       if (livePred) {
-        const liveSide = recommendationToSide(livePred.recommendation);
         const liveScore = PredictionAggregatorService.scoreOpportunity(livePred);
-        if (liveSide !== active.side) {
-          flipReason = `recommendation flipped: ${livePred.recommendation}`;
-        } else if (!isActionable(livePred.recommendation)) {
-          flipReason = `recommendation demoted to ${livePred.recommendation}`;
-        } else if (liveScore < active.entryScore * SIGNAL_FLIP_SCORE_COLLAPSE) {
-          flipReason = `score collapsed ${active.entryScore.toFixed(0)} → ${liveScore.toFixed(0)} (< ${(SIGNAL_FLIP_SCORE_COLLAPSE * 100).toFixed(0)}% threshold)`;
-        }
+        flipReason = evaluateSignalFlip({
+          active,
+          livePred,
+          liveScore,
+          minConfidence: MIN_CONFIDENCE,
+          scoreCollapseRatio: SIGNAL_FLIP_SCORE_COLLAPSE,
+        });
       }
     } catch (e) {
       logger.debug('[PolymarketEdge] re-scan failed (non-fatal)', { error: errMsg(e) });
