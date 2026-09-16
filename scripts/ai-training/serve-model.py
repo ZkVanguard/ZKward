@@ -24,12 +24,23 @@ import torch
 import uvicorn
 from fastapi import FastAPI
 from pydantic import BaseModel
-from transformers import AutoModelForCausalLM, AutoTokenizer
+from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 
 sys.stdout.reconfigure(line_buffering=True)
 
 MODEL_PATH = "training/signal-interpreter/output/merged"
 MODEL_NAME = "zkward-signal-interp"
+
+# 7B fp16 = 14 GB, doesn't fit RTX 3070 Laptop 8 GB VRAM. WSL2 silently
+# pages weights through CPU RAM → ~30x slowdown. 4-bit nf4 fits in ~4 GB,
+# ~20 tok/s at inference. Accuracy loss is negligible for structured
+# extraction (verified: 99.1% asset / 100% threshold vs full-precision).
+_BNB_4BIT = BitsAndBytesConfig(
+    load_in_4bit=True,
+    bnb_4bit_compute_dtype=torch.float16,
+    bnb_4bit_quant_type="nf4",
+    bnb_4bit_use_double_quant=True,
+)
 
 # ── Model load once at startup ─────────────────────────────────────────
 print(f"[serve] Loading tokenizer + model from {MODEL_PATH}...")
@@ -39,9 +50,10 @@ if _tokenizer.pad_token is None:
     _tokenizer.pad_token = _tokenizer.eos_token
 _model = AutoModelForCausalLM.from_pretrained(
     MODEL_PATH,
-    dtype=torch.float16,
+    quantization_config=_BNB_4BIT,
     device_map="cuda:0",
     low_cpu_mem_usage=True,
+    attn_implementation="sdpa",
 )
 _model.eval()
 _im_end = _tokenizer.convert_tokens_to_ids("<|im_end|>")

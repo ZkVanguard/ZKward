@@ -34,6 +34,7 @@ import {
   type MarketSnapshot,
   type MarketMomentum,
 } from './PolymarketMomentumService';
+import { interpretSignal, type InterpretedSignal } from '@/lib/services/ai/signal-interpreter';
 
 export interface PolyDiscoverTickResult {
   success: boolean;
@@ -51,6 +52,16 @@ export interface PolyDiscoverTickResult {
     hotMoversCount: number;
     themesAlerted: number;
   };
+  interpretedCount: number;
+  interpretedSample: Array<{
+    slug: string;
+    asset: string | null;
+    direction: string;
+    horizon: string;
+    confidence: number;
+    novelty: number;
+    source: 'model' | 'regex-fallback';
+  }>;
 }
 
 const CRON_KEY_SEEN = 'poly-discover:seenAssets';
@@ -124,6 +135,43 @@ export async function runPolyDiscoverTick(): Promise<PolyDiscoverTickResult> {
         },
       );
     }
+
+    // Interpret new high-impact markets with the fine-tuned Signal Interpreter.
+    // Guarded by SIGNAL_INTERPRETER_ENABLED — off = regex fallback, no network call.
+    // Only labels NEW markets (filtered by seenBroadSlugs above), so cost is
+    // bounded per tick. Cap at 5 to stay inside the 30s cron maxDuration when
+    // the model server is remote.
+    const INTERP_CAP = 5;
+    const toInterpret = newBroadHigh.slice(0, INTERP_CAP);
+    const interpretations: Array<{ market: BroadMarket; signal: InterpretedSignal }> = [];
+    if (toInterpret.length > 0) {
+      const results = await Promise.allSettled(
+        toInterpret.map(m =>
+          interpretSignal(m.question, {
+            category: m.marketType,
+            endDate: m.endDate ?? undefined,
+          }).then(signal => ({ market: m, signal })),
+        ),
+      );
+      for (const r of results) {
+        if (r.status === 'fulfilled') interpretations.push(r.value);
+      }
+      logger.info('[PolyDiscover] interpreted new markets', {
+        attempted: toInterpret.length,
+        succeeded: interpretations.length,
+        modelUsed: interpretations.filter(i => i.signal.source === 'model').length,
+        regexFallback: interpretations.filter(i => i.signal.source === 'regex-fallback').length,
+      });
+    }
+    const interpretedSample = interpretations.map(({ market, signal }) => ({
+      slug: market.slug,
+      asset: signal.asset,
+      direction: signal.direction,
+      horizon: signal.horizon,
+      confidence: signal.confidence,
+      novelty: signal.meta?.novelty ?? 0,
+      source: signal.source,
+    }));
 
     // ponytail: cap at last 2000 slugs. 2026-07-31 audit found this blob had
     // grown to 32,429 items / 1.2 MB — every read parsed the whole thing.
@@ -281,6 +329,8 @@ export async function runPolyDiscoverTick(): Promise<PolyDiscoverTickResult> {
         hotMoversCount: hotMovers.length,
         themesAlerted: themeAlerts.length,
       },
+      interpretedCount: interpretations.length,
+      interpretedSample,
     };
   } catch (err) {
     const error = errMsg(err);
@@ -301,6 +351,8 @@ export async function runPolyDiscoverTick(): Promise<PolyDiscoverTickResult> {
         hotMoversCount: 0,
         themesAlerted: 0,
       },
+      interpretedCount: 0,
+      interpretedSample: [],
     };
   }
 }
