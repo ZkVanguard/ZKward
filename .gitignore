@@ -110,8 +110,10 @@ scripts/analyze-*
 # Canonical diagnostics (per CLAUDE.md) — must stay tracked
 !scripts/analyze-pool-pnl.ts
 !scripts/check-hedge-signal-alignment.ts
-# Underscore-prefix scripts (scripts/_foo.ts, scripts/_local/**) are scratch/ephemeral, never commit
+# Underscore-prefix scripts (scripts/_foo.ts, scripts/ai-training/_probe.py, scripts/_local/**)
+# are scratch/ephemeral, never commit. Applies to any depth under scripts/.
 scripts/_*
+scripts/**/_*
 # Same rule for one-shot admin routes / components — put under _ prefix, gitignored
 app/api/_*/**
 app/api/**/_*/**

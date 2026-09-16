@@ -33,12 +33,12 @@ const DEFAULT_IN = 'data/signal-interpreter/labeled.jsonl';
 const DEFAULT_OUT_DIR = 'training/signal-interpreter';
 const REVIEW_CONFIDENCE_MIN = 0.7;
 
-// Imported at runtime to keep the single source of truth in
-// lib/services/ai/model-constitution.ts. Every training example the
-// model sees uses this exact string — same string the runtime service
-// and the auto-labeler use.
-import { SIGNAL_INTERPRETER_SYSTEM } from '../../lib/services/ai/model-constitution';
-const SYSTEM_PROMPT = SIGNAL_INTERPRETER_SYSTEM;
+// Training uses the SHORT system prompt (~60 tokens vs ~640 for the full
+// constitution). The full constitution comes back at inference via the
+// Ollama Modelfile SYSTEM block. Standard fine-tune practice: minimize
+// prompt during training, restore at deploy time.
+import { SIGNAL_INTERPRETER_TRAINING_SYSTEM } from '../../lib/services/ai/model-constitution';
+const SYSTEM_PROMPT = SIGNAL_INTERPRETER_TRAINING_SYSTEM;
 
 interface Labeled {
   source: string;

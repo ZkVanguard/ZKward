@@ -19,6 +19,11 @@ set -euo pipefail
 # Repo root
 cd "$(dirname "$0")/../.."
 
+# Faster + resumable HF downloads (Rust-backed). Prev run stalled at 1.65 GB
+# of the model-00001 shard for 7 hours on the default requests-based HF hub
+# client. hf_transfer parallelizes chunks + handles transient failures.
+export HF_HUB_ENABLE_HF_TRANSFER=1
+
 LOG="data/signal-interpreter/pipeline.log"
 mkdir -p "$(dirname "$LOG")"
 
@@ -99,22 +104,26 @@ if command -v nvidia-smi >/dev/null 2>&1; then
 fi
 
 # ── STEP 5: soup train ────────────────────────────────────────────────
-if [ ! -d training/signal-interpreter/output/adapter ] && [ ! -d training/signal-interpreter/output ]; then
+# Adapter lives at training/signal-interpreter/output/ (not output/adapter).
+# Skip if adapter_model.safetensors already present.
+if [ ! -f training/signal-interpreter/output/adapter_model.safetensors ]; then
   log "STEP 5: soup train (Qwen 2.5 7B QLoRA, ~3h on RTX 3070)..."
   pushd training/signal-interpreter > /dev/null
-  soup --no-telemetry train 2>&1 | tee -a "../../$LOG"
+  # `yes` feeds "y\n" to soup's interactive "Start training? [Y/n]" prompt
+  # (soup 0.75 has no --yes / non-interactive flag as of this build).
+  yes 2>/dev/null | soup --no-telemetry train 2>&1 | tee -a "../../$LOG"
   popd > /dev/null
 else
   log "STEP 5: training output exists, skipping"
 fi
 
 # ── STEP 6: merge adapter into full model ─────────────────────────────
-if [ ! -d training/signal-interpreter/output/merged ]; then
+if [ ! -f training/signal-interpreter/output/merged/config.json ]; then
   log "STEP 6: merging LoRA adapter into base weights..."
   pushd training/signal-interpreter > /dev/null
-  # Soup's merge subcommand: check its exact syntax at runtime
+  # Soup's actual syntax: `soup merge --adapter <dir> --output <dir>`
   if soup --help 2>&1 | grep -q 'merge'; then
-    soup --no-telemetry merge ./output/adapter --to ./output/merged 2>&1 | tee -a "../../$LOG"
+    soup --no-telemetry merge --adapter ./output --output ./output/merged 2>&1 | tee -a "../../$LOG"
   else
     log "  (soup merge not available, expected under 'soup export' or python peft.merge_and_unload)"
     log "  attempting python fallback merge..."

@@ -72,12 +72,43 @@ The meta object is not optional. It is how future you gets smarter.
 
 Respond with JSON only. No prose, no code fences.`;
 
-/** Full system prompt for the Signal Interpreter task. */
+/** Full system prompt for the Signal Interpreter — used at RUNTIME
+ *  (Modelfile + service). At inference time, VRAM per token is much
+ *  cheaper than at training time, so we can afford the full constitution. */
 export const SIGNAL_INTERPRETER_SYSTEM = `${CONSTITUTION_PREAMBLE}
 
 ────
 
 ${SIGNAL_INTERPRETER_TASK}`;
 
+/** Short system prompt for TRAINING only.
+ *
+ * The full constitution is 643 tokens and dominated 83% of every training
+ * example — the model was memorizing the preamble instead of learning
+ * the actual title → JSON mapping. On 8 GB VRAM this also caused OOM.
+ *
+ * The trained model doesn't need the full constitution baked into weights:
+ * behavior encoded via LABELS (which include the meta{novelty,
+ * improvement_ask, generalization_note} fields the constitution asks for).
+ * At inference the Modelfile SYSTEM block reinstates the full constitution.
+ *
+ * This is standard fine-tune practice: minimize the system prompt during
+ * training, keep the full one at deploy time. */
+export const SIGNAL_INTERPRETER_TRAINING_SYSTEM = `Extract structured trading signals from prediction market titles. Respond with JSON only. Fields: asset (uppercase ticker or null), direction (UP|DOWN|NEUTRAL|BINARY_YES|BINARY_NO), threshold (USD number or null), horizon (5min|1h|daily|weekly|monthly|longer|unknown), horizon_end (ISO date or null), confidence (0..1), reasoning (short), meta{novelty (0..1), improvement_ask, generalization_note}.`;
+
 /** For Ollama Modelfile — same content, formatted as a triple-quoted string. */
 export const SIGNAL_INTERPRETER_SYSTEM_MODELFILE = SIGNAL_INTERPRETER_SYSTEM;
+
+/** Wrap an agent's task-specific system prompt with the shared constitution.
+ *
+ *  Every agent that hits ASI (or any LLM via the router) should call this
+ *  so the model knows it's part of the self-improving loop, not a lone
+ *  chatbot. Cross-agent shared identity + Phase awareness + novelty/ask
+ *  reflex, in ~10 LOC. */
+export function agentSystemPrompt(taskDescription: string): string {
+  return `${CONSTITUTION_PREAMBLE}
+
+────
+
+${taskDescription}`;
+}

@@ -1,76 +1,72 @@
 # Ollama Modelfile for the fine-tuned Signal Interpreter.
 #
-# The SYSTEM block below is the SAME text used by:
-#   - lib/services/ai/model-constitution.ts (runtime + training)
-#   - scripts/ai-training/label-with-llm.ts (auto-labeling)
-#   - scripts/ai-training/to-soup-format.ts (training examples)
+# CRITICAL: TEMPLATE is copied verbatim from `ollama show qwen2.5:7b --modelfile`
+# so our fine-tuned model gets the SAME prompt formatting as the base
+# Qwen 2.5 uses. My prior simpler template caused garbage token generation
+# (@@@@@@@) because it didn't handle Ollama's Go template branches correctly.
 #
-# Consistency is the whole point — the model sees the same purpose
-# 10,000 times during fine-tune, then again on every prod request.
-#
-# Build after `soup train` + `soup merge` produces ./output/merged:
+# Build after `soup merge` produces ./output/merged:
 #   ollama create zkward-signal-interp:qwen2.5-7b -f ./Modelfile
-#
-# Then in prod env:
-#   SIGNAL_INTERPRETER_MODEL_NAME=zkward-signal-interp:qwen2.5-7b
-#   SIGNAL_INTERPRETER_ENABLED=1
 
 FROM ./output/merged
+
+TEMPLATE """{{- if .Messages }}
+{{- if or .System .Tools }}<|im_start|>system
+{{- if .System }}
+{{ .System }}
+{{- end }}
+{{- if .Tools }}
+
+# Tools
+
+You may call one or more functions to assist with the user query.
+
+You are provided with function signatures within <tools></tools> XML tags:
+<tools>
+{{- range .Tools }}
+{"type": "function", "function": {{ .Function }}}
+{{- end }}
+</tools>
+
+For each function call, return a json object with function name and arguments within <tool_call></tool_call> XML tags:
+<tool_call>
+{"name": <function-name>, "arguments": <args-json-object>}
+</tool_call>
+{{- end }}<|im_end|>
+{{ end }}
+{{- range $i, $_ := .Messages }}
+{{- $last := eq (len (slice $.Messages $i)) 1 -}}
+{{- if eq .Role "user" }}<|im_start|>user
+{{ .Content }}<|im_end|>
+{{ else if eq .Role "assistant" }}<|im_start|>assistant
+{{ if .Content }}{{ .Content }}
+{{- else if .ToolCalls }}<tool_call>
+{{ range .ToolCalls }}{"name": "{{ .Function.Name }}", "arguments": {{ .Function.Arguments }}}
+{{ end }}</tool_call>
+{{- end }}{{ if not $last }}<|im_end|>
+{{ end }}
+{{- else if eq .Role "tool" }}<|im_start|>user
+<tool_response>
+{{ .Content }}
+</tool_response><|im_end|>
+{{ end }}
+{{- if and (ne .Role "assistant") $last }}<|im_start|>assistant
+{{ end }}
+{{- end }}
+{{- else }}
+{{- if .System }}<|im_start|>system
+{{ .System }}<|im_end|>
+{{ end }}{{ if .Prompt }}<|im_start|>user
+{{ .Prompt }}<|im_end|>
+{{ end }}<|im_start|>assistant
+{{ end }}{{ .Response }}{{ if .Response }}<|im_end|>{{ end }}"""
 
 PARAMETER temperature 0
 PARAMETER top_p 0.9
 PARAMETER num_ctx 1024
 PARAMETER num_predict 400
-PARAMETER stop "<|im_end|>"
 
-SYSTEM """You are part of a self-improving AI system for autonomous crypto trading.
-Every response you produce becomes training data for the next iteration
-of yourself, and for other specialized models downstream of you. Your
-job is not just to answer — it is to answer in a way that MAKES THE
-NEXT VERSION OF YOU SMARTER.
-
-Three principles:
-
-1. Be honest about uncertainty. Low confidence is useful signal;
-   overconfident wrong answers poison the next training run.
-
-2. Flag novelty. When you see a pattern that doesn't fit your training
-   distribution, say so. Novel patterns are the frontier — they earn
-   the next round of human-labeled data.
-
-3. Ask for what you need. If a specific extra piece of context would
-   have let you answer with high confidence, name it. That "ask" is
-   what tells the training pipeline what to add next.
-
-Your outputs feed a compounding capability loop:
-  Phase 1: parse the world's questions
-  Phase 2: learn which questions predicted outcomes
-  Phase 3: explain WHY trades won or lost
-  Phase 4: propose new hypotheses to test
-  Phase 5: full self-directed trading
-
-You are Phase 1 or later. Every good response earns the next phase.
-
-────
-
-Your specific role: extract structured trading signals from prediction market titles.
-
-Given a market title (Polymarket, Manifold, or similar), respond with a
-JSON object ONLY. Fields:
-
-- asset: uppercase ticker (BTC, ETH, SOL, XRP, DOGE, SUI, ...) or null
-  if the market is not about a specific crypto asset.
-- direction: UP | DOWN | NEUTRAL | BINARY_YES | BINARY_NO
-- threshold: numeric threshold in USD for price-target questions, else null.
-- horizon: 5min | 1h | daily | weekly | monthly | longer | unknown
-- horizon_end: ISO date if inferrable, else null
-- confidence: 0..1, your own confidence in the extraction
-- reasoning: one short sentence
-- meta: object with three self-reflective fields:
-    novelty: 0..1 — how unusual this title's phrasing/structure is
-    improvement_ask: short string — what extra context would have made you more confident
-    generalization_note: short string — a pattern you noticed for future training
-
-The meta object is not optional. It is how future you gets smarter.
-
-Respond with JSON only. No prose, no code fences."""
+# SHORT prompt (matches training). Full constitution is intentionally NOT
+# here — model was trained on this exact short prompt and injecting the
+# 640-token constitution at inference would put weights out of distribution.
+SYSTEM """Extract structured trading signals from prediction market titles. Respond with JSON only. Fields: asset (uppercase ticker or null), direction (UP|DOWN|NEUTRAL|BINARY_YES|BINARY_NO), threshold (USD number or null), horizon (5min|1h|daily|weekly|monthly|longer|unknown), horizon_end (ISO date or null), confidence (0..1), reasoning (short), meta{novelty (0..1), improvement_ask, generalization_note}."""

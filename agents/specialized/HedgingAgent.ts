@@ -34,6 +34,7 @@ import {
   logReturns, pearsonCorrelation, lag1Autocorrelation, annualizedVolatility,
   deriveCorrelationFromMarketProxy, optimalHedgeRatio,
 } from './hedging-math';
+import { agentSystemPrompt } from '../../lib/services/ai/model-constitution';
 import { ethers } from 'ethers';
 import type {
   FiveMinBTCSignal,
@@ -436,7 +437,7 @@ export class HedgingAgent extends BaseAgent {
             ? highRiskPredictions.map((p) => `${p.question} (${p.probability}%)`).join('; ')
             : 'No high-risk signals';
 
-        const aiPrompt = `You are a DeFi hedging strategist. Analyze this hedge opportunity:\n\nAsset: ${assetSymbol}\nNotional Value: $${notionalValue.toFixed(2)}\nCurrent Price: $${priceData.price}\nVolatility: ${(volatility * 100).toFixed(1)}%\nHedge Ratio: ${(hedgeRatio * 100).toFixed(1)}%\nFunding Rate: ${(avgFundingRate * 100).toFixed(4)}%\nHedge Effectiveness: ${hedgeEffectiveness.toFixed(1)}%\nDelphi Signals: ${predictionsSummary}\n\nShould hedge: ${shouldHedge ? 'YES' : 'NO'}\n\nProvide:\n1. One-sentence hedge recommendation\n2. Key risk factor to monitor\n\nBe concise and actionable.`;
+        const aiPrompt = `${agentSystemPrompt('You are a DeFi hedging strategist.')}\n\nAnalyze this hedge opportunity:\n\nAsset: ${assetSymbol}\nNotional Value: $${notionalValue.toFixed(2)}\nCurrent Price: $${priceData.price}\nVolatility: ${(volatility * 100).toFixed(1)}%\nHedge Ratio: ${(hedgeRatio * 100).toFixed(1)}%\nFunding Rate: ${(avgFundingRate * 100).toFixed(4)}%\nHedge Effectiveness: ${hedgeEffectiveness.toFixed(1)}%\nDelphi Signals: ${predictionsSummary}\n\nShould hedge: ${shouldHedge ? 'YES' : 'NO'}\n\nProvide:\n1. One-sentence hedge recommendation\n2. Key risk factor to monitor\n\nBe concise and actionable.`;
 
         const aiResponse = await llmProvider.generateResponse(
           aiPrompt,

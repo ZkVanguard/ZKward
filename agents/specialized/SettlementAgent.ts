@@ -8,6 +8,7 @@ import { AgentCapability, AgentTask, TaskResult, AgentMessage } from '@shared/ty
 import { X402Client, X402TransferResponse } from '@integrations/x402/X402Client';
 import { ethers } from 'ethers';
 import { logger } from '@shared/utils/logger';
+import { agentSystemPrompt } from '../../lib/services/ai/model-constitution';
 
 /** Extended client interface for duck-typing compatibility with varying implementations */
 interface X402ClientExt {
@@ -826,7 +827,7 @@ export class SettlementAgent extends BaseAgent {
         ? completedList.reduce((sum, s) => sum + ((s.processedAt || s.createdAt) - s.createdAt), 0) / completedList.length
         : 0;
 
-      const systemPrompt = `You are a payment optimization specialist for x402 gasless settlements on Cronos zkEVM.`;
+      const systemPrompt = agentSystemPrompt(`You are a payment optimization specialist for x402 gasless settlements on Cronos zkEVM.`);
 
       const aiPrompt = `Optimize this settlement batch:
 

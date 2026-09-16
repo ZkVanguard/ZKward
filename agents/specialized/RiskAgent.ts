@@ -15,6 +15,7 @@ import { AgentTask, AgentMessage, RiskAnalysis, TaskResult } from '@shared/types
 import { ethers } from 'ethers';
 import type { FiveMinBTCSignal, SignalEvent } from '../../lib/services/market-data/Polymarket5MinService';
 import { AIMarketIntelligence, type AIMarketContext } from '../../lib/services/AIMarketIntelligence';
+import { agentSystemPrompt } from '../../lib/services/ai/model-constitution';
 import type { CanonicalRiskInputs } from '../../zk/prover/riskCanonical';
 
 /**
@@ -232,7 +233,7 @@ export class RiskAgent extends BaseAgent {
 
       const portfolioValue = portfolioData?.totalValue || 0;
 
-      const systemPrompt = `You are a DeFi risk analyst. Provide concise, actionable risk analysis.`;
+      const systemPrompt = agentSystemPrompt(`You are a DeFi risk analyst. Provide concise, actionable risk analysis.`);
       
       const aiPrompt = `Analyze portfolio risk:
 Value: $${portfolioValue.toFixed(2)}
