@@ -428,27 +428,85 @@ export class HedgingAgent extends BaseAgent {
         reason += ` | ⚡ 5-Min Signal: ${fiveMinSignal.direction} (${fiveMinSignal.probability}% prob, ${fiveMinSignal.signalStrength})`;
       }
 
-      // 🤖 NEW: Use AI to enhance hedge reasoning
+      // 🤖 Use AI to enhance hedge reasoning
+      //
+      // Two paths (env-gated for safe rollout):
+      //   1. Tool-use (HEDGING_AGENT_TOOL_USE=1 + OPENAI_API_KEY): the
+      //      model can query recent hedges on this asset, active halts,
+      //      and postmortem accuracy to inform its recommendation.
+      //   2. Text-only (default): unchanged legacy conversation path.
+      // Neither path changes trade DECISIONS — those come from
+      // `shouldHedge` above. Both only enrich the human-readable
+      // reason string so ops see the model's take alongside the rule
+      // that fired.
       try {
-        const { llmProvider } = await import('@/lib/ai/llm-provider');
-
         const predictionsSummary =
           highRiskPredictions.length > 0
             ? highRiskPredictions.map((p) => `${p.question} (${p.probability}%)`).join('; ')
             : 'No high-risk signals';
 
-        const aiPrompt = `${agentSystemPrompt('You are a DeFi hedging strategist.')}\n\nAnalyze this hedge opportunity:\n\nAsset: ${assetSymbol}\nNotional Value: $${notionalValue.toFixed(2)}\nCurrent Price: $${priceData.price}\nVolatility: ${(volatility * 100).toFixed(1)}%\nHedge Ratio: ${(hedgeRatio * 100).toFixed(1)}%\nFunding Rate: ${(avgFundingRate * 100).toFixed(4)}%\nHedge Effectiveness: ${hedgeEffectiveness.toFixed(1)}%\nDelphi Signals: ${predictionsSummary}\n\nShould hedge: ${shouldHedge ? 'YES' : 'NO'}\n\nProvide:\n1. One-sentence hedge recommendation\n2. Key risk factor to monitor\n\nBe concise and actionable.`;
+        const useTools =
+          (process.env.HEDGING_AGENT_TOOL_USE || '').trim() === '1' &&
+          (process.env.ASI_API_KEY || '').trim().length > 0;
 
-        const aiResponse = await llmProvider.generateResponse(
-          aiPrompt,
-          `hedge-${portfolioId}-${assetSymbol}`
-        );
-        const aiLines = aiResponse.content.split('\\n').filter((l) => l.trim());
+        const contextPrompt = `Analyze this hedge opportunity:
+
+Asset: ${assetSymbol}
+Notional Value: $${notionalValue.toFixed(2)}
+Current Price: $${priceData.price}
+Volatility: ${(volatility * 100).toFixed(1)}%
+Hedge Ratio: ${(hedgeRatio * 100).toFixed(1)}%
+Funding Rate: ${(avgFundingRate * 100).toFixed(4)}%
+Hedge Effectiveness: ${hedgeEffectiveness.toFixed(1)}%
+Delphi Signals: ${predictionsSummary}
+
+Should hedge: ${shouldHedge ? 'YES' : 'NO'}
+
+Provide:
+1. One-sentence hedge recommendation
+2. Key risk factor to monitor
+
+Be concise and actionable.`;
+
+        let responseText: string;
+        let responseModel: string | undefined;
+        let toolCallCount = 0;
+
+        if (useTools) {
+          const { runWithTools } = await import('@/lib/services/ai/tool-runner');
+          const toolResult = await runWithTools({
+            systemPrompt: `You are a DeFi hedging strategist for the ZKward autonomous trading system. You have tools to query live state. Prefer query_hedge_history (for recent P&L on this asset) and get_cron_state (to check halt directives like "cron:haltUntil:sui-community-pool:autohedge") before finalizing your recommendation. Keep the tool loop short (≤3 calls). Do NOT propose executing trades — only enrich the reasoning.`,
+            userPrompt: contextPrompt,
+            maxIterations: 4,
+          });
+          responseText = toolResult.finalText;
+          responseModel = 'openai:tool-use';
+          toolCallCount = toolResult.invocations.length;
+          logger.info('🤖 HedgingAgent tool-use complete', {
+            asset: assetSymbol,
+            tools: toolResult.invocations.map(i => `${i.tool}(${i.ok ? 'ok' : 'err'})`),
+            iterations: toolResult.iterations,
+          });
+        } else {
+          const { llmProvider } = await import('@/lib/ai/llm-provider');
+          const aiResponse = await llmProvider.generateResponse(
+            `${agentSystemPrompt('You are a DeFi hedging strategist.')}\n\n${contextPrompt}`,
+            `hedge-${portfolioId}-${assetSymbol}`,
+          );
+          responseText = aiResponse.content;
+          responseModel = aiResponse.model;
+        }
+
+        const aiLines = responseText.split(/\r?\n/).filter((l) => l.trim());
         if (aiLines.length > 0) {
           reason = `🤖 ${aiLines[0]} | ${reason}`;
         }
 
-        logger.info('🤖 AI hedge analysis completed', { model: aiResponse.model });
+        logger.info('🤖 AI hedge analysis completed', {
+          model: responseModel,
+          asset: assetSymbol,
+          toolCallCount,
+        });
       } catch (error) {
         logger.warn('AI hedge analysis failed, using rule-based reasoning', { error });
       }
