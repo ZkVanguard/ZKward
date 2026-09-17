@@ -229,4 +229,102 @@ describe('PaperTrader.runTick — active-position path', () => {
     expect(store[KEY_STATS].losses).toBe(1);
     expect(store[KEY_STATS].cumRealizedUsd).toBeLessThan(0);
   });
+
+  it('stops out mid-trade when unrealized PnL exceeds PAPER_STOP_LOSS_PCT of NAV', async () => {
+    primeStore({
+      [KEY_POSITION]: pos,
+      [KEY_NAV]: PAPER_STARTING_NAV,
+      [KEY_ORDER_ID]: 'paper_BTC_test',
+    });
+    stubSameAssetPrediction('BTC', 'STRONG_HEDGE_LONG', 90); // signal still aligned
+    // 5% adverse move on a $100k 1x LONG = -$5000 unrealized.
+    // PAPER_STOP_LOSS_PCT default = 2% of $100k NAV = $2000 threshold. Trips.
+    mockGetLivePrice.mockResolvedValue(61_750);
+
+    // Tick well within max-hold window so only stop-loss can trip.
+    const res = await PaperTrader.runTick(NOW + 3 * 60_000);
+    expect(res.action).toBe('closed');
+    expect(res.reason).toMatch(/stop-loss/);
+    expect(mockCloseHedge).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('PaperTrader.runTick — profit-lock + halt gates', () => {
+  it('halts new opens when daily drawdown exceeds PAPER_PROFIT_LOCK_DRAWDOWN_PCT', async () => {
+    const today = new Date(NOW).toISOString().slice(0, 10);
+    primeStore({
+      [KEY_NAV]: 94_000, // -6% from daily peak
+      [KEY_STATS]: {
+        trades: 3,
+        wins: 1,
+        losses: 2,
+        cumRealizedUsd: -6000,
+        peakNavUsd: 100_000,
+        lastRealizedUsd: -3000,
+        dailyPeakNavUsd: 100_000,
+        dailyPeakDateUtc: today,
+      },
+    });
+    // If a signal existed it would open — but the gate should skip first.
+    stubSignal('BTC', 'STRONG_HEDGE_LONG', 80);
+    mockGetLivePrice.mockResolvedValue(65_000);
+
+    const res = await PaperTrader.runTick(NOW);
+    expect(res.action).toBe('skipped');
+    expect(res.reason).toMatch(/profit-lock/);
+    expect(mockCreateHedge).not.toHaveBeenCalled();
+    expect(store[KEY_STATS].haltedUntilMs).toBeGreaterThan(NOW);
+  });
+
+  it('halts new opens when consecutiveLosses reaches PAPER_MAX_CONSECUTIVE_LOSSES', async () => {
+    const today = new Date(NOW).toISOString().slice(0, 10);
+    primeStore({
+      [KEY_NAV]: PAPER_STARTING_NAV,
+      [KEY_STATS]: {
+        trades: 10,
+        wins: 5,
+        losses: 5,
+        cumRealizedUsd: -500,
+        peakNavUsd: PAPER_STARTING_NAV,
+        lastRealizedUsd: -100,
+        consecutiveLosses: 5,
+        dailyPeakNavUsd: PAPER_STARTING_NAV,
+        dailyPeakDateUtc: today,
+      },
+    });
+    stubSignal('BTC', 'STRONG_HEDGE_LONG', 80);
+    mockGetLivePrice.mockResolvedValue(65_000);
+
+    const res = await PaperTrader.runTick(NOW);
+    expect(res.action).toBe('skipped');
+    expect(res.reason).toMatch(/consecutive losses/);
+    expect(mockCreateHedge).not.toHaveBeenCalled();
+  });
+
+  it('clears halt on UTC-day rollover and allows a fresh open', async () => {
+    const yesterday = new Date(NOW - 24 * HOUR).toISOString().slice(0, 10);
+    primeStore({
+      [KEY_NAV]: 94_000,
+      [KEY_STATS]: {
+        trades: 3,
+        wins: 1,
+        losses: 2,
+        cumRealizedUsd: -6000,
+        peakNavUsd: 100_000,
+        lastRealizedUsd: -3000,
+        dailyPeakNavUsd: 100_000,
+        dailyPeakDateUtc: yesterday, // stale — should trigger reset
+        haltedUntilMs: NOW - HOUR,   // expired anyway
+      },
+    });
+    stubSignal('BTC', 'STRONG_HEDGE_LONG', 80);
+    mockGetLivePrice.mockResolvedValue(65_000);
+
+    const res = await PaperTrader.runTick(NOW);
+    expect(res.action).toBe('opened');
+    expect(mockCreateHedge).toHaveBeenCalledTimes(1);
+    // Stats got re-anchored to today's peak.
+    expect(store[KEY_STATS].dailyPeakDateUtc).toBe(new Date(NOW).toISOString().slice(0, 10));
+    expect(store[KEY_STATS].dailyPeakNavUsd).toBe(94_000);
+  });
 });

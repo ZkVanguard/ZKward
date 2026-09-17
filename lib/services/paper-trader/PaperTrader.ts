@@ -42,11 +42,25 @@ export const PAPER_UNIVERSE = (process.env.PAPER_TRADER_ASSETS || 'BTC,ETH,SOL,X
 
 export const PAPER_STARTING_NAV = Number(process.env.PAPER_TRADER_STARTING_NAV || 100_000);
 export const PAPER_LEVERAGE = Number(process.env.PAPER_TRADER_LEVERAGE || 3);
-export const PAPER_STAKE_PCT = Number(process.env.PAPER_TRADER_STAKE_PCT || 0.20);
+// Reduced 2026-09-17 from 0.20 -> 0.05. At 20% stake × 3x leverage, every
+// trade risked 60% of NAV in gross notional. Observed 118 trades, 25% win
+// rate, -$62.5k in 2.4 days on a $607k NAV — sizing did the damage, not
+// signal quality.
+export const PAPER_STAKE_PCT = Number(process.env.PAPER_TRADER_STAKE_PCT || 0.05);
 export const PAPER_MAX_HOLD_MIN = Number(process.env.PAPER_TRADER_MAX_HOLD_MIN || 20);
 export const PAPER_MIN_CONFIDENCE = Number(process.env.PAPER_TRADER_MIN_CONFIDENCE || 55);
 export const PAPER_MIN_CONSENSUS = Number(process.env.PAPER_TRADER_MIN_CONSENSUS || 50);
 export const PAPER_MIN_SOURCES = Number(process.env.PAPER_TRADER_MIN_SOURCES || 2);
+
+// Risk-control gates added 2026-09-17.
+export const PAPER_PROFIT_LOCK_DRAWDOWN_PCT = Number(
+  process.env.PAPER_TRADER_PROFIT_LOCK_DRAWDOWN || 0.05,
+);
+export const PAPER_STOP_LOSS_PCT = Number(process.env.PAPER_TRADER_STOP_LOSS_PCT || 0.02);
+export const PAPER_MAX_CONSECUTIVE_LOSSES = Number(
+  process.env.PAPER_TRADER_MAX_CONSECUTIVE_LOSSES || 5,
+);
+export const PAPER_HALT_HOURS = Number(process.env.PAPER_TRADER_HALT_HOURS || 4);
 
 // Reserved portfolio ID for paper trader (community pool = -1, SUI = -2).
 export const PAPER_PORTFOLIO_ID = -3;
@@ -70,6 +84,13 @@ export interface PaperStats {
   cumRealizedUsd: number;
   peakNavUsd: number;
   lastRealizedUsd: number;
+  // Optional so old stats records deserialize cleanly; hydrated on first
+  // update after the 2026-09-17 risk-control patch.
+  consecutiveLosses?: number;
+  dailyPeakNavUsd?: number;
+  dailyPeakDateUtc?: string;
+  haltedUntilMs?: number;
+  lastHaltReason?: string;
 }
 
 export interface TickResult {
@@ -90,6 +111,38 @@ async function pushNavSample(ts: number, nav: number): Promise<void> {
   series.push({ ts, nav });
   const trimmed = series.length > NAV_SERIES_MAX ? series.slice(-NAV_SERIES_MAX) : series;
   await setCronState(KEY_NAV_SERIES, trimmed);
+}
+
+function utcDateStr(ts: number): string {
+  return new Date(ts).toISOString().slice(0, 10);
+}
+
+/**
+ * Load stats or seed a fresh record. Reconciles daily peak on UTC-day
+ * rollover so the profit-lock resets naturally at midnight rather than
+ * staying halted forever after a bad day.
+ */
+async function loadStats(nav: number, now: number): Promise<PaperStats> {
+  const stats = (await getCronState<PaperStats>(KEY_STATS)) ?? {
+    trades: 0,
+    wins: 0,
+    losses: 0,
+    cumRealizedUsd: 0,
+    peakNavUsd: nav,
+    lastRealizedUsd: 0,
+  };
+  const today = utcDateStr(now);
+  if (stats.dailyPeakDateUtc !== today) {
+    stats.dailyPeakDateUtc = today;
+    stats.dailyPeakNavUsd = nav;
+    // Fresh day resets the halt. Consecutive-losses count carries across
+    // days on purpose — a losing streak is still a losing streak.
+    stats.haltedUntilMs = 0;
+    stats.lastHaltReason = undefined;
+  }
+  if ((stats.dailyPeakNavUsd ?? 0) < nav) stats.dailyPeakNavUsd = nav;
+  if (stats.peakNavUsd < nav) stats.peakNavUsd = nav;
+  return stats;
 }
 
 export class PaperTrader {
@@ -125,13 +178,27 @@ export class PaperTrader {
       return { action: 'skipped', reason: 'no mark price', nav };
     }
 
-    // 1. Max-hold expiry → close
+    // 1. Stop-loss (2026-09-17) — bail before the 20-min max-hold if the
+    //    position has already leaked > PAPER_STOP_LOSS_PCT of NAV. Prevents
+    //    the "hold-through-drawdown" pattern that dominated the -$62k bleed.
+    const mtm = markToMarket(pos, markPrice, now);
+    if (mtm.unrealizedPnlUsd < -nav * PAPER_STOP_LOSS_PCT) {
+      return PaperTrader.closeAtMark(
+        pos,
+        markPrice,
+        nav,
+        now,
+        `stop-loss: unrealized -$${Math.abs(mtm.unrealizedPnlUsd).toFixed(2)} > ${(PAPER_STOP_LOSS_PCT * 100).toFixed(1)}% of NAV`,
+      );
+    }
+
+    // 2. Max-hold expiry → close
     const holdMs = now - pos.openedAt;
     if (holdMs >= PAPER_MAX_HOLD_MIN * 60_000) {
       return PaperTrader.closeAtMark(pos, markPrice, nav, now, 'max-hold expired');
     }
 
-    // 2. Signal-flip exit (mirrors #101 confidence gate)
+    // 3. Signal-flip exit (mirrors #101 confidence gate)
     try {
       const scan = await PredictionAggregatorService.scanAndPickBest(PAPER_UNIVERSE, {
         minConfidence: 0,
@@ -155,8 +222,7 @@ export class PaperTrader {
       logger.debug('[PaperTrader] flip re-scan failed (non-fatal)', { error: errMsg(e) });
     }
 
-    // 3. Otherwise hold. Report mark-to-market NAV for the chart.
-    const mtm = markToMarket(pos, markPrice, now);
+    // 4. Otherwise hold. Report mark-to-market NAV for the chart (reuse mtm from stop-loss check above).
     const currentNav = nav + mtm.unrealizedPnlUsd;
     return {
       action: 'held',
@@ -166,6 +232,57 @@ export class PaperTrader {
   }
 
   private static async handleEntry(nav: number, now: number): Promise<TickResult> {
+    // ── Risk-control gates (2026-09-17) ────────────────────────────────
+    // Run BEFORE the signal scan so a halted trader doesn't waste an API
+    // round-trip. All gates share one halted-until timestamp so a fresh
+    // trip extends rather than stacks halts.
+    const stats = await loadStats(nav, now);
+
+    if (stats.haltedUntilMs && stats.haltedUntilMs > now) {
+      await setCronState(KEY_STATS, stats);
+      return {
+        action: 'skipped',
+        reason: `halted until ${new Date(stats.haltedUntilMs).toISOString()} (${stats.lastHaltReason ?? 'unknown'})`,
+        nav,
+      };
+    }
+
+    const dailyPeak = stats.dailyPeakNavUsd ?? nav;
+    const dailyDrawdown = dailyPeak > 0 ? (dailyPeak - nav) / dailyPeak : 0;
+    if (dailyDrawdown >= PAPER_PROFIT_LOCK_DRAWDOWN_PCT) {
+      // Halt for min(PAPER_HALT_HOURS, until UTC midnight). The daily-peak
+      // reset in loadStats() clears the halt at next UTC-day rollover.
+      const utcMidnight = new Date(now);
+      utcMidnight.setUTCHours(24, 0, 0, 0);
+      stats.haltedUntilMs = Math.min(
+        utcMidnight.getTime(),
+        now + PAPER_HALT_HOURS * 60 * 60 * 1000,
+      );
+      stats.lastHaltReason = `profit-lock: daily drawdown ${(dailyDrawdown * 100).toFixed(1)}%`;
+      await setCronState(KEY_STATS, stats);
+      logger.warn('[PaperTrader] profit-lock tripped', {
+        dailyPeak: dailyPeak.toFixed(2),
+        nav: nav.toFixed(2),
+        drawdownPct: (dailyDrawdown * 100).toFixed(1),
+        haltedUntilMs: stats.haltedUntilMs,
+      });
+      return { action: 'skipped', reason: stats.lastHaltReason, nav };
+    }
+
+    if ((stats.consecutiveLosses ?? 0) >= PAPER_MAX_CONSECUTIVE_LOSSES) {
+      stats.haltedUntilMs = now + PAPER_HALT_HOURS * 60 * 60 * 1000;
+      stats.lastHaltReason = `${stats.consecutiveLosses} consecutive losses`;
+      await setCronState(KEY_STATS, stats);
+      logger.warn('[PaperTrader] consecutive-loss halt', {
+        consecutiveLosses: stats.consecutiveLosses,
+        haltHours: PAPER_HALT_HOURS,
+      });
+      return { action: 'skipped', reason: stats.lastHaltReason, nav };
+    }
+
+    // Persist any daily-peak refresh from loadStats().
+    await setCronState(KEY_STATS, stats);
+
     let scan: Awaited<ReturnType<typeof PredictionAggregatorService.scanAndPickBest>>;
     try {
       scan = await PredictionAggregatorService.scanAndPickBest(PAPER_UNIVERSE, {
@@ -285,21 +402,20 @@ export class PaperTrader {
     await setCronState(KEY_ORDER_ID, null);
     await setCronState(KEY_NAV, newNav);
 
-    // Update stats
-    const stats: PaperStats = (await getCronState<PaperStats>(KEY_STATS)) ?? {
-      trades: 0,
-      wins: 0,
-      losses: 0,
-      cumRealizedUsd: 0,
-      peakNavUsd: PAPER_STARTING_NAV,
-      lastRealizedUsd: 0,
-    };
+    // Update stats — reuse loadStats so daily-peak + halt-reset stay in sync.
+    const stats = await loadStats(newNav, now);
     stats.trades += 1;
-    if (result.realizedPnlUsd > 0) stats.wins += 1;
-    else stats.losses += 1;
+    if (result.realizedPnlUsd > 0) {
+      stats.wins += 1;
+      stats.consecutiveLosses = 0;
+    } else {
+      stats.losses += 1;
+      stats.consecutiveLosses = (stats.consecutiveLosses ?? 0) + 1;
+    }
     stats.cumRealizedUsd += result.realizedPnlUsd;
     stats.lastRealizedUsd = result.realizedPnlUsd;
     stats.peakNavUsd = Math.max(stats.peakNavUsd, newNav);
+    if ((stats.dailyPeakNavUsd ?? 0) < newNav) stats.dailyPeakNavUsd = newNav;
     await setCronState(KEY_STATS, stats);
 
     // Close DB row + persist funding + close reason
