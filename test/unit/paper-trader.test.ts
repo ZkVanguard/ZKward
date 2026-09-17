@@ -40,7 +40,16 @@ jest.mock('@/lib/db/postgres', () => ({
 }));
 
 // Import AFTER mocks are set up
-import { PaperTrader, KEY_POSITION, KEY_NAV, KEY_STATS, KEY_ORDER_ID, PAPER_STARTING_NAV } from '@/lib/services/paper-trader/PaperTrader';
+import {
+  PaperTrader,
+  KEY_POSITION,
+  KEY_NAV,
+  KEY_STATS,
+  KEY_ORDER_ID,
+  PAPER_STARTING_NAV,
+  computeSignalScalar,
+  PAPER_ASSET_VOL_MULT,
+} from '@/lib/services/paper-trader/PaperTrader';
 
 const NOW = 1_700_000_000_000;
 const HOUR = 60 * 60 * 1000;
@@ -56,11 +65,11 @@ function primeStore(seed: Record<string, any>) {
   }) as any);
 }
 
-function stubSignal(asset: string, rec: string, conf = 70) {
+function stubSignal(asset: string, rec: string, conf = 70, cons = 65) {
   mockScanAndPickBest.mockResolvedValue({
-    best: { asset, prediction: { recommendation: rec, confidence: conf }, score: 80 },
+    best: { asset, prediction: { recommendation: rec, confidence: conf, consensus: cons }, score: 80 },
     all: {
-      [asset]: { recommendation: rec, confidence: conf, sources: [{}, {}, {}] },
+      [asset]: { recommendation: rec, confidence: conf, consensus: cons, sources: [{}, {}, {}] },
     },
   } as any);
 }
@@ -230,6 +239,45 @@ describe('PaperTrader.runTick — active-position path', () => {
     expect(store[KEY_STATS].cumRealizedUsd).toBeLessThan(0);
   });
 
+  it('trailing-stop closes when winner gives back more than half of peak', async () => {
+    // Position: LONG BTC @ 65k, notional $100k, peak unrealized already +$1500 from a prior tick.
+    // Current mark 65_400 (+0.6%) → unrealized +$600 (before fees). Well below peak/2 = $750.
+    const trailingPos = {
+      ...pos,
+      peakUnrealizedPnl: 1500,
+    };
+    primeStore({
+      [KEY_POSITION]: trailingPos,
+      [KEY_NAV]: PAPER_STARTING_NAV,
+      [KEY_ORDER_ID]: 'paper_BTC_test',
+    });
+    stubSameAssetPrediction('BTC', 'STRONG_HEDGE_LONG', 90); // signal still aligned
+    mockGetLivePrice.mockResolvedValue(65_400);
+
+    const res = await PaperTrader.runTick(NOW + 5 * 60_000);
+    expect(res.action).toBe('closed');
+    expect(res.reason).toMatch(/trailing-stop/);
+    expect(mockCloseHedge).toHaveBeenCalledTimes(1);
+  });
+
+  it('trailing-stop DOES NOT arm before peak reaches PAPER_TRAILING_STOP_ARM_PCT of NAV', async () => {
+    // Position with peak +$500 (0.5% of $100k) — below the 1% arm threshold.
+    const smallPeak = { ...pos, peakUnrealizedPnl: 500 };
+    primeStore({
+      [KEY_POSITION]: smallPeak,
+      [KEY_NAV]: PAPER_STARTING_NAV,
+      [KEY_ORDER_ID]: 'paper_BTC_test',
+    });
+    stubSameAssetPrediction('BTC', 'STRONG_HEDGE_LONG', 90);
+    // Current mark barely positive so unrealized is small but positive, well
+    // within max-hold. Should HOLD, not trigger a giveback close.
+    mockGetLivePrice.mockResolvedValue(65_050);
+
+    const res = await PaperTrader.runTick(NOW + 3 * 60_000);
+    expect(res.action).toBe('held');
+    expect(mockCloseHedge).not.toHaveBeenCalled();
+  });
+
   it('stops out mid-trade when unrealized PnL exceeds PAPER_STOP_LOSS_PCT of NAV', async () => {
     primeStore({
       [KEY_POSITION]: pos,
@@ -246,6 +294,36 @@ describe('PaperTrader.runTick — active-position path', () => {
     expect(res.action).toBe('closed');
     expect(res.reason).toMatch(/stop-loss/);
     expect(mockCloseHedge).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('computeSignalScalar — confidence weighting', () => {
+  it('returns 0.4 baseline at the minimum gate (55 conf, 50 cons)', () => {
+    expect(computeSignalScalar(55, 50)).toBeCloseTo(0.4, 2);
+  });
+
+  it('scales up to ~1.2+ for strong signals (80 conf, 75 cons)', () => {
+    const s = computeSignalScalar(80, 75);
+    expect(s).toBeGreaterThan(1.0);
+    expect(s).toBeLessThan(1.4);
+  });
+
+  it('caps near 2.0 for exceptional signals (95 conf, 95 cons)', () => {
+    const s = computeSignalScalar(95, 95);
+    expect(s).toBeGreaterThan(1.7);
+    expect(s).toBeLessThanOrEqual(2.0);
+  });
+
+  it('never returns below 0.4 even for sub-gate inputs (defense-in-depth)', () => {
+    expect(computeSignalScalar(30, 20)).toBe(0.4);
+  });
+});
+
+describe('PAPER_ASSET_VOL_MULT — vol parity', () => {
+  it('assigns higher multipliers to less volatile assets', () => {
+    expect(PAPER_ASSET_VOL_MULT.BTC).toBe(1.0);
+    expect(PAPER_ASSET_VOL_MULT.SOL).toBeLessThan(PAPER_ASSET_VOL_MULT.BTC);
+    expect(PAPER_ASSET_VOL_MULT.DOGE).toBeLessThan(PAPER_ASSET_VOL_MULT.ETH);
   });
 });
 
@@ -298,6 +376,25 @@ describe('PaperTrader.runTick — profit-lock + halt gates', () => {
     const res = await PaperTrader.runTick(NOW);
     expect(res.action).toBe('skipped');
     expect(res.reason).toMatch(/consecutive losses/);
+    expect(mockCreateHedge).not.toHaveBeenCalled();
+  });
+
+  it('skips (asset, side) after recent losses cross regret-cooldown threshold', async () => {
+    // Seed 5 recent losing paper hedges on ETH SHORT summing to -$3000, > 2% of $100k NAV.
+    mockQuery.mockResolvedValueOnce([
+      { pnl: -800 },
+      { pnl: -600 },
+      { pnl: -500 },
+      { pnl: -700 },
+      { pnl: -500 },
+    ] as any);
+    primeStore({});
+    stubSignal('ETH', 'HEDGE_SHORT', 80, 75);
+    mockGetLivePrice.mockResolvedValue(2500);
+
+    const res = await PaperTrader.runTick(NOW);
+    expect(res.action).toBe('skipped');
+    expect(res.reason).toMatch(/regret-cooldown/);
     expect(mockCreateHedge).not.toHaveBeenCalled();
   });
 
