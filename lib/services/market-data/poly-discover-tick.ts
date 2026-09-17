@@ -140,22 +140,27 @@ export async function runPolyDiscoverTick(): Promise<PolyDiscoverTickResult> {
     // Interpret new high-impact markets with the fine-tuned Signal Interpreter.
     // Guarded by SIGNAL_INTERPRETER_ENABLED — off = regex fallback, no network call.
     // Only labels NEW markets (filtered by seenBroadSlugs above), so cost is
-    // bounded per tick. Cap at 5 to stay inside the 30s cron maxDuration when
-    // the model server is remote.
-    const INTERP_CAP = 5;
+    // bounded per tick. Serial (not parallel) because the single-instance
+    // GPU model has no batch endpoint on `/v1/chat/completions` — 5 parallel
+    // requests queued serially on the GPU take 65s+ vs 25s serial-with-clean-
+    // queuing. Cap at 3 so worst-case ~15s stays well under 300s Function limit.
+    const INTERP_CAP = 3;
     const toInterpret = newBroadHigh.slice(0, INTERP_CAP);
     const interpretations: Array<{ market: BroadMarket; signal: InterpretedSignal }> = [];
     if (toInterpret.length > 0) {
-      const results = await Promise.allSettled(
-        toInterpret.map(m =>
-          interpretSignal(m.question, {
+      for (const m of toInterpret) {
+        try {
+          const signal = await interpretSignal(m.question, {
             category: m.marketType,
             endDate: m.endDate ?? undefined,
-          }).then(signal => ({ market: m, signal })),
-        ),
-      );
-      for (const r of results) {
-        if (r.status === 'fulfilled') interpretations.push(r.value);
+          });
+          interpretations.push({ market: m, signal });
+        } catch (err) {
+          logger.warn('[PolyDiscover] interpret failed for slug', {
+            slug: m.slug,
+            error: err instanceof Error ? err.message : String(err),
+          });
+        }
       }
       logger.info('[PolyDiscover] interpreted new markets', {
         attempted: toInterpret.length,
