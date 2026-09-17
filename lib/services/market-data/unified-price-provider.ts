@@ -851,19 +851,27 @@ export async function getMultiSourceValidatedPrice(
     } catch { /* ignore */ }
   })());
   
-  // Source 3: Direct API call (backup)
+  // Source 3: Direct API call to batch tickers endpoint (backup).
+  // Note 2026-09-17: the singular `get-ticker?instrument_name=X_USDT`
+  // endpoint now returns 404 for individual symbols. The batch
+  // `get-tickers` endpoint still returns the same data. Filter client-side.
   promises.push((async () => {
     try {
       const normalized = symbol.toUpperCase().replace(/^W/, '');
+      const target = `${normalized}_USDT`;
       const response = await fetch(
-        `https://api.crypto.com/exchange/v1/public/get-ticker?instrument_name=${normalized}_USDT`,
+        'https://api.crypto.com/exchange/v1/public/get-tickers',
         { signal: AbortSignal.timeout(timeout) }
       );
       if (response.ok) {
         const data = await response.json();
-        const ticker = data.result?.data;
-        if (ticker && ticker.a > 0) {
-          sources.push({ name: 'crypto.com-direct', price: parseFloat(ticker.a), timestamp: Date.now() });
+        const tickers: Array<{ i?: string; a?: string | number }> = data.result?.data ?? [];
+        const ticker = tickers.find((t) => t.i === target);
+        if (ticker) {
+          const price = typeof ticker.a === 'string' ? parseFloat(ticker.a) : Number(ticker.a);
+          if (Number.isFinite(price) && price > 0) {
+            sources.push({ name: 'crypto.com-direct', price, timestamp: Date.now() });
+          }
         }
       }
     } catch { /* ignore */ }
