@@ -6,7 +6,6 @@
 import { ethers } from 'ethers';
 import { RiskAgent } from '@/agents/specialized/RiskAgent';
 import { HedgingAgent } from '@/agents/specialized/HedgingAgent';
-import { SettlementAgent } from '@/agents/specialized/SettlementAgent';
 import { ReportingAgent } from '@/agents/specialized/ReportingAgent';
 import { PriceMonitorAgent } from '@/agents/specialized/PriceMonitorAgent';
 import { LeadAgent } from '@/agents/core/LeadAgent';
@@ -36,7 +35,6 @@ export class AgentOrchestrator {
   // Agent instances
   private riskAgent: RiskAgent | null = null;
   private hedgingAgent: HedgingAgent | null = null;
-  private settlementAgent: SettlementAgent | null = null;
   private reportingAgent: ReportingAgent | null = null;
   private leadAgent: LeadAgent | null = null;
   private priceMonitorAgent: PriceMonitorAgent | null = null;
@@ -99,14 +97,13 @@ export class AgentOrchestrator {
     const shutdownResults = await Promise.allSettled([
       this.riskAgent?.shutdown(),
       this.hedgingAgent?.shutdown(),
-      this.settlementAgent?.shutdown(),
       this.reportingAgent?.shutdown(),
       this.leadAgent?.shutdown(),
     ]);
 
     shutdownResults.forEach((result, index) => {
       if (result.status === 'rejected') {
-        const agentNames = ['RiskAgent', 'HedgingAgent', 'SettlementAgent', 'ReportingAgent', 'LeadAgent'];
+        const agentNames = ['RiskAgent', 'HedgingAgent', 'ReportingAgent', 'LeadAgent'];
         logger.warn(`${agentNames[index]} shutdown failed:`, { error: result.reason });
       }
     });
@@ -114,7 +111,6 @@ export class AgentOrchestrator {
     this.initialized = false;
     this.riskAgent = null;
     this.hedgingAgent = null;
-    this.settlementAgent = null;
     this.reportingAgent = null;
     this.leadAgent = null;
     this.priceMonitorAgent = null;
@@ -198,14 +194,6 @@ export class AgentOrchestrator {
         hedgeExecutorConfig
       );
 
-      logger.info('Creating SettlementAgent...');
-      this.settlementAgent = new SettlementAgent(
-        'settlement-agent-001',
-        this.provider,
-        signerToUse,
-        process.env.PAYMENT_ROUTER_ADDRESS || '0x0000000000000000000000000000000000000000'
-      );
-
       logger.info('Creating ReportingAgent...');
       this.reportingAgent = new ReportingAgent('reporting-agent-001', this.provider);
 
@@ -224,7 +212,6 @@ export class AgentOrchestrator {
       // Register specialized agents with the registry so LeadAgent can delegate
       if (this.riskAgent) agentRegistry.register(this.riskAgent);
       if (this.hedgingAgent) agentRegistry.register(this.hedgingAgent);
-      if (this.settlementAgent) agentRegistry.register(this.settlementAgent);
       if (this.reportingAgent) agentRegistry.register(this.reportingAgent);
 
       // Initialize PriceMonitorAgent (standalone — not a BaseAgent, has its own lifecycle)
@@ -236,7 +223,6 @@ export class AgentOrchestrator {
       const initResults = await Promise.allSettled([
         this.riskAgent.initialize().then(() => logger.info('✅ RiskAgent initialized')),
         this.hedgingAgent.initialize().then(() => logger.info('✅ HedgingAgent initialized')),
-        this.settlementAgent.initialize().then(() => logger.info('✅ SettlementAgent initialized')),
         this.reportingAgent.initialize().then(() => logger.info('✅ ReportingAgent initialized')),
         this.leadAgent.initialize().then(() => logger.info('✅ LeadAgent initialized')),
         this.priceMonitorAgent.start().then(() => logger.info('✅ PriceMonitorAgent started')),
@@ -245,7 +231,7 @@ export class AgentOrchestrator {
       // Log any initialization failures
       initResults.forEach((result, index) => {
         if (result.status === 'rejected') {
-          const agentNames = ['RiskAgent', 'HedgingAgent', 'SettlementAgent', 'ReportingAgent', 'LeadAgent', 'PriceMonitorAgent'];
+          const agentNames = ['RiskAgent', 'HedgingAgent', 'ReportingAgent', 'LeadAgent', 'PriceMonitorAgent'];
           logger.warn(`${agentNames[index]} initialization failed:`, { error: result.reason });
         }
       });
@@ -254,7 +240,6 @@ export class AgentOrchestrator {
       logger.info('AgentOrchestrator initialized successfully', {
         riskAgent: !!this.riskAgent,
         hedgingAgent: !!this.hedgingAgent,
-        settlementAgent: !!this.settlementAgent,
         reportingAgent: !!this.reportingAgent,
         leadAgent: !!this.leadAgent,
         priceMonitorAgent: !!this.priceMonitorAgent,
@@ -273,7 +258,6 @@ export class AgentOrchestrator {
       const activeAgents = [
         this.riskAgent && 'RiskAgent',
         this.hedgingAgent && 'HedgingAgent',
-        this.settlementAgent && 'SettlementAgent',
         this.reportingAgent && 'ReportingAgent',
         this.leadAgent && 'LeadAgent',
         this.priceMonitorAgent && 'PriceMonitorAgent',
@@ -536,136 +520,6 @@ export class AgentOrchestrator {
   }
 
   /**
-   * Execute settlement using real SettlementAgent + x402
-   */
-  public async executeSettlement(params: {
-    portfolioId: string;
-    beneficiary: string;
-    amount: string;
-    token: string;
-    purpose: string;
-    priority?: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
-    chain?: string;
-  }): Promise<AgentOrchestrationResult> {
-    await this.ensureInitialized();
-    const startTime = Date.now();
-
-    try {
-      if (!this.settlementAgent) {
-        throw new Error('SettlementAgent not initialized');
-      }
-
-      // Create settlement request
-      const createResult = await this.settlementAgent.executeTask({
-        id: `create-settlement-${Date.now()}`,
-        action: 'create_settlement',
-        parameters: {
-          portfolioId: params.portfolioId,
-          beneficiary: params.beneficiary,
-          amount: params.amount,
-          token: params.token,
-          purpose: params.purpose,
-          priority: params.priority || 'MEDIUM',
-          chain: params.chain,
-        },
-        priority: params.priority === 'URGENT' ? 5 : 3,
-        createdAt: new Date(),
-        chain: params.chain,
-      });
-
-      if (!createResult.success) {
-        throw new Error(createResult.error || 'Failed to create settlement');
-      }
-
-      // If not urgent, process immediately for demo
-      if (params.priority !== 'URGENT') {
-        const processResult = await this.settlementAgent.executeTask({
-          id: `process-settlement-${Date.now()}`,
-          action: 'process_settlement',
-          parameters: {
-            requestId: (createResult.data as Record<string, unknown>).requestId,
-          },
-          priority: 4,
-          createdAt: new Date(),
-        });
-
-        return {
-          success: processResult.success,
-          data: processResult.data,
-          agentId: "settlement-agent-001",
-          executionTime: Date.now() - startTime,
-          error: processResult.error || undefined,
-        };
-      }
-
-      return {
-        success: createResult.success,
-        data: createResult.data,
-        agentId: 'settlement-agent-001',
-        executionTime: Date.now() - startTime,
-      };
-    } catch (error) {
-      logger.error('Settlement execution failed', { error });
-      return {
-        success: false,
-        data: null,
-        agentId: 'settlement-agent-001',
-        executionTime: Date.now() - startTime,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      };
-    }
-  }
-
-  /**
-   * Execute batch settlement using x402
-   */
-  public async executeBatchSettlement(params: {
-    transactions: Array<{
-      beneficiary: string;
-      amount: string;
-      token: string;
-      purpose: string;
-    }>;
-  }): Promise<AgentOrchestrationResult> {
-    await this.ensureInitialized();
-    const startTime = Date.now();
-
-    try {
-      if (!this.settlementAgent) {
-        throw new Error('SettlementAgent not initialized');
-      }
-
-      // Create batch settlement
-      const result = await this.settlementAgent.executeTask({
-        id: `batch-settlement-${Date.now()}`,
-        action: 'batch_settlements',
-        parameters: {
-          transactions: params.transactions,
-        },
-        priority: 4,
-        createdAt: new Date(),
-      });
-
-      return {
-        success: result.success,
-        data: result.data,
-        agentId: "settlement-agent-001",
-        executionTime: Date.now() - startTime,
-        error: result.error || undefined,
-      };
-    } catch (error) {
-      logger.error('Batch settlement failed', { error });
-      return {
-        success: false,
-        data: null,
-        agentId: 'settlement-agent-001',
-        executionTime: Date.now() - startTime,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      };
-    }
-  }
-
-  /**
    * Generate report using ReportingAgent
    */
   public async generateReport(params: {
@@ -720,7 +574,6 @@ export class AgentOrchestrator {
     agents: {
       risk: boolean;
       hedging: boolean;
-      settlement: boolean;
       reporting: boolean;
       lead: boolean;
       priceMonitor: boolean;
@@ -733,7 +586,6 @@ export class AgentOrchestrator {
       agents: {
         risk: this.riskAgent !== null,
         hedging: this.hedgingAgent !== null,
-        settlement: this.settlementAgent !== null,
         reporting: this.reportingAgent !== null,
         lead: this.leadAgent !== null,
         priceMonitor: this.priceMonitorAgent !== null,
@@ -750,7 +602,6 @@ export class AgentOrchestrator {
     initialized: boolean;
     riskAgent: RiskAgent | null;
     hedgingAgent: HedgingAgent | null;
-    settlementAgent: SettlementAgent | null;
     reportingAgent: ReportingAgent | null;
     leadAgent: LeadAgent | null;
     priceMonitorAgent: PriceMonitorAgent | null;
@@ -760,7 +611,6 @@ export class AgentOrchestrator {
       initialized: this.initialized,
       riskAgent: this.riskAgent,
       hedgingAgent: this.hedgingAgent,
-      settlementAgent: this.settlementAgent,
       reportingAgent: this.reportingAgent,
       leadAgent: this.leadAgent,
       priceMonitorAgent: this.priceMonitorAgent,
@@ -855,14 +705,9 @@ export class AgentOrchestrator {
 
       // Build an "analyze" intent — read-only, no position changes.
       // requiredAgents covers the specialists that are MEANINGFUL for the
-      // target chain. SettlementAgent only does work on Cronos (x402 is
-      // Cronos-only); including it on SUI/Oasis/Hedera produces 0 work +
-      // wasted LLM latency. PriceMonitorAgent is ticked separately below.
-      const isCronos = chain === 'cronos';
-      const requiredAgents: Array<'risk' | 'hedging' | 'settlement' | 'reporting'> =
-        isCronos
-          ? ['risk', 'hedging', 'settlement', 'reporting']
-          : ['risk', 'hedging', 'reporting'];
+      // target chain. PriceMonitorAgent is ticked separately below.
+      const requiredAgents: Array<'risk' | 'hedging' | 'reporting'> =
+        ['risk', 'hedging', 'reporting'];
       const intent = {
         action: 'analyze' as const,
         targetPortfolio: portfolioId,

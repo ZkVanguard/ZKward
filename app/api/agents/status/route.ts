@@ -33,10 +33,6 @@ export async function GET(request: NextRequest) {
           available: status.agents.hedging,
           capabilities: ['hedge_analysis', 'position_opening', 'moonlander_integration'],
         },
-        settlement: {
-          available: status.agents.settlement,
-          capabilities: ['gasless_settlement', 'batch_processing', 'x402_integration'],
-        },
         reporting: {
           available: status.agents.reporting,
           capabilities: ['daily_reports', 'weekly_reports', 'custom_analytics'],

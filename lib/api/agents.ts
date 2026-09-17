@@ -11,23 +11,6 @@ import { logger } from '@/lib/utils/logger';
 export type AgentTask = SharedAgentTask;
 
 /**
- * Execute settlement batch. Pass `authHeaders` when the endpoint's
- * requireAuth gate needs a wallet signature — the caller acquires them
- * via useSignMessage.
- */
-export async function executeSettlementBatch(
-  transactions: unknown[],
-  authHeaders?: Record<string, string>,
-) {
-  const response = await fetch(`/api/agents/settlement/execute`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...(authHeaders || {}) },
-    body: JSON.stringify({ transactions })
-  });
-  return response.json();
-}
-
-/**
  * Generate portfolio report
  */
 export async function generatePortfolioReport(address: string, period: string) {

@@ -984,67 +984,6 @@ export async function GET(request: NextRequest): Promise<NextResponse<EdgeResult
       }
     }
 
-    // ─── x402-gated signal-quality corroboration (Hackathon Priority 1) ──
-    // Pay per-tick for a second-opinion signal from our own Hedera x402
-    // endpoint. If the paid signal contradicts the scan (opposite
-    // direction OR neutral with low conf), skip the trade — treating
-    // the paid signal as a veto, not a green-light. If the paid layer
-    // is unavailable/unpaid, fall through to the scan-only decision
-    // (no regression from pre-x402 behavior).
-    //
-    // Hits the Hedera AI Agentic Payments prize track: multi-agent
-    // pay-per-call metering, HCS audit trail via the endpoint, agent
-    // budget accounting via lib/services/x402/budget.ts. Feature-gated
-    // via X402_TRADER_ENABLED so operators can flip it on after the
-    // endpoint's paid path is verified in a preview.
-    if (envFlag('X402_TRADER_ENABLED')) {
-      try {
-        const { callX402 } = await import('@/lib/services/x402/client');
-        const baseUrl = (process.env.X402_TRADER_ENDPOINT_URL || '').trim()
-          || `${new URL(request.url).origin}/api/hedera/x402/signal-quality`;
-        const paid = await callX402<{ asset: string; signal: 'BULLISH' | 'BEARISH' | 'NEUTRAL'; confidence: number }>(
-          `${baseUrl}?asset=${asset}`,
-          {
-            agentId: 'polymarket-edge-trader',
-            maxAmountMicros: (process.env.X402_TRADER_MAX_PER_CALL_MICROS || '1000').trim(),
-          },
-        );
-        if (paid.ok && paid.data) {
-          const expectedSide: 'LONG' | 'SHORT' | 'NEUTRAL' =
-            paid.data.signal === 'BULLISH' ? 'LONG'
-            : paid.data.signal === 'BEARISH' ? 'SHORT'
-            : 'NEUTRAL';
-          const contradiction = expectedSide !== 'NEUTRAL' && expectedSide !== side;
-          const weakConf = paid.data.confidence < 50;
-          if (contradiction || weakConf) {
-            const reason = contradiction
-              ? `x402 paid signal ${paid.data.signal} contradicts scan ${side} (conf ${paid.data.confidence}%)`
-              : `x402 paid signal weak (${paid.data.signal} @ ${paid.data.confidence}%)`;
-            logger.info('[EdgeTrader] x402 veto', { asset, reason, paid: paid.data });
-            // Reuse the existing 'no-edge' action so the response type stays
-            // inside EdgeResult's action union without a schema bump. The
-            // real veto reason is on the `reason` field where operators look.
-            await recordSkip('no-edge', `x402-veto: ${reason}`);
-            return NextResponse.json({
-              success: true, ranAt, attempted: true, action: 'no-edge',
-              reason,
-            });
-          }
-          logger.info('[EdgeTrader] x402 corroboration', {
-            asset, scan: side, paid: paid.data, chargedMicros: paid.amountMicrosCharged,
-          });
-        } else {
-          logger.info('[EdgeTrader] x402 unavailable — proceeding on scan only', {
-            reason: paid.reason,
-          });
-        }
-      } catch (x402Err) {
-        logger.warn('[EdgeTrader] x402 check failed (non-critical)', {
-          error: x402Err instanceof Error ? x402Err.message : String(x402Err),
-        });
-      }
-    }
-
     // JWT expiration is handled at the BluefinService apiRequest layer
     // (auto-detects 401, forces re-auth, retries within the same call).
     // Trader just fires and trusts the SDK.
