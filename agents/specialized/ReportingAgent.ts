@@ -1101,8 +1101,8 @@ export class ReportingAgent extends BaseAgent {
     ];
 
     try {
-      const { llmProvider } = await import('@/lib/ai/llm-provider');
-      
+      const { reason } = await import('@/lib/services/ai/reasoner');
+
       // Prepare analysis context for AI
       const topRiskAssets = riskReport.assetRisks
         .sort((a, b) => b.contribution - a.contribution)
@@ -1136,19 +1136,24 @@ LOW|CATEGORY|recommendation text|rationale
 
 Categories: RISK_MANAGEMENT, HEDGING, DIVERSIFICATION, REBALANCING, OPTIMIZATION`;
 
-      // Hard cap LLM round-trip so tests and request paths can't hang on a
-      // serial provider chain when keys are missing or upstream is slow.
-      const LLM_DEADLINE_MS = Number((process.env.REPORTING_AGENT_LLM_TIMEOUT_MS || '3500').trim()) || 3500;
+      // Hard cap LLM round-trip so tests and request paths can't hang if
+      // ASI is slow. ASI is our sole Layer 3 provider — reason() returns
+      // { ok:false } silently if it's unreachable, so no exception path
+      // needed for missing provider.
+      const LLM_DEADLINE_MS = Number((process.env.REPORTING_AGENT_LLM_TIMEOUT_MS || '15000').trim()) || 15000;
       const aiResponse = await Promise.race([
-        llmProvider.generateDirectResponse(aiPrompt, systemPrompt),
+        reason({ systemPrompt, userPrompt: aiPrompt, maxIterations: 1 }),
         new Promise<never>((_, reject) =>
           setTimeout(() => reject(new Error(`llm timeout after ${LLM_DEADLINE_MS}ms`)), LLM_DEADLINE_MS),
         ),
       ]);
-      
+      if (!aiResponse.ok || !aiResponse.text) {
+        throw new Error(aiResponse.error || 'reason() returned no text');
+      }
+
       // Parse AI recommendations
       const recommendations: ComprehensiveReport['recommendations'] = [];
-      const lines = aiResponse.content.split('\n').filter(l => l.includes('|'));
+      const lines = aiResponse.text.split('\n').filter(l => l.includes('|'));
       
       for (const line of lines.slice(0, 3)) {
         const parts = line.split('|').map(p => p.trim());
@@ -1166,9 +1171,9 @@ Categories: RISK_MANAGEMENT, HEDGING, DIVERSIFICATION, REBALANCING, OPTIMIZATION
       }
       
       if (recommendations.length > 0) {
-        logger.info('🤖 AI recommendations generated', { 
+        logger.info('🤖 AI recommendations generated', {
           count: recommendations.length,
-          model: aiResponse.model,
+          elapsedMs: aiResponse.elapsedMs,
         });
         return recommendations;
       }
