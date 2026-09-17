@@ -35,6 +35,7 @@ import {
   type MarketMomentum,
 } from './PolymarketMomentumService';
 import { interpretSignal, type InterpretedSignal } from '@/lib/services/ai/signal-interpreter';
+import { recordInterpretation } from '@/lib/db/signal-interpretations';
 
 export interface PolyDiscoverTickResult {
   success: boolean;
@@ -172,6 +173,54 @@ export async function runPolyDiscoverTick(): Promise<PolyDiscoverTickResult> {
       novelty: signal.meta?.novelty ?? 0,
       source: signal.source,
     }));
+
+    // Persist for the self-improvement loop. Fire-and-forget — DB outage
+    // never blocks discovery. Only persist model-sourced interpretations;
+    // regex fallback has no self-reflection worth training on.
+    //
+    // Capture entry-price snapshot per asset so the resolver script can
+    // later judge the directional call against actual market movement.
+    // One price call per unique asset in this batch — bounded, cheap.
+    const modelInterpretations = interpretations.filter(({ signal }) => signal.source === 'model');
+    const uniqueAssets = Array.from(
+      new Set(
+        modelInterpretations
+          .map(({ signal }) => signal.asset)
+          .filter((a): a is string => typeof a === 'string' && a.length > 0),
+      ),
+    );
+    const priceByAsset = new Map<string, number>();
+    if (uniqueAssets.length > 0) {
+      const { getMultiSourceValidatedPrice } = await import('@/lib/services/market-data/unified-price-provider');
+      const priceResults = await Promise.allSettled(
+        uniqueAssets.map(async (a) => ({ asset: a, price: (await getMultiSourceValidatedPrice(a)).price })),
+      );
+      for (const r of priceResults) {
+        if (r.status === 'fulfilled' && Number.isFinite(r.value.price) && r.value.price > 0) {
+          priceByAsset.set(r.value.asset, r.value.price);
+        }
+      }
+    }
+    await Promise.allSettled(
+      modelInterpretations.map(({ market, signal }) =>
+        recordInterpretation({
+          slug: market.slug,
+          title: market.question,
+          asset: signal.asset,
+          direction: signal.direction,
+          threshold: signal.threshold,
+          horizon: signal.horizon,
+          horizonEnd: signal.horizon_end,
+          confidence: signal.confidence,
+          novelty: signal.meta?.novelty ?? 0,
+          improvementAsk: signal.meta?.improvement_ask ?? '',
+          generalizationNote: signal.meta?.generalization_note ?? '',
+          source: signal.source,
+          reasoning: signal.reasoning,
+          entryPriceUsd: signal.asset ? priceByAsset.get(signal.asset) ?? null : null,
+        }),
+      ),
+    );
 
     // ponytail: cap at last 2000 slugs. 2026-07-31 audit found this blob had
     // grown to 32,429 items / 1.2 MB — every read parsed the whole thing.

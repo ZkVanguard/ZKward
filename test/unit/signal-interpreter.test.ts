@@ -193,6 +193,36 @@ describe('signal-interpreter — model path (SIGNAL_INTERPRETER_ENABLED=1)', () 
     expect(s.direction).toBe('DOWN');
   });
 
+  it('sends X-Api-Key when SIGNAL_INTERPRETER_AUTH_HEADER is set', async () => {
+    process.env.SIGNAL_INTERPRETER_AUTH_HEADER = 'shared-secret-abc123';
+    const fetchMock = jest.fn<any>(async () =>
+      new Response(
+        JSON.stringify({ choices: [{ message: { content: '{"asset":"BTC","direction":"UP"}' } }] }),
+        { status: 200 },
+      ),
+    );
+    global.fetch = fetchMock as any;
+    const { interpretSignal } = await loadInterpreter();
+    await interpretSignal('Will BTC hit $70K?');
+    const [, init] = fetchMock.mock.calls[0];
+    expect((init as any).headers['X-Api-Key']).toBe('shared-secret-abc123');
+  });
+
+  it('omits X-Api-Key when SIGNAL_INTERPRETER_AUTH_HEADER is empty', async () => {
+    delete process.env.SIGNAL_INTERPRETER_AUTH_HEADER;
+    const fetchMock = jest.fn<any>(async () =>
+      new Response(
+        JSON.stringify({ choices: [{ message: { content: '{"asset":"BTC","direction":"UP"}' } }] }),
+        { status: 200 },
+      ),
+    );
+    global.fetch = fetchMock as any;
+    const { interpretSignal } = await loadInterpreter();
+    await interpretSignal('Will BTC hit $70K?');
+    const [, init] = fetchMock.mock.calls[0];
+    expect((init as any).headers['X-Api-Key']).toBeUndefined();
+  });
+
   it('coerces bad enum values in model output to safe defaults', async () => {
     global.fetch = jest.fn<any>(async () =>
       new Response(

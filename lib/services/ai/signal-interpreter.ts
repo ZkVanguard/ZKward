@@ -8,11 +8,14 @@
  * a model outage never breaks signal ingestion.
  *
  * Env knobs:
- *   SIGNAL_INTERPRETER_ENABLED    — "1" to use the model. Default OFF.
- *   SIGNAL_INTERPRETER_MODEL_URL  — base URL of the OpenAI-compatible
- *                                   endpoint (default: http://localhost:11434 = Ollama).
- *   SIGNAL_INTERPRETER_MODEL_NAME — model name (default: zkward-signal-interp:qwen2.5-7b)
- *   SIGNAL_INTERPRETER_TIMEOUT_MS — hard cap per request (default: 5000)
+ *   SIGNAL_INTERPRETER_ENABLED     — "1" to use the model. Default OFF.
+ *   SIGNAL_INTERPRETER_MODEL_URL   — base URL of the OpenAI-compatible
+ *                                    endpoint (default: http://localhost:11434 = Ollama).
+ *   SIGNAL_INTERPRETER_MODEL_NAME  — model name (default: zkward-signal-interp:qwen2.5-7b)
+ *   SIGNAL_INTERPRETER_TIMEOUT_MS  — hard cap per request (default: 5000)
+ *   SIGNAL_INTERPRETER_AUTH_HEADER — shared secret sent as X-Api-Key. Must
+ *                                    match server-side. Unset = no header
+ *                                    (dev / trusted-network path).
  *
  * Training pipeline: see docs/AI_TRAINING_WORKFLOW.md.
  */
@@ -110,6 +113,7 @@ async function callModel(title: string, opts: InterpretOptions): Promise<Interpr
   );
   const model = process.env.SIGNAL_INTERPRETER_MODEL_NAME || 'zkward-signal-interp:qwen2.5-7b';
   const timeoutMs = Number(process.env.SIGNAL_INTERPRETER_TIMEOUT_MS) || 5000;
+  const authHeader = (process.env.SIGNAL_INTERPRETER_AUTH_HEADER || '').trim();
 
   const userLines = [`Title: ${title}`];
   if (opts.category && opts.category !== 'unknown') userLines.push(`Category: ${opts.category}`);
@@ -118,9 +122,11 @@ async function callModel(title: string, opts: InterpretOptions): Promise<Interpr
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (authHeader) headers['X-Api-Key'] = authHeader;
     const resp = await fetch(`${base}/v1/chat/completions`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify({
         model,
         messages: [

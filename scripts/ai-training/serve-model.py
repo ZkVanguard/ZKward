@@ -15,14 +15,84 @@ Endpoints:
 """
 import argparse
 import json
+import os
+import re
 import sys
 import time
 import uuid
 from typing import List, Optional
 
+
+# Qwen 2.5's tool-call token markers. Model was trained to emit these
+# inline when it decides to call a tool. We parse them out of the raw
+# content string here and convert to OpenAI's structured tool_calls
+# shape — that's what the OpenAI SDK (and our tool-runner) expects.
+_TOOL_CALL_RE = re.compile(r"<tool_call>\s*(\{.*?\})\s*</tool_call>", re.DOTALL)
+
+
+def _inject_tools(messages: List[dict], tools: Optional[List[dict]]) -> List[dict]:
+    """When the caller passed OpenAI-shape `tools`, prepend a description
+    block to the system message in the exact format the model was trained
+    on. Without this, the model doesn't know the tool names are TOOLS."""
+    if not tools:
+        return messages
+    lines = ["You reason about Zkward's live state. Available tools:"]
+    for t in tools:
+        fn = t.get("function") if t.get("type") == "function" else t
+        if not fn:
+            continue
+        name = fn.get("name") or ""
+        desc = fn.get("description") or ""
+        if name:
+            lines.append(f"- {name}: {desc}")
+    lines.append(
+        '\nCall a tool with <tool_call>{"name":"...","arguments":{...}}</tool_call>. '
+        "If a tool errors, be honest — never fabricate results. "
+        "If the answer is in the prompt, respond directly without a tool call."
+    )
+    tool_block = "\n".join(lines)
+    # Prepend/merge into system message
+    out = []
+    injected = False
+    for m in messages:
+        if m["role"] == "system" and not injected:
+            merged = f"{tool_block}\n\n{m['content']}" if m.get("content") else tool_block
+            out.append({"role": "system", "content": merged})
+            injected = True
+        else:
+            out.append(m)
+    if not injected:
+        out.insert(0, {"role": "system", "content": tool_block})
+    return out
+
+
+def _extract_tool_calls(content: str):
+    """Return (cleaned_content, tool_calls_list). If the content has any
+    <tool_call>{json}</tool_call> markers, they're extracted into an
+    OpenAI-shaped tool_calls list. Content is stripped of the markers."""
+    tool_calls = []
+    for m in _TOOL_CALL_RE.finditer(content):
+        try:
+            payload = json.loads(m.group(1))
+        except json.JSONDecodeError:
+            continue
+        name = payload.get("name") or ""
+        args = payload.get("arguments") or {}
+        if not name:
+            continue
+        tool_calls.append({
+            "id": f"call_{uuid.uuid4().hex[:16]}",
+            "type": "function",
+            "function": {"name": name, "arguments": json.dumps(args)},
+        })
+    if not tool_calls:
+        return content, None
+    cleaned = _TOOL_CALL_RE.sub("", content).strip()
+    return cleaned, tool_calls
+
 import torch
 import uvicorn
-from fastapi import FastAPI
+from fastapi import FastAPI, Header, HTTPException
 from pydantic import BaseModel
 from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 
@@ -63,10 +133,27 @@ print(f"[serve] Model loaded in {time.time() - _load_start:.1f}s. Stop tokens: {
 # ── FastAPI app ────────────────────────────────────────────────────────
 app = FastAPI(title="Zkward Signal Interpreter")
 
+# Shared-secret header. Empty env → auth disabled (local dev). Required
+# once the server is behind a public tunnel — /health stays open so
+# monitoring can probe without the secret.
+_AUTH_SECRET = (os.environ.get("SIGNAL_INTERPRETER_AUTH_HEADER") or "").strip()
+
+
+def _require_auth(x_api_key: Optional[str]):
+    if not _AUTH_SECRET:
+        return
+    if x_api_key != _AUTH_SECRET:
+        raise HTTPException(status_code=401, detail="invalid or missing X-Api-Key")
+
 
 class ChatMessage(BaseModel):
     role: str
-    content: str
+    content: Optional[str] = None
+    # OpenAI-shape assistant turns carrying tool calls, plus tool-return
+    # observations that come back to the model.
+    tool_calls: Optional[List[dict]] = None
+    tool_call_id: Optional[str] = None
+    name: Optional[str] = None
 
 
 class ChatCompletionRequest(BaseModel):
@@ -76,6 +163,11 @@ class ChatCompletionRequest(BaseModel):
     max_tokens: Optional[int] = 200
     top_p: Optional[float] = 1.0
     stream: Optional[bool] = False
+    # OpenAI-shape tool schemas. When present, we inject their descriptions
+    # into the system prompt in the exact format the model was trained on,
+    # so it recognizes them as available tools and emits <tool_call> XML.
+    tools: Optional[List[dict]] = None
+    tool_choice: Optional[str] = None
 
 
 class GenerateRequest(BaseModel):
@@ -123,14 +215,39 @@ def _generate_text(messages: List[dict], max_tokens: int, temperature: float, to
 
 
 @app.post("/v1/chat/completions")
-def chat_completions(req: ChatCompletionRequest):
+def chat_completions(req: ChatCompletionRequest, x_api_key: Optional[str] = Header(default=None)):
+    _require_auth(x_api_key)
     t0 = time.time()
-    messages = [{"role": m.role, "content": m.content} for m in req.messages]
+    # Reconstruct messages in the format the tokenizer's chat_template expects.
+    # OpenAI-shape assistant turns carry `tool_calls` structured; we re-emit
+    # them as inline <tool_call>{...}</tool_call> markers so the model sees
+    # the same format it was trained on.
+    messages = []
+    for m in req.messages:
+        if m.role == "assistant" and m.tool_calls:
+            parts = []
+            if m.content:
+                parts.append(m.content)
+            for tc in m.tool_calls:
+                fn = tc.get("function", {})
+                try:
+                    args = json.loads(fn.get("arguments") or "{}")
+                except json.JSONDecodeError:
+                    args = fn.get("arguments") or {}
+                parts.append(f'<tool_call>{{"name":"{fn.get("name","")}","arguments":{json.dumps(args)}}}</tool_call>')
+            messages.append({"role": "assistant", "content": "".join(parts)})
+        else:
+            messages.append({"role": m.role, "content": m.content or ""})
+    messages = _inject_tools(messages, req.tools)
     content, n_tok = _generate_text(
         messages, req.max_tokens or 200, req.temperature or 0.0, req.top_p or 1.0
     )
     elapsed = time.time() - t0
-    print(f"[chat] {n_tok} tok in {elapsed:.2f}s ({n_tok / max(elapsed, 0.001):.1f} tok/s)")
+    cleaned_content, tool_calls = _extract_tool_calls(content)
+    print(f"[chat] {n_tok} tok in {elapsed:.2f}s ({n_tok / max(elapsed, 0.001):.1f} tok/s) tool_calls={len(tool_calls or [])}")
+    message = {"role": "assistant", "content": cleaned_content or None}
+    if tool_calls:
+        message["tool_calls"] = tool_calls
     return {
         "id": f"chatcmpl-{uuid.uuid4().hex[:12]}",
         "object": "chat.completion",
@@ -139,8 +256,8 @@ def chat_completions(req: ChatCompletionRequest):
         "choices": [
             {
                 "index": 0,
-                "message": {"role": "assistant", "content": content},
-                "finish_reason": "stop",
+                "message": message,
+                "finish_reason": "tool_calls" if tool_calls else "stop",
             }
         ],
         "usage": {
@@ -152,7 +269,8 @@ def chat_completions(req: ChatCompletionRequest):
 
 
 @app.post("/v1/chat/completions/batch")
-def chat_completions_batch(req: BatchChatRequest):
+def chat_completions_batch(req: BatchChatRequest, x_api_key: Optional[str] = Header(default=None)):
+    _require_auth(x_api_key)
     """Batched chat inference. Pass N conversations, get N completions.
     Big throughput win over N sequential /v1/chat/completions calls."""
     t0 = time.time()
@@ -201,7 +319,8 @@ def chat_completions_batch(req: BatchChatRequest):
 
 
 @app.post("/generate")
-def generate(req: GenerateRequest):
+def generate(req: GenerateRequest, x_api_key: Optional[str] = Header(default=None)):
+    _require_auth(x_api_key)
     text, n_tok = _generate_text(
         [{"role": "user", "content": req.prompt}], req.max_tokens or 200, 0.0, 1.0
     )

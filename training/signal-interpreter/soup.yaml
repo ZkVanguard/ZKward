@@ -20,9 +20,13 @@ data:
   train: ./train.jsonl
   format: chatml       # {messages: [{role,content}]}  — Soup auto-detects; explicit here
   val_split: 0.1
-  # After moving constitution out of training data (kept only in Modelfile
-  # for runtime), data max = 276 tokens, p90 = 259, median = 248. 512 gives
-  # 2x headroom for future examples without wasting VRAM on padding.
+  # v2 attempt 3: matches v1's memory profile exactly. System prompt for
+  # tool-use compressed 408→140 tokens (compact tool declarations, dropped
+  # verbose format instructions — model learns format from example turns).
+  # Filtered tool-use to ≤480 tokens: 104 kept, 16 dropped. Combined with
+  # 734 signal-interp = 838 total. All examples fit 512 with margin.
+  # First two attempts (1536, 1024) hit the WSL2 paging trap because
+  # activation memory scales with max_length² — 8GB VRAM has no slack.
   max_length: 512
 
 training:

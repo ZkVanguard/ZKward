@@ -47,6 +47,11 @@ coverage/
 # Python ZK backend (separate deployment)
 zkp/
 
+# Fine-tuned model artifacts (served from WSL/GPU host, not Vercel)
+# 15 GB — safetensors weights + tokenizer + checkpoints. Vercel deploy
+# fails at ~14.3 GB upload; model runs behind SIGNAL_INTERPRETER_MODEL_URL.
+training/signal-interpreter/output/
+
 # Hardhat
 hardhat.config.cjs
 tsconfig.hardhat.json
