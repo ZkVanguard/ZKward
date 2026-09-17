@@ -46,6 +46,14 @@ export interface SimulatedPosition {
   // for backward-compat with positions written before the calibrator
   // landed.
   sourceSnapshot?: SourceSnapshot[];
+  // Peak unrealized PnL (USD) observed during the position's life. Drives
+  // trailing-stop: once armed, close if unrealized drops back below a
+  // configurable fraction of this peak. Optional for backward-compat.
+  peakUnrealizedPnl?: number;
+  // Signal metadata used at open. Kept in position state so trailing-stop
+  // and notify layer can reference it without re-scanning the aggregator.
+  entryConfidence?: number;
+  entryConsensus?: number;
 }
 
 export interface SimulatedCloseResult {

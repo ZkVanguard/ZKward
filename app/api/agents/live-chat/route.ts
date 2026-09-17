@@ -19,7 +19,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { logger } from '@/lib/utils/logger';
 import { heavyLimiter } from '@/lib/security/rate-limiter';
 import { safeErrorResponse } from '@/lib/security/safe-error';
-import { runWithTools } from '@/lib/services/ai/tool-runner';
+import { runWithToolsStream, type HistoryTurn, type StreamEvent } from '@/lib/services/ai/tool-runner';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -47,6 +47,22 @@ Style:
 - Never fabricate — if you don't have data, say what tool would get it.
 - Never end with "let me know if you need anything else". End with the next actionable step or question.`;
 
+const MAX_HISTORY_TURNS = 12;
+
+function normalizeHistory(raw: unknown): HistoryTurn[] {
+  if (!Array.isArray(raw)) return [];
+  const out: HistoryTurn[] = [];
+  for (const item of raw) {
+    if (!item || typeof item !== 'object') continue;
+    const role = (item as { role?: unknown }).role;
+    const content = (item as { content?: unknown }).content;
+    if ((role === 'user' || role === 'assistant') && typeof content === 'string' && content.trim()) {
+      out.push({ role, content: content.slice(0, 8000) });
+    }
+  }
+  return out.slice(-MAX_HISTORY_TURNS);
+}
+
 export async function POST(request: NextRequest) {
   const limited = heavyLimiter.check(request);
   if (limited) return limited;
@@ -60,44 +76,50 @@ export async function POST(request: NextRequest) {
     if (message.length > 2000) {
       return NextResponse.json({ error: 'message too long' }, { status: 413 });
     }
+    const priorMessages = normalizeHistory(body?.history);
 
-    const started = Date.now();
-    const result = await runWithTools({
-      systemPrompt: SYSTEM_PROMPT,
-      userPrompt: message,
-      maxIterations: 5,
+    const messagePreview = message.slice(0, 60);
+    const collectedTools: string[] = [];
+
+    const stream = new ReadableStream<Uint8Array>({
+      async start(controller) {
+        const encoder = new TextEncoder();
+        const emit = (event: StreamEvent) => {
+          controller.enqueue(encoder.encode(JSON.stringify(event) + '\n'));
+        };
+        try {
+          for await (const event of runWithToolsStream({
+            systemPrompt: SYSTEM_PROMPT,
+            userPrompt: message,
+            priorMessages,
+            maxIterations: 6,
+          })) {
+            if (event.type === 'tool_end') {
+              collectedTools.push(`${event.tool}(${event.ok ? 'ok' : 'err'})`);
+            }
+            emit(event);
+          }
+          logger.info('[LiveChat] streamed', {
+            messagePreview,
+            tools: collectedTools,
+            historyTurns: priorMessages.length,
+          });
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : 'stream failed';
+          logger.error('[LiveChat] stream error', { error: msg });
+          emit({ type: 'error', message: msg });
+        } finally {
+          controller.close();
+        }
+      },
     });
-    const elapsed = Date.now() - started;
 
-    if (!result.finishedNormally && result.invocations.length === 0) {
-      // No provider available (env not set) — return a helpful fallback
-      return NextResponse.json({
-        answer: 'The status oracle is not currently available. Set ASI_API_KEY in production to enable live status queries.',
-        toolCalls: [],
-        elapsedMs: elapsed,
-        healthy: false,
-      });
-    }
-
-    logger.info('[LiveChat] answered', {
-      messagePreview: message.slice(0, 60),
-      tools: result.invocations.map(i => `${i.tool}(${i.ok ? 'ok' : 'err'})`),
-      iterations: result.iterations,
-      elapsedMs: elapsed,
-    });
-
-    return NextResponse.json({
-      answer: result.finalText || '(no response generated)',
-      toolCalls: result.invocations.map(i => ({
-        tool: i.tool,
-        ok: i.ok,
-        latencyMs: i.latencyMs,
-        // Redact large results — UI shows they were called, not their contents
-        argsPreview: JSON.stringify(i.args).slice(0, 200),
-      })),
-      iterations: result.iterations,
-      elapsedMs: elapsed,
-      healthy: true,
+    return new Response(stream, {
+      headers: {
+        'Content-Type': 'application/x-ndjson; charset=utf-8',
+        'Cache-Control': 'no-cache, no-transform',
+        'X-Accel-Buffering': 'no',
+      },
     });
   } catch (err) {
     logger.error('[LiveChat] failed', { error: err instanceof Error ? err.message : err });

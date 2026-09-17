@@ -24,6 +24,7 @@ import { createHedge, closeHedge } from '@/lib/db/hedges';
 import { query } from '@/lib/db/postgres';
 import { logger } from '@/lib/utils/logger';
 import { errMsg } from '@/lib/utils/error-handler';
+import { notifyDiscord } from '@/lib/utils/discord-notify';
 import {
   simulateOpen,
   simulateClose,
@@ -42,11 +43,69 @@ export const PAPER_UNIVERSE = (process.env.PAPER_TRADER_ASSETS || 'BTC,ETH,SOL,X
 
 export const PAPER_STARTING_NAV = Number(process.env.PAPER_TRADER_STARTING_NAV || 100_000);
 export const PAPER_LEVERAGE = Number(process.env.PAPER_TRADER_LEVERAGE || 3);
-export const PAPER_STAKE_PCT = Number(process.env.PAPER_TRADER_STAKE_PCT || 0.20);
+// Reduced 2026-09-17 from 0.20 -> 0.05. At 20% stake × 3x leverage, every
+// trade risked 60% of NAV in gross notional. Observed 118 trades, 25% win
+// rate, -$62.5k in 2.4 days on a $607k NAV — sizing did the damage, not
+// signal quality.
+export const PAPER_STAKE_PCT = Number(process.env.PAPER_TRADER_STAKE_PCT || 0.05);
 export const PAPER_MAX_HOLD_MIN = Number(process.env.PAPER_TRADER_MAX_HOLD_MIN || 20);
 export const PAPER_MIN_CONFIDENCE = Number(process.env.PAPER_TRADER_MIN_CONFIDENCE || 55);
 export const PAPER_MIN_CONSENSUS = Number(process.env.PAPER_TRADER_MIN_CONSENSUS || 50);
 export const PAPER_MIN_SOURCES = Number(process.env.PAPER_TRADER_MIN_SOURCES || 2);
+
+// Risk-control gates added 2026-09-17.
+export const PAPER_PROFIT_LOCK_DRAWDOWN_PCT = Number(
+  process.env.PAPER_TRADER_PROFIT_LOCK_DRAWDOWN || 0.05,
+);
+export const PAPER_STOP_LOSS_PCT = Number(process.env.PAPER_TRADER_STOP_LOSS_PCT || 0.02);
+export const PAPER_MAX_CONSECUTIVE_LOSSES = Number(
+  process.env.PAPER_TRADER_MAX_CONSECUTIVE_LOSSES || 5,
+);
+export const PAPER_HALT_HOURS = Number(process.env.PAPER_TRADER_HALT_HOURS || 4);
+
+// Trailing-stop + confidence-weighting + regret cooldown (2026-09-17 pt.2).
+// The trader now uses signal strength directly instead of treating a 55%
+// confidence and a 90% confidence identically.
+export const PAPER_TRAILING_STOP_ARM_PCT = Number(
+  process.env.PAPER_TRADER_TRAILING_ARM_PCT || 0.01,
+);
+export const PAPER_TRAILING_STOP_GIVEBACK_PCT = Number(
+  process.env.PAPER_TRADER_TRAILING_GIVEBACK_PCT || 0.5,
+);
+export const PAPER_REGRET_COOLDOWN_PCT = Number(
+  process.env.PAPER_TRADER_REGRET_COOLDOWN_PCT || 0.02,
+);
+export const PAPER_REGRET_WINDOW = Number(process.env.PAPER_TRADER_REGRET_WINDOW || 20);
+
+/** Per-asset volatility multiplier — the "vol parity" fix. SOL and small-caps
+ *  are ~2x more volatile than BTC; equal notional means unequal risk. This
+ *  scales stake DOWN for high-vol assets so the max-loss floor lines up.
+ *  Override with PAPER_TRADER_ASSET_VOL_MULT='{"BTC":1,"ETH":0.9,...}'. */
+export const PAPER_ASSET_VOL_MULT: Record<string, number> = (() => {
+  const raw = process.env.PAPER_TRADER_ASSET_VOL_MULT;
+  if (raw) {
+    try {
+      const parsed = JSON.parse(raw) as Record<string, number>;
+      if (parsed && typeof parsed === 'object') return parsed;
+    } catch {
+      // Fall through to default.
+    }
+  }
+  return { BTC: 1.0, ETH: 0.85, SOL: 0.55, XRP: 0.65, DOGE: 0.50 };
+})();
+
+/**
+ * Confidence-weighted stake scalar. Rides the 55–100 confidence range and
+ * the 50–100 consensus range, averaged to a single scalar in [0.4, 2.0].
+ * Ensures a min-gate 55/50 signal gets 0.4× nominal (skin in the game) and
+ * a 100/100 exceptional signal gets 2× nominal.
+ */
+export function computeSignalScalar(confidence: number, consensus: number): number {
+  const confN = Math.max(0, Math.min(1, (confidence - 55) / 45));
+  const consN = Math.max(0, Math.min(1, (consensus - 50) / 50));
+  const avg = (confN + consN) / 2;
+  return 0.4 + avg * 1.6;
+}
 
 // Reserved portfolio ID for paper trader (community pool = -1, SUI = -2).
 export const PAPER_PORTFOLIO_ID = -3;
@@ -70,6 +129,13 @@ export interface PaperStats {
   cumRealizedUsd: number;
   peakNavUsd: number;
   lastRealizedUsd: number;
+  // Optional so old stats records deserialize cleanly; hydrated on first
+  // update after the 2026-09-17 risk-control patch.
+  consecutiveLosses?: number;
+  dailyPeakNavUsd?: number;
+  dailyPeakDateUtc?: string;
+  haltedUntilMs?: number;
+  lastHaltReason?: string;
 }
 
 export interface TickResult {
@@ -90,6 +156,65 @@ async function pushNavSample(ts: number, nav: number): Promise<void> {
   series.push({ ts, nav });
   const trimmed = series.length > NAV_SERIES_MAX ? series.slice(-NAV_SERIES_MAX) : series;
   await setCronState(KEY_NAV_SERIES, trimmed);
+}
+
+function utcDateStr(ts: number): string {
+  return new Date(ts).toISOString().slice(0, 10);
+}
+
+/**
+ * Sum realized PnL for the last N closed paper trades on (asset, side).
+ * Feeds the regret cooldown — an (asset, side) with a deep recent loss
+ * gets skipped even if the current signal is strong. Fails soft (returns 0)
+ * so a DB blip doesn't paralyze the trader.
+ */
+async function assetSideRecentPnl(
+  asset: string,
+  side: Side,
+  limit: number,
+): Promise<number> {
+  try {
+    const rows = await query<{ pnl: string | number }>(
+      `SELECT COALESCE(current_pnl, realized_pnl, 0) AS pnl
+       FROM hedges
+       WHERE order_id LIKE 'paper_%' AND asset = $1 AND side = $2 AND status = 'closed'
+       ORDER BY closed_at DESC NULLS LAST
+       LIMIT $3`,
+      [asset, side, limit],
+    );
+    return rows.reduce((sum, r) => sum + Number(r.pnl ?? 0), 0);
+  } catch (e) {
+    logger.debug('[PaperTrader] regret lookup failed (non-fatal)', { error: errMsg(e) });
+    return 0;
+  }
+}
+
+/**
+ * Load stats or seed a fresh record. Reconciles daily peak on UTC-day
+ * rollover so the profit-lock resets naturally at midnight rather than
+ * staying halted forever after a bad day.
+ */
+async function loadStats(nav: number, now: number): Promise<PaperStats> {
+  const stats = (await getCronState<PaperStats>(KEY_STATS)) ?? {
+    trades: 0,
+    wins: 0,
+    losses: 0,
+    cumRealizedUsd: 0,
+    peakNavUsd: nav,
+    lastRealizedUsd: 0,
+  };
+  const today = utcDateStr(now);
+  if (stats.dailyPeakDateUtc !== today) {
+    stats.dailyPeakDateUtc = today;
+    stats.dailyPeakNavUsd = nav;
+    // Fresh day resets the halt. Consecutive-losses count carries across
+    // days on purpose — a losing streak is still a losing streak.
+    stats.haltedUntilMs = 0;
+    stats.lastHaltReason = undefined;
+  }
+  if ((stats.dailyPeakNavUsd ?? 0) < nav) stats.dailyPeakNavUsd = nav;
+  if (stats.peakNavUsd < nav) stats.peakNavUsd = nav;
+  return stats;
 }
 
 export class PaperTrader {
@@ -125,13 +250,51 @@ export class PaperTrader {
       return { action: 'skipped', reason: 'no mark price', nav };
     }
 
-    // 1. Max-hold expiry → close
+    // 1. Stop-loss (2026-09-17) — bail before the 20-min max-hold if the
+    //    position has already leaked > PAPER_STOP_LOSS_PCT of NAV. Prevents
+    //    the "hold-through-drawdown" pattern that dominated the -$62k bleed.
+    const mtm = markToMarket(pos, markPrice, now);
+    if (mtm.unrealizedPnlUsd < -nav * PAPER_STOP_LOSS_PCT) {
+      return PaperTrader.closeAtMark(
+        pos,
+        markPrice,
+        nav,
+        now,
+        `stop-loss: unrealized -$${Math.abs(mtm.unrealizedPnlUsd).toFixed(2)} > ${(PAPER_STOP_LOSS_PCT * 100).toFixed(1)}% of NAV`,
+      );
+    }
+
+    // 2. Trailing stop — once we've been up >= PAPER_TRAILING_STOP_ARM_PCT
+    //    of NAV, close if we've given back PAPER_TRAILING_STOP_GIVEBACK_PCT
+    //    of that peak. Locks in half the winner instead of letting max-hold
+    //    return the full move to zero.
+    const priorPeak = pos.peakUnrealizedPnl ?? 0;
+    const currentPeak = Math.max(priorPeak, mtm.unrealizedPnlUsd);
+    const trailingArmed = currentPeak >= nav * PAPER_TRAILING_STOP_ARM_PCT;
+    if (
+      trailingArmed &&
+      mtm.unrealizedPnlUsd < currentPeak * (1 - PAPER_TRAILING_STOP_GIVEBACK_PCT)
+    ) {
+      return PaperTrader.closeAtMark(
+        pos,
+        markPrice,
+        nav,
+        now,
+        `trailing-stop: peak +$${currentPeak.toFixed(2)}, gave back to +$${mtm.unrealizedPnlUsd.toFixed(2)}`,
+      );
+    }
+    // Persist the updated peak so cross-tick reads see the ratchet.
+    if (currentPeak > priorPeak) {
+      await setCronState(KEY_POSITION, { ...pos, peakUnrealizedPnl: currentPeak });
+    }
+
+    // 3. Max-hold expiry → close
     const holdMs = now - pos.openedAt;
     if (holdMs >= PAPER_MAX_HOLD_MIN * 60_000) {
       return PaperTrader.closeAtMark(pos, markPrice, nav, now, 'max-hold expired');
     }
 
-    // 2. Signal-flip exit (mirrors #101 confidence gate)
+    // 4. Signal-flip exit (mirrors #101 confidence gate)
     try {
       const scan = await PredictionAggregatorService.scanAndPickBest(PAPER_UNIVERSE, {
         minConfidence: 0,
@@ -155,8 +318,7 @@ export class PaperTrader {
       logger.debug('[PaperTrader] flip re-scan failed (non-fatal)', { error: errMsg(e) });
     }
 
-    // 3. Otherwise hold. Report mark-to-market NAV for the chart.
-    const mtm = markToMarket(pos, markPrice, now);
+    // 5. Otherwise hold. Report mark-to-market NAV for the chart (reuse mtm from stop-loss check above).
     const currentNav = nav + mtm.unrealizedPnlUsd;
     return {
       action: 'held',
@@ -166,6 +328,67 @@ export class PaperTrader {
   }
 
   private static async handleEntry(nav: number, now: number): Promise<TickResult> {
+    // ── Risk-control gates (2026-09-17) ────────────────────────────────
+    // Run BEFORE the signal scan so a halted trader doesn't waste an API
+    // round-trip. All gates share one halted-until timestamp so a fresh
+    // trip extends rather than stacks halts.
+    const stats = await loadStats(nav, now);
+
+    if (stats.haltedUntilMs && stats.haltedUntilMs > now) {
+      await setCronState(KEY_STATS, stats);
+      return {
+        action: 'skipped',
+        reason: `halted until ${new Date(stats.haltedUntilMs).toISOString()} (${stats.lastHaltReason ?? 'unknown'})`,
+        nav,
+      };
+    }
+
+    const dailyPeak = stats.dailyPeakNavUsd ?? nav;
+    const dailyDrawdown = dailyPeak > 0 ? (dailyPeak - nav) / dailyPeak : 0;
+    if (dailyDrawdown >= PAPER_PROFIT_LOCK_DRAWDOWN_PCT) {
+      // Halt for min(PAPER_HALT_HOURS, until UTC midnight). The daily-peak
+      // reset in loadStats() clears the halt at next UTC-day rollover.
+      const utcMidnight = new Date(now);
+      utcMidnight.setUTCHours(24, 0, 0, 0);
+      stats.haltedUntilMs = Math.min(
+        utcMidnight.getTime(),
+        now + PAPER_HALT_HOURS * 60 * 60 * 1000,
+      );
+      stats.lastHaltReason = `profit-lock: daily drawdown ${(dailyDrawdown * 100).toFixed(1)}%`;
+      await setCronState(KEY_STATS, stats);
+      logger.warn('[PaperTrader] profit-lock tripped', {
+        dailyPeak: dailyPeak.toFixed(2),
+        nav: nav.toFixed(2),
+        drawdownPct: (dailyDrawdown * 100).toFixed(1),
+        haltedUntilMs: stats.haltedUntilMs,
+      });
+      void notifyDiscord(
+        `Paper HALT (profit-lock) • daily peak $${(dailyPeak / 1000).toFixed(1)}k → NAV $${(nav / 1000).toFixed(1)}k • drawdown ${(dailyDrawdown * 100).toFixed(1)}% • resumes ${new Date(stats.haltedUntilMs).toISOString()}`,
+        'KILL',
+        { source: 'paper-trader', dailyPeak, nav, drawdownPct: dailyDrawdown },
+      ).catch(() => undefined);
+      return { action: 'skipped', reason: stats.lastHaltReason, nav };
+    }
+
+    if ((stats.consecutiveLosses ?? 0) >= PAPER_MAX_CONSECUTIVE_LOSSES) {
+      stats.haltedUntilMs = now + PAPER_HALT_HOURS * 60 * 60 * 1000;
+      stats.lastHaltReason = `${stats.consecutiveLosses} consecutive losses`;
+      await setCronState(KEY_STATS, stats);
+      logger.warn('[PaperTrader] consecutive-loss halt', {
+        consecutiveLosses: stats.consecutiveLosses,
+        haltHours: PAPER_HALT_HOURS,
+      });
+      void notifyDiscord(
+        `Paper HALT (streak) • ${stats.consecutiveLosses} consecutive losses • cooling off ${PAPER_HALT_HOURS}h`,
+        'KILL',
+        { source: 'paper-trader', consecutiveLosses: stats.consecutiveLosses },
+      ).catch(() => undefined);
+      return { action: 'skipped', reason: stats.lastHaltReason, nav };
+    }
+
+    // Persist any daily-peak refresh from loadStats().
+    await setCronState(KEY_STATS, stats);
+
     let scan: Awaited<ReturnType<typeof PredictionAggregatorService.scanAndPickBest>>;
     try {
       scan = await PredictionAggregatorService.scanAndPickBest(PAPER_UNIVERSE, {
@@ -183,12 +406,38 @@ export class PaperTrader {
     const side = recommendationToSide(rec);
     if (!side) return { action: 'skipped', reason: 'non-directional signal', nav };
 
+    // Per-asset regret cooldown — a losing (asset, side) streak means the
+    // signal has been chronically wrong on that leg. Skip until the losing
+    // trades roll out of the rolling window.
+    const recentPnl = await assetSideRecentPnl(asset, side, PAPER_REGRET_WINDOW);
+    if (recentPnl < -nav * PAPER_REGRET_COOLDOWN_PCT) {
+      logger.info('[PaperTrader] regret cooldown skip', {
+        asset,
+        side,
+        recentPnl: recentPnl.toFixed(2),
+        threshold: (-nav * PAPER_REGRET_COOLDOWN_PCT).toFixed(2),
+      });
+      return {
+        action: 'skipped',
+        reason: `regret-cooldown: ${asset} ${side} last ${PAPER_REGRET_WINDOW} = $${recentPnl.toFixed(0)}`,
+        nav,
+      };
+    }
+
     const markPrice = await getLivePrice(asset);
     if (!markPrice || markPrice <= 0) {
       return { action: 'skipped', reason: 'no mark price', nav };
     }
 
-    const stakeUsd = nav * PAPER_STAKE_PCT;
+    // Sizing: base stake × confidence-scalar × per-asset vol multiplier.
+    // The confidence scalar weights strong signals bigger and weak signals
+    // smaller; the vol multiplier stops SOL from carrying 2× BTC risk at
+    // equal notional (SOL vol ~2× BTC vol in normal markets).
+    const conf = scan.best.prediction.confidence ?? 0;
+    const cons = (scan.best.prediction as { consensus?: number }).consensus ?? 0;
+    const signalScalar = computeSignalScalar(conf, cons);
+    const volMult = PAPER_ASSET_VOL_MULT[asset] ?? 1.0;
+    const stakeUsd = nav * PAPER_STAKE_PCT * signalScalar * volMult;
     const notionalUsd = stakeUsd * PAPER_LEVERAGE;
     if (notionalUsd < 1) {
       return { action: 'skipped', reason: `notional too small ($${notionalUsd.toFixed(2)})`, nav };
@@ -209,6 +458,9 @@ export class PaperTrader {
         now,
       ),
       sourceSnapshot,
+      peakUnrealizedPnl: 0,
+      entryConfidence: conf,
+      entryConsensus: cons,
     };
 
     const orderId = `paper_${asset}_${Math.floor(now / 1000)}`;
@@ -243,7 +495,25 @@ export class PaperTrader {
       entryPrice: markPrice,
       recommendation: rec,
       score: scan.best.score.toFixed(1),
+      signalScalar: signalScalar.toFixed(2),
+      volMult: volMult.toFixed(2),
     });
+
+    void notifyDiscord(
+      `Paper OPEN ${asset} ${side} @ $${markPrice.toFixed(2)} • notional $${(notionalUsd / 1000).toFixed(1)}k • conf ${conf.toFixed(0)} • cons ${cons.toFixed(0)}`,
+      'TRADE',
+      {
+        source: 'paper-trader',
+        asset,
+        side,
+        notionalUsd,
+        confidence: conf,
+        consensus: cons,
+        signalScalar,
+        volMult,
+        recommendation: rec,
+      },
+    ).catch(() => undefined);
 
     return {
       action: 'opened',
@@ -285,21 +555,20 @@ export class PaperTrader {
     await setCronState(KEY_ORDER_ID, null);
     await setCronState(KEY_NAV, newNav);
 
-    // Update stats
-    const stats: PaperStats = (await getCronState<PaperStats>(KEY_STATS)) ?? {
-      trades: 0,
-      wins: 0,
-      losses: 0,
-      cumRealizedUsd: 0,
-      peakNavUsd: PAPER_STARTING_NAV,
-      lastRealizedUsd: 0,
-    };
+    // Update stats — reuse loadStats so daily-peak + halt-reset stay in sync.
+    const stats = await loadStats(newNav, now);
     stats.trades += 1;
-    if (result.realizedPnlUsd > 0) stats.wins += 1;
-    else stats.losses += 1;
+    if (result.realizedPnlUsd > 0) {
+      stats.wins += 1;
+      stats.consecutiveLosses = 0;
+    } else {
+      stats.losses += 1;
+      stats.consecutiveLosses = (stats.consecutiveLosses ?? 0) + 1;
+    }
     stats.cumRealizedUsd += result.realizedPnlUsd;
     stats.lastRealizedUsd = result.realizedPnlUsd;
     stats.peakNavUsd = Math.max(stats.peakNavUsd, newNav);
+    if ((stats.dailyPeakNavUsd ?? 0) < newNav) stats.dailyPeakNavUsd = newNav;
     await setCronState(KEY_STATS, stats);
 
     // Close DB row + persist funding + close reason
@@ -328,6 +597,24 @@ export class PaperTrader {
       holdSec: result.holdSeconds,
       newNavUsd: newNav.toFixed(2),
     });
+
+    // Notify Discord — TRADE level for wins, WARN for losses. Stop-loss
+    // and trailing-stop closes get their own log line via `reason` so
+    // operators can distinguish them from natural signal-flip exits.
+    const level = result.realizedPnlUsd >= 0 ? 'TRADE' : 'WARN';
+    void notifyDiscord(
+      `Paper CLOSE ${pos.asset} ${pos.side} • ${result.realizedPnlUsd >= 0 ? '+' : ''}$${result.realizedPnlUsd.toFixed(2)} • ${reason} • NAV $${(newNav / 1000).toFixed(1)}k`,
+      level,
+      {
+        source: 'paper-trader',
+        asset: pos.asset,
+        side: pos.side,
+        realizedUsd: result.realizedPnlUsd,
+        reason,
+        holdSec: result.holdSeconds,
+        newNavUsd: newNav,
+      },
+    ).catch(() => undefined);
 
     return { action: 'closed', reason, detail: result, nav: newNav };
   }
