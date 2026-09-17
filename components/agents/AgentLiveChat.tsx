@@ -13,7 +13,8 @@ interface ToolCall {
   tool: string;
   ok: boolean;
   latencyMs: number;
-  argsPreview: string;
+  argsPreview?: string;
+  pending?: boolean;
 }
 
 interface Message {
@@ -23,6 +24,8 @@ interface Message {
   toolCalls?: ToolCall[];
   elapsedMs?: number;
   error?: boolean;
+  streaming?: boolean;
+  rateLimited?: boolean;
 }
 
 const QUICK_PROMPTS = [
@@ -103,39 +106,137 @@ export function AgentLiveChat() {
   const send = useCallback(async (raw: string) => {
     const text = raw.trim();
     if (!text || pending) return;
-    setMessages(m => [...m, { id: `u-${Date.now()}`, role: 'user', content: text }]);
+    const userId = `u-${Date.now()}`;
+    const assistantId = `a-${Date.now()}`;
+    let historySnapshot: Array<{ role: 'user' | 'assistant'; content: string }> = [];
+    setMessages(m => {
+      historySnapshot = m
+        .filter(msg => !msg.error && msg.content)
+        .slice(-10)
+        .map(msg => ({ role: msg.role, content: msg.content }));
+      return [
+        ...m,
+        { id: userId, role: 'user', content: text },
+        { id: assistantId, role: 'assistant', content: '', toolCalls: [], streaming: true },
+      ];
+    });
     setInput('');
     setPending(true);
+
+    const patch = (updater: (msg: Message) => Message) => {
+      setMessages(m => m.map(msg => (msg.id === assistantId ? updater(msg) : msg)));
+    };
+
     try {
       const r = await fetch('/api/agents/live-chat', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ message: text }),
+        body: JSON.stringify({ message: text, history: historySnapshot }),
       });
-      const j = await r.json();
-      setMessages(m => [
-        ...m,
-        {
-          id: `a-${Date.now()}`,
-          role: 'assistant',
-          content: j.answer || j.error || '(no response)',
-          toolCalls: j.toolCalls,
-          elapsedMs: j.elapsedMs,
-          error: !r.ok || !j.healthy,
-        },
-      ]);
-    } catch (e) {
-      setMessages(m => [
-        ...m,
-        {
-          id: `a-${Date.now()}`,
-          role: 'assistant',
-          content: e instanceof Error ? e.message : 'Network error',
+
+      if (r.status === 429) {
+        patch(msg => ({
+          ...msg,
+          content: 'Rate limited. Please wait ~30s before asking again.',
           error: true,
-        },
-      ]);
+          rateLimited: true,
+          streaming: false,
+        }));
+        return;
+      }
+      if (!r.ok || !r.body) {
+        patch(msg => ({
+          ...msg,
+          content: `Request failed (HTTP ${r.status}).`,
+          error: true,
+          streaming: false,
+        }));
+        return;
+      }
+
+      const reader = r.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        let nl = buffer.indexOf('\n');
+        while (nl >= 0) {
+          const line = buffer.slice(0, nl).trim();
+          buffer = buffer.slice(nl + 1);
+          nl = buffer.indexOf('\n');
+          if (!line) continue;
+          let event: {
+            type: string;
+            delta?: string;
+            tool?: string;
+            ok?: boolean;
+            latencyMs?: number;
+            argsPreview?: string;
+            error?: string;
+            elapsedMs?: number;
+            message?: string;
+          };
+          try {
+            event = JSON.parse(line);
+          } catch {
+            continue;
+          }
+          if (event.type === 'token' && typeof event.delta === 'string') {
+            const delta = event.delta;
+            patch(msg => ({ ...msg, content: msg.content + delta }));
+          } else if (event.type === 'tool_start' && event.tool) {
+            const tool = event.tool;
+            const argsPreview = event.argsPreview || '';
+            patch(msg => ({
+              ...msg,
+              toolCalls: [
+                ...(msg.toolCalls || []),
+                { tool, ok: false, latencyMs: 0, argsPreview, pending: true } as ToolCall & { pending?: boolean },
+              ],
+            }));
+          } else if (event.type === 'tool_end' && event.tool) {
+            const tool = event.tool;
+            const ok = !!event.ok;
+            const latencyMs = event.latencyMs ?? 0;
+            patch(msg => {
+              const list = [...(msg.toolCalls || [])];
+              const idx = list.findIndex(
+                (t) => t.tool === tool && (t as ToolCall & { pending?: boolean }).pending,
+              );
+              if (idx >= 0) {
+                const prev = list[idx] as ToolCall & { pending?: boolean };
+                list[idx] = { ...prev, ok, latencyMs, pending: false };
+              } else {
+                list.push({ tool, ok, latencyMs, argsPreview: '' });
+              }
+              return { ...msg, toolCalls: list };
+            });
+          } else if (event.type === 'done') {
+            patch(msg => ({ ...msg, elapsedMs: event.elapsedMs, streaming: false }));
+          } else if (event.type === 'error') {
+            const errMessage = event.message || 'stream error';
+            patch(msg => ({
+              ...msg,
+              content: msg.content || errMessage,
+              error: true,
+              streaming: false,
+            }));
+          }
+        }
+      }
+    } catch (e) {
+      patch(msg => ({
+        ...msg,
+        content: e instanceof Error ? e.message : 'Network error',
+        error: true,
+        streaming: false,
+      }));
     } finally {
       setPending(false);
+      patch(msg => (msg.streaming ? { ...msg, streaming: false } : msg));
     }
   }, [pending]);
 
@@ -203,30 +304,48 @@ export function AgentLiveChat() {
                   m.role === 'user'
                     ? 'inline-block max-w-full bg-ios-blue text-white text-body whitespace-pre-wrap break-words'
                     : m.error
-                    ? 'inline-block max-w-full bg-ios-red/10 text-red-700 text-body whitespace-pre-wrap break-words'
+                    ? `inline-block max-w-full ${m.rateLimited ? 'bg-ios-orange/10 text-orange-700' : 'bg-ios-red/10 text-red-700'} text-body whitespace-pre-wrap break-words`
                     : 'w-full bg-system-bg-secondary text-label-primary break-words'
                 }`}
               >
                 {m.role === 'assistant' && !m.error ? (
-                  <AssistantMarkdown content={m.content} />
+                  <>
+                    {m.content ? <AssistantMarkdown content={m.content} /> : null}
+                    {m.streaming && !m.content && (
+                      <span className="inline-flex items-center gap-2 text-label-tertiary text-body">
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>thinking…</span>
+                      </span>
+                    )}
+                    {m.streaming && m.content && (
+                      <span className="inline-block w-2 h-4 bg-ios-blue ml-0.5 align-middle animate-pulse" />
+                    )}
+                  </>
                 ) : (
                   m.content
                 )}
               </div>
               {m.toolCalls && m.toolCalls.length > 0 && (
-                <details className="mt-2 text-caption-1 text-label-tertiary group">
+                <details className="mt-2 text-caption-1 text-label-tertiary group" open={m.streaming}>
                   <summary className="inline-flex items-center gap-1 cursor-pointer hover:text-label-secondary select-none list-none">
                     <Wrench className="w-3 h-3" />
-                    <span>{m.toolCalls.length} tool call{m.toolCalls.length === 1 ? '' : 's'} · {m.elapsedMs}ms</span>
+                    <span>
+                      {m.toolCalls.length} tool call{m.toolCalls.length === 1 ? '' : 's'}
+                      {m.elapsedMs ? ` · ${m.elapsedMs}ms` : ''}
+                    </span>
                     <ChevronDown className="w-3 h-3 group-open:rotate-180 transition-transform" />
                   </summary>
                   <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 pl-4">
                     {m.toolCalls.map((t, i) => (
                       <span
                         key={i}
-                        className={`inline-flex items-center gap-1 font-mono ${t.ok ? 'text-ios-green' : 'text-red-700'}`}
+                        className={`inline-flex items-center gap-1 font-mono ${
+                          t.pending ? 'text-label-tertiary' : t.ok ? 'text-ios-green' : 'text-red-700'
+                        }`}
                       >
-                        {t.tool}({t.ok ? 'ok' : 'err'}) {t.latencyMs}ms
+                        {t.pending && <Loader2 className="w-3 h-3 animate-spin" />}
+                        {t.tool}
+                        {t.pending ? '...' : `(${t.ok ? 'ok' : 'err'}) ${t.latencyMs}ms`}
                       </span>
                     ))}
                   </div>
@@ -235,19 +354,6 @@ export function AgentLiveChat() {
             </div>
           </div>
         ))}
-
-        {pending && (
-          <div className="flex gap-2 sm:gap-3">
-            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-ios bg-ios-green/10 text-ios-green flex items-center justify-center flex-shrink-0">
-              <Loader2 className="w-4 h-4 animate-spin" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="inline-block px-3.5 py-2.5 rounded-ios bg-system-bg-secondary text-label-tertiary text-body">
-                Querying live state<span className="inline-block animate-pulse">...</span>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
 
       <form
