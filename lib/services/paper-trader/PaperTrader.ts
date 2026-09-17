@@ -409,12 +409,23 @@ export class PaperTrader {
     } catch (e) {
       return { action: 'skipped', reason: `scan failed: ${errMsg(e)}`, nav };
     }
-    if (!scan.best) return { action: 'skipped', reason: 'no edge above gates', nav };
+    if (!scan.best) {
+      logger.warn('[PaperTrader] scan.best null — no asset met gates', {
+        min: { conf: PAPER_MIN_CONFIDENCE, cons: PAPER_MIN_CONSENSUS, sources: PAPER_MIN_SOURCES },
+        universeSize: PAPER_UNIVERSE.length,
+      });
+      return { action: 'skipped', reason: 'no edge above gates', nav };
+    }
 
     const asset = scan.best.asset;
     const rec = scan.best.prediction.recommendation;
     const side = recommendationToSide(rec);
-    if (!side) return { action: 'skipped', reason: 'non-directional signal', nav };
+    if (!side) {
+      logger.warn('[PaperTrader] non-directional signal skipped', {
+        asset, rec, conf: scan.best.prediction.confidence,
+      });
+      return { action: 'skipped', reason: 'non-directional signal', nav };
+    }
 
     // Per-asset regret cooldown — a losing (asset, side) streak means the
     // signal has been chronically wrong on that leg. Skip until the losing
@@ -442,10 +453,13 @@ export class PaperTrader {
     // guess.
     let markPrice = 0;
     try {
+      // 8s timeout: crypto.com REST + MCP fetches can push 3-5s each in
+      // Vercel serverless cold starts. 4s was too aggressive — every entry
+      // timed out silently on 2026-09-17 post-deploy.
       const validated = await getMultiSourceValidatedPrice(asset, {
         minSources: 2,
         maxDeviationPercent: 2,
-        timeout: 4000,
+        timeout: 8000,
       });
       markPrice = validated.price;
     } catch (e) {
