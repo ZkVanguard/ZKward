@@ -47,10 +47,18 @@ coverage/
 # Python ZK backend (separate deployment)
 zkp/
 
-# Fine-tuned model artifacts (served from WSL/GPU host, not Vercel)
-# 15 GB — safetensors weights + tokenizer + checkpoints. Vercel deploy
-# fails at ~14.3 GB upload; model runs behind SIGNAL_INTERPRETER_MODEL_URL.
-training/signal-interpreter/output/
+# Fine-tuned model artifacts (served from WSL/GPU host, not Vercel).
+# The whole training/ tree is dev-only — training data + adapters +
+# merged weights. 15 GB+ if included; Vercel deploy fails at ~14.3 GB.
+# Runtime uses SIGNAL_INTERPRETER_MODEL_URL (Cloudflare Tunnel to GPU).
+training/
+data/signal-interpreter/
+scripts/ai-training/
+scripts/_*
+# Belt-and-suspenders — catch stray safetensors anywhere in the tree
+**/*.safetensors
+**/output-v*/
+**/merged/
 
 # Hardhat
 hardhat.config.cjs
