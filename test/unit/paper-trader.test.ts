@@ -13,6 +13,7 @@ import { describe, it, expect, jest, beforeEach } from '@jest/globals';
 const mockGetCronState = jest.fn<any>();
 const mockSetCronState = jest.fn<any>().mockResolvedValue(undefined);
 const mockGetLivePrice = jest.fn<any>();
+const mockGetMultiSourceValidatedPrice = jest.fn<any>();
 const mockScanAndPickBest = jest.fn<any>();
 const mockCreateHedge = jest.fn<any>().mockResolvedValue({});
 const mockCloseHedge = jest.fn<any>().mockResolvedValue(undefined);
@@ -24,6 +25,7 @@ jest.mock('@/lib/db/cron-state', () => ({
 }));
 jest.mock('@/lib/services/market-data/unified-price-provider', () => ({
   getLivePrice: (...args: any[]) => mockGetLivePrice(...args),
+  getMultiSourceValidatedPrice: (...args: any[]) => mockGetMultiSourceValidatedPrice(...args),
 }));
 jest.mock('@/lib/services/market-data/PredictionAggregatorService', () => ({
   PredictionAggregatorService: {
@@ -74,6 +76,21 @@ function stubSignal(asset: string, rec: string, conf = 70, cons = 65) {
   } as any);
 }
 
+/** Convenience: stub both live + multi-source price to the same value.
+ *  Multi-source is used at open, live is used for mark-to-market on active positions. */
+function stubPrice(price: number) {
+  mockGetLivePrice.mockResolvedValue(price);
+  mockGetMultiSourceValidatedPrice.mockResolvedValue({
+    price,
+    confidence: 'high',
+    sources: [
+      { name: 'a', price, timestamp: Date.now() },
+      { name: 'b', price, timestamp: Date.now() },
+    ],
+    deviation: 0,
+  });
+}
+
 function stubSameAssetPrediction(asset: string, rec: string, conf: number) {
   mockScanAndPickBest.mockResolvedValue({
     best: null,
@@ -87,13 +104,24 @@ beforeEach(() => {
   mockCreateHedge.mockResolvedValue({});
   mockCloseHedge.mockResolvedValue(undefined);
   mockQuery.mockResolvedValue([]);
+  // Default: multi-source price validation succeeds. Tests that need
+  // failure semantics override with mockRejectedValueOnce.
+  mockGetMultiSourceValidatedPrice.mockResolvedValue({
+    price: 65_000,
+    confidence: 'high',
+    sources: [
+      { name: 'a', price: 65_000, timestamp: Date.now() },
+      { name: 'b', price: 65_000, timestamp: Date.now() },
+    ],
+    deviation: 0,
+  });
 });
 
 describe('PaperTrader.runTick — entry path', () => {
   it('opens a position when no active position + strong signal + valid price', async () => {
     primeStore({});
     stubSignal('BTC', 'STRONG_HEDGE_LONG', 72);
-    mockGetLivePrice.mockResolvedValue(65_000);
+    stubPrice(65_000);
 
     const res = await PaperTrader.runTick(NOW);
     expect(res.action).toBe('opened');
@@ -125,10 +153,26 @@ describe('PaperTrader.runTick — entry path', () => {
     expect(res.reason).toMatch(/non-directional/);
   });
 
-  it('skips when live price is zero (oracle failure)', async () => {
+  it('skips when multi-source price validation fails (stale/insufficient sources)', async () => {
     primeStore({});
     stubSignal('BTC', 'STRONG_HEDGE_LONG', 70);
-    mockGetLivePrice.mockResolvedValue(0);
+    mockGetMultiSourceValidatedPrice.mockRejectedValue(
+      new Error('INSUFFICIENT_SOURCES: Only 1/2 price sources available for BTC'),
+    );
+    const res = await PaperTrader.runTick(NOW);
+    expect(res.action).toBe('skipped');
+    expect(res.reason).toMatch(/price validation failed/);
+  });
+
+  it('skips when multi-source returns zero price (defensive check)', async () => {
+    primeStore({});
+    stubSignal('BTC', 'STRONG_HEDGE_LONG', 70);
+    mockGetMultiSourceValidatedPrice.mockResolvedValue({
+      price: 0,
+      confidence: 'low',
+      sources: [],
+      deviation: 0,
+    });
     const res = await PaperTrader.runTick(NOW);
     expect(res.action).toBe('skipped');
     expect(res.reason).toMatch(/no mark price/);
@@ -415,7 +459,7 @@ describe('PaperTrader.runTick — profit-lock + halt gates', () => {
       },
     });
     stubSignal('BTC', 'STRONG_HEDGE_LONG', 80);
-    mockGetLivePrice.mockResolvedValue(65_000);
+    stubPrice(65_000);
 
     const res = await PaperTrader.runTick(NOW);
     expect(res.action).toBe('opened');

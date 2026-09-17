@@ -67,11 +67,16 @@ const CONFIG = {
   WS_RECONNECT_DELAY: 2000,
   WS_MAX_RECONNECTS: 10,
   WS_HEARTBEAT_INTERVAL: 30000,
-  
+
   // Cache configuration
   FRESH_THRESHOLD_MS: 1000,   // Price is "fresh" if <1s old
   STALE_THRESHOLD_MS: 5000,   // Price is "stale" if 1-5s old
   EXPIRED_THRESHOLD_MS: 30000, // Price is "expired" if >30s old
+  // Absolute freshness gate for getLivePrice. Anything past this is
+  // treated as no-price-available; 2026-09-17 forensic showed ETH stuck
+  // at $2016.64 for 74 days because updatePrice couldn't get a fresh
+  // ticker but getLivePrice happily returned the ancient value.
+  MAX_LIVE_PRICE_STALENESS_MS: 60_000,
   
   // Validation thresholds
   MAX_SPREAD_PERCENT: 1.0,    // Warn if spread > 1%
@@ -352,8 +357,18 @@ class UnifiedPriceProvider extends EventEmitter {
   // ═══════════════════════════════════════════════════════════════════════════
 
   private updatePrice(price: LivePrice): void {
+    // Reject non-positive prices. Some upstream tickers return 0 for
+    // untraded pairs or during API blips; storing that value would poison
+    // downstream reads. Log at warn so operator sees the pattern.
+    if (!Number.isFinite(price.price) || price.price <= 0) {
+      logger.warn('[UnifiedPrice] rejected non-positive price update', {
+        symbol: price.symbol,
+        price: price.price,
+        source: price.source,
+      });
+      return;
+    }
     const existing = this.prices.get(price.symbol);
-    
     // Only update if newer
     if (!existing || price.timestamp > existing.timestamp) {
       this.prices.set(price.symbol, price);
@@ -605,13 +620,33 @@ export function getUnifiedPriceProvider(): UnifiedPriceProvider {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 /**
- * Quick access to current price (for simple use cases)
+ * Quick access to current price with a hard staleness gate.
+ *
+ * Returns 0 when the cached price is older than CONFIG.MAX_LIVE_PRICE_STALENESS_MS
+ * OR when no price is cached at all. Callers should treat 0 as "no live
+ * price available" and refuse to make trading decisions. This is the
+ * guard that would have prevented the 2026-09-17 ETH stale-cache bleed
+ * ($2016.64 held for 74 days because upstream fetches silently failed).
  */
 export async function getLivePrice(symbol: string): Promise<number> {
   const provider = getUnifiedPriceProvider();
   await provider.initialize();
   const price = provider.getPrice(symbol);
-  return price?.price ?? 0;
+  if (!price || !Number.isFinite(price.price) || price.price <= 0) return 0;
+  const staleness = Date.now() - price.timestamp;
+  if (staleness > CONFIG.MAX_LIVE_PRICE_STALENESS_MS) {
+    logger.warn('[UnifiedPrice] getLivePrice rejected stale price', {
+      symbol,
+      cachedPrice: price.price,
+      stalenessMs: staleness,
+      maxStalenessMs: CONFIG.MAX_LIVE_PRICE_STALENESS_MS,
+    });
+    // Kick a background refresh so subsequent calls can succeed. Don't
+    // await — the current caller already needs to skip.
+    void provider.fetchPricesFromREST().catch(() => undefined);
+    return 0;
+  }
+  return price.price;
 }
 
 /**
@@ -816,19 +851,27 @@ export async function getMultiSourceValidatedPrice(
     } catch { /* ignore */ }
   })());
   
-  // Source 3: Direct API call (backup)
+  // Source 3: Direct API call to batch tickers endpoint (backup).
+  // Note 2026-09-17: the singular `get-ticker?instrument_name=X_USDT`
+  // endpoint now returns 404 for individual symbols. The batch
+  // `get-tickers` endpoint still returns the same data. Filter client-side.
   promises.push((async () => {
     try {
       const normalized = symbol.toUpperCase().replace(/^W/, '');
+      const target = `${normalized}_USDT`;
       const response = await fetch(
-        `https://api.crypto.com/exchange/v1/public/get-ticker?instrument_name=${normalized}_USDT`,
+        'https://api.crypto.com/exchange/v1/public/get-tickers',
         { signal: AbortSignal.timeout(timeout) }
       );
       if (response.ok) {
         const data = await response.json();
-        const ticker = data.result?.data;
-        if (ticker && ticker.a > 0) {
-          sources.push({ name: 'crypto.com-direct', price: parseFloat(ticker.a), timestamp: Date.now() });
+        const tickers: Array<{ i?: string; a?: string | number }> = data.result?.data ?? [];
+        const ticker = tickers.find((t) => t.i === target);
+        if (ticker) {
+          const price = typeof ticker.a === 'string' ? parseFloat(ticker.a) : Number(ticker.a);
+          if (Number.isFinite(price) && price > 0) {
+            sources.push({ name: 'crypto.com-direct', price, timestamp: Date.now() });
+          }
         }
       }
     } catch { /* ignore */ }
