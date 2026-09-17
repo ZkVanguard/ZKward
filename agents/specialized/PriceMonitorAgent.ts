@@ -1,13 +1,12 @@
 /**
  * Price Monitor Agent
- * 
- * REAL autonomous agent that monitors cryptocurrency prices and triggers alerts/actions
- * Uses x402 for any required on-chain settlements
+ *
+ * REAL autonomous agent that monitors cryptocurrency prices and triggers alerts/actions.
+ * Emits `hedge_initiated` events to subscribers; actual hedge execution happens
+ * downstream via HedgingAgent + BluefinService — this agent is observation-only.
  */
 
 import { logger } from '../../lib/utils/logger';
-import { X402FacilitatorService } from '../../lib/services/x402-facilitator';
-import { CronosNetwork } from '@crypto.com/facilitator-client';
 import type { FiveMinBTCSignal, SignalEvent } from '../../lib/services/market-data/Polymarket5MinService';
 import type { MarketSnapshot } from '../../lib/services/hedging/CentralizedHedgeManager';
 
@@ -34,7 +33,6 @@ export interface PriceData {
 
 export interface MonitorConfig {
   pollingIntervalMs: number;
-  enableX402Settlement: boolean;
   alertWebhookUrl?: string;
 }
 
@@ -47,7 +45,7 @@ const cryptoComTickerUrl = (symbol: string): string =>
   `https://api.crypto.com/v2/public/get-ticker?instrument_name=${symbol}_USDT`;
 
 /**
- * PriceMonitorAgent - Autonomous price monitoring with x402 settlement
+ * PriceMonitorAgent - Autonomous price monitoring.
  */
 export class PriceMonitorAgent {
   private alerts: Map<string, PriceAlert> = new Map();
@@ -55,7 +53,6 @@ export class PriceMonitorAgent {
   private isRunning: boolean = false;
   private pollingInterval: NodeJS.Timeout | null = null;
   private config: MonitorConfig;
-  private x402Service: X402FacilitatorService;
   private subscribers: Set<(event: MonitorEvent) => void> = new Set();
 
   // ── Proactive 5-min signal (pushed by ticker) ──────────
@@ -68,10 +65,8 @@ export class PriceMonitorAgent {
   constructor(config: Partial<MonitorConfig> = {}) {
     this.config = {
       pollingIntervalMs: config.pollingIntervalMs || 10000, // 10 seconds default
-      enableX402Settlement: config.enableX402Settlement ?? true,
       alertWebhookUrl: config.alertWebhookUrl,
     };
-    this.x402Service = new X402FacilitatorService(CronosNetwork.CronosTestnet);
     logger.info('PriceMonitorAgent initialized', { config: this.config });
   }
 
@@ -484,39 +479,18 @@ export class PriceMonitorAgent {
   }
 
   /**
-   * Execute hedge action via x402
+   * Emit a hedge-initiated event for downstream subscribers (HedgingAgent,
+   * webhook consumers). Observation-only — this agent does not open trades
+   * directly.
    */
   private async executeHedgeAction(alert: PriceAlert, price: PriceData): Promise<void> {
-    if (!this.config.enableX402Settlement) {
-      logger.info('x402 settlement disabled, skipping hedge execution');
-      return;
-    }
-
-    try {
-      // Create x402 payment challenge for hedge execution fee
-      const challenge = await this.x402Service.createPaymentChallenge({
-        amount: 0.01,
-        currency: 'USDC',
-        description: `Hedge execution for ${alert.symbol} at $${price.price.toFixed(2)}`,
-        resource: `/agent/hedge/${alert.id}`,
-        expiry: 60,
-      });
-
-      this.emit({
-        type: 'hedge_initiated',
-        alert,
-        price,
-        challenge,
-        timestamp: Date.now(),
-      });
-
-      logger.info('Hedge action initiated via x402', { 
-        paymentId: challenge.accepts?.[0]?.extra?.paymentId,
-        symbol: alert.symbol,
-      });
-    } catch (error) {
-      logger.error('Hedge action failed', { error });
-    }
+    this.emit({
+      type: 'hedge_initiated',
+      alert,
+      price,
+      timestamp: Date.now(),
+    });
+    logger.info('Hedge alert emitted', { symbol: alert.symbol, price: price.price });
   }
 
   /**
@@ -610,7 +584,6 @@ export class PriceMonitorAgent {
       alertCount: this.alerts.size,
       trackedSymbols: Array.from(this.priceHistory.keys()),
       pollingIntervalMs: this.config.pollingIntervalMs,
-      x402Enabled: this.config.enableX402Settlement,
     };
   }
 }
@@ -621,7 +594,7 @@ export type MonitorEvent =
   | { type: 'agent_stopped'; timestamp: number }
   | { type: 'price_update'; prices: Record<string, PriceData>; timestamp: number }
   | { type: 'alert_triggered'; alert: PriceAlert; price: PriceData; timestamp: number }
-  | { type: 'hedge_initiated'; alert: PriceAlert; price: PriceData; challenge: unknown; timestamp: number }
+  | { type: 'hedge_initiated'; alert: PriceAlert; price: PriceData; timestamp: number }
   | { type: 'rebalance_initiated'; alert: PriceAlert; price: PriceData; timestamp: number }
   | { type: 'five_min_signal'; signal: import('../../lib/services/market-data/Polymarket5MinService').FiveMinBTCSignal; price: PriceData | null; timestamp: number }
   | { type: 'error'; error: string; timestamp: number };
@@ -631,7 +604,6 @@ export interface AgentStatus {
   alertCount: number;
   trackedSymbols: string[];
   pollingIntervalMs: number;
-  x402Enabled: boolean;
 }
 
 // NOTE: Do NOT export a module-level singleton here.
