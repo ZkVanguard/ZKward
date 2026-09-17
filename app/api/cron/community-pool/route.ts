@@ -11,7 +11,7 @@
  * - HedgingAgent: Generates and executes hedge recommendations
  * - PriceMonitorAgent: Monitors price movements and alerts
  * - ReportingAgent: Generates performance reports
- * - SettlementAgent: Handles x402 settlements
+ * - SettlementAgent: Handles pool settlements
  * 
  * Schedule: Every 30 minutes via QStash
  * 

@@ -471,3 +471,7 @@ docs/submission-evidence/pr-43-snapshot-2026-09-08.md
 demo/screenshots/**
 /*.jpeg
 /*.webp
+data/signal-interpreter/
+training/*/output/
+training/*/output-v*/
+training/*/*.jsonl.v*

@@ -230,8 +230,6 @@ export const config = {
   // APIs
   cryptocomAiApiKey: process.env.CRYPTOCOM_DEVELOPER_API_KEY || process.env.CRYPTOCOM_AI_API_KEY || '',
   cryptocomApiSecret: process.env.CRYPTOCOM_API_SECRET || '',
-  x402ApiKey: process.env.X402_API_KEY || '',
-  x402FacilitatorUrl: process.env.X402_FACILITATOR_URL || 'https://api.x402.io',
   mcpServerUrl: process.env.MCP_SERVER_URL || 'https://mcp.crypto.com/market-data/mcp',
   mcpApiKey: process.env.MCP_API_KEY || '',
   cronoscanApiKey: process.env.CRONOSCAN_API_KEY || '',
@@ -298,7 +296,7 @@ export function validateConfig(): void {
   const required = ['privateKey'];
   
   if (config.isProduction) {
-    required.push('cryptocomAiApiKey', 'x402ApiKey', 'mcpApiKey', 'jwtSecret', 'encryptionKey');
+    required.push('cryptocomAiApiKey', 'mcpApiKey', 'jwtSecret', 'encryptionKey');
   }
 
   const missing = required.filter((key) => !config[key as keyof typeof config]);
