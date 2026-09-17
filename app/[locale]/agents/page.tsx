@@ -6,6 +6,7 @@ import {
   Activity, ChevronRight, CheckCircle, Eye, Layers,
 } from 'lucide-react';
 import { Section, SectionHeader, StatusPill, LiveIndicator, Reveal } from '@/components/ui/landing';
+import { AgentLiveChat } from '@/components/agents/AgentLiveChat';
 
 interface AgentSpec {
   id: string;
@@ -408,6 +409,18 @@ Lead Agent (aggregate + respond to user)`}
             </pre>
           </div>
         </Reveal>
+      </Section>
+
+      {/* LIVE STATUS ORACLE — chat with the platform */}
+      <Section size="md">
+        <div className="max-w-[900px] mx-auto space-y-6">
+          <SectionHeader
+            eyebrow="Talk to the platform"
+            title="Ask what the agents are thinking"
+            lede="Read-only chat with a status oracle that queries live DB state via the same 6 tools the Layer 3 agents use. Ask about hedges, treasury, signals, or cron state — every answer is grounded in real numbers."
+          />
+          <AgentLiveChat />
+        </div>
       </Section>
     </div>
   );
