@@ -15,6 +15,7 @@ import { AgentTask, AgentMessage, RiskAnalysis, TaskResult } from '@shared/types
 import { ethers } from 'ethers';
 import type { FiveMinBTCSignal, SignalEvent } from '../../lib/services/market-data/Polymarket5MinService';
 import { AIMarketIntelligence, type AIMarketContext } from '../../lib/services/AIMarketIntelligence';
+import { agentSystemPrompt } from '../../lib/services/ai/model-constitution';
 import type { CanonicalRiskInputs } from '../../zk/prover/riskCanonical';
 
 /**
@@ -222,8 +223,6 @@ export class RiskAgent extends BaseAgent {
     let aiRecommendations: string[] = [];
     
     try {
-      const { llmProvider } = await import('@/lib/ai/llm-provider');
-      
       const portfolioSummary = portfolioData?.tokens
         ? portfolioData.tokens
             .map(t => `${t.symbol}: $${t.usdValue.toFixed(2)} (${((t.usdValue / portfolioData.totalValue) * 100).toFixed(1)}%)`)
@@ -232,8 +231,21 @@ export class RiskAgent extends BaseAgent {
 
       const portfolioValue = portfolioData?.totalValue || 0;
 
-      const systemPrompt = `You are a DeFi risk analyst. Provide concise, actionable risk analysis.`;
-      
+      // Two AI paths:
+      //   1. Tool-use (RISK_AGENT_TOOL_USE=1 + OPENAI_API_KEY): the model
+      //      can query recent hedges, postmortem stats, spot prices, and
+      //      pool state directly to inform its recommendations.
+      //   2. Text-only (default): unchanged legacy path via llmProvider,
+      //      routes through Crypto.com/ASI/OpenAI/Claude chain.
+      // Both paths return the same RISK_SCORE + REC1-3 shape.
+      const useTools =
+        (process.env.RISK_AGENT_TOOL_USE || '').trim() === '1' &&
+        (process.env.ASI_API_KEY || '').trim().length > 0;
+
+      const systemPrompt = useTools
+        ? `You are a DeFi risk analyst for the ZKward autonomous trading system. You have tools to query live state — use them to ground your analysis in real numbers, not just the summary provided. Prefer calling query_hedge_history, query_postmortem_stats, and get_cron_state to inform your view. Keep the tool loop short (≤3 calls).`
+        : `You are a DeFi risk analyst. Provide concise, actionable risk analysis.`;
+
       const aiPrompt = `Analyze portfolio risk:
 Value: $${portfolioValue.toFixed(2)}
 Assets: ${portfolioSummary}
@@ -247,10 +259,36 @@ REC1: [first recommendation]
 REC2: [second recommendation]
 REC3: [third recommendation]`;
 
-      const aiResponse = await llmProvider.generateDirectResponse(aiPrompt, systemPrompt);
-      
+      let responseText: string;
+      let responseModel: string | undefined;
+      let toolCallCount = 0;
+
+      if (useTools) {
+        const { runWithTools } = await import('@/lib/services/ai/tool-runner');
+        const toolResult = await runWithTools({
+          systemPrompt,
+          userPrompt: aiPrompt,
+          maxIterations: 4,
+        });
+        responseText = toolResult.finalText;
+        responseModel = 'openai:tool-use';
+        toolCallCount = toolResult.invocations.length;
+        logger.info('🤖 RiskAgent tool-use complete', {
+          tools: toolResult.invocations.map(i => `${i.tool}(${i.ok ? 'ok' : 'err'})`),
+          iterations: toolResult.iterations,
+        });
+      } else {
+        const { llmProvider } = await import('@/lib/ai/llm-provider');
+        const aiResponse = await llmProvider.generateDirectResponse(
+          aiPrompt,
+          agentSystemPrompt(systemPrompt),
+        );
+        responseText = aiResponse.content;
+        responseModel = aiResponse.model;
+      }
+
       // Extract AI recommendations — validate length/content
-      const lines = aiResponse.content.split('\n').filter(l => l.trim());
+      const lines = responseText.split('\n').filter(l => l.trim());
       
       // Parse recommendations with validation
       for (const line of lines) {
@@ -265,15 +303,19 @@ REC3: [third recommendation]`;
       }
       
       // Try to extract adjusted risk score — clamp to 0-100
-      const scoreMatch = aiResponse.content.match(/RISK_SCORE:?\s*(\d+)/i);
+      const scoreMatch = responseText.match(/RISK_SCORE:?\s*(\d+)/i);
       if (scoreMatch) {
         const aiRiskScore = Math.min(100, Math.max(0, parseInt(scoreMatch[1], 10)));
         totalRisk = Math.min(100, Math.round((baseRiskScore + aiRiskScore) / 2));
         aiRiskScoreForBinding = aiRiskScore;
         logger.info('🤖 AI adjusted risk score', { base: baseRiskScore, ai: aiRiskScore, final: totalRisk });
       }
-      
-      logger.info('🤖 AI risk analysis completed', { model: aiResponse.model, recommendations: aiRecommendations.length });
+
+      logger.info('🤖 AI risk analysis completed', {
+        model: responseModel,
+        recommendations: aiRecommendations.length,
+        toolCallCount,
+      });
     } catch (error) {
       logger.warn('AI risk analysis failed, using rule-based fallback', { error });
       aiRecommendations = this.generateRecommendations(totalRisk, volatility, sentiment, exposures);

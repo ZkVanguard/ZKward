@@ -1,0 +1,64 @@
+# Soup training config — Signal Interpreter (Task A)
+#
+# Fine-tunes Qwen 2.5 7B Instruct to extract structured trading signals
+# from prediction-market titles. Deployed via Ollama once trained.
+#
+# Sized for RTX 3070 laptop (8GB VRAM) using QLoRA (4-bit) + LoRA adapters
+# + gradient checkpointing. Soup's layer-streaming keeps memory under
+# 8GB while training the full 7B base.
+#
+# Soup 0.75 has a strict config schema — this file uses only the accepted
+# keys per src/soup_cli/templates/chat.yaml + examples/configs/sft_basic.yaml.
+# Soup does its own 10% val_split internally; our test.jsonl is held out
+# for post-training eval (never seen by the trainer).
+
+base: Qwen/Qwen2.5-7B-Instruct
+task: sft
+backend: transformers
+
+data:
+  train: ./train.jsonl
+  format: chatml       # {messages: [{role,content}]}  — Soup auto-detects; explicit here
+  val_split: 0.1
+  # v2 attempt 3: matches v1's memory profile exactly. System prompt for
+  # tool-use compressed 408→140 tokens (compact tool declarations, dropped
+  # verbose format instructions — model learns format from example turns).
+  # Filtered tool-use to ≤480 tokens: 104 kept, 16 dropped. Combined with
+  # 734 signal-interp = 838 total. All examples fit 512 with margin.
+  # First two attempts (1536, 1024) hit the WSL2 paging trap because
+  # activation memory scales with max_length² — 8GB VRAM has no slack.
+  max_length: 512
+
+training:
+  epochs: 3
+  lr: 2e-4
+  # Skip Soup's auto-probe (which OOMs at its probe step even when actual
+  # training would fit — probe uses artificially large synthetic input).
+  # Actual VRAM headroom is ample: 7.6 GB free, 4-bit 7B needs ~4.5 GB.
+  batch_size: 1
+  gradient_accumulation_steps: 4
+  quantization: 4bit
+  # Trade compute for VRAM: recompute activations on backward pass instead
+  # of holding them all in memory. Roughly halves activation memory at
+  # ~20% slower step time. Needed on 8GB — without it we OOM even at
+  # max_length=768.
+  gradient_checkpointing: true
+  scheduler: cosine
+  warmup_ratio: 0.03
+  weight_decay: 0.01
+  logging_steps: 25
+  save_steps: 100
+  lora:
+    r: 16
+    alpha: 32
+    dropout: 0.05
+    # Explicit modules instead of `auto` (which targets q/k/v/o/gate/up/down —
+    # 7 modules × 32 layers = 224 adapters). Q + V only for a 68% cut in
+    # trainable params + gradient memory. Still captures most of the
+    # signal for structured-output tasks. Empirical result: r=16 q_proj+v_proj
+    # is sufficient for JSON extraction tasks.
+    target_modules:
+      - q_proj
+      - v_proj
+
+output: ./output

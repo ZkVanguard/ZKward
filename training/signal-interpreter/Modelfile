@@ -1,0 +1,72 @@
+# Ollama Modelfile for the fine-tuned Signal Interpreter.
+#
+# CRITICAL: TEMPLATE is copied verbatim from `ollama show qwen2.5:7b --modelfile`
+# so our fine-tuned model gets the SAME prompt formatting as the base
+# Qwen 2.5 uses. My prior simpler template caused garbage token generation
+# (@@@@@@@) because it didn't handle Ollama's Go template branches correctly.
+#
+# Build after `soup merge` produces ./output/merged:
+#   ollama create zkward-signal-interp:qwen2.5-7b -f ./Modelfile
+
+FROM ./output/merged
+
+TEMPLATE """{{- if .Messages }}
+{{- if or .System .Tools }}<|im_start|>system
+{{- if .System }}
+{{ .System }}
+{{- end }}
+{{- if .Tools }}
+
+# Tools
+
+You may call one or more functions to assist with the user query.
+
+You are provided with function signatures within <tools></tools> XML tags:
+<tools>
+{{- range .Tools }}
+{"type": "function", "function": {{ .Function }}}
+{{- end }}
+</tools>
+
+For each function call, return a json object with function name and arguments within <tool_call></tool_call> XML tags:
+<tool_call>
+{"name": <function-name>, "arguments": <args-json-object>}
+</tool_call>
+{{- end }}<|im_end|>
+{{ end }}
+{{- range $i, $_ := .Messages }}
+{{- $last := eq (len (slice $.Messages $i)) 1 -}}
+{{- if eq .Role "user" }}<|im_start|>user
+{{ .Content }}<|im_end|>
+{{ else if eq .Role "assistant" }}<|im_start|>assistant
+{{ if .Content }}{{ .Content }}
+{{- else if .ToolCalls }}<tool_call>
+{{ range .ToolCalls }}{"name": "{{ .Function.Name }}", "arguments": {{ .Function.Arguments }}}
+{{ end }}</tool_call>
+{{- end }}{{ if not $last }}<|im_end|>
+{{ end }}
+{{- else if eq .Role "tool" }}<|im_start|>user
+<tool_response>
+{{ .Content }}
+</tool_response><|im_end|>
+{{ end }}
+{{- if and (ne .Role "assistant") $last }}<|im_start|>assistant
+{{ end }}
+{{- end }}
+{{- else }}
+{{- if .System }}<|im_start|>system
+{{ .System }}<|im_end|>
+{{ end }}{{ if .Prompt }}<|im_start|>user
+{{ .Prompt }}<|im_end|>
+{{ end }}<|im_start|>assistant
+{{ end }}{{ .Response }}{{ if .Response }}<|im_end|>{{ end }}"""
+
+PARAMETER temperature 0
+PARAMETER top_p 0.9
+PARAMETER num_ctx 1024
+PARAMETER num_predict 400
+
+# SHORT prompt (matches training). Full constitution is intentionally NOT
+# here — model was trained on this exact short prompt and injecting the
+# 640-token constitution at inference would put weights out of distribution.
+SYSTEM """Extract structured trading signals from prediction market titles. Respond with JSON only. Fields: asset (uppercase ticker or null), direction (UP|DOWN|NEUTRAL|BINARY_YES|BINARY_NO), threshold (USD number or null), horizon (5min|1h|daily|weekly|monthly|longer|unknown), horizon_end (ISO date or null), confidence (0..1), reasoning (short), meta{novelty (0..1), improvement_ask, generalization_note}."""

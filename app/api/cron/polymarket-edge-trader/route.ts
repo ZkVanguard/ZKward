@@ -241,6 +241,34 @@ export async function GET(request: NextRequest): Promise<NextResponse<EdgeResult
         reason: haltReason,
       });
     }
+
+    // Treasury halt — pause new opens when the agent's free balance is
+    // negative. Opt-in via TREASURY_HALT_ON_UNDERWATER=1 for safe rollout.
+    // Idempotency: read-only check; no state mutation.
+    if ((process.env.TREASURY_HALT_ON_UNDERWATER || '').trim() === '1') {
+      try {
+        const { getTreasuryState } = await import('@/lib/db/treasury');
+        const t = await getTreasuryState();
+        if (!t.healthy) {
+          const treasuryHaltReason = `Treasury underwater (freeBalance=$${t.freeBalanceUsd.toFixed(2)}) — no new opens`;
+          await recordSkip('treasury-underwater', treasuryHaltReason);
+          return NextResponse.json({
+            success: true,
+            ranAt,
+            attempted: true,
+            action: 'treasury-halt',
+            stats: safeStats,
+            daily,
+            treasury: t,
+            reason: treasuryHaltReason,
+          });
+        }
+      } catch (err) {
+        logger.warn('[PolymarketEdge] treasury check failed, continuing', {
+          error: err instanceof Error ? err.message : err,
+        });
+      }
+    }
     if (daily.pnlUsd <= DAILY_LOSS_CAP_USD) {
       return NextResponse.json({
         success: true,
