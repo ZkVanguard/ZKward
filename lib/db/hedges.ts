@@ -360,8 +360,31 @@ export async function updateHedgeStatus(
         $1::varchar = 'active'
         OR status = 'active'
       )
+    RETURNING order_id, realized_pnl
   `;
-  await query(sql, [status, hedgeIdOrOrderId]);
+  const rows = await query<{ order_id: string; realized_pnl: string | number | null }>(
+    sql,
+    [status, hedgeIdOrOrderId],
+  );
+  // Treasury credit — only when transitioning to a terminal status with
+  // measurable PnL. Idempotent per order_id; non-fatal.
+  if (
+    rows.length > 0 &&
+    (status === 'closed' || status === 'liquidated')
+  ) {
+    const pnl = Number(rows[0].realized_pnl ?? 0);
+    if (Math.abs(pnl) > 0.01) {
+      try {
+        const { recordPnlCredit } = await import('@/lib/db/treasury');
+        await recordPnlCredit(rows[0].order_id, pnl, `updateHedgeStatus ${status}`);
+      } catch (err) {
+        logger.warn('[Hedges] treasury credit failed after status transition', {
+          orderId: rows[0].order_id,
+          error: err instanceof Error ? err.message : err,
+        });
+      }
+    }
+  }
 }
 
 export async function closeHedge(
@@ -377,6 +400,20 @@ export async function closeHedge(
     WHERE order_id = $3
   `;
   await query(sql, [status, realizedPnl, orderId]);
+
+  // Treasury credit — idempotent per orderId. Fire-and-forget: a treasury
+  // outage never blocks the hedge state transition.
+  if (Math.abs(realizedPnl) > 0.01) {
+    try {
+      const { recordPnlCredit } = await import('@/lib/db/treasury');
+      await recordPnlCredit(orderId, realizedPnl, `closeHedge ${status}`);
+    } catch (err) {
+      logger.warn('[Hedges] treasury credit failed after close', {
+        orderId,
+        error: err instanceof Error ? err.message : err,
+      });
+    }
+  }
 }
 
 /**
@@ -424,10 +461,10 @@ export async function closePerpHedgeBySymbolSide(args: {
       ORDER BY created_at DESC
       LIMIT 1
     )
-    RETURNING id
+    RETURNING id, order_id
   `;
   try {
-    const rows = await query<{ id: number }>(sql, [
+    const rows = await query<{ id: number; order_id: string }>(sql, [
       args.symbol,
       args.side,
       args.realizedPnl,
@@ -435,6 +472,18 @@ export async function closePerpHedgeBySymbolSide(args: {
       args.closeOrderId ?? null,
       args.closeTxDigest ?? null,
     ]);
+    // Treasury credit — idempotent per order_id, non-fatal.
+    if (rows.length > 0 && Math.abs(args.realizedPnl) > 0.01) {
+      try {
+        const { recordPnlCredit } = await import('@/lib/db/treasury');
+        await recordPnlCredit(rows[0].order_id, args.realizedPnl, `closePerpHedgeBySymbolSide ${args.symbol}/${args.side}`);
+      } catch (err) {
+        logger.warn('[Hedges] treasury credit failed after perp close', {
+          orderId: rows[0].order_id,
+          error: err instanceof Error ? err.message : err,
+        });
+      }
+    }
     return { updated: rows.length };
   } catch (err) {
     logger.warn('[DB] closePerpHedgeBySymbolSide failed', { error: err instanceof Error ? err.message : err });
@@ -679,7 +728,7 @@ export async function batchUpdateHedgePrices(priceMap: Record<string, { price: n
  */
 export async function closeOnChainHedge(hedgeIdOnchain: string, realizedPnl: number, closeTxHash?: string): Promise<void> {
   try {
-    await query(`
+    const rows = await query<{ order_id: string }>(`
       UPDATE hedges SET
         status = 'closed',
         realized_pnl = $1,
@@ -688,7 +737,20 @@ export async function closeOnChainHedge(hedgeIdOnchain: string, realizedPnl: num
         updated_at = NOW(),
         tx_hash = COALESCE($2, tx_hash)
       WHERE hedge_id_onchain = $3 OR order_id = $3
+      RETURNING order_id
     `, [realizedPnl, closeTxHash || null, hedgeIdOnchain]);
+    // Treasury credit — idempotent, non-fatal.
+    if (rows.length > 0 && Math.abs(realizedPnl) > 0.01) {
+      try {
+        const { recordPnlCredit } = await import('@/lib/db/treasury');
+        await recordPnlCredit(rows[0].order_id, realizedPnl, 'closeOnChainHedge');
+      } catch (err) {
+        logger.warn('[Hedges] treasury credit failed after on-chain close', {
+          orderId: rows[0].order_id,
+          error: err instanceof Error ? err.message : err,
+        });
+      }
+    }
   } catch (err) {
     logger.warn('closeOnChainHedge failed:', err instanceof Error ? err.message : err);
   }
