@@ -17,7 +17,10 @@
  * The trader-side signal-flip confidence gate from #101 is mirrored here
  * so paper and live share the same exit discipline.
  */
-import { getLivePrice } from '@/lib/services/market-data/unified-price-provider';
+import {
+  getLivePrice,
+  getMultiSourceValidatedPrice,
+} from '@/lib/services/market-data/unified-price-provider';
 import { PredictionAggregatorService } from '@/lib/services/market-data/PredictionAggregatorService';
 import { getCronState, setCronState } from '@/lib/db/cron-state';
 import { createHedge, closeHedge } from '@/lib/db/hedges';
@@ -247,7 +250,14 @@ export class PaperTrader {
   ): Promise<TickResult> {
     const markPrice = await getLivePrice(pos.asset);
     if (!markPrice || markPrice <= 0) {
-      return { action: 'skipped', reason: 'no mark price', nav };
+      // Stale price on an active position — HOLD (don't force close on
+      // bad data). Returns 'skipped' so the tick logs cleanly; the
+      // next tick will retry mark-to-market.
+      logger.warn('[PaperTrader] stale/absent mark on active position — holding', {
+        asset: pos.asset,
+        side: pos.side,
+      });
+      return { action: 'skipped', reason: 'stale mark price on active position (held)', nav };
     }
 
     // 1. Stop-loss (2026-09-17) — bail before the 20-min max-hold if the
@@ -424,9 +434,36 @@ export class PaperTrader {
       };
     }
 
-    const markPrice = await getLivePrice(asset);
+    // Multi-source validated price at open — the 2026-09-17 forensic showed
+    // ETH trading blind at a 74-day-stale $2016.64 because single-source
+    // getLivePrice never checked freshness. Multi-source median across
+    // 3 providers with 2% deviation cap catches this. Fails hard on
+    // insufficient sources or deviation; skip the trade rather than
+    // guess.
+    let markPrice = 0;
+    try {
+      const validated = await getMultiSourceValidatedPrice(asset, {
+        minSources: 2,
+        maxDeviationPercent: 2,
+        timeout: 4000,
+      });
+      markPrice = validated.price;
+    } catch (e) {
+      const msg = errMsg(e);
+      logger.warn('[PaperTrader] multi-source price failed at open', {
+        asset,
+        side,
+        error: msg,
+      });
+      void notifyDiscord(
+        `Paper SKIP ${asset} ${side} — price validation failed: ${msg}`,
+        'WARN',
+        { source: 'paper-trader', asset, error: msg },
+      ).catch(() => undefined);
+      return { action: 'skipped', reason: `price validation failed: ${msg.slice(0, 80)}`, nav };
+    }
     if (!markPrice || markPrice <= 0) {
-      return { action: 'skipped', reason: 'no mark price', nav };
+      return { action: 'skipped', reason: 'no mark price after validation', nav };
     }
 
     // Sizing: base stake × confidence-scalar × per-asset vol multiplier.
