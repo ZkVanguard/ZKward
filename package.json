@@ -71,6 +71,7 @@
     "local:pause": "powershell -ExecutionPolicy Bypass -File scripts/local-ai.ps1 pause",
     "local:resume": "powershell -ExecutionPolicy Bypass -File scripts/local-ai.ps1 resume",
     "local:rerun": "powershell -ExecutionPolicy Bypass -File scripts/local-ai.ps1 rerun",
+    "local:tray": "powershell -ExecutionPolicy Bypass -WindowStyle Hidden -File scripts/local-ai-tray.ps1",
     "ai:train:full": "bash scripts/ai-training/run-training-pipeline.sh",
     "dev": "cross-env NODE_OPTIONS=--no-deprecation next dev",
     "build": "cross-env NODE_OPTIONS=\"--no-deprecation --max-old-space-size=8192\" next build --webpack",

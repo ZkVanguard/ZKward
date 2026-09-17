@@ -1,16 +1,13 @@
 /**
- * Live agent status chat — asks the ZkWard status oracle (ASI + tools)
- * about platform state and current agent activity.
- *
- * Backed by /api/agents/live-chat which runs a bounded tool-use loop
- * over the 6 read-only agent tools (interpretations, hedges, prices,
- * cron_state, postmortem stats, treasury). Read-only — the oracle
- * cannot open trades or move funds.
+ * Live agent status chat — asks the ZkWard status oracle (ASI + tools).
+ * Read-only. Grounds every answer in live DB state via 6 agent tools.
  */
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Send, Bot, User, Loader2, Wrench, AlertCircle } from 'lucide-react';
+import { Send, Bot, User, Loader2, Wrench, AlertCircle, ChevronDown } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 interface ToolCall {
   tool: string;
@@ -33,8 +30,49 @@ const QUICK_PROMPTS = [
   'How is BTC doing right now?',
   'What did our last 5 hedges do?',
   'Is our AI predicting correctly this week?',
-  'Can we afford another training run?',
 ];
+
+function AssistantMarkdown({ content }: { content: string }) {
+  return (
+    <ReactMarkdown
+      remarkPlugins={[remarkGfm]}
+      components={{
+        h1: ({ children }) => <h1 className="text-title-3 font-semibold text-label-primary mt-4 mb-2 first:mt-0">{children}</h1>,
+        h2: ({ children }) => <h2 className="text-headline font-semibold text-label-primary mt-3 mb-2 first:mt-0">{children}</h2>,
+        h3: ({ children }) => <h3 className="text-callout font-semibold text-label-primary mt-3 mb-1.5 first:mt-0">{children}</h3>,
+        h4: ({ children }) => <h4 className="text-footnote font-semibold text-label-secondary mt-2 mb-1 first:mt-0">{children}</h4>,
+        p: ({ children }) => <p className="text-body text-label-primary leading-relaxed mb-2 last:mb-0">{children}</p>,
+        strong: ({ children }) => <strong className="font-semibold text-label-primary">{children}</strong>,
+        em: ({ children }) => <em className="text-label-secondary italic">{children}</em>,
+        ul: ({ children }) => <ul className="list-disc pl-5 mb-2 last:mb-0 space-y-1 text-body text-label-primary">{children}</ul>,
+        ol: ({ children }) => <ol className="list-decimal pl-5 mb-2 last:mb-0 space-y-1 text-body text-label-primary">{children}</ol>,
+        li: ({ children }) => <li className="leading-relaxed">{children}</li>,
+        code: ({ className, children }) => {
+          if (!className) {
+            return <code className="px-1.5 py-0.5 rounded bg-system-bg-tertiary text-caption-1 font-mono text-ios-blue">{children}</code>;
+          }
+          return <code className={className}>{children}</code>;
+        },
+        pre: ({ children }) => <pre className="my-2 p-3 rounded-ios bg-system-bg-tertiary border border-separator-opaque/40 overflow-x-auto text-caption-1 font-mono">{children}</pre>,
+        table: ({ children }) => (
+          <div className="overflow-x-auto my-3 rounded-ios border border-separator-opaque/40">
+            <table className="min-w-full text-caption-1">{children}</table>
+          </div>
+        ),
+        thead: ({ children }) => <thead className="bg-system-bg-secondary">{children}</thead>,
+        tbody: ({ children }) => <tbody className="divide-y divide-separator-opaque/40 bg-system-bg-primary">{children}</tbody>,
+        tr: ({ children }) => <tr>{children}</tr>,
+        th: ({ children }) => <th className="px-3 py-1.5 text-left font-semibold text-label-primary whitespace-nowrap">{children}</th>,
+        td: ({ children }) => <td className="px-3 py-1.5 text-label-primary">{children}</td>,
+        blockquote: ({ children }) => <blockquote className="border-l-2 border-ios-blue pl-3 my-2 italic text-label-secondary">{children}</blockquote>,
+        hr: () => <hr className="my-3 border-separator-opaque/40" />,
+        a: ({ href, children }) => <a href={href} target="_blank" rel="noopener noreferrer" className="text-ios-blue underline underline-offset-2 hover:opacity-80">{children}</a>,
+      }}
+    >
+      {content}
+    </ReactMarkdown>
+  );
+}
 
 export function AgentLiveChat() {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -42,9 +80,10 @@ export function AgentLiveChat() {
   const [pending, setPending] = useState(false);
   const [ready, setReady] = useState<boolean | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
-    fetch('/api/agents/live-chat', { method: 'GET' })
+    fetch('/api/agents/live-chat')
       .then(r => r.json())
       .then(j => setReady(!!j.ready))
       .catch(() => setReady(false));
@@ -54,11 +93,17 @@ export function AgentLiveChat() {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [messages, pending]);
 
+  useEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = Math.min(el.scrollHeight, 180) + 'px';
+  }, [input]);
+
   const send = useCallback(async (raw: string) => {
     const text = raw.trim();
     if (!text || pending) return;
-    const userMsg: Message = { id: `u-${Date.now()}`, role: 'user', content: text };
-    setMessages(m => [...m, userMsg]);
+    setMessages(m => [...m, { id: `u-${Date.now()}`, role: 'user', content: text }]);
     setInput('');
     setPending(true);
     try {
@@ -106,18 +151,21 @@ export function AgentLiveChat() {
   }
 
   return (
-    <div className="bg-system-bg-primary rounded-ios-xl border border-separator-opaque/40 shadow-ios-1 overflow-hidden">
-      <div className="border-b border-separator-opaque/40 px-5 py-4">
+    <div className="bg-system-bg-primary rounded-ios-xl border border-separator-opaque/40 shadow-ios-1 overflow-hidden flex flex-col h-[min(80vh,720px)] min-h-[420px]">
+      <div className="border-b border-separator-opaque/40 px-4 sm:px-5 py-3 sm:py-4 flex-shrink-0">
         <div className="flex items-center gap-2">
           <Bot className="w-4 h-4 text-ios-blue" />
           <h3 className="text-headline font-semibold text-label-primary">Ask the status oracle</h3>
+          <span className="ml-auto text-caption-2 text-label-tertiary hidden sm:inline">
+            read-only · 6 tools
+          </span>
         </div>
         <p className="text-footnote text-label-tertiary mt-1">
-          Read-only. Grounds every answer in live DB state via the 6 agent tools.
+          Grounds every answer in live DB state.
         </p>
       </div>
 
-      <div ref={scrollRef} className="max-h-[420px] min-h-[220px] overflow-y-auto px-5 py-4 space-y-4">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto px-3 sm:px-5 py-4 space-y-4">
         {messages.length === 0 && (
           <div className="space-y-3">
             <p className="text-callout text-label-tertiary">Try one of these:</p>
@@ -137,9 +185,9 @@ export function AgentLiveChat() {
         )}
 
         {messages.map(m => (
-          <div key={m.id} className={`flex gap-3 ${m.role === 'user' ? 'flex-row-reverse' : ''}`}>
+          <div key={m.id} className={`flex gap-2 sm:gap-3 ${m.role === 'user' ? 'flex-row-reverse' : ''}`}>
             <div
-              className={`w-8 h-8 rounded-ios flex items-center justify-center flex-shrink-0 ${
+              className={`w-7 h-7 sm:w-8 sm:h-8 rounded-ios flex items-center justify-center flex-shrink-0 ${
                 m.role === 'user'
                   ? 'bg-ios-blue/10 text-ios-blue'
                   : m.error
@@ -149,48 +197,53 @@ export function AgentLiveChat() {
             >
               {m.role === 'user' ? <User className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
             </div>
-            <div className={`flex-1 min-w-0 ${m.role === 'user' ? 'text-right' : ''}`}>
+            <div className={`min-w-0 max-w-[calc(100%-2.75rem)] sm:max-w-[calc(100%-3rem)] ${m.role === 'user' ? 'flex flex-col items-end' : 'flex-1'}`}>
               <div
-                className={`inline-block max-w-[95%] px-4 py-2.5 rounded-ios text-body leading-relaxed whitespace-pre-wrap ${
+                className={`px-3.5 py-2.5 rounded-ios ${
                   m.role === 'user'
-                    ? 'bg-ios-blue text-white'
+                    ? 'inline-block max-w-full bg-ios-blue text-white text-body whitespace-pre-wrap break-words'
                     : m.error
-                    ? 'bg-ios-red/10 text-red-700'
-                    : 'bg-system-bg-secondary text-label-primary'
+                    ? 'inline-block max-w-full bg-ios-red/10 text-red-700 text-body whitespace-pre-wrap break-words'
+                    : 'w-full bg-system-bg-secondary text-label-primary break-words'
                 }`}
               >
-                {m.content}
+                {m.role === 'assistant' && !m.error ? (
+                  <AssistantMarkdown content={m.content} />
+                ) : (
+                  m.content
+                )}
               </div>
               {m.toolCalls && m.toolCalls.length > 0 && (
-                <div className="mt-2 text-caption-1 text-label-tertiary flex flex-wrap gap-x-3 gap-y-1">
-                  <span className="inline-flex items-center gap-1">
+                <details className="mt-2 text-caption-1 text-label-tertiary group">
+                  <summary className="inline-flex items-center gap-1 cursor-pointer hover:text-label-secondary select-none list-none">
                     <Wrench className="w-3 h-3" />
-                    {m.toolCalls.length} tool call{m.toolCalls.length === 1 ? '' : 's'} · {m.elapsedMs}ms
-                  </span>
-                  {m.toolCalls.map((t, i) => (
-                    <span
-                      key={i}
-                      className={`inline-flex items-center gap-1 font-mono ${
-                        t.ok ? 'text-ios-green' : 'text-red-700'
-                      }`}
-                    >
-                      {t.tool}({t.ok ? 'ok' : 'err'})
-                    </span>
-                  ))}
-                </div>
+                    <span>{m.toolCalls.length} tool call{m.toolCalls.length === 1 ? '' : 's'} · {m.elapsedMs}ms</span>
+                    <ChevronDown className="w-3 h-3 group-open:rotate-180 transition-transform" />
+                  </summary>
+                  <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 pl-4">
+                    {m.toolCalls.map((t, i) => (
+                      <span
+                        key={i}
+                        className={`inline-flex items-center gap-1 font-mono ${t.ok ? 'text-ios-green' : 'text-red-700'}`}
+                      >
+                        {t.tool}({t.ok ? 'ok' : 'err'}) {t.latencyMs}ms
+                      </span>
+                    ))}
+                  </div>
+                </details>
               )}
             </div>
           </div>
         ))}
 
         {pending && (
-          <div className="flex gap-3">
-            <div className="w-8 h-8 rounded-ios bg-ios-green/10 text-ios-green flex items-center justify-center flex-shrink-0">
+          <div className="flex gap-2 sm:gap-3">
+            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-ios bg-ios-green/10 text-ios-green flex items-center justify-center flex-shrink-0">
               <Loader2 className="w-4 h-4 animate-spin" />
             </div>
             <div className="flex-1 min-w-0">
-              <div className="inline-block px-4 py-2.5 rounded-ios bg-system-bg-secondary text-label-tertiary text-body">
-                Querying live state...
+              <div className="inline-block px-3.5 py-2.5 rounded-ios bg-system-bg-secondary text-label-tertiary text-body">
+                Querying live state<span className="inline-block animate-pulse">...</span>
               </div>
             </div>
           </div>
@@ -202,22 +255,31 @@ export function AgentLiveChat() {
           e.preventDefault();
           send(input);
         }}
-        className="border-t border-separator-opaque/40 px-5 py-4 flex gap-2"
+        className="border-t border-separator-opaque/40 px-3 sm:px-5 py-3 flex gap-2 items-end flex-shrink-0 bg-system-bg-primary"
       >
-        <input
+        <textarea
+          ref={textareaRef}
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="Ask about hedges, treasury, signals, cron state..."
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault();
+              send(input);
+            }
+          }}
+          rows={1}
+          placeholder="Ask about hedges, treasury, signals... (Enter to send, Shift+Enter for newline)"
           disabled={pending || ready !== true}
-          className="flex-1 px-3 py-2 rounded-ios bg-system-bg-secondary text-label-primary placeholder-label-tertiary border border-separator-opaque/40 focus:border-ios-blue focus:outline-none text-body disabled:opacity-50"
+          className="flex-1 px-3 py-2 rounded-ios bg-system-bg-secondary text-label-primary placeholder-label-tertiary border border-separator-opaque/40 focus:border-ios-blue focus:outline-none text-body disabled:opacity-50 resize-none max-h-[180px] min-h-[38px] leading-snug"
         />
         <button
           type="submit"
           disabled={pending || !input.trim() || ready !== true}
-          className="px-4 py-2 rounded-ios bg-ios-blue text-white font-medium text-callout disabled:opacity-40 disabled:cursor-not-allowed hover:bg-ios-blue/90 transition-colors flex items-center gap-2"
+          className="px-3 sm:px-4 py-2 rounded-ios bg-ios-blue text-white font-medium text-callout disabled:opacity-40 disabled:cursor-not-allowed hover:bg-ios-blue/90 transition-colors flex items-center gap-2 flex-shrink-0 min-h-[38px]"
+          aria-label="Send"
         >
-          <Send className="w-4 h-4" />
-          Ask
+          {pending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+          <span className="hidden sm:inline">{pending ? 'Sending' : 'Ask'}</span>
         </button>
       </form>
     </div>
