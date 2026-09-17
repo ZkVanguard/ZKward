@@ -150,12 +150,11 @@ export function proxy(request: NextRequest) {
   // FAST PATH: Skip i18n middleware entirely for API routes
   if (pathname.startsWith('/api')) {
     const origin = request.headers.get('origin');
-    // Public GraphQL surfaces (subgraph adapter + judges JSON) are read-only,
-    // no session cookies, no wallet-scoped writes → safe to allow any origin.
-    // Lets Apollo Sandbox, GraphQL Playground, Studio, and third-party agents
+    // Public GraphQL surfaces (subgraph adapter) are read-only, no session
+    // cookies, no wallet-scoped writes → safe to allow any origin. Lets
+    // Apollo Sandbox, GraphQL Playground, Studio, and third-party agents
     // hit them without an allowlist entry. Everything else stays strict.
-    const isPublicReadSurface =
-      pathname.startsWith('/api/subgraph/') || pathname === '/api/judges/status';
+    const isPublicReadSurface = pathname.startsWith('/api/subgraph/');
     const allow = isPublicReadSurface
       ? (origin || '*')
       : (origin && ALLOWED_ORIGINS.has(origin) ? origin : null);
