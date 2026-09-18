@@ -612,19 +612,27 @@ export async function getStaleActiveHedges(maxAgeMs: number): Promise<Array<{
 }
 
 export async function getHedgeStats() {
+  // total_*_pnl aggregates are REAL trades only. Prior version summed
+  // paper trades in too — /api/platform-stats and hedging/list consumers
+  // saw an extra -$62k of paper losses in the same 30-day window as
+  // the treasury contamination bug (PR #128, 2026-09-18).
+  //
+  // Counts (total_hedges / active_hedges / simulated_hedges / real_hedges)
+  // still include everything; consumers that want live-only counts should
+  // read real_hedges directly.
   const sql = `
-    SELECT 
+    SELECT
       COUNT(*) as total_hedges,
       COUNT(CASE WHEN status = 'active' THEN 1 END) as active_hedges,
-      SUM(CASE WHEN status = 'active' THEN notional_value ELSE 0 END) as total_active_notional,
-      SUM(current_pnl) as total_current_pnl,
-      SUM(realized_pnl) as total_realized_pnl,
+      SUM(CASE WHEN status = 'active' AND ${HEDGES_REAL_ONLY_SQL} THEN notional_value ELSE 0 END) as total_active_notional,
+      SUM(CASE WHEN ${HEDGES_REAL_ONLY_SQL} THEN current_pnl ELSE 0 END) as total_current_pnl,
+      SUM(CASE WHEN ${HEDGES_REAL_ONLY_SQL} THEN realized_pnl ELSE 0 END) as total_realized_pnl,
       COUNT(CASE WHEN simulation_mode = true THEN 1 END) as simulated_hedges,
-      COUNT(CASE WHEN simulation_mode = false THEN 1 END) as real_hedges,
+      COUNT(CASE WHEN ${HEDGES_REAL_ONLY_SQL} THEN 1 END) as real_hedges,
       COUNT(CASE WHEN zk_proof_hash IS NOT NULL AND zk_proof_hash != '' THEN 1 END) as total_with_zk_proof
     FROM hedges
   `;
-  
+
   return queryOne(sql);
 }
 
