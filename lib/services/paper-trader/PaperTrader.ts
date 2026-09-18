@@ -220,15 +220,22 @@ export class PaperTrader {
       await flushPaperDigestIfDue(now);
 
       const nav = (await getCronState<number>(KEY_NAV)) ?? PAPER_STARTING_NAV;
-      const activePos = await getCronState<SimulatedPosition>(KEY_POSITION);
 
+      // Concurrent-mode branch: PAPER_MAX_CONCURRENT > 1 unlocks the
+      // array-based active-positions storage + correlation gates. Legacy
+      // single-position path stays untouched otherwise.
+      const { PAPER_MAX_CONCURRENT } = await import('./config');
+      if (PAPER_MAX_CONCURRENT > 1) {
+        const result = await PaperTrader.runTickConcurrent(nav, now);
+        await pushNavSample(now, result.nav ?? nav);
+        return result;
+      }
+
+      const activePos = await getCronState<SimulatedPosition>(KEY_POSITION);
       const result = activePos
         ? await PaperTrader.handleActive(activePos, nav, now)
         : await PaperTrader.handleEntry(nav, now);
-
-      // Update NAV series on every tick so the chart is dense
       await pushNavSample(now, result.nav ?? nav);
-
       return result;
     } catch (e) {
       logger.error('[PaperTrader] runTick failed', { error: errMsg(e) });
@@ -236,6 +243,63 @@ export class PaperTrader {
     } finally {
       await setCronState(KEY_LAST_RUN, now).catch(() => {});
     }
+  }
+
+  /**
+   * Concurrent-mode tick: process every active position first (may close
+   * some), then look for new opens up to PAPER_MAX_CONCURRENT, filtered
+   * by same-asset dedup + correlation cluster caps.
+   * Returns a synthetic TickResult summarizing the tick (last close's nav
+   * is used for the caller-facing NAV bar).
+   */
+  private static async runTickConcurrent(nav: number, now: number): Promise<TickResult> {
+    const {
+      loadActivePositions,
+      removeActivePosition,
+      rejectionReason,
+    } = await import('./concurrent');
+    const { PAPER_MAX_CONCURRENT } = await import('./config');
+
+    const active = await loadActivePositions();
+    let currentNav = nav;
+    let lastActionResult: TickResult = { action: 'skipped', reason: 'no-op tick', nav };
+    let closesThisTick = 0;
+
+    // 1) Process each active position. handleActive was written for the
+    //    legacy path and clears KEY_POSITION on close — in concurrent mode
+    //    we drop the entry from the array instead. Detect a close by the
+    //    action string.
+    for (const entry of active) {
+      const r = await PaperTrader.handleActive(entry.position, currentNav, now);
+      if (r.action === 'closed') {
+        await removeActivePosition(entry.orderId);
+        if (typeof r.nav === 'number') currentNav = r.nav;
+        closesThisTick++;
+        lastActionResult = r;
+      }
+    }
+
+    // 2) Reload after any closes. Try to open new positions until cap.
+    const remaining = await loadActivePositions();
+    if (remaining.length >= PAPER_MAX_CONCURRENT) {
+      return closesThisTick > 0
+        ? lastActionResult
+        : { action: 'held', reason: `cap: ${remaining.length}/${PAPER_MAX_CONCURRENT}`, nav: currentNav };
+    }
+
+    // handleEntry opens ONE position per call; in concurrent mode we
+    // still open just one per tick (keeps per-tick blast radius small
+    // and lets the correlation gate re-evaluate between opens). Pass
+    // the current active-set filter so handleEntry can skip candidates
+    // that would fail the gate.
+    const r = await PaperTrader.handleEntry(currentNav, now, {
+      activeAssets: remaining.map((p) => p.position.asset),
+      rejectionReason: (asset, side) => rejectionReason(asset, side, remaining),
+    });
+    if (r.action === 'opened' || r.action === 'skipped') {
+      return r;
+    }
+    return closesThisTick > 0 ? lastActionResult : r;
   }
 
   private static async handleActive(
@@ -319,8 +383,31 @@ export class PaperTrader {
       );
     }
     // Persist the updated peak so cross-tick reads see the ratchet.
+    // In concurrent mode, write to the positions array entry instead of
+    // the legacy KEY_POSITION slot.
     if (currentPeak > priorPeak) {
-      await setCronState(KEY_POSITION, { ...pos, peakUnrealizedPnl: currentPeak });
+      const { PAPER_MAX_CONCURRENT } = await import('./config');
+      if (PAPER_MAX_CONCURRENT > 1) {
+        const { updateActivePosition } = await import('./concurrent');
+        const orderId = await getCronState<string>(KEY_ORDER_ID);
+        // In concurrent mode KEY_ORDER_ID may be null (migration cleared
+        // it). Look up by asset+openedAt in the array.
+        const { loadActivePositions } = await import('./concurrent');
+        const arr = await loadActivePositions();
+        const match = arr.find(
+          (p) => p.position.asset === pos.asset && p.position.openedAt === pos.openedAt,
+        );
+        if (match) {
+          await updateActivePosition(match.orderId, (p) => ({
+            ...p,
+            peakUnrealizedPnl: currentPeak,
+          }));
+        } else if (orderId) {
+          await updateActivePosition(orderId, (p) => ({ ...p, peakUnrealizedPnl: currentPeak }));
+        }
+      } else {
+        await setCronState(KEY_POSITION, { ...pos, peakUnrealizedPnl: currentPeak });
+      }
     }
 
     // 3. Max-hold expiry → close. Uses per-position maxHoldMin (scaled by
@@ -365,7 +452,20 @@ export class PaperTrader {
     };
   }
 
-  private static async handleEntry(nav: number, now: number): Promise<TickResult> {
+  /**
+   * Consider opening one new position. In legacy single-position mode
+   * the concurrency filter is null (any asset viable). In concurrent
+   * mode the caller passes a filter that rejects candidates already
+   * active or blocked by correlation cluster caps.
+   */
+  private static async handleEntry(
+    nav: number,
+    now: number,
+    concurrencyFilter?: {
+      activeAssets: string[];
+      rejectionReason: (asset: string, side: Side) => string | null;
+    },
+  ): Promise<TickResult> {
     // ── Risk-control gates (2026-09-17) ────────────────────────────────
     // Run BEFORE the signal scan so a halted trader doesn't waste an API
     // round-trip. All gates share one halted-until timestamp so a fresh
@@ -453,6 +553,19 @@ export class PaperTrader {
         asset, rec, conf: scan.best.prediction.confidence,
       });
       return { action: 'skipped', reason: 'non-directional signal', nav };
+    }
+
+    // Concurrent-mode filter: same-asset dedup + correlation cluster cap.
+    // Runs before regret + price validation so we don't waste API calls
+    // on candidates the concurrency gate already rules out.
+    if (concurrencyFilter) {
+      const reject = concurrencyFilter.rejectionReason(asset, side);
+      if (reject) {
+        logger.info('[PaperTrader] concurrency filter skipped candidate', {
+          asset, side, reason: reject, activeCount: concurrencyFilter.activeAssets.length,
+        });
+        return { action: 'skipped', reason: `concurrency: ${reject}`, nav };
+      }
     }
 
     // Per-asset regret cooldown — a losing (asset, side) streak means the
@@ -558,8 +671,17 @@ export class PaperTrader {
     };
 
     const orderId = `paper_${asset}_${Math.floor(now / 1000)}`;
-    await setCronState(KEY_POSITION, position);
-    await setCronState(KEY_ORDER_ID, orderId);
+    // Concurrent-mode: push into the positions array. Legacy mode: single
+    // KEY_POSITION + KEY_ORDER_ID slots. The concurrencyFilter presence
+    // is our proxy for "concurrent mode is active" since only runTickConcurrent
+    // passes it.
+    if (concurrencyFilter) {
+      const { addActivePosition } = await import('./concurrent');
+      await addActivePosition({ orderId, position });
+    } else {
+      await setCronState(KEY_POSITION, position);
+      await setCronState(KEY_ORDER_ID, orderId);
+    }
 
     // Persist to hedges table for reuse by dashboard + analytics
     try {
