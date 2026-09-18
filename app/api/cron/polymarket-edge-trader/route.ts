@@ -333,12 +333,18 @@ export async function GET(request: NextRequest): Promise<NextResponse<EdgeResult
     let regretScoreForHalt = 0;
     try {
       if ((process.env.REGRET_TRACKER_DISABLE ?? '') !== '1') {
+        // simulation_mode = false — 2026-09-18: the paper trader had 103
+        // losses in the same 30-day window; without this filter the live
+        // trader's regret score was dominated by paper trades → forced
+        // regretBasedHalt → live trader was halted for hours.
         const rows = await query<{ open_confidence: number; realized_pnl: number; created_at: Date }>(
           `SELECT COALESCE(open_confidence, 60) as open_confidence,
                   COALESCE(realized_pnl, 0)::float as realized_pnl,
                   created_at
            FROM hedges
-           WHERE status='closed' AND created_at > NOW() - INTERVAL '30 days'
+           WHERE status='closed'
+             AND simulation_mode = false
+             AND created_at > NOW() - INTERVAL '30 days'
            ORDER BY created_at DESC LIMIT 200`
         ).catch(() => []);
         if (rows.length > 0) {

@@ -115,7 +115,10 @@ const queryHedgeHistory: AgentTool<
     const cap = Math.min(Math.max(1, limit), 200);
     const sinceMs = Date.now() - hours * 60 * 60 * 1000;
     const params: unknown[] = [new Date(sinceMs).toISOString()];
-    let where = 'created_at >= $1';
+    // simulation_mode = false — the LLM reasoning tool answers questions
+    // about the live trader; paper trades in the same table would poison
+    // its judgment (138 paper trades vs 174 real in 30d; 2026-09-18).
+    let where = 'created_at >= $1 AND simulation_mode = false';
     if (asset) {
       params.push(asset.toUpperCase());
       where += ` AND asset = $${params.length}`;
