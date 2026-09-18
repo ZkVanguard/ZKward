@@ -103,12 +103,23 @@ async function record(category: LedgerCategory, args: WriteArgs): Promise<boolea
 }
 
 /** Record a realized hedge P&L as income. Idempotent per orderId.
- *  Signed: profitable close = positive amountUsd; losing close = negative. */
+ *  Signed: profitable close = positive amountUsd; losing close = negative.
+ *
+ *  Belt + braces (2026-09-18): refuses paper-trader orderIds at the source.
+ *  Callers in lib/db/hedges.ts (closeHedge, updateHedgeStatus) don't check
+ *  simulation_mode before calling this, so a paper close routed through
+ *  them would contaminate treasury. Diagnosed after a leak snuck through
+ *  between PR #128 merge and deploy that halted the live trader for 52h
+ *  when the -$122 paper close pushed treasury underwater. */
 export function recordPnlCredit(
   orderId: string,
   realizedPnlUsd: number,
   note?: string,
 ): Promise<boolean> {
+  if (orderId.startsWith('paper_')) {
+    logger.debug('[Treasury] refusing paper orderId', { orderId });
+    return Promise.resolve(false);
+  }
   return record('pnl_credit', {
     subcategory: 'hedge_close',
     amountUsd: realizedPnlUsd,
