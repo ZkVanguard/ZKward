@@ -36,7 +36,11 @@ import {
   type SourceSnapshot,
   type Side,
 } from './simulated-executor';
-import { normalizeSourceKey, recordSourceOutcome } from '@/lib/services/ai/source-calibrator';
+import {
+  normalizeSourceKey,
+  recordSourceOutcome,
+  getCalibratedMultiplier,
+} from '@/lib/services/ai/source-calibrator';
 
 // ── Config (env-tunable) ─────────────────────────────────────────────────
 export const PAPER_UNIVERSE = (process.env.PAPER_TRADER_ASSETS || 'BTC,ETH,SOL,XRP,DOGE')
@@ -52,6 +56,15 @@ export const PAPER_LEVERAGE = Number(process.env.PAPER_TRADER_LEVERAGE || 3);
 // signal quality.
 export const PAPER_STAKE_PCT = Number(process.env.PAPER_TRADER_STAKE_PCT || 0.05);
 export const PAPER_MAX_HOLD_MIN = Number(process.env.PAPER_TRADER_MAX_HOLD_MIN || 20);
+// Signal-strength-scaled hold ceiling: strong signals earn more time so
+// moves develop past the 13bp fee floor. Weak signals stay at the base
+// PAPER_MAX_HOLD_MIN. Formula: base + scalar × PAPER_MAX_HOLD_EXTRA_MIN.
+// At scalar=0.4 (min gate 55/50): +0min → 20 min hold.
+// At scalar=1.0 (strong 80/75):    +36min → 56 min hold.
+// At scalar=2.0 (95/95):           +90min → 110 min hold.
+export const PAPER_MAX_HOLD_EXTRA_MIN = Number(
+  process.env.PAPER_TRADER_MAX_HOLD_EXTRA_MIN || 90,
+);
 export const PAPER_MIN_CONFIDENCE = Number(process.env.PAPER_TRADER_MIN_CONFIDENCE || 55);
 export const PAPER_MIN_CONSENSUS = Number(process.env.PAPER_TRADER_MIN_CONSENSUS || 50);
 export const PAPER_MIN_SOURCES = Number(process.env.PAPER_TRADER_MIN_SOURCES || 2);
@@ -108,6 +121,55 @@ export function computeSignalScalar(confidence: number, consensus: number): numb
   const consN = Math.max(0, Math.min(1, (consensus - 50) / 50));
   const avg = (confN + consN) / 2;
   return 0.4 + avg * 1.6;
+}
+
+/**
+ * Signal-strength-scaled max-hold minutes. Weak signals close at the base
+ * PAPER_MAX_HOLD_MIN. Strong signals earn extra time (up to
+ * PAPER_MAX_HOLD_EXTRA_MIN extra) so moves develop past fees. Uses the
+ * same signalScalar as sizing so a signal that gets a bigger position
+ * also gets a longer window.
+ */
+export function computeMaxHoldMinutes(signalScalar: number): number {
+  const capped = Math.max(0.4, Math.min(2.0, signalScalar));
+  const bonusRatio = (capped - 0.4) / 1.6; // 0.0 at min gate, 1.0 at max
+  return PAPER_MAX_HOLD_MIN + bonusRatio * PAPER_MAX_HOLD_EXTRA_MIN;
+}
+
+/**
+ * Weighted-average calibrated multiplier across the signal's sources.
+ * Reads the per-source Bayesian hit-rate from source-calibrator (fed by
+ * recordSourceOutcome at close). Returns a stake scalar in [0.5, 1.5]:
+ *   1.0 = neutral (no data or 50% hit rates)
+ *   1.5 = signals dominated by 65%+ hit-rate sources → boost size
+ *   0.5 = signals dominated by 35%- hit-rate sources → shrink size
+ *
+ * Clamped tighter than the raw source-calibrator range [0.2, 2.0] so
+ * calibration modulates but never dominates the sizing math — one
+ * outlier source with sparse data can't 4x the position.
+ */
+export async function computeCalibrationBoost(
+  sources: Array<{ name: string; type?: string; weight: number }>,
+): Promise<number> {
+  if (!sources || sources.length === 0) return 1.0;
+  try {
+    const weighted = await Promise.all(
+      sources.map(async (s) => {
+        const key = normalizeSourceKey(s.name, s.type ?? '');
+        const mult = await getCalibratedMultiplier(key);
+        return { mult, weight: Math.max(0, s.weight) };
+      }),
+    );
+    const totalWeight = weighted.reduce((a, b) => a + b.weight, 0);
+    if (totalWeight <= 0) return 1.0;
+    const raw = weighted.reduce((a, b) => a + b.mult * b.weight, 0) / totalWeight;
+    return Math.max(0.5, Math.min(1.5, raw));
+  } catch (e) {
+    logger.debug('[PaperTrader] calibration boost failed (defaulting to 1.0)', {
+      error: e instanceof Error ? e.message : String(e),
+    });
+    return 1.0;
+  }
 }
 
 // Reserved portfolio ID for paper trader (community pool = -1, SUI = -2).
@@ -255,8 +317,9 @@ export class PaperTrader {
       //      close at multi-source price (avoid stuck-position bug 2026-09-18
       //      where XRP stayed open 4+ hours because getLivePrice returned 0).
       //   2. Otherwise HOLD — don't force-close on bad data; next tick retries.
+      const posMaxHoldMin = pos.maxHoldMin ?? PAPER_MAX_HOLD_MIN;
       const holdMs = now - pos.openedAt;
-      if (holdMs >= PAPER_MAX_HOLD_MIN * 60_000) {
+      if (holdMs >= posMaxHoldMin * 60_000) {
         try {
           const v = await getMultiSourceValidatedPrice(pos.asset, {
             minSources: 2,
@@ -327,10 +390,13 @@ export class PaperTrader {
       await setCronState(KEY_POSITION, { ...pos, peakUnrealizedPnl: currentPeak });
     }
 
-    // 3. Max-hold expiry → close
+    // 3. Max-hold expiry → close. Uses per-position maxHoldMin (scaled by
+    //    signal strength at open) with fallback to the static base for
+    //    positions opened before this feature landed.
+    const posMaxHoldMin = pos.maxHoldMin ?? PAPER_MAX_HOLD_MIN;
     const holdMs = now - pos.openedAt;
-    if (holdMs >= PAPER_MAX_HOLD_MIN * 60_000) {
-      return PaperTrader.closeAtMark(pos, markPrice, nav, now, 'max-hold expired');
+    if (holdMs >= posMaxHoldMin * 60_000) {
+      return PaperTrader.closeAtMark(pos, markPrice, nav, now, `max-hold expired (${Math.round(posMaxHoldMin)}min)`);
     }
 
     // 4. Signal-flip exit (mirrors #101 confidence gate)
@@ -509,15 +575,26 @@ export class PaperTrader {
       return { action: 'skipped', reason: 'no mark price after validation', nav };
     }
 
-    // Sizing: base stake × confidence-scalar × per-asset vol multiplier.
-    // The confidence scalar weights strong signals bigger and weak signals
-    // smaller; the vol multiplier stops SOL from carrying 2× BTC risk at
-    // equal notional (SOL vol ~2× BTC vol in normal markets).
+    // Sizing: base stake × confidence-scalar × vol multiplier × source
+    // calibration boost. The calibration boost reads per-source Bayesian
+    // hit rates from source-calibrator (fed by recordSourceOutcome at
+    // every close). Signals dominated by historically-accurate sources
+    // get a larger position; poorly-calibrated sources shrink it.
     const conf = scan.best.prediction.confidence ?? 0;
     const cons = (scan.best.prediction as { consensus?: number }).consensus ?? 0;
     const signalScalar = computeSignalScalar(conf, cons);
     const volMult = PAPER_ASSET_VOL_MULT[asset] ?? 1.0;
-    const stakeUsd = nav * PAPER_STAKE_PCT * signalScalar * volMult;
+    const rawSourcesForCal = (scan.best.prediction.sources ?? []) as Array<{
+      name: string; type?: string; weight?: number;
+    }>;
+    const calibrationBoost = await computeCalibrationBoost(
+      rawSourcesForCal.map((s) => ({
+        name: s.name,
+        type: s.type,
+        weight: s.weight ?? 1,
+      })),
+    );
+    const stakeUsd = nav * PAPER_STAKE_PCT * signalScalar * volMult * calibrationBoost;
     const notionalUsd = stakeUsd * PAPER_LEVERAGE;
     if (notionalUsd < 1) {
       return { action: 'skipped', reason: `notional too small ($${notionalUsd.toFixed(2)})`, nav };
@@ -541,6 +618,7 @@ export class PaperTrader {
       peakUnrealizedPnl: 0,
       entryConfidence: conf,
       entryConsensus: cons,
+      maxHoldMin: computeMaxHoldMinutes(signalScalar),
     };
 
     const orderId = `paper_${asset}_${Math.floor(now / 1000)}`;
@@ -577,6 +655,8 @@ export class PaperTrader {
       score: scan.best.score.toFixed(1),
       signalScalar: signalScalar.toFixed(2),
       volMult: volMult.toFixed(2),
+      calibrationBoost: calibrationBoost.toFixed(2),
+      maxHoldMin: (position.maxHoldMin ?? PAPER_MAX_HOLD_MIN).toFixed(0),
     });
 
     void notifyDiscord(

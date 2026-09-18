@@ -50,7 +50,10 @@ import {
   KEY_ORDER_ID,
   PAPER_STARTING_NAV,
   computeSignalScalar,
+  computeMaxHoldMinutes,
+  computeCalibrationBoost,
   PAPER_ASSET_VOL_MULT,
+  PAPER_MAX_HOLD_MIN,
 } from '@/lib/services/paper-trader/PaperTrader';
 
 const NOW = 1_700_000_000_000;
@@ -369,6 +372,54 @@ describe('computeSignalScalar — confidence weighting', () => {
 
   it('never returns below 0.4 even for sub-gate inputs (defense-in-depth)', () => {
     expect(computeSignalScalar(30, 20)).toBe(0.4);
+  });
+});
+
+describe('computeCalibrationBoost — source-calibrator wiring', () => {
+  // No calibrator mock; the real getCalibratedMultiplier will bail on the
+  // cron_state read (mocked to return null → NEUTRAL 1.0 default), so
+  // these tests validate the boundary + defensive branches.
+  it('returns 1.0 when sources array is empty', async () => {
+    const result = await computeCalibrationBoost([]);
+    expect(result).toBe(1.0);
+  });
+
+  it('returns 1.0 when total weight is 0 (defensive)', async () => {
+    const result = await computeCalibrationBoost([
+      { name: 'x', weight: 0 },
+      { name: 'y', weight: 0 },
+    ]);
+    expect(result).toBe(1.0);
+  });
+
+  it('produces a result in [0.5, 1.5] for real inputs', async () => {
+    const result = await computeCalibrationBoost([
+      { name: 'src1', weight: 1 },
+      { name: 'src2', weight: 1 },
+    ]);
+    expect(result).toBeGreaterThanOrEqual(0.5);
+    expect(result).toBeLessThanOrEqual(1.5);
+  });
+});
+
+describe('computeMaxHoldMinutes — dynamic max-hold', () => {
+  it('returns base max-hold at the minimum signal scalar (0.4)', () => {
+    expect(computeMaxHoldMinutes(0.4)).toBeCloseTo(PAPER_MAX_HOLD_MIN, 1);
+  });
+
+  it('adds ~half the extra at mid-strength (scalar 1.2)', () => {
+    // At scalar=1.2, bonusRatio = (1.2-0.4)/1.6 = 0.5 → +45 min → 65 min total
+    expect(computeMaxHoldMinutes(1.2)).toBeCloseTo(PAPER_MAX_HOLD_MIN + 45, 0);
+  });
+
+  it('caps at base + full extra at scalar 2.0', () => {
+    // Bonus ratio = 1.0 → +90 min → 110 min total
+    expect(computeMaxHoldMinutes(2.0)).toBeCloseTo(PAPER_MAX_HOLD_MIN + 90, 0);
+  });
+
+  it('clamps for out-of-range input', () => {
+    expect(computeMaxHoldMinutes(0.1)).toBe(PAPER_MAX_HOLD_MIN); // below 0.4 floor
+    expect(computeMaxHoldMinutes(5.0)).toBeCloseTo(PAPER_MAX_HOLD_MIN + 90, 0); // above 2.0 cap
   });
 });
 
