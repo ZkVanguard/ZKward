@@ -36,7 +36,7 @@ import { verifyCronRequest } from '@/lib/qstash';
 import { notifyDiscord } from '@/lib/utils/discord-notify';
 import { BluefinService, BLUEFIN_PAIRS } from '@/lib/services/sui/BluefinService';
 import { classifyPosition } from '@/lib/services/sui/dust-manager';
-import { getActiveHedges, closeHedge, createHedge, type Hedge } from '@/lib/db/hedges';
+import { getActiveHedges, closeHedge, createHedge, isPaperHedge, type Hedge } from '@/lib/db/hedges';
 import { getCronStateOr, setCronState } from '@/lib/db/cron-state';
 import { SUI_COMMUNITY_POOL_PORTFOLIO_ID } from '@/lib/constants';
 import { query } from '@/lib/db/postgres';
@@ -241,9 +241,7 @@ export async function GET(request: NextRequest): Promise<NextResponse<ReconcileR
       // getActiveHedges query filter was fixed 2026-09-17 to respect
       // the chain param, but guard here too so a future caller can't
       // regress this.
-      if (h.simulation_mode || h.chain === 'hedera-testnet' || h.portfolio_id === -3) {
-        continue;
-      }
+      if (isPaperHedge(h)) continue;
 
       // Skip operational micro-hedges only — the $0.01 transport entries
       // that exist purely as capability artifacts on the Move side (lev=1x,

@@ -94,9 +94,13 @@ export class HedgePnLTracker {
    */
   async updateAllHedges(): Promise<HedgePnLUpdate[]> {
     try {
-      // Get all active hedges
-      const activeHedges = await getActiveHedges();
-      
+      // Get all active hedges, excluding paper trades — paper has its own
+      // simulator (lib/services/paper-trader/simulated-executor.ts) that
+      // computes fair-mark PnL with realistic fees. Mixing paper into live
+      // tracker pollutes portfolio metrics.
+      const { isPaperHedge } = await import('@/lib/db/hedges');
+      const activeHedges = (await getActiveHedges()).filter((h) => !isPaperHedge(h));
+
       if (activeHedges.length === 0) {
         return [];
       }

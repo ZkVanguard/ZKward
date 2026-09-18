@@ -179,6 +179,23 @@ export async function getHedgeByZkProofHash(proofHash: string): Promise<Hedge | 
   return queryOne<Hedge>(sql, [proofHash]);
 }
 
+/**
+ * Sentinel to identify paper-trader rows in the shared hedges table.
+ * Applied everywhere iterating active hedges so paper positions don't
+ * pollute live-hedge accounting, PnL tracking, alerting, or reconcilers.
+ */
+export function isPaperHedge(h: {
+  simulation_mode?: boolean | null;
+  chain?: string | null;
+  portfolio_id?: number | null;
+}): boolean {
+  return (
+    h.simulation_mode === true ||
+    h.chain === 'hedera-testnet' ||
+    h.portfolio_id === -3
+  );
+}
+
 export async function getActiveHedges(portfolioId?: number, chain?: string): Promise<Hedge[]> {
   await ensureHedgesTable();
   // Respect the chain filter regardless of whether portfolioId is set.

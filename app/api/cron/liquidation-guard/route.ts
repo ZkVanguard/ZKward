@@ -17,7 +17,7 @@ import { logger } from '@/lib/utils/logger';
 import { verifyCronRequest } from '@/lib/qstash';
 import { safeErrorResponse } from '@/lib/security/safe-error';
 import { errMsg } from '@/lib/utils/error-handler';
-import { getActiveHedges } from '@/lib/db/hedges';
+import { getActiveHedges, isPaperHedge } from '@/lib/db/hedges';
 import type { Hedge } from '@/lib/db/hedges';
 import { notifyDiscord } from '@/lib/utils/discord-notify';
 import { setCronState } from '@/lib/db/cron-state';
@@ -91,9 +91,7 @@ async function fetchLeveragedPositions(): Promise<LeveragedPosition[]> {
       .filter((h: Hedge) =>
         h.leverage > 1 &&
         h.entry_price != null && h.entry_price > 0 &&
-        !h.simulation_mode &&
-        h.chain !== 'hedera-testnet' &&
-        h.portfolio_id !== -3
+        !isPaperHedge(h)
       )
       .map((h: Hedge) => {
         const collateral = h.notional_value / h.leverage;
