@@ -201,10 +201,29 @@ async function loadStats(nav: number, now: number): Promise<PaperStats> {
   if (stats.dailyPeakDateUtc !== today) {
     stats.dailyPeakDateUtc = today;
     stats.dailyPeakNavUsd = nav;
-    // Fresh day resets the halt. Consecutive-losses count carries across
-    // days on purpose — a losing streak is still a losing streak.
+    // Fresh day resets halt AND consecutive-loss counter — a UTC-day
+    // rollover is a genuine reset signal (regime change, session end,
+    // etc). Old logic kept the streak alive across days which combined
+    // with the halt-expiration bug below to create permanent lockouts.
     stats.haltedUntilMs = 0;
     stats.lastHaltReason = undefined;
+    stats.consecutiveLosses = 0;
+  }
+  // Halt expiration reset (2026-09-18): once a streak halt cools off,
+  // the trader must get a fresh 5-loss budget. Otherwise the halt
+  // check passes (haltedUntilMs <= now) → immediately hits the
+  // consecutive-loss re-trip which halts again → permanent lockout.
+  // Observed 09-18 18:25 UTC on prod: trader had been halted-and-
+  // re-halted for hours because the counter never cleared.
+  if (
+    stats.haltedUntilMs &&
+    stats.haltedUntilMs <= now &&
+    (stats.consecutiveLosses ?? 0) >= PAPER_MAX_CONSECUTIVE_LOSSES
+  ) {
+    stats.consecutiveLosses = 0;
+    stats.haltedUntilMs = 0;
+    stats.lastHaltReason = undefined;
+    logger.info('[PaperTrader] halt expired — resetting consecutive-loss counter');
   }
   if ((stats.dailyPeakNavUsd ?? 0) < nav) stats.dailyPeakNavUsd = nav;
   if (stats.peakNavUsd < nav) stats.peakNavUsd = nav;
