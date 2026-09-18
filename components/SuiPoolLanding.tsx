@@ -81,114 +81,6 @@ function VaultTiltScene({ children }: { children: React.ReactNode }) {
 // to grow from the current 60k without pinning at 100%.
 const TVL_CAP_USD = 100_000;
 
-// ─── HederaVaultCallout ──────────────────────────────────────────────────
-// Small live-stats + sparkline widget for the Hedera testnet vault, shown
-// under the SUI hero to prove the multichain story from the first fold.
-// Everything is real chain data via Mirror Node — same endpoints the
-// dashboard uses.
-function HederaVaultCallout() {
-  // Pool summary reads from the shared useHederaPool hook so this
-  // callout dedupes with the hero's fetchPoolSummary + the dashboard's
-  // useCommunityPool. History stays as its own fetch (different endpoint).
-  const { data: pool } = useHederaPool('testnet');
-  const { data: hist } = useQuery({
-    queryKey: ['hedera-nav-history', 'all'],
-    queryFn: async () => {
-      const r = await fetch('/api/hedera/nav-history?window=all', { cache: 'no-store' });
-      return r.ok ? (await r.json()) as { points?: Array<{ t: string; sharePrice: number }> } : { points: [] };
-    },
-    staleTime: 60_000,
-    refetchInterval: 60_000,
-  });
-
-  if (!pool?.pool && !hist) return null;
-  const data = {
-    tvl: Number(pool?.pool?.totalValueUSD) || 0,
-    sharePrice: Number(pool?.pool?.sharePrice) || 1,
-    memberCount: Number(pool?.pool?.memberCount) || 0,
-    points: hist?.points ?? [],
-  };
-  if (!data) return null;
-  const { tvl, sharePrice, memberCount, points } = data;
-
-  // Inline sparkline via SVG — no chart.js dep for a 60x24 sketch.
-  const sparkline = (() => {
-    if (points.length < 2) return null;
-    const values = points.map((p) => p.sharePrice);
-    const min = Math.min(...values);
-    const max = Math.max(...values);
-    const range = max - min || 1;
-    const step = 100 / (values.length - 1);
-    const pts = values.map((v, i) => `${(i * step).toFixed(1)},${(24 - ((v - min) / range) * 22 - 1).toFixed(1)}`).join(' ');
-    return (
-      <svg viewBox="0 0 100 24" preserveAspectRatio="none" className="w-full h-6" aria-hidden>
-        <polyline
-          fill="none"
-          stroke="#00A79F"
-          strokeWidth="1.4"
-          strokeLinejoin="round"
-          strokeLinecap="round"
-          points={pts}
-        />
-      </svg>
-    );
-  })();
-
-  const change = points.length >= 2
-    ? ((points[points.length - 1].sharePrice - points[0].sharePrice) / points[0].sharePrice) * 100
-    : 0;
-
-  return (
-    <div className="mt-6 sm:mt-8 max-w-[720px] mx-auto">
-      <Link
-        href="/dashboard"
-        className="group block rounded-ios-xl border border-separator-opaque/30 bg-white/70 backdrop-blur p-4 hover:border-[#00A79F]/40 hover:shadow-ios-2 transition-all"
-        style={{ transition: `all 400ms ${SPRING}` }}
-      >
-        <div className="flex items-center justify-between gap-3 flex-wrap mb-2">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span
-              className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-semibold uppercase tracking-wide"
-              style={{ background: '#00A79F15', color: '#00A79F' }}
-            >
-              Also live · Hedera Testnet
-            </span>
-            <span className="text-[11px] text-label-tertiary">USDC vault · same product, EVM stack</span>
-          </div>
-          <span className="text-[11px] text-label-tertiary group-hover:text-[#00A79F] transition-colors">
-            Open dashboard →
-          </span>
-        </div>
-        <div className="grid grid-cols-3 gap-3 sm:gap-4 mb-3">
-          <div>
-            <div className="text-[10px] text-label-tertiary uppercase tracking-wide">TVL</div>
-            <div className="text-title-3 font-semibold tabular-nums text-label-primary">${tvl.toFixed(2)}</div>
-          </div>
-          <div>
-            <div className="text-[10px] text-label-tertiary uppercase tracking-wide">Share price</div>
-            <div className="text-title-3 font-semibold tabular-nums text-label-primary">${sharePrice.toFixed(4)}</div>
-          </div>
-          <div>
-            <div className="text-[10px] text-label-tertiary uppercase tracking-wide">Members</div>
-            <div className="text-title-3 font-semibold tabular-nums text-label-primary">{memberCount}</div>
-          </div>
-        </div>
-        {sparkline && (
-          <div className="flex items-center gap-3">
-            <div className="flex-1">{sparkline}</div>
-            <div
-              className="text-[11px] font-semibold tabular-nums flex-shrink-0"
-              style={{ color: change >= 0 ? '#34C759' : '#FF3B30' }}
-            >
-              {change >= 0 ? '+' : ''}{change.toFixed(2)}%
-            </div>
-          </div>
-        )}
-      </Link>
-    </div>
-  );
-}
-
 // ───────────────────────────────────────────────────────────────────────────
 // Live SUI Community Pool landing page — Apple-themed, single focus.
 //
@@ -574,7 +466,7 @@ function HeroGraphBg() {
 export const SuiPoolLanding = memo(function SuiPoolLanding() {
   // Read the shared Hedera pool query — same cache key as HederaVaultCallout
   // above + the dashboard's useCommunityPool. Three consumers, one fetch.
-  const { data: rawPool, isPending: loading, dataUpdatedAt } = useHederaPool('testnet');
+  const { data: rawPool, isPending: loading } = useHederaPool('testnet');
   const pool = toPoolSummary(rawPool);
 
   // Hero ref kept for structural anchor; cursor-follow effects removed
@@ -660,12 +552,6 @@ export const SuiPoolLanding = memo(function SuiPoolLanding() {
           <VaultTiltScene>
             <VaultMeter pool={pool} loading={loading} cap={TVL_CAP_USD} />
           </VaultTiltScene>
-          {/* Live-refresh ticker — proves the auto-refresh cadence is real,
-              not marketing copy. Uses useQuery's dataUpdatedAt (client truth). */}
-          <div className="max-w-[720px] mx-auto mb-8 sm:mb-10">
-            <RefreshTicker updatedAt={dataUpdatedAt} intervalMs={30_000} loading={loading} />
-          </div>
-
           {/* CTAs */}
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 mb-6">
             {/* Magnetic button-in-button (soft-skill pattern) — the
@@ -703,11 +589,6 @@ export const SuiPoolLanding = memo(function SuiPoolLanding() {
             <InstallAppButton className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-full bg-white/80 backdrop-blur border border-separator-opaque/40 text-label-secondary text-sm font-medium hover:text-ios-blue hover:border-ios-blue/40 active:scale-[0.98] transition-all" />
           </div>
 
-          {/* Hedera-testnet vault callout — proves the multichain story on
-              the same fold. Reads real chain data via /api/community-pool
-              (Mirror Node). Compact so it doesn't compete with the SUI
-              vault meter. */}
-          <HederaVaultCallout />
         </div>
       </section>
 
@@ -885,76 +766,6 @@ export const SuiPoolLanding = memo(function SuiPoolLanding() {
         </Reveal>
       </section>
 
-      {/* ─────────────────────────────────────────────────────────────── */}
-      {/* PRIVY — enterprise onboarding + B2B controls                    */}
-      {/* ─────────────────────────────────────────────────────────────── */}
-      <section className="py-12 sm:py-20 md:py-24 px-4 sm:px-5 lg:px-8 bg-system-bg-primary min-w-0">
-        <Reveal className="max-w-[1100px] mx-auto">
-          <div className="text-center mb-6 sm:mb-10">
-            <div className="inline-flex items-center gap-1.5 mb-3 px-2.5 py-1 rounded-full bg-[#00A79F]/10 text-[#00A79F] text-[11px] sm:text-caption-1 font-semibold uppercase tracking-wide">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#00A79F]" />
-              Powered by Privy
-            </div>
-            <h2 className="text-[24px] sm:text-[28px] md:text-[36px] lg:text-[42px] font-display font-semibold tracking-[-0.03em] leading-[1.05] text-label-primary mb-3 break-words">
-              Sign in with email. Approve with the team.
-            </h2>
-            <p className="text-sm sm:text-callout text-label-secondary max-w-[640px] mx-auto leading-relaxed sm:leading-[1.5] px-1">
-              No seed phrase for retail. Multi-approver quorum for treasury. Both
-              live on the dashboard.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4 min-w-0">
-            <Link
-              href="/dashboard"
-              className="group block rounded-ios-xl p-5 sm:p-6 bg-system-bg-secondary border border-separator-opaque/30 shadow-ios-1 hover:shadow-ios-2 hover:-translate-y-[1px] transition-all min-w-0"
-              style={{ transition: `all 400ms ${SPRING}` }}
-            >
-              <div className="flex items-center gap-2 mb-3">
-                <span className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wide text-[#00A79F]">
-                  Financial flow
-                </span>
-              </div>
-              <h3 className="text-title-3 sm:text-title-2 font-semibold text-label-primary mb-2 tracking-tight">
-                Zero-friction onboarding
-              </h3>
-              <p className="text-sm sm:text-callout text-label-secondary leading-relaxed mb-3">
-                Email login &rarr; self-custodial wallet &rarr; card on-ramp
-                &rarr; on-chain commit &mdash; all via Privy hooks. No extension.
-              </p>
-              <span className="inline-flex items-center gap-1 text-[13px] font-semibold text-[#00A79F]">
-                Try the flow
-                <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
-              </span>
-            </Link>
-
-            <Link
-              href="/dashboard"
-              className="group block rounded-ios-xl p-5 sm:p-6 bg-system-bg-secondary border border-separator-opaque/30 shadow-ios-1 hover:shadow-ios-2 hover:-translate-y-[1px] transition-all min-w-0"
-              style={{ transition: `all 400ms ${SPRING}` }}
-            >
-              <div className="flex items-center gap-2 mb-3">
-                <span className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wide text-[#00A79F]">
-                  B2B controls
-                </span>
-              </div>
-              <h3 className="text-title-3 sm:text-title-2 font-semibold text-label-primary mb-2 tracking-tight">
-                Quorum-gated treasury
-              </h3>
-              <p className="text-sm sm:text-callout text-label-secondary leading-relaxed mb-3">
-                N-of-M admin approvals for destructive actions (raise TVL cap,
-                pause pool). Policy visible, approvers logged, execution gated.
-              </p>
-              <span className="inline-flex items-center gap-1 text-[13px] font-semibold text-[#00A79F]">
-                Open the panel
-                <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
-              </span>
-            </Link>
-          </div>
-        </Reveal>
-      </section>
-
-      {/* ─────────────────────────────────────────────────────────────── */}
       {/* PLATFORM SURFACES — discoverability for the BlackRock-shaped views */}
       {/* ─────────────────────────────────────────────────────────────── */}
       <section className="py-14 sm:py-20 md:py-24 px-4 sm:px-5 lg:px-8 bg-system-bg-secondary border-y border-separator-opaque/20 min-w-0">
@@ -1011,24 +822,19 @@ export const SuiPoolLanding = memo(function SuiPoolLanding() {
       {/* ─────────────────────────────────────────────────────────────── */}
       {/* FOOTER CTA                                                      */}
       {/* ─────────────────────────────────────────────────────────────── */}
-      <section className="py-14 sm:py-20 md:py-28 px-4 sm:px-5 lg:px-8 bg-system-bg-primary min-w-0">
-        <div className="max-w-[800px] mx-auto text-center min-w-0">
-          <h2 className="text-[26px] sm:text-[34px] md:text-[44px] lg:text-[52px] font-display font-semibold tracking-[-0.03em] leading-[1.05] text-label-primary mb-4 sm:mb-5 break-words">
+      <section className="py-14 sm:py-20 md:py-24 px-4 sm:px-5 lg:px-8 bg-system-bg-primary min-w-0">
+        <div className="max-w-[720px] mx-auto text-center min-w-0">
+          <h2 className="text-[24px] sm:text-[32px] md:text-[40px] font-display font-semibold tracking-[-0.03em] leading-[1.05] text-label-primary mb-3 break-words">
             Join in seconds.
           </h2>
-          <p className="text-sm sm:text-callout md:text-[20px] text-label-secondary mb-6 sm:mb-8 leading-relaxed sm:leading-[1.5] px-1">
-            Connect a wallet, deposit any amount of USDC, and let the
-            AI work.{' '}
-            {pool ? (
-              <>Currently {formatCount(pool.memberCount, 'member', 'members')} · live on Hedera Testnet.</>
-            ) : (
-              <>Live on Hedera Testnet.</>
-            )}
+          <p className="text-sm sm:text-callout text-label-secondary mb-6 leading-relaxed px-1">
+            Connect a wallet, deposit USDC, let the AI work.
+            {pool && <> {formatCount(pool.memberCount, 'member', 'members')} onboard.</>}
           </p>
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4">
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
             <Link
               href="/dashboard"
-              className="group inline-flex items-center justify-center gap-3 w-full sm:w-auto pl-6 sm:pl-8 pr-2.5 h-[52px] sm:h-[56px] bg-ios-blue text-white text-base sm:text-headline font-semibold rounded-ios-xl hover:bg-ios-blueHover active:scale-[0.97] shadow-ios-2"
+              className="group inline-flex items-center justify-center gap-3 w-full sm:w-auto pl-6 pr-2.5 h-[52px] bg-ios-blue text-white text-headline font-semibold rounded-ios-xl hover:bg-ios-blueHover active:scale-[0.97] shadow-ios-2"
               style={{ transition: `all 500ms ${SPRING}` }}
             >
               Deposit USDC
@@ -1044,15 +850,15 @@ export const SuiPoolLanding = memo(function SuiPoolLanding() {
               href="https://github.com/ZkVanguard/zkward-ethglobal"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 h-[52px] sm:h-[56px] px-2 text-headline font-medium text-label-secondary hover:text-ios-blue transition-colors"
+              className="inline-flex items-center gap-2 h-[52px] px-2 text-headline font-medium text-label-secondary hover:text-ios-blue transition-colors"
             >
               View source
               <ArrowRight className="w-4 h-4" strokeWidth={2.25} />
             </a>
           </div>
           {pool?.paused && (
-            <p className="mt-4 sm:mt-6 text-xs sm:text-footnote text-ios-orange font-medium">
-              Note: deposits are currently paused for maintenance.
+            <p className="mt-4 text-footnote text-ios-orange font-medium">
+              Deposits currently paused for maintenance.
             </p>
           )}
         </div>
@@ -1064,38 +870,6 @@ export const SuiPoolLanding = memo(function SuiPoolLanding() {
 // ───────────────────────────────────────────────────────────────────────────
 // Subcomponents (page-specific — shared primitives live in ./ui/landing)
 // ───────────────────────────────────────────────────────────────────────────
-
-// RefreshTicker — small "Live · updated Ns ago · next in Ns" strip that ticks
-// every second. Uses useQuery's dataUpdatedAt as ground truth (real client
-// timestamp when the fetch resolved) so it can't lie about staleness.
-function RefreshTicker({
-  updatedAt, intervalMs, loading,
-}: {
-  updatedAt: number; intervalMs: number; loading: boolean;
-}) {
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    const t = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(t);
-  }, []);
-  if (loading || !updatedAt) return null;
-  const ageMs = Math.max(0, now - updatedAt);
-  const ageS = Math.floor(ageMs / 1000);
-  const nextS = Math.max(0, Math.ceil((intervalMs - ageMs) / 1000));
-  return (
-    <div className="flex items-center justify-center gap-2 text-[11px] sm:text-caption-1 text-label-tertiary tabular-nums">
-      <span className="relative flex h-1.5 w-1.5">
-        <span className="absolute inline-flex h-full w-full rounded-full bg-ios-green opacity-75 animate-ping" />
-        <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-ios-green" />
-      </span>
-      <span>Live</span>
-      <span className="w-px h-3 bg-separator-opaque/40" />
-      <span>Updated {ageS}s ago</span>
-      <span className="w-px h-3 bg-separator-opaque/40 hidden sm:inline-block" />
-      <span className="hidden sm:inline">Next refresh in {nextS}s</span>
-    </div>
-  );
-}
 
 // VaultMeter — the hero's signature element. A single card that IS the
 // vault's live state: NAV, allocation, capacity. Replaces the generic
