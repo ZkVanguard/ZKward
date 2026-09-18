@@ -27,8 +27,21 @@ import { Line } from 'react-chartjs-2';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Filler, Legend);
 
+interface ActivePos {
+  asset: string;
+  side: 'LONG' | 'SHORT';
+  entryPrice: number;
+  markPrice: number | null;
+  notionalUsd: number;
+  leverage: number;
+  openedAt: number;
+  holdSeconds: number;
+  unrealizedPnlUsd?: number;
+  fundingAccruedUsd?: number;
+  orderId: string | null;
+}
+
 interface Status {
-  success: boolean;
   generatedAt: string;
   lastTickAt: string | null;
   config: {
@@ -53,19 +66,8 @@ interface Status {
     cumRealizedUsd: number;
     lastRealizedUsd: number;
   };
-  activePosition: {
-    asset: string;
-    side: 'LONG' | 'SHORT';
-    entryPrice: number;
-    markPrice: number | null;
-    notionalUsd: number;
-    leverage: number;
-    openedAt: number;
-    holdSeconds: number;
-    unrealizedPnlUsd?: number;
-    fundingAccruedUsd?: number;
-    orderId: string | null;
-  } | null;
+  activePosition: ActivePos | null;
+  activePositions?: ActivePos[];
   recentTrades: Array<{
     id: number;
     orderId: string;
@@ -263,57 +265,71 @@ export default function PaperTraderPage() {
           </div>
         )}
 
-        {/* Active position */}
-        {status.activePosition && (
-          <div className="bg-gray-900 rounded-lg p-4">
-            <div className="text-xs text-gray-400 uppercase mb-2">Active Position</div>
-            <div className="grid grid-cols-2 md:grid-cols-6 gap-4 text-sm">
-              <div>
-                <div className="text-gray-500 text-xs">Asset</div>
-                <div className="font-bold">{status.activePosition.asset}</div>
+        {/* Active positions — concurrent mode may hold up to
+             PAPER_MAX_CONCURRENT (default 3). Falls back to the
+             singular activePosition when the API is on an older
+             deploy that doesn't yet return the array (PR #129). */}
+        {(() => {
+          const positions =
+            status.activePositions ??
+            (status.activePosition ? [status.activePosition] : []);
+          if (positions.length === 0) return null;
+          return (
+            <div className="bg-gray-900 rounded-lg p-4">
+              <div className="text-xs text-gray-400 uppercase mb-2">
+                Active {positions.length === 1 ? 'Position' : `Positions (${positions.length})`}
               </div>
-              <div>
-                <div className="text-gray-500 text-xs">Side</div>
-                <div
-                  className={
-                    status.activePosition.side === 'LONG' ? 'text-green-400' : 'text-red-400'
-                  }
-                >
-                  {status.activePosition.side}
-                </div>
-              </div>
-              <div>
-                <div className="text-gray-500 text-xs">Entry / Mark</div>
-                <div>
-                  ${status.activePosition.entryPrice.toFixed(2)} /{' '}
-                  {status.activePosition.markPrice
-                    ? `$${status.activePosition.markPrice.toFixed(2)}`
-                    : '—'}
-                </div>
-              </div>
-              <div>
-                <div className="text-gray-500 text-xs">Notional</div>
-                <div>{fmtUsd(status.activePosition.notionalUsd)}</div>
-              </div>
-              <div>
-                <div className="text-gray-500 text-xs">Hold</div>
-                <div>{fmtDur(status.activePosition.holdSeconds)}</div>
-              </div>
-              <div>
-                <div className="text-gray-500 text-xs">Unrealized</div>
-                <div
-                  className={
-                    (status.activePosition.unrealizedPnlUsd ?? 0) >= 0
-                      ? 'text-green-400'
-                      : 'text-red-400'
-                  }
-                >
-                  {fmtUsd(status.activePosition.unrealizedPnlUsd ?? 0)}
-                </div>
+              <div className="space-y-2">
+                {positions.map((p) => (
+                  <div
+                    key={p.orderId ?? `${p.asset}-${p.openedAt}`}
+                    className="grid grid-cols-2 md:grid-cols-6 gap-4 text-sm border-b border-gray-800 last:border-0 pb-2 last:pb-0"
+                  >
+                    <div>
+                      <div className="text-gray-500 text-xs">Asset</div>
+                      <div className="font-bold">{p.asset}</div>
+                    </div>
+                    <div>
+                      <div className="text-gray-500 text-xs">Side</div>
+                      <div
+                        className={p.side === 'LONG' ? 'text-green-400' : 'text-red-400'}
+                      >
+                        {p.side}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-gray-500 text-xs">Entry / Mark</div>
+                      <div>
+                        ${p.entryPrice.toFixed(2)} /{' '}
+                        {p.markPrice ? `$${p.markPrice.toFixed(2)}` : '—'}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-gray-500 text-xs">Notional</div>
+                      <div>{fmtUsd(p.notionalUsd)}</div>
+                    </div>
+                    <div>
+                      <div className="text-gray-500 text-xs">Hold</div>
+                      <div>{fmtDur(p.holdSeconds)}</div>
+                    </div>
+                    <div>
+                      <div className="text-gray-500 text-xs">Unrealized</div>
+                      <div
+                        className={
+                          (p.unrealizedPnlUsd ?? 0) >= 0
+                            ? 'text-green-400'
+                            : 'text-red-400'
+                        }
+                      >
+                        {fmtUsd(p.unrealizedPnlUsd ?? 0)}
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
 
         {/* Live signals */}
         {Object.keys(status.signals).length > 0 && (
