@@ -71,10 +71,23 @@ function primeStore(seed: Record<string, any>) {
 }
 
 function stubSignal(asset: string, rec: string, conf = 70, cons = 65) {
+  // Derive direction from recommendation so signal-quality gate has data
+  // it can actually work with (majority + stability filters read
+  // prediction.direction + prediction.sources).
+  const dir: 'UP' | 'DOWN' | 'NEUTRAL' =
+    rec.includes('LONG') ? 'UP' : rec.includes('SHORT') ? 'DOWN' : 'NEUTRAL';
+  // Give 5 majority-agreeing sources by default so the quality gate passes
+  // for happy-path tests. Tests that want to test the gate itself can
+  // override.
+  const sources = Array.from({ length: 5 }, () => ({ direction: dir, weight: 0.2 }));
   mockScanAndPickBest.mockResolvedValue({
-    best: { asset, prediction: { recommendation: rec, confidence: conf, consensus: cons }, score: 80 },
+    best: {
+      asset,
+      prediction: { recommendation: rec, direction: dir, confidence: conf, consensus: cons, sources },
+      score: 80,
+    },
     all: {
-      [asset]: { recommendation: rec, confidence: conf, consensus: cons, sources: [{}, {}, {}] },
+      [asset]: { recommendation: rec, direction: dir, confidence: conf, consensus: cons, sources },
     },
   } as any);
 }

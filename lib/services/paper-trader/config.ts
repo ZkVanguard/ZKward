@@ -147,3 +147,26 @@ export const PAPER_MAX_SAME_DIR_PER_CLUSTER = Math.max(
   1,
   Number(process.env.PAPER_TRADER_MAX_SAME_DIR_PER_CLUSTER || 2),
 );
+
+// ── Signal-quality filters (2026-09-18) ────────────────────────────
+//
+// Root cause of 22% win rate: the aggregator produces directional
+// recommendations that contradict the majority of underlying sources.
+// Observed on ETH: aggregate=HEDGE_LONG while 4 of 7 sources said
+// DOWN — weighted math let a couple of high-confidence-low-weight
+// sources dominate.
+//
+// Two filters gate opens on top of the aggregate:
+//   1. Majority agreement: reject if fewer than N% of sources point
+//      the same direction as the aggregate.
+//   2. Stability: require the aggregate to hold the same direction
+//      across the last K ticks. Kills the flip-flop pattern where
+//      opens close via signal-flip within 9 min of entry.
+export const PAPER_MIN_MAJORITY_PCT = Number(
+  process.env.PAPER_TRADER_MIN_MAJORITY_PCT || 0.6,
+);
+export const PAPER_MIN_STABLE_TICKS = Math.max(
+  1,
+  Number(process.env.PAPER_TRADER_MIN_STABLE_TICKS || 2),
+);
+export const KEY_SIGNAL_HISTORY = 'paper-trader:signal-history';

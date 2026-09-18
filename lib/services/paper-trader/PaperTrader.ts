@@ -555,6 +555,27 @@ export class PaperTrader {
       return { action: 'skipped', reason: 'non-directional signal', nav };
     }
 
+    // Signal-quality gate (2026-09-18): reject when the majority of
+    // aggregator sources disagree with the aggregate direction, OR when
+    // the aggregate has been flipping within the last K ticks. This
+    // fixed the 22% win rate root cause — the aggregator was picking
+    // HEDGE_LONG while 4/7 sources said DOWN, producing 9-min flip-flop
+    // closes that ate the fee floor.
+    const aggregateDir = scan.best.prediction.direction as 'UP' | 'DOWN' | 'NEUTRAL';
+    const aggregateSources = (scan.best.prediction.sources ?? []) as Array<{ direction?: string }>;
+    const { signalQualityRejection, appendSignalHistory } = await import('./signal-quality');
+    // Record this tick's call regardless of open outcome so future ticks
+    // have the history for the stability filter.
+    void appendSignalHistory(asset, aggregateDir, now).catch(() => undefined);
+    const qualityReject = await signalQualityRejection(asset, aggregateDir, aggregateSources);
+    if (qualityReject) {
+      logger.info('[PaperTrader] signal-quality gate skipped', {
+        asset, side, direction: aggregateDir, reason: qualityReject,
+        sourceCount: aggregateSources.length,
+      });
+      return { action: 'skipped', reason: `signal-quality: ${qualityReject}`, nav };
+    }
+
     // Concurrent-mode filter: same-asset dedup + correlation cluster cap.
     // Runs before regret + price validation so we don't waste API calls
     // on candidates the concurrency gate already rules out.
