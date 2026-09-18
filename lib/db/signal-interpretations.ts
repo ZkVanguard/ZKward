@@ -245,6 +245,61 @@ export async function resolveDirectional(
   return { correct, signedDelta };
 }
 
+/** Binary (BINARY_YES/BINARY_NO) interpretations past horizon and not yet
+ *  resolved. Distinct from directional — these need the market's own
+ *  resolution oracle (Polymarket gamma-api) rather than a spot price. */
+export async function unresolvedBinaryPastHorizon(
+  limit = 100,
+): Promise<InterpretationRow[]> {
+  await ensureSignalInterpretationsTable();
+  try {
+    return await query<InterpretationRow>(
+      `SELECT * FROM signal_interpretations
+       WHERE outcome_correct IS NULL
+         AND direction IN ('BINARY_YES', 'BINARY_NO')
+         AND horizon_end IS NOT NULL
+         AND horizon_end < CURRENT_TIMESTAMP
+       ORDER BY horizon_end ASC
+       LIMIT $1`,
+      [limit],
+    );
+  } catch (err) {
+    logger.warn('[SignalInterp] unresolvedBinaryPastHorizon failed', {
+      error: err instanceof Error ? err.message : err,
+    });
+    return [];
+  }
+}
+
+/** Judge a binary interpretation against a resolved market outcome.
+ *  actualYes = true means the Polymarket market resolved YES.
+ *  For BINARY_YES prediction, correct iff actualYes.
+ *  For BINARY_NO prediction, correct iff !actualYes. */
+export async function resolveBinary(
+  slug: string,
+  direction: 'BINARY_YES' | 'BINARY_NO',
+  actualYes: boolean,
+): Promise<{ correct: boolean }> {
+  await ensureSignalInterpretationsTable();
+  const correct = direction === 'BINARY_YES' ? actualYes : !actualYes;
+  try {
+    await query(
+      `UPDATE signal_interpretations
+       SET outcome_correct = $1,
+           outcome_linked_at = CURRENT_TIMESTAMP,
+           retrospective_pnl_usd = $2
+       WHERE slug = $3`,
+      [correct, correct ? 1 : -1, slug],
+    );
+  } catch (err) {
+    logger.warn('[SignalInterp] resolveBinary failed', {
+      slug,
+      error: err instanceof Error ? err.message : err,
+    });
+  }
+  return { correct };
+}
+
 /** Top-K rows by novelty since some cutoff, unresolved outcomes preferred.
  *  Feeds the active-learning cron: high novelty + no linked outcome ==
  *  the frontier the next training round should focus on. */

@@ -15,7 +15,9 @@ import { logger } from '@/lib/utils/logger';
 import { notifyDiscord } from '@/lib/utils/discord-notify';
 import {
   unresolvedDirectionalPastHorizon,
+  unresolvedBinaryPastHorizon,
   resolveDirectional,
+  resolveBinary,
   type InterpretationRow,
 } from '@/lib/db/signal-interpretations';
 import { getMultiSourceValidatedPrice } from '@/lib/services/market-data/unified-price-provider';
@@ -33,7 +35,56 @@ export interface ResolveOutcomesSummary {
   wrong: number;
   priceFailed: number;
   skipped: number;
+  binaryScanned: number;
+  binaryResolved: number;
+  binaryStillOpen: number;
   detail?: string;
+}
+
+interface PolymarketMarket {
+  slug?: string;
+  closed?: boolean;
+  outcomes?: string;    // JSON string like '["Yes","No"]'
+  outcomePrices?: string; // JSON string like '["1","0"]'
+}
+
+/**
+ * Fetch a single Polymarket market by slug. Returns null on any error;
+ * caller treats null as "still open, skip for now".
+ */
+async function fetchPolymarketMarket(slug: string): Promise<PolymarketMarket | null> {
+  try {
+    const resp = await fetch(
+      `https://gamma-api.polymarket.com/markets?slug=${encodeURIComponent(slug)}`,
+      { signal: AbortSignal.timeout(6000) },
+    );
+    if (!resp.ok) return null;
+    const arr = (await resp.json()) as PolymarketMarket[];
+    return arr && arr.length > 0 ? arr[0] : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Given a resolved Polymarket market, return true if it resolved YES,
+ * false if NO, or null if we can't tell (not yet resolved).
+ */
+function extractBinaryOutcome(m: PolymarketMarket): boolean | null {
+  if (!m.closed) return null;
+  try {
+    const prices = JSON.parse(m.outcomePrices || '[]') as string[];
+    // outcomes[0]="Yes", outcomes[1]="No" — resolution sets one to "1" and the other to "0"
+    if (prices.length < 2) return null;
+    const yes = parseFloat(prices[0]);
+    const no = parseFloat(prices[1]);
+    if (!Number.isFinite(yes) || !Number.isFinite(no)) return null;
+    if (yes >= 0.99) return true;
+    if (no >= 0.99) return false;
+    return null; // ambiguous — market resolution not final
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -51,6 +102,9 @@ export async function runResolveOutcomesTick(
     wrong: 0,
     priceFailed: 0,
     skipped: 0,
+    binaryScanned: 0,
+    binaryResolved: 0,
+    binaryStillOpen: 0,
   };
 
   const claim = await tryClaimCronRun(RESOLVE_OUTCOMES_CRON_KEY, RESOLVE_OUTCOMES_TICK_INTERVAL_MS, now);
@@ -63,7 +117,43 @@ export async function runResolveOutcomesTick(
 
   const rows = await unresolvedDirectionalPastHorizon(RESOLVE_OUTCOMES_LIMIT);
   summary.scanned = rows.length;
-  if (rows.length === 0) {
+
+  // Binary resolver runs in parallel — no shared state with directional path.
+  // Even if the directional loop has nothing to do, we still try binaries.
+  const binaryRows = await unresolvedBinaryPastHorizon(RESOLVE_OUTCOMES_LIMIT);
+  summary.binaryScanned = binaryRows.length;
+  for (const r of binaryRows) {
+    const direction = r.direction as 'BINARY_YES' | 'BINARY_NO';
+    if (direction !== 'BINARY_YES' && direction !== 'BINARY_NO') {
+      summary.skipped++;
+      continue;
+    }
+    const market = await fetchPolymarketMarket(r.slug);
+    if (!market) {
+      summary.binaryStillOpen++;
+      continue;
+    }
+    const actualYes = extractBinaryOutcome(market);
+    if (actualYes === null) {
+      summary.binaryStillOpen++;
+      continue;
+    }
+    try {
+      const result = await resolveBinary(r.slug, direction, actualYes);
+      summary.binaryResolved++;
+      summary.resolved++;
+      if (result.correct) summary.correct++;
+      else summary.wrong++;
+    } catch (err) {
+      logger.warn('[ResolveOutcomes] binary resolve failed', {
+        slug: r.slug,
+        error: err instanceof Error ? err.message : err,
+      });
+      summary.skipped++;
+    }
+  }
+
+  if (rows.length === 0 && binaryRows.length === 0) {
     summary.detail = 'nothing to resolve';
     return summary;
   }
