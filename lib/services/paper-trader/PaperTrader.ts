@@ -39,152 +39,80 @@ import {
 import {
   normalizeSourceKey,
   recordSourceOutcome,
-  getCalibratedMultiplier,
 } from '@/lib/services/ai/source-calibrator';
 
-// ── Config (env-tunable) ─────────────────────────────────────────────────
-export const PAPER_UNIVERSE = (process.env.PAPER_TRADER_ASSETS || 'BTC,ETH,SOL,XRP,DOGE')
-  .split(',')
-  .map((s) => s.trim().toUpperCase())
-  .filter(Boolean);
+// ── Config + sizing helpers re-exported from focused modules ────────────
+// Existing external imports keep working after this refactor. New code
+// should import directly from ./config or ./sizing for less indirection.
+// PAPER_STARTING_NAV is re-exported below for external callers.
+export {
+  PAPER_UNIVERSE,
+  PAPER_STARTING_NAV,
+  PAPER_LEVERAGE,
+  PAPER_STAKE_PCT,
+  PAPER_MAX_HOLD_MIN,
+  PAPER_MAX_HOLD_EXTRA_MIN,
+  PAPER_MIN_CONFIDENCE,
+  PAPER_MIN_CONSENSUS,
+  PAPER_MIN_SOURCES,
+  PAPER_PROFIT_LOCK_DRAWDOWN_PCT,
+  PAPER_STOP_LOSS_PCT,
+  PAPER_MAX_CONSECUTIVE_LOSSES,
+  PAPER_HALT_HOURS,
+  PAPER_TRAILING_STOP_ARM_PCT,
+  PAPER_TRAILING_STOP_GIVEBACK_PCT,
+  PAPER_REGRET_COOLDOWN_PCT,
+  PAPER_REGRET_WINDOW,
+  PAPER_ASSET_VOL_MULT,
+  PAPER_PORTFOLIO_ID,
+  PAPER_CHAIN,
+  KEY_POSITION,
+  KEY_ORDER_ID,
+  KEY_NAV,
+  KEY_STATS,
+  KEY_NAV_SERIES,
+  KEY_LAST_RUN,
+  NAV_SERIES_MAX,
+} from './config';
+export {
+  computeSignalScalar,
+  computeMaxHoldMinutes,
+  computeCalibrationBoost,
+} from './sizing';
 
-export const PAPER_STARTING_NAV = Number(process.env.PAPER_TRADER_STARTING_NAV || 100_000);
-export const PAPER_LEVERAGE = Number(process.env.PAPER_TRADER_LEVERAGE || 3);
-// Reduced 2026-09-17 from 0.20 -> 0.05. At 20% stake × 3x leverage, every
-// trade risked 60% of NAV in gross notional. Observed 118 trades, 25% win
-// rate, -$62.5k in 2.4 days on a $607k NAV — sizing did the damage, not
-// signal quality.
-export const PAPER_STAKE_PCT = Number(process.env.PAPER_TRADER_STAKE_PCT || 0.05);
-export const PAPER_MAX_HOLD_MIN = Number(process.env.PAPER_TRADER_MAX_HOLD_MIN || 20);
-// Signal-strength-scaled hold ceiling: strong signals earn more time so
-// moves develop past the 13bp fee floor. Weak signals stay at the base
-// PAPER_MAX_HOLD_MIN. Formula: base + scalar × PAPER_MAX_HOLD_EXTRA_MIN.
-// At scalar=0.4 (min gate 55/50): +0min → 20 min hold.
-// At scalar=1.0 (strong 80/75):    +36min → 56 min hold.
-// At scalar=2.0 (95/95):           +90min → 110 min hold.
-export const PAPER_MAX_HOLD_EXTRA_MIN = Number(
-  process.env.PAPER_TRADER_MAX_HOLD_EXTRA_MIN || 90,
-);
-export const PAPER_MIN_CONFIDENCE = Number(process.env.PAPER_TRADER_MIN_CONFIDENCE || 55);
-export const PAPER_MIN_CONSENSUS = Number(process.env.PAPER_TRADER_MIN_CONSENSUS || 50);
-export const PAPER_MIN_SOURCES = Number(process.env.PAPER_TRADER_MIN_SOURCES || 2);
-
-// Risk-control gates added 2026-09-17.
-export const PAPER_PROFIT_LOCK_DRAWDOWN_PCT = Number(
-  process.env.PAPER_TRADER_PROFIT_LOCK_DRAWDOWN || 0.05,
-);
-export const PAPER_STOP_LOSS_PCT = Number(process.env.PAPER_TRADER_STOP_LOSS_PCT || 0.02);
-export const PAPER_MAX_CONSECUTIVE_LOSSES = Number(
-  process.env.PAPER_TRADER_MAX_CONSECUTIVE_LOSSES || 5,
-);
-export const PAPER_HALT_HOURS = Number(process.env.PAPER_TRADER_HALT_HOURS || 4);
-
-// Trailing-stop + confidence-weighting + regret cooldown (2026-09-17 pt.2).
-// The trader now uses signal strength directly instead of treating a 55%
-// confidence and a 90% confidence identically.
-export const PAPER_TRAILING_STOP_ARM_PCT = Number(
-  process.env.PAPER_TRADER_TRAILING_ARM_PCT || 0.01,
-);
-export const PAPER_TRAILING_STOP_GIVEBACK_PCT = Number(
-  process.env.PAPER_TRADER_TRAILING_GIVEBACK_PCT || 0.5,
-);
-export const PAPER_REGRET_COOLDOWN_PCT = Number(
-  process.env.PAPER_TRADER_REGRET_COOLDOWN_PCT || 0.02,
-);
-export const PAPER_REGRET_WINDOW = Number(process.env.PAPER_TRADER_REGRET_WINDOW || 20);
-
-/** Per-asset volatility multiplier — the "vol parity" fix. SOL and small-caps
- *  are ~2x more volatile than BTC; equal notional means unequal risk. This
- *  scales stake DOWN for high-vol assets so the max-loss floor lines up.
- *  Override with PAPER_TRADER_ASSET_VOL_MULT='{"BTC":1,"ETH":0.9,...}'. */
-export const PAPER_ASSET_VOL_MULT: Record<string, number> = (() => {
-  const raw = process.env.PAPER_TRADER_ASSET_VOL_MULT;
-  if (raw) {
-    try {
-      const parsed = JSON.parse(raw) as Record<string, number>;
-      if (parsed && typeof parsed === 'object') return parsed;
-    } catch {
-      // Fall through to default.
-    }
-  }
-  return { BTC: 1.0, ETH: 0.85, SOL: 0.55, XRP: 0.65, DOGE: 0.50 };
-})();
-
-/**
- * Confidence-weighted stake scalar. Rides the 55–100 confidence range and
- * the 50–100 consensus range, averaged to a single scalar in [0.4, 2.0].
- * Ensures a min-gate 55/50 signal gets 0.4× nominal (skin in the game) and
- * a 100/100 exceptional signal gets 2× nominal.
- */
-export function computeSignalScalar(confidence: number, consensus: number): number {
-  const confN = Math.max(0, Math.min(1, (confidence - 55) / 45));
-  const consN = Math.max(0, Math.min(1, (consensus - 50) / 50));
-  const avg = (confN + consN) / 2;
-  return 0.4 + avg * 1.6;
-}
-
-/**
- * Signal-strength-scaled max-hold minutes. Weak signals close at the base
- * PAPER_MAX_HOLD_MIN. Strong signals earn extra time (up to
- * PAPER_MAX_HOLD_EXTRA_MIN extra) so moves develop past fees. Uses the
- * same signalScalar as sizing so a signal that gets a bigger position
- * also gets a longer window.
- */
-export function computeMaxHoldMinutes(signalScalar: number): number {
-  const capped = Math.max(0.4, Math.min(2.0, signalScalar));
-  const bonusRatio = (capped - 0.4) / 1.6; // 0.0 at min gate, 1.0 at max
-  return PAPER_MAX_HOLD_MIN + bonusRatio * PAPER_MAX_HOLD_EXTRA_MIN;
-}
-
-/**
- * Weighted-average calibrated multiplier across the signal's sources.
- * Reads the per-source Bayesian hit-rate from source-calibrator (fed by
- * recordSourceOutcome at close). Returns a stake scalar in [0.5, 1.5]:
- *   1.0 = neutral (no data or 50% hit rates)
- *   1.5 = signals dominated by 65%+ hit-rate sources → boost size
- *   0.5 = signals dominated by 35%- hit-rate sources → shrink size
- *
- * Clamped tighter than the raw source-calibrator range [0.2, 2.0] so
- * calibration modulates but never dominates the sizing math — one
- * outlier source with sparse data can't 4x the position.
- */
-export async function computeCalibrationBoost(
-  sources: Array<{ name: string; type?: string; weight: number }>,
-): Promise<number> {
-  if (!sources || sources.length === 0) return 1.0;
-  try {
-    const weighted = await Promise.all(
-      sources.map(async (s) => {
-        const key = normalizeSourceKey(s.name, s.type ?? '');
-        const mult = await getCalibratedMultiplier(key);
-        return { mult, weight: Math.max(0, s.weight) };
-      }),
-    );
-    const totalWeight = weighted.reduce((a, b) => a + b.weight, 0);
-    if (totalWeight <= 0) return 1.0;
-    const raw = weighted.reduce((a, b) => a + b.mult * b.weight, 0) / totalWeight;
-    return Math.max(0.5, Math.min(1.5, raw));
-  } catch (e) {
-    logger.debug('[PaperTrader] calibration boost failed (defaulting to 1.0)', {
-      error: e instanceof Error ? e.message : String(e),
-    });
-    return 1.0;
-  }
-}
-
-// Reserved portfolio ID for paper trader (community pool = -1, SUI = -2).
-export const PAPER_PORTFOLIO_ID = -3;
-export const PAPER_CHAIN = 'hedera-testnet';
-
-// ── State keys ───────────────────────────────────────────────────────────
-export const KEY_POSITION = 'paper-trader:active-position';
-export const KEY_ORDER_ID = 'paper-trader:active-order-id';
-export const KEY_NAV = 'paper-trader:nav-usd';
-export const KEY_STATS = 'paper-trader:stats';
-export const KEY_NAV_SERIES = 'paper-trader:nav-series'; // ring of {ts, nav}
-export const KEY_LAST_RUN = 'cron:lastRun:paper-trader';
-
-const NAV_SERIES_MAX = 500;
+import {
+  PAPER_UNIVERSE,
+  PAPER_STARTING_NAV,
+  PAPER_LEVERAGE,
+  PAPER_STAKE_PCT,
+  PAPER_MAX_HOLD_MIN,
+  PAPER_MIN_CONFIDENCE,
+  PAPER_MIN_CONSENSUS,
+  PAPER_MIN_SOURCES,
+  PAPER_PROFIT_LOCK_DRAWDOWN_PCT,
+  PAPER_STOP_LOSS_PCT,
+  PAPER_MAX_CONSECUTIVE_LOSSES,
+  PAPER_HALT_HOURS,
+  PAPER_TRAILING_STOP_ARM_PCT,
+  PAPER_TRAILING_STOP_GIVEBACK_PCT,
+  PAPER_REGRET_COOLDOWN_PCT,
+  PAPER_REGRET_WINDOW,
+  PAPER_ASSET_VOL_MULT,
+  PAPER_PORTFOLIO_ID,
+  PAPER_CHAIN,
+  KEY_POSITION,
+  KEY_ORDER_ID,
+  KEY_NAV,
+  KEY_STATS,
+  KEY_NAV_SERIES,
+  KEY_LAST_RUN,
+  NAV_SERIES_MAX,
+} from './config';
+import {
+  computeSignalScalar,
+  computeMaxHoldMinutes,
+  computeCalibrationBoost,
+} from './sizing';
 
 // ── Types ─────────────────────────────────────────────────────────────────
 export interface PaperStats {
