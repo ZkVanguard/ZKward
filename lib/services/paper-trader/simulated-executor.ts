@@ -54,6 +54,10 @@ export interface SimulatedPosition {
   // and notify layer can reference it without re-scanning the aggregator.
   entryConfidence?: number;
   entryConsensus?: number;
+  // Signal-strength-scaled max-hold ceiling (minutes) captured at open.
+  // handleActive uses this instead of the static PAPER_MAX_HOLD_MIN so
+  // strong signals earn more time to develop past the fee floor.
+  maxHoldMin?: number;
 }
 
 export interface SimulatedCloseResult {
