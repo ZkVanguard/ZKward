@@ -574,6 +574,19 @@ export class PaperTrader {
       return { action: 'skipped', reason: 'non-directional signal', nav };
     }
 
+    // Skip STRONG_* variants (2026-09-18) — historically these have
+    // WORSE win rate than moderate HEDGE_* signals because they fire
+    // when the market is already priced in. Live trader has this filter
+    // on by default (POLYMARKET_EDGE_SKIP_STRONG_SIGNALS). Opt out via
+    // PAPER_TRADER_SKIP_STRONG_SIGNALS=0.
+    const { PAPER_SKIP_STRONG_SIGNALS } = await import('./config');
+    if (PAPER_SKIP_STRONG_SIGNALS && rec.startsWith('STRONG_')) {
+      logger.info('[PaperTrader] STRONG_ signal skipped (inverse-strength filter)', {
+        asset, rec, conf: scan.best.prediction.confidence,
+      });
+      return { action: 'skipped', reason: `skip-strong: ${rec}`, nav };
+    }
+
     // Signal-quality gate (2026-09-18): reject when the majority of
     // aggregator sources disagree with the aggregate direction, OR when
     // the aggregate has been flipping within the last K ticks. This

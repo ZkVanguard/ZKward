@@ -136,7 +136,7 @@ beforeEach(() => {
 describe('PaperTrader.runTick — entry path', () => {
   it('opens a position when no active position + strong signal + valid price', async () => {
     primeStore({});
-    stubSignal('BTC', 'STRONG_HEDGE_LONG', 72);
+    stubSignal('BTC', 'HEDGE_LONG', 72);
     stubPrice(65_000);
 
     const res = await PaperTrader.runTick(NOW);
@@ -171,7 +171,7 @@ describe('PaperTrader.runTick — entry path', () => {
 
   it('skips when multi-source price validation fails (stale/insufficient sources)', async () => {
     primeStore({});
-    stubSignal('BTC', 'STRONG_HEDGE_LONG', 70);
+    stubSignal('BTC', 'HEDGE_LONG', 70);
     mockGetMultiSourceValidatedPrice.mockRejectedValue(
       new Error('INSUFFICIENT_SOURCES: Only 1/2 price sources available for BTC'),
     );
@@ -182,7 +182,7 @@ describe('PaperTrader.runTick — entry path', () => {
 
   it('skips when multi-source returns zero price (defensive check)', async () => {
     primeStore({});
-    stubSignal('BTC', 'STRONG_HEDGE_LONG', 70);
+    stubSignal('BTC', 'HEDGE_LONG', 70);
     mockGetMultiSourceValidatedPrice.mockResolvedValue({
       price: 0,
       confidence: 'low',
@@ -461,7 +461,7 @@ describe('PaperTrader.runTick — profit-lock + halt gates', () => {
       },
     });
     // If a signal existed it would open — but the gate should skip first.
-    stubSignal('BTC', 'STRONG_HEDGE_LONG', 80);
+    stubSignal('BTC', 'HEDGE_LONG', 80);
     mockGetLivePrice.mockResolvedValue(65_000);
 
     const res = await PaperTrader.runTick(NOW);
@@ -487,7 +487,7 @@ describe('PaperTrader.runTick — profit-lock + halt gates', () => {
         dailyPeakDateUtc: today,
       },
     });
-    stubSignal('BTC', 'STRONG_HEDGE_LONG', 80);
+    stubSignal('BTC', 'HEDGE_LONG', 80);
     mockGetLivePrice.mockResolvedValue(65_000);
 
     const res = await PaperTrader.runTick(NOW);
@@ -531,7 +531,7 @@ describe('PaperTrader.runTick — profit-lock + halt gates', () => {
         haltedUntilMs: NOW - HOUR,   // expired anyway
       },
     });
-    stubSignal('BTC', 'STRONG_HEDGE_LONG', 80);
+    stubSignal('BTC', 'HEDGE_LONG', 80);
     stubPrice(65_000);
 
     const res = await PaperTrader.runTick(NOW);
