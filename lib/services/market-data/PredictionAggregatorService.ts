@@ -232,15 +232,27 @@ export class PredictionAggregatorService {
       : 0;
 
     // Determine overall direction
-    const direction: 'UP' | 'DOWN' | 'NEUTRAL' = 
-      normalizedDirection > 0.15 ? 'UP' : 
+    const direction: 'UP' | 'DOWN' | 'NEUTRAL' =
+      normalizedDirection > 0.15 ? 'UP' :
       normalizedDirection < -0.15 ? 'DOWN' : 'NEUTRAL';
 
-    // Calculate consensus (how aligned are sources)
+    // Consensus = fraction of sources that AGREE with the chosen direction.
+    // Previously computed as max(upCount, downCount) / total, which returned
+    // majority-dominance regardless of whether that majority matched the
+    // aggregate direction. That let the aggregator return direction=UP with
+    // consensus=57% while the 57% majority actually pointed DOWN — the exact
+    // root cause of the 22% paper-trader win rate diagnosed 2026-09-18.
+    // Live snapshot: ETH aggregate=UP, sources 3 UP / 4 DOWN, old consensus
+    // reported 57% (down-majority), new consensus reports 43% (up-agreement).
+    // Downstream gates (PAPER_MIN_CONSENSUS, live trader effectiveCons) now
+    // filter on the correct metric.
     const totalSources = sources.length;
-    const dominantCount = Math.max(upCount, downCount);
-    const consensus = totalSources > 0 
-      ? (dominantCount / totalSources) * 100 
+    let agreeCount = 0;
+    if (direction === 'UP') agreeCount = upCount;
+    else if (direction === 'DOWN') agreeCount = downCount;
+    // For NEUTRAL, consensus is 0 (no directional call to agree with).
+    const consensus = totalSources > 0 && direction !== 'NEUTRAL'
+      ? (agreeCount / totalSources) * 100
       : 0;
 
     // Calculate weighted confidence
