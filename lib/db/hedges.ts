@@ -181,6 +181,11 @@ export async function getHedgeByZkProofHash(proofHash: string): Promise<Hedge | 
 
 export async function getActiveHedges(portfolioId?: number, chain?: string): Promise<Hedge[]> {
   await ensureHedgesTable();
+  // Respect the chain filter regardless of whether portfolioId is set.
+  // Prior branching ignored `chain` when `portfolioId` was undefined,
+  // which let bluefin-db-reconcile — called with (undefined, 'sui') —
+  // scoop up paper trades on chain='hedera-testnet' and force-close
+  // them with pnl=0 on every 15-min tick (observed 2026-09-17).
   if (portfolioId !== undefined && chain) {
     const sql = 'SELECT * FROM hedges WHERE portfolio_id = $1 AND status = $2 AND chain = $3 ORDER BY created_at DESC';
     return query<Hedge>(sql, [portfolioId, 'active', chain]);
@@ -189,7 +194,10 @@ export async function getActiveHedges(portfolioId?: number, chain?: string): Pro
     const sql = 'SELECT * FROM hedges WHERE portfolio_id = $1 AND status = $2 ORDER BY created_at DESC';
     return query<Hedge>(sql, [portfolioId, 'active']);
   }
-  
+  if (chain) {
+    const sql = 'SELECT * FROM hedges WHERE chain = $1 AND status = $2 ORDER BY created_at DESC';
+    return query<Hedge>(sql, [chain, 'active']);
+  }
   const sql = 'SELECT * FROM hedges WHERE status = $1 ORDER BY created_at DESC';
   return query<Hedge>(sql, ['active']);
 }

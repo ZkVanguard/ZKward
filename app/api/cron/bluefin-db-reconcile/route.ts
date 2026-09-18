@@ -236,6 +236,15 @@ export async function GET(request: NextRequest): Promise<NextResponse<ReconcileR
     const syncedDbRowIds: number[] = [];
     const livePositions = positions as LivePosition[];
     for (const h of dbHedges) {
+      // Skip paper trades — they never hit BlueFin so they'd always
+      // look "phantom" here and get force-closed with pnl=0. The
+      // getActiveHedges query filter was fixed 2026-09-17 to respect
+      // the chain param, but guard here too so a future caller can't
+      // regress this.
+      if (h.simulation_mode || h.chain === 'hedera-testnet' || h.portfolio_id === -3) {
+        continue;
+      }
+
       // Skip operational micro-hedges only — the $0.01 transport entries
       // that exist purely as capability artifacts on the Move side (lev=1x,
       // sub-$1 notional, never on BlueFin). Filtering on notional alone

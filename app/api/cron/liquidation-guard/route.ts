@@ -82,11 +82,19 @@ const SIZE_REDUCTION_PERCENT = 25; // Reduce size by 25% if collateral unavailab
 async function fetchLeveragedPositions(): Promise<LeveragedPosition[]> {
   try {
     const hedges = await getActiveHedges();
-    
+
     // Convert Hedge DB records to LeveragedPosition format
-    // Only include leveraged positions (leverage > 1)
+    // Only include real leveraged positions (leverage > 1). Skip paper
+    // trades — they don't have BlueFin liquidation-price mechanics and
+    // just spam warnings like "No live price for XRP" (2026-09-17).
     return hedges
-      .filter((h: Hedge) => h.leverage > 1 && h.entry_price && h.entry_price > 0)
+      .filter((h: Hedge) =>
+        h.leverage > 1 &&
+        h.entry_price != null && h.entry_price > 0 &&
+        !h.simulation_mode &&
+        h.chain !== 'hedera-testnet' &&
+        h.portfolio_id !== -3
+      )
       .map((h: Hedge) => {
         const collateral = h.notional_value / h.leverage;
         return {
