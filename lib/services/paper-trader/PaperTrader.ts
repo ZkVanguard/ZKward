@@ -411,21 +411,8 @@ export class PaperTrader {
     if (currentPeak > priorPeak) {
       const { PAPER_MAX_CONCURRENT } = await import('./config');
       if (PAPER_MAX_CONCURRENT > 1) {
-        const { updateActivePosition } = await import('./concurrent');
-        const orderId = await getCronState<string>(KEY_ORDER_ID);
-        // In concurrent mode KEY_ORDER_ID may be null (migration cleared
-        // it). Look up by asset+openedAt in the array.
-        const { loadActivePositions } = await import('./concurrent');
-        const arr = await loadActivePositions();
-        const match = arr.find(
-          (p) => p.position.asset === pos.asset && p.position.openedAt === pos.openedAt,
-        );
-        if (match) {
-          await updateActivePosition(match.orderId, (p) => ({
-            ...p,
-            peakUnrealizedPnl: currentPeak,
-          }));
-        } else if (orderId) {
+        if (orderId) {
+          const { updateActivePosition } = await import('./concurrent');
           await updateActivePosition(orderId, (p) => ({ ...p, peakUnrealizedPnl: currentPeak }));
         }
       } else {
