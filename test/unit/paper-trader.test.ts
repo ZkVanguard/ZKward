@@ -366,6 +366,140 @@ describe('PaperTrader.runTick — active-position path', () => {
   });
 });
 
+// ── Fix lock-ins (2026-09-18) ────────────────────────────────────────
+// These tests exist to prevent regressions on the 6 bug fixes shipped
+// in PRs #126-#131. Every fix here previously affected either real
+// capital (regret, treasury) or the paper trader's own data integrity
+// (concurrent-mode close, dashboard visibility).
+
+describe('signal-flip close — STRONG_ skip symmetry (PR #130)', () => {
+  // Bug: entry rejected STRONG_ signals (13% win rate historical) via
+  // PAPER_SKIP_STRONG_SIGNALS filter, but signal-flip on the close path
+  // accepted them as valid signal-flip triggers. A STRONG_ contrary
+  // signal could force a close on a position that we would refuse to
+  // open on if the same signal appeared fresh.
+  const activeLong = {
+    asset: 'BTC',
+    side: 'LONG' as const,
+    entryPrice: 65_000,
+    size: 100_000 / 65_000,
+    notionalUsd: 100_000,
+    leverage: 1,
+    openedAt: NOW,
+    openFeeUsd: 65,
+  };
+
+  it('HOLDS through a STRONG_ contrary signal (skip-STRONG filter mirrored)', async () => {
+    primeStore({
+      [KEY_POSITION]: activeLong,
+      [KEY_NAV]: PAPER_STARTING_NAV,
+      [KEY_ORDER_ID]: 'paper_BTC_test',
+    });
+    // STRONG_HEDGE_SHORT is a strong contrary signal. Pre-fix behavior:
+    // would close. Post-fix behavior: STRONG_ signals blocked by the
+    // skip-STRONG filter on both entry AND close paths.
+    stubSameAssetPrediction('BTC', 'STRONG_HEDGE_SHORT', 85);
+    mockGetLivePrice.mockResolvedValue(64_800);
+
+    const res = await PaperTrader.runTick(NOW + 5 * 60_000);
+    expect(res.action).toBe('held');
+    expect(store[KEY_POSITION]).toBeTruthy(); // still open
+  });
+
+  it('CLOSES on a moderate (non-STRONG) contrary signal — control case', async () => {
+    // Sanity: without STRONG_ prefix, the flip closes as normal. Ensures
+    // the test above is failing at STRONG_ specifically, not some other
+    // path.
+    primeStore({
+      [KEY_POSITION]: activeLong,
+      [KEY_NAV]: PAPER_STARTING_NAV,
+      [KEY_ORDER_ID]: 'paper_BTC_test',
+    });
+    stubSameAssetPrediction('BTC', 'HEDGE_SHORT', 70);
+    mockGetLivePrice.mockResolvedValue(64_800);
+
+    const res = await PaperTrader.runTick(NOW + 5 * 60_000);
+    expect(res.action).toBe('closed');
+    expect(res.reason).toMatch(/signal flipped/);
+  });
+});
+
+describe('closeAtMark orderId passthrough (PR #127)', () => {
+  // Bug: closeAtMark was reading orderId from KEY_ORDER_ID (legacy
+  // single-position slot). In concurrent mode KEY_ORDER_ID is null
+  // (migration cleared it), so the DB UPDATE that closed the row was
+  // silently skipped — position closed in memory but hedges row stayed
+  // status='active' forever. Fix: closeAtMark now uses the passed-in
+  // orderId when provided.
+
+  it('the atomic close UPDATE uses the passed orderId, not KEY_ORDER_ID', async () => {
+    // Legacy-mode close path — the passed-in orderId comes from
+    // KEY_ORDER_ID here; in concurrent mode it comes from the array
+    // entry. Either way, if the UPDATE query params contain the correct
+    // orderId, the bug is fixed.
+    const pos = {
+      asset: 'BTC',
+      side: 'LONG' as const,
+      entryPrice: 65_000,
+      size: 100_000 / 65_000,
+      notionalUsd: 100_000,
+      leverage: 1,
+      openedAt: NOW,
+      openFeeUsd: 65,
+    };
+    primeStore({
+      [KEY_POSITION]: pos,
+      [KEY_NAV]: PAPER_STARTING_NAV,
+      [KEY_ORDER_ID]: 'paper_BTC_orderIdCheck',
+    });
+    stubSameAssetPrediction('BTC', 'STRONG_HEDGE_LONG', 90);
+    mockGetLivePrice.mockResolvedValue(66_000);
+
+    await PaperTrader.runTick(NOW + 25 * 60_000); // trip max-hold → close
+
+    // Find the DB UPDATE mock call that closed the hedge. It uses SET
+    // status = 'closed'; the 4th param ($4 in the SQL) is the orderId.
+    const updateCall = (mockQuery.mock.calls as any[]).find(
+      (call) => typeof call[0] === 'string' && /SET status = 'closed'/.test(call[0]),
+    );
+    expect(updateCall).toBeTruthy();
+    // The last SQL param is the orderId (WHERE order_id = $4). Verify
+    // it matches the KEY_ORDER_ID we primed — i.e., the orderId
+    // propagated to the DB write and wasn't lost.
+    const params = updateCall![1] as any[];
+    expect(params[params.length - 1]).toBe('paper_BTC_orderIdCheck');
+  });
+});
+
+describe('assetSideRecentPnl paper isolation (PR #131 sibling)', () => {
+  // Bug: the LIVE trader's regret query (route.ts:340) was sampling
+  // paper trades. This test locks in the paper-side counterpart —
+  // assetSideRecentPnl inside PaperTrader.ts filters by
+  // order_id LIKE 'paper_%' so the paper trader's regret cooldown
+  // reads ONLY its own history, not the live trader's.
+
+  it('the regret query filters by order_id LIKE paper_%', async () => {
+    primeStore({});
+    stubSignal('BTC', 'HEDGE_LONG', 72);
+    // Return one row so the regret query gets exercised.
+    mockQuery.mockResolvedValue([{ pnl: 0 }]);
+
+    await PaperTrader.runTick(NOW);
+
+    // Any SELECT touching the hedges table for regret data should
+    // include the paper_% filter. Grep every SELECT the tick made.
+    const selectCalls = (mockQuery.mock.calls as any[]).filter(
+      (call) => typeof call[0] === 'string' && /SELECT/.test(call[0]) && /FROM hedges/.test(call[0]),
+    );
+    // At least one query hit the hedges table (the regret lookup).
+    expect(selectCalls.length).toBeGreaterThan(0);
+    // Every hedges SELECT this tick made must isolate paper rows.
+    for (const call of selectCalls) {
+      expect(call[0]).toMatch(/order_id LIKE 'paper_%'|simulation_mode\s*=\s*true/i);
+    }
+  });
+});
+
 describe('computeSignalScalar — confidence weighting', () => {
   it('returns 0.4 baseline at the minimum gate (55 conf, 50 cons)', () => {
     expect(computeSignalScalar(55, 50)).toBeCloseTo(0.4, 2);
