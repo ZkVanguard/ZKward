@@ -439,7 +439,14 @@ export class PaperTrader {
       const livePred = scan.all[pos.asset];
       if (livePred && (livePred.confidence ?? 0) >= PAPER_MIN_CONFIDENCE) {
         const liveSide = recommendationToSide(livePred.recommendation);
-        if (liveSide && liveSide !== pos.side) {
+        const isStrong = livePred.recommendation?.startsWith('STRONG_') ?? false;
+        // Mirror the entry skip-STRONG filter on flip: STRONG_ signals had
+        // 13% win rate on the live trader (2026-08-28 data) — they fire
+        // when the market is already priced in and mean-reversion follows.
+        // If we refuse to OPEN on STRONG_, we shouldn't let STRONG_ force
+        // a CLOSE either (2026-09-18 asymmetry fix).
+        const { PAPER_SKIP_STRONG_SIGNALS } = await import('./config');
+        if (liveSide && liveSide !== pos.side && !(PAPER_SKIP_STRONG_SIGNALS && isStrong)) {
           return PaperTrader.closeAtMark(
             pos,
             markPrice,
@@ -556,62 +563,72 @@ export class PaperTrader {
       return { action: 'skipped', reason: 'no edge above gates', nav };
     }
 
-    const asset = scan.best.asset;
-    const rec = scan.best.prediction.recommendation;
-    const side = recommendationToSide(rec);
-    if (!side) {
-      logger.warn('[PaperTrader] non-directional signal skipped', {
-        asset, rec, conf: scan.best.prediction.confidence,
-      });
-      return { action: 'skipped', reason: 'non-directional signal', nav };
-    }
-
-    // Skip STRONG_* variants (2026-09-18) — historically these have
-    // WORSE win rate than moderate HEDGE_* signals because they fire
-    // when the market is already priced in. Live trader has this filter
-    // on by default (POLYMARKET_EDGE_SKIP_STRONG_SIGNALS). Opt out via
-    // PAPER_TRADER_SKIP_STRONG_SIGNALS=0.
-    const { PAPER_SKIP_STRONG_SIGNALS } = await import('./config');
-    if (PAPER_SKIP_STRONG_SIGNALS && rec.startsWith('STRONG_')) {
-      logger.info('[PaperTrader] STRONG_ signal skipped (inverse-strength filter)', {
-        asset, rec, conf: scan.best.prediction.confidence,
-      });
-      return { action: 'skipped', reason: `skip-strong: ${rec}`, nav };
-    }
-
-    // Signal-quality gate (2026-09-18): reject when the majority of
-    // aggregator sources disagree with the aggregate direction, OR when
-    // the aggregate has been flipping within the last K ticks. This
-    // fixed the 22% win rate root cause — the aggregator was picking
-    // HEDGE_LONG while 4/7 sources said DOWN, producing 9-min flip-flop
-    // closes that ate the fee floor.
-    const aggregateDir = scan.best.prediction.direction as 'UP' | 'DOWN' | 'NEUTRAL';
-    const aggregateSources = (scan.best.prediction.sources ?? []) as Array<{ direction?: string }>;
-    const { signalQualityRejection, appendSignalHistory } = await import('./signal-quality');
-    // Record this tick's call regardless of open outcome so future ticks
-    // have the history for the stability filter.
-    void appendSignalHistory(asset, aggregateDir, now).catch(() => undefined);
-    const qualityReject = await signalQualityRejection(asset, aggregateDir, aggregateSources);
-    if (qualityReject) {
-      logger.info('[PaperTrader] signal-quality gate skipped', {
-        asset, side, direction: aggregateDir, reason: qualityReject,
-        sourceCount: aggregateSources.length,
-      });
-      return { action: 'skipped', reason: `signal-quality: ${qualityReject}`, nav };
-    }
-
-    // Concurrent-mode filter: same-asset dedup + correlation cluster cap.
-    // Runs before regret + price validation so we don't waste API calls
-    // on candidates the concurrency gate already rules out.
+    // Concurrent-mode candidate ranking (2026-09-18): scanAndPickBest returns
+    // only the top-scored asset. When concurrency filter rejects it (BTC
+    // already active), we lose the trade even though ETH/SOL/XRP/DOGE may
+    // be viable 2nd-best signals. Iterate all candidates that passed gates,
+    // sort by score, take the first that survives every filter. Legacy mode
+    // still uses just scan.best (no filter to reject on).
+    const rankedCandidates: Array<{ asset: string; prediction: (typeof scan.best)['prediction']; score: number }> = [];
     if (concurrencyFilter) {
-      const reject = concurrencyFilter.rejectionReason(asset, side);
-      if (reject) {
-        logger.info('[PaperTrader] concurrency filter skipped candidate', {
-          asset, side, reason: reject, activeCount: concurrencyFilter.activeAssets.length,
-        });
-        return { action: 'skipped', reason: `concurrency: ${reject}`, nav };
+      for (const [candidateAsset, pred] of Object.entries(scan.all)) {
+        if (pred.confidence < PAPER_MIN_CONFIDENCE) continue;
+        if (pred.consensus < PAPER_MIN_CONSENSUS) continue;
+        if (pred.sources.length < PAPER_MIN_SOURCES) continue;
+        const s = PredictionAggregatorService.scoreOpportunity(pred);
+        if (s <= 0) continue;
+        rankedCandidates.push({ asset: candidateAsset, prediction: pred, score: s });
       }
+      rankedCandidates.sort((a, b) => b.score - a.score);
+    } else {
+      rankedCandidates.push(scan.best);
     }
+
+    // Iterate ranked candidates until one passes every filter. Filter order
+    // is: recommendation → skip-STRONG → signal-quality → concurrency →
+    // regret → price validation. First survivor opens.
+    const { PAPER_SKIP_STRONG_SIGNALS } = await import('./config');
+    const { signalQualityRejection, appendSignalHistory } = await import('./signal-quality');
+
+    let picked: { asset: string; prediction: (typeof scan.best)['prediction']; score: number; side: Side } | null = null;
+    let lastSkipReason = 'no edge above gates';
+    for (const cand of rankedCandidates) {
+      const candSide = recommendationToSide(cand.prediction.recommendation);
+      if (!candSide) { lastSkipReason = `non-directional signal (${cand.asset})`; continue; }
+      if (PAPER_SKIP_STRONG_SIGNALS && cand.prediction.recommendation.startsWith('STRONG_')) {
+        lastSkipReason = `skip-strong: ${cand.prediction.recommendation} (${cand.asset})`;
+        continue;
+      }
+      const candDir = cand.prediction.direction as 'UP' | 'DOWN' | 'NEUTRAL';
+      const candSources = (cand.prediction.sources ?? []) as Array<{ direction?: string }>;
+      // Always record signal history — future ticks need it regardless of open outcome.
+      void appendSignalHistory(cand.asset, candDir, now).catch(() => undefined);
+      const qReject = await signalQualityRejection(cand.asset, candDir, candSources);
+      if (qReject) { lastSkipReason = `signal-quality (${cand.asset}): ${qReject}`; continue; }
+      if (concurrencyFilter) {
+        const cReject = concurrencyFilter.rejectionReason(cand.asset, candSide);
+        if (cReject) { lastSkipReason = `concurrency (${cand.asset}): ${cReject}`; continue; }
+      }
+      picked = { ...cand, side: candSide };
+      break;
+    }
+    if (!picked) {
+      logger.info('[PaperTrader] no candidate passed all filters', { lastSkipReason });
+      return { action: 'skipped', reason: lastSkipReason, nav };
+    }
+    const asset = picked.asset;
+    const rec = picked.prediction.recommendation;
+    const side = picked.side;
+    // Rebuild scan-shaped local ref so downstream code (sizing, source snapshot,
+    // createHedge, etc.) uses the picked candidate rather than scan.best.
+    scan = { ...scan, best: { asset: picked.asset, prediction: picked.prediction, score: picked.score } };
+
+    // skip-STRONG, signal-quality, and concurrency filters already ran in
+    // the ranked-candidate loop above — the picked candidate has cleared
+    // them. Regret cooldown + price validation still need to run per open.
+    logger.info('[PaperTrader] candidate picked from ranked scan', {
+      asset, rec, score: picked.score.toFixed(1),
+    });
 
     // Per-asset regret cooldown — a losing (asset, side) streak means the
     // signal has been chronically wrong on that leg. Skip until the losing
@@ -671,14 +688,14 @@ export class PaperTrader {
     // hit rates from source-calibrator (fed by recordSourceOutcome at
     // every close). Signals dominated by historically-accurate sources
     // get a larger position; poorly-calibrated sources shrink it.
-    const conf = scan.best.prediction.confidence ?? 0;
-    const cons = (scan.best.prediction as { consensus?: number }).consensus ?? 0;
+    const conf = picked.prediction.confidence ?? 0;
+    const cons = (picked.prediction as { consensus?: number }).consensus ?? 0;
     const signalScalar = computeSignalScalar(conf, cons);
     // Auto-tuned vol multiplier from realized paper-trade returns; falls
     // back to the static PAPER_ASSET_VOL_MULT table when history is thin.
     const { getVolMultiplier } = await import('./vol-autotune');
     const volMult = await getVolMultiplier(asset, now);
-    const rawSourcesForCal = (scan.best.prediction.sources ?? []) as Array<{
+    const rawSourcesForCal = (picked.prediction.sources ?? []) as Array<{
       name: string; type?: string; weight?: number;
     }>;
     const calibrationBoost = await computeCalibrationBoost(
@@ -697,7 +714,7 @@ export class PaperTrader {
     // Snapshot the source list at open so we can score each source against
     // the actual price move at close. Store normalized keys so rolling-
     // title markets (Polymarket / Delphi 5-min) accumulate in one bucket.
-    const rawSources = scan.best.prediction.sources ?? [];
+    const rawSources = picked.prediction.sources ?? [];
     const sourceSnapshot: SourceSnapshot[] = rawSources.map((s: any) => ({
       key: normalizeSourceKey(s.name ?? '', s.type ?? ''),
       direction: (s.direction ?? 'NEUTRAL') as 'UP' | 'DOWN' | 'NEUTRAL',
@@ -741,7 +758,7 @@ export class PaperTrader {
         leverage: PAPER_LEVERAGE,
         entryPrice: markPrice,
         simulationMode: true,
-        reason: `paper: ${rec} conf=${scan.best.prediction.confidence.toFixed(0)} score=${scan.best.score.toFixed(1)}`,
+        reason: `paper: ${rec} conf=${picked.prediction.confidence.toFixed(0)} score=${picked.score.toFixed(1)}`,
         predictionMarket: 'paper-aggregate',
         chain: PAPER_CHAIN,
       });
@@ -755,7 +772,7 @@ export class PaperTrader {
       notionalUsd: notionalUsd.toFixed(2),
       entryPrice: markPrice,
       recommendation: rec,
-      score: scan.best.score.toFixed(1),
+      score: picked.score.toFixed(1),
       signalScalar: signalScalar.toFixed(2),
       volMult: volMult.toFixed(2),
       calibrationBoost: calibrationBoost.toFixed(2),
