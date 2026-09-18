@@ -202,7 +202,8 @@ describe('PaperTrader.runTick — active-position path', () => {
 
     const res = await PaperTrader.runTick(NOW + 5 * 60_000);
     expect(res.action).toBe('held');
-    expect(mockCloseHedge).not.toHaveBeenCalled();
+    // Position stayed active — no close happened.
+    expect(store[KEY_POSITION]).toBeTruthy();
   });
 
   it('HOLDS on low-conf demotion (mirrors #101 confidence gate)', async () => {
@@ -217,7 +218,8 @@ describe('PaperTrader.runTick — active-position path', () => {
 
     const res = await PaperTrader.runTick(NOW + 5 * 60_000);
     expect(res.action).toBe('held');
-    expect(mockCloseHedge).not.toHaveBeenCalled();
+    // Position stayed active — no close happened.
+    expect(store[KEY_POSITION]).toBeTruthy();
   });
 
   it('CLOSES on high-conf direction flip', async () => {
@@ -232,7 +234,9 @@ describe('PaperTrader.runTick — active-position path', () => {
     const res = await PaperTrader.runTick(NOW + 5 * 60_000);
     expect(res.action).toBe('closed');
     expect(res.reason).toMatch(/signal flipped/);
-    expect(mockCloseHedge).toHaveBeenCalledTimes(1);
+    // Position was cleared — that's the behavioral signal of a close.
+    // Direct SQL is atomic now (was closeHedge() + separate UPDATE).
+    expect(store[KEY_POSITION]).toBeNull();
     expect(store[KEY_POSITION]).toBeNull();
   });
 
@@ -301,7 +305,9 @@ describe('PaperTrader.runTick — active-position path', () => {
     const res = await PaperTrader.runTick(NOW + 5 * 60_000);
     expect(res.action).toBe('closed');
     expect(res.reason).toMatch(/trailing-stop/);
-    expect(mockCloseHedge).toHaveBeenCalledTimes(1);
+    // Position was cleared — that's the behavioral signal of a close.
+    // Direct SQL is atomic now (was closeHedge() + separate UPDATE).
+    expect(store[KEY_POSITION]).toBeNull();
   });
 
   it('trailing-stop DOES NOT arm before peak reaches PAPER_TRAILING_STOP_ARM_PCT of NAV', async () => {
@@ -319,7 +325,8 @@ describe('PaperTrader.runTick — active-position path', () => {
 
     const res = await PaperTrader.runTick(NOW + 3 * 60_000);
     expect(res.action).toBe('held');
-    expect(mockCloseHedge).not.toHaveBeenCalled();
+    // Position stayed active — no close happened.
+    expect(store[KEY_POSITION]).toBeTruthy();
   });
 
   it('stops out mid-trade when unrealized PnL exceeds PAPER_STOP_LOSS_PCT of NAV', async () => {
@@ -337,7 +344,9 @@ describe('PaperTrader.runTick — active-position path', () => {
     const res = await PaperTrader.runTick(NOW + 3 * 60_000);
     expect(res.action).toBe('closed');
     expect(res.reason).toMatch(/stop-loss/);
-    expect(mockCloseHedge).toHaveBeenCalledTimes(1);
+    // Position was cleared — that's the behavioral signal of a close.
+    // Direct SQL is atomic now (was closeHedge() + separate UPDATE).
+    expect(store[KEY_POSITION]).toBeNull();
   });
 });
 
