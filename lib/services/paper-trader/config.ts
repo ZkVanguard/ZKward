@@ -170,3 +170,15 @@ export const PAPER_MIN_STABLE_TICKS = Math.max(
   Number(process.env.PAPER_TRADER_MIN_STABLE_TICKS || 2),
 );
 export const KEY_SIGNAL_HISTORY = 'paper-trader:signal-history';
+
+// ── Skip STRONG_ signals (2026-09-18) ──────────────────────────────
+// Mirrors POLYMARKET_EDGE_SKIP_STRONG_SIGNALS on the live trader.
+// Historical outcome analysis (2026-08-28, live-trader data):
+//   HEDGE_LONG (moderate):    3 trades, 100% win, +$0.07 PnL
+//   STRONG_HEDGE_LONG:       16 trades,  13% win, -$0.34 PnL
+// The "STRONG_" upgrade fires when Polymarket consensus is already
+// high, which usually means the move is priced in and mean-reversion
+// follows. Live trader has skipped these by default for weeks; paper
+// should too. Opt-out via PAPER_TRADER_SKIP_STRONG_SIGNALS=0.
+export const PAPER_SKIP_STRONG_SIGNALS =
+  (process.env.PAPER_TRADER_SKIP_STRONG_SIGNALS || '1').trim() !== '0';
