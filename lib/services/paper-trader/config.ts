@@ -106,5 +106,44 @@ export const KEY_NAV = 'paper-trader:nav-usd';
 export const KEY_STATS = 'paper-trader:stats';
 export const KEY_NAV_SERIES = 'paper-trader:nav-series';
 export const KEY_LAST_RUN = 'cron:lastRun:paper-trader';
+// Concurrent-mode array of active positions. Only used when
+// PAPER_MAX_CONCURRENT > 1. Single-position mode continues to use
+// KEY_POSITION + KEY_ORDER_ID untouched. Migration is automatic on
+// first tick after concurrent mode enables.
+export const KEY_POSITIONS = 'paper-trader:active-positions';
 
 export const NAV_SERIES_MAX = 500;
+
+// ── Concurrent positions ────────────────────────────────────────────
+// Default 1 = legacy single-position mode. Bump to open positions on
+// multiple assets simultaneously. Cap enforced at handleEntry — once
+// N positions are active, new opens skip until one closes.
+export const PAPER_MAX_CONCURRENT = Math.max(
+  1,
+  Number(process.env.PAPER_TRADER_MAX_CONCURRENT || 1),
+);
+
+/**
+ * Correlation clusters — assets that move together enough that opening
+ * same-direction positions across the cluster is one bet, not N.
+ * When PAPER_MAX_SAME_DIR_PER_CLUSTER is enforced, handleEntry refuses
+ * a new position if it would exceed the cap in a cluster the new asset
+ * belongs to. Default: BTC / ETH / SOL are one cluster (empirical
+ * 0.85+ 5-min correlation on 2026 crypto perp data).
+ */
+export const PAPER_CORRELATION_CLUSTERS: Array<string[]> = (() => {
+  const raw = process.env.PAPER_TRADER_CORRELATION_CLUSTERS;
+  if (raw) {
+    try {
+      const parsed = JSON.parse(raw) as string[][];
+      if (Array.isArray(parsed)) return parsed;
+    } catch {
+      // fall through
+    }
+  }
+  return [['BTC', 'ETH', 'SOL']];
+})();
+export const PAPER_MAX_SAME_DIR_PER_CLUSTER = Math.max(
+  1,
+  Number(process.env.PAPER_TRADER_MAX_SAME_DIR_PER_CLUSTER || 2),
+);
