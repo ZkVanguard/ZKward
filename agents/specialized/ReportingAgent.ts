@@ -752,8 +752,8 @@ export class ReportingAgent extends BaseAgent {
       // Get active hedges for strategies section
       let strategies: Array<{ strategyId: string; type: string; status: string; performance: number }> = [];
       try {
-        const { getActiveHedges } = await import('../../lib/db/hedges');
-        const hedges = await getActiveHedges();
+        const { getActiveHedges, isPaperHedge } = await import('../../lib/db/hedges');
+        const hedges = (await getActiveHedges()).filter((h) => !isPaperHedge(h));
         strategies = hedges.slice(0, 10).map(h => ({
           strategyId: h.order_id,
           type: h.side === 'SHORT' ? 'DELTA_NEUTRAL' : 'MOMENTUM',

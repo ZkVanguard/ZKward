@@ -371,7 +371,8 @@ class AutoHedgingService {
    * Legacy PnL update — per-asset price fetching
    */
   private async updateAllHedgePnLLegacy(): Promise<{ updated: number; errors: number }> {
-    const activeHedges = await getActiveHedges();
+    const { isPaperHedge } = await import('@/lib/db/hedges');
+    const activeHedges = (await getActiveHedges()).filter((h) => !isPaperHedge(h));
 
     if (activeHedges.length === 0) {
       return { updated: 0, errors: 0 };

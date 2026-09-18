@@ -38,8 +38,10 @@ export async function GET(request: NextRequest) {
     // Get service status
     const currentStatus = autoHedgingService.getStatus();
 
-    // Get active hedges count
-    const activeHedges = await getActiveHedges();
+    // Get active hedges count. Exclude paper trades — this endpoint reports
+    // on real hedge autonomy, not paper analytics.
+    const { isPaperHedge } = await import('@/lib/db/hedges');
+    const activeHedges = (await getActiveHedges()).filter((h) => !isPaperHedge(h));
     const activeHedgesDeduped = activeHedges.filter((h) => h.status === 'active').length;
 
     // Calculate total hedge value
