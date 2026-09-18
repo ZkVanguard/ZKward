@@ -251,8 +251,9 @@ export class PaperTrader {
       }
 
       const activePos = await getCronState<SimulatedPosition>(KEY_POSITION);
+      const activeOrderId = await getCronState<string>(KEY_ORDER_ID);
       const result = activePos
-        ? await PaperTrader.handleActive(activePos, nav, now)
+        ? await PaperTrader.handleActive(activePos, nav, now, activeOrderId ?? undefined)
         : await PaperTrader.handleEntry(nav, now);
       await pushNavSample(now, result.nav ?? nav);
       return result;
@@ -289,7 +290,7 @@ export class PaperTrader {
     //    we drop the entry from the array instead. Detect a close by the
     //    action string.
     for (const entry of active) {
-      const r = await PaperTrader.handleActive(entry.position, currentNav, now);
+      const r = await PaperTrader.handleActive(entry.position, currentNav, now, entry.orderId);
       if (r.action === 'closed') {
         await removeActivePosition(entry.orderId);
         if (typeof r.nav === 'number') currentNav = r.nav;
@@ -325,6 +326,7 @@ export class PaperTrader {
     pos: SimulatedPosition,
     nav: number,
     now: number,
+    orderId?: string,
   ): Promise<TickResult> {
     let markPrice = await getLivePrice(pos.asset);
     if (!markPrice || markPrice <= 0) {
@@ -379,6 +381,7 @@ export class PaperTrader {
         nav,
         now,
         `stop-loss: unrealized -$${Math.abs(mtm.unrealizedPnlUsd).toFixed(2)} > ${(PAPER_STOP_LOSS_PCT * 100).toFixed(1)}% of NAV`,
+        orderId,
       );
     }
 
@@ -399,6 +402,7 @@ export class PaperTrader {
         nav,
         now,
         `trailing-stop: peak +$${currentPeak.toFixed(2)}, gave back to +$${mtm.unrealizedPnlUsd.toFixed(2)}`,
+        orderId,
       );
     }
     // Persist the updated peak so cross-tick reads see the ratchet.
@@ -435,7 +439,7 @@ export class PaperTrader {
     const posMaxHoldMin = pos.maxHoldMin ?? PAPER_MAX_HOLD_MIN;
     const holdMs = now - pos.openedAt;
     if (holdMs >= posMaxHoldMin * 60_000) {
-      return PaperTrader.closeAtMark(pos, markPrice, nav, now, `max-hold expired (${Math.round(posMaxHoldMin)}min)`);
+      return PaperTrader.closeAtMark(pos, markPrice, nav, now, `max-hold expired (${Math.round(posMaxHoldMin)}min)`, orderId);
     }
 
     // 4. Signal-flip exit (mirrors #101 confidence gate)
@@ -455,6 +459,7 @@ export class PaperTrader {
             nav,
             now,
             `signal flipped to ${livePred.recommendation}`,
+            orderId,
           );
         }
       }
@@ -800,6 +805,7 @@ export class PaperTrader {
     nav: number,
     now: number,
     reason: string,
+    passedOrderId?: string,
   ): Promise<TickResult> {
     const result = simulateClose(pos, exitPrice, now);
     const newNav = nav + result.realizedPnlUsd;
@@ -823,7 +829,13 @@ export class PaperTrader {
     }
 
     await setCronState(KEY_POSITION, null);
-    const orderId = await getCronState<string>(KEY_ORDER_ID);
+    // Concurrent mode may have KEY_ORDER_ID = null (cleared by migration in
+    // loadActivePositions). Passed-in orderId is the source of truth when
+    // available; legacy path keeps reading KEY_ORDER_ID for back-compat.
+    // 2026-09-18: without this, closeAtMark in concurrent mode skipped the
+    // DB UPDATE and left rows status='active' after closing in memory
+    // (observed on paper_XRP_1789759203).
+    const orderId = passedOrderId ?? (await getCronState<string>(KEY_ORDER_ID)) ?? undefined;
     await setCronState(KEY_ORDER_ID, null);
     await setCronState(KEY_NAV, newNav);
 
