@@ -511,7 +511,10 @@ export class PaperTrader {
     const conf = scan.best.prediction.confidence ?? 0;
     const cons = (scan.best.prediction as { consensus?: number }).consensus ?? 0;
     const signalScalar = computeSignalScalar(conf, cons);
-    const volMult = PAPER_ASSET_VOL_MULT[asset] ?? 1.0;
+    // Auto-tuned vol multiplier from realized paper-trade returns; falls
+    // back to the static PAPER_ASSET_VOL_MULT table when history is thin.
+    const { getVolMultiplier } = await import('./vol-autotune');
+    const volMult = await getVolMultiplier(asset, now);
     const rawSourcesForCal = (scan.best.prediction.sources ?? []) as Array<{
       name: string; type?: string; weight?: number;
     }>;
