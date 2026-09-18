@@ -862,19 +862,11 @@ export class PaperTrader {
            WHERE order_id = $4`,
           [result.realizedPnlUsd, result.fundingUsd, reason.slice(0, 100), orderId],
         );
-        // Treasury credit — kept as separate call (fire-and-forget, non-blocking).
-        // Guard mirrors closeHedge's own guard: only credit meaningful amounts.
-        if (Math.abs(result.realizedPnlUsd) > 0.01) {
-          try {
-            const { recordPnlCredit } = await import('@/lib/db/treasury');
-            await recordPnlCredit(orderId, result.realizedPnlUsd, `paperClose ${reason.slice(0, 60)}`);
-          } catch (err) {
-            logger.warn('[PaperTrader] treasury credit failed after close (non-fatal)', {
-              orderId,
-              error: err instanceof Error ? err.message : err,
-            });
-          }
-        }
+        // Paper trades MUST NOT credit the real treasury. Diagnosed
+        // 2026-09-18: 126 paper closes polluted treasury_ledger with
+        // -$62,158.96 of fake losses. Real trader had ~-$6 in the same
+        // window. Paper is a separate portfolio (id=-3, chain=hedera-
+        // testnet), stats live in cron_state — never touches treasury.
       } catch (e) {
         logger.warn('[PaperTrader] closeHedge DB write failed', { error: errMsg(e) });
       }
