@@ -439,7 +439,14 @@ export class PaperTrader {
       const livePred = scan.all[pos.asset];
       if (livePred && (livePred.confidence ?? 0) >= PAPER_MIN_CONFIDENCE) {
         const liveSide = recommendationToSide(livePred.recommendation);
-        if (liveSide && liveSide !== pos.side) {
+        const isStrong = livePred.recommendation?.startsWith('STRONG_') ?? false;
+        // Mirror the entry skip-STRONG filter on flip: STRONG_ signals had
+        // 13% win rate on the live trader (2026-08-28 data) — they fire
+        // when the market is already priced in and mean-reversion follows.
+        // If we refuse to OPEN on STRONG_, we shouldn't let STRONG_ force
+        // a CLOSE either (2026-09-18 asymmetry fix).
+        const { PAPER_SKIP_STRONG_SIGNALS } = await import('./config');
+        if (liveSide && liveSide !== pos.side && !(PAPER_SKIP_STRONG_SIGNALS && isStrong)) {
           return PaperTrader.closeAtMark(
             pos,
             markPrice,
