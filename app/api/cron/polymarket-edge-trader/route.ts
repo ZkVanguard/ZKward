@@ -149,29 +149,21 @@ export async function GET(request: NextRequest): Promise<NextResponse<EdgeResult
 
   // Piggyback: signal-outcome resolver. Closes the learning loop by
   // scoring interpretations that have passed their horizon against
-  // realized spot. Standalone route exists at /api/cron/resolve-outcomes
-  // but QStash 10-schedule cap means we ride the trader's 5-min tick.
-  // Idempotent + debounced (25-min internal claim), so multiple entries
-  // per tick are safe. Non-fatal — resolver failure never blocks trading.
+  // realized spot. Runs inline via direct import (not HTTP) because the
+  // fetch-based approach silently failed in prod 2026-09-18 — VERCEL_URL
+  // resolves to the deployment-specific URL which hits deployment
+  // protection when called cross-deploy. Direct import bypasses the
+  // network entirely and preserves the same debounce guard.
+  // Non-fatal: resolver failure never blocks trading.
   try {
-    // Fire-and-forget via internal fetch to the resolver route so the
-    // debounce + auth path is exercised as it would be from QStash.
-    // On Vercel the app hostname is via env; fall back to no-op if unset.
-    const host = (process.env.VERCEL_URL || process.env.NEXT_PUBLIC_APP_URL || '').trim();
-    const cronSecret = (process.env.CRON_SECRET || '').trim();
-    if (host && cronSecret) {
-      const url = host.startsWith('http') ? host : `https://${host}`;
-      void fetch(`${url}/api/cron/resolve-outcomes`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${cronSecret}` },
-      }).catch((e) => {
-        logger.warn('[ResolveOutcomes] piggyback ping failed (non-fatal)', {
-          error: e instanceof Error ? e.message : String(e),
-        });
+    const { runResolveOutcomesTick } = await import('@/lib/services/ai/resolve-outcomes-tick');
+    await runResolveOutcomesTick(Date.now()).catch((e) => {
+      logger.warn('[ResolveOutcomes] piggyback tick failed (non-fatal)', {
+        error: e instanceof Error ? e.message : String(e),
       });
-    }
+    });
   } catch (e) {
-    logger.warn('[ResolveOutcomes] piggyback wire failed (non-fatal)', {
+    logger.warn('[ResolveOutcomes] piggyback import failed (non-fatal)', {
       error: e instanceof Error ? e.message : String(e),
     });
   }
