@@ -23,6 +23,7 @@ import {
 } from '@/lib/services/market-data/unified-price-provider';
 import { PredictionAggregatorService } from '@/lib/services/market-data/PredictionAggregatorService';
 import { getCronState, setCronState } from '@/lib/db/cron-state';
+import { positionOpen, positionUpdate, positionClose } from './concurrent';
 import { createHedge } from '@/lib/db/hedges';
 import { query } from '@/lib/db/postgres';
 import { logger } from '@/lib/utils/logger';
@@ -406,18 +407,9 @@ export class PaperTrader {
       );
     }
     // Persist the updated peak so cross-tick reads see the ratchet.
-    // In concurrent mode, write to the positions array entry instead of
-    // the legacy KEY_POSITION slot.
-    if (currentPeak > priorPeak) {
-      const { PAPER_MAX_CONCURRENT } = await import('./config');
-      if (PAPER_MAX_CONCURRENT > 1) {
-        if (orderId) {
-          const { updateActivePosition } = await import('./concurrent');
-          await updateActivePosition(orderId, (p) => ({ ...p, peakUnrealizedPnl: currentPeak }));
-        }
-      } else {
-        await setCronState(KEY_POSITION, { ...pos, peakUnrealizedPnl: currentPeak });
-      }
+    // positionUpdate handles the legacy vs concurrent branch internally.
+    if (currentPeak > priorPeak && orderId) {
+      await positionUpdate(orderId, (p) => ({ ...p, peakUnrealizedPnl: currentPeak }));
     }
 
     // 3. Max-hold expiry → close. Uses per-position maxHoldMin (scaled by
@@ -733,17 +725,9 @@ export class PaperTrader {
     };
 
     const orderId = `paper_${asset}_${Math.floor(now / 1000)}`;
-    // Concurrent-mode: push into the positions array. Legacy mode: single
-    // KEY_POSITION + KEY_ORDER_ID slots. The concurrencyFilter presence
-    // is our proxy for "concurrent mode is active" since only runTickConcurrent
-    // passes it.
-    if (concurrencyFilter) {
-      const { addActivePosition } = await import('./concurrent');
-      await addActivePosition({ orderId, position });
-    } else {
-      await setCronState(KEY_POSITION, position);
-      await setCronState(KEY_ORDER_ID, orderId);
-    }
+    // positionOpen picks the storage slot (concurrent array vs legacy
+    // single) based on PAPER_MAX_CONCURRENT.
+    await positionOpen({ orderId, position });
 
     // Persist to hedges table for reuse by dashboard + analytics
     try {
@@ -832,15 +816,14 @@ export class PaperTrader {
       );
     }
 
-    await setCronState(KEY_POSITION, null);
-    // Concurrent mode may have KEY_ORDER_ID = null (cleared by migration in
-    // loadActivePositions). Passed-in orderId is the source of truth when
-    // available; legacy path keeps reading KEY_ORDER_ID for back-compat.
-    // 2026-09-18: without this, closeAtMark in concurrent mode skipped the
-    // DB UPDATE and left rows status='active' after closing in memory
-    // (observed on paper_XRP_1789759203).
+    // Passed-in orderId is the source of truth. In legacy mode it may
+    // be undefined (older call sites); fall back to KEY_ORDER_ID for
+    // back-compat. Concurrent mode always provides the arg.
+    // 2026-09-18: without this fallback, closeAtMark in concurrent mode
+    // skipped the DB UPDATE and left rows status='active' after closing
+    // in memory (observed on paper_XRP_1789759203).
     const orderId = passedOrderId ?? (await getCronState<string>(KEY_ORDER_ID)) ?? undefined;
-    await setCronState(KEY_ORDER_ID, null);
+    if (orderId) await positionClose(orderId);
     await setCronState(KEY_NAV, newNav);
 
     // Update stats — reuse loadStats so daily-peak + halt-reset stay in sync.

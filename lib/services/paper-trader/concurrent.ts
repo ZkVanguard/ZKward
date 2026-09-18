@@ -88,6 +88,59 @@ export async function updateActivePosition(
   if (changed) await saveActivePositions(next);
 }
 
+// ── Mode-aware facade (2026-09-18) ───────────────────────────────────
+//
+// Hides the KEY_POSITION-vs-KEY_POSITIONS branching from callers. All
+// paper-trader write sites (open, update, close) go through these three
+// functions rather than checking PAPER_MAX_CONCURRENT themselves.
+//
+// Motivation: two 2026-09-18 bugs (PR #127 orphaned DB rows, PR #129
+// blind /paper endpoint) came from a caller forgetting the mode check.
+// Centralizing the branch removes the class of bug entirely.
+//
+// Legacy mode retained (not deleted) because unit tests still exercise
+// the KEY_POSITION path directly; a rip-out would churn 30+ test cases
+// with no behavior improvement.
+import { PAPER_MAX_CONCURRENT } from './config';
+
+/** Open a new position. Legacy: writes KEY_POSITION + KEY_ORDER_ID.
+ *  Concurrent: appends to the array. */
+export async function positionOpen(entry: ActivePosition): Promise<void> {
+  if (PAPER_MAX_CONCURRENT > 1) {
+    await addActivePosition(entry);
+    return;
+  }
+  const { setCronState } = await import('@/lib/db/cron-state');
+  await setCronState(KEY_POSITION, entry.position);
+  await setCronState(KEY_ORDER_ID, entry.orderId);
+}
+
+/** Mutate a position (typically to bump peakUnrealizedPnl).
+ *  In legacy mode this rewrites KEY_POSITION. */
+export async function positionUpdate(
+  orderId: string,
+  updater: (pos: SimulatedPosition) => SimulatedPosition,
+): Promise<void> {
+  if (PAPER_MAX_CONCURRENT > 1) {
+    await updateActivePosition(orderId, updater);
+    return;
+  }
+  const { getCronState, setCronState } = await import('@/lib/db/cron-state');
+  const pos = await getCronState<SimulatedPosition>(KEY_POSITION);
+  if (pos) await setCronState(KEY_POSITION, updater(pos));
+}
+
+/** Close/remove a position from the store. */
+export async function positionClose(orderId: string): Promise<void> {
+  if (PAPER_MAX_CONCURRENT > 1) {
+    await removeActivePosition(orderId);
+    return;
+  }
+  const { setCronState } = await import('@/lib/db/cron-state');
+  await setCronState(KEY_POSITION, null);
+  await setCronState(KEY_ORDER_ID, null);
+}
+
 // ── Entry gates ──────────────────────────────────────────────────────
 
 /** Which cluster does this asset belong to (if any)? Returns null when
