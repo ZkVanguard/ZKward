@@ -248,16 +248,45 @@ export class PaperTrader {
     nav: number,
     now: number,
   ): Promise<TickResult> {
-    const markPrice = await getLivePrice(pos.asset);
+    let markPrice = await getLivePrice(pos.asset);
     if (!markPrice || markPrice <= 0) {
-      // Stale price on an active position — HOLD (don't force close on
-      // bad data). Returns 'skipped' so the tick logs cleanly; the
-      // next tick will retry mark-to-market.
-      logger.warn('[PaperTrader] stale/absent mark on active position — holding', {
-        asset: pos.asset,
-        side: pos.side,
-      });
-      return { action: 'skipped', reason: 'stale mark price on active position (held)', nav };
+      // Stale price. Two escape hatches:
+      //   1. If we're past max-hold AND multi-source can price the asset,
+      //      close at multi-source price (avoid stuck-position bug 2026-09-18
+      //      where XRP stayed open 4+ hours because getLivePrice returned 0).
+      //   2. Otherwise HOLD — don't force-close on bad data; next tick retries.
+      const holdMs = now - pos.openedAt;
+      if (holdMs >= PAPER_MAX_HOLD_MIN * 60_000) {
+        try {
+          const v = await getMultiSourceValidatedPrice(pos.asset, {
+            minSources: 2,
+            maxDeviationPercent: 2,
+            timeout: 8000,
+          });
+          if (v.price > 0) {
+            logger.warn('[PaperTrader] stale getLivePrice past max-hold — using multi-source fallback', {
+              asset: pos.asset,
+              fallbackPrice: v.price,
+              holdMinutes: Math.round(holdMs / 60_000),
+            });
+            markPrice = v.price;
+          }
+        } catch (e) {
+          logger.warn('[PaperTrader] multi-source fallback failed on stuck position', {
+            asset: pos.asset,
+            holdMinutes: Math.round(holdMs / 60_000),
+            error: errMsg(e),
+          });
+        }
+      }
+      if (!markPrice || markPrice <= 0) {
+        logger.warn('[PaperTrader] stale/absent mark on active position — holding', {
+          asset: pos.asset,
+          side: pos.side,
+          holdMinutes: Math.round((now - pos.openedAt) / 60_000),
+        });
+        return { action: 'skipped', reason: 'stale mark price on active position (held)', nav };
+      }
     }
 
     // 1. Stop-loss (2026-09-17) — bail before the 20-min max-hold if the
