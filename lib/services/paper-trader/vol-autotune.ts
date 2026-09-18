@@ -33,11 +33,23 @@ interface VolCacheEntry {
   computedAt: number;
 }
 
+/** Sanity ceiling for per-trade return-fraction. Anything above this is
+ *  a data-corruption artifact (observed 2026-09-17: ETH rows with
+ *  size=0.012 × entry=$2016 stale = $24 stored notional but PnL -$3043
+ *  → 12,679% "return per trade" that poisoned stddev and clamped ETH
+ *  vol multiplier to 0.25 for weeks). 50% in a single trade is already
+ *  impossibly wide for 20-90 min holds. */
+const MAX_SANE_RETURN_FRAC = 0.5;
+
 /**
  * Compute return-per-hour for a single closed trade. Uses gross
  * PnL / notional as the return magnitude (fees already reflect the same
  * trade, so this is a directional-move proxy). Annualized to per-hour
  * so different hold durations are comparable.
+ *
+ * Returns null when the row is clearly corrupted (return-fraction
+ * beyond MAX_SANE_RETURN_FRAC) so old pre-fix trades can't poison
+ * the auto-tune.
  */
 function tradeReturnPerHour(row: {
   current_pnl: number | string | null;
@@ -52,8 +64,9 @@ function tradeReturnPerHour(row: {
   const notional = size * entry;
   if (!Number.isFinite(notional) || notional <= 0) return null;
   if (!Number.isFinite(durSec) || durSec <= 0) return null;
-  // Return fraction over the hold, then normalize to per-hour.
   const returnFrac = pnl / notional;
+  // Corruption filter — see MAX_SANE_RETURN_FRAC comment above.
+  if (Math.abs(returnFrac) > MAX_SANE_RETURN_FRAC) return null;
   const durHours = durSec / 3600;
   return returnFrac / Math.max(durHours, 0.01);
 }
