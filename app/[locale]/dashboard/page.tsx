@@ -22,6 +22,8 @@ import {
   UserCog,
 } from 'lucide-react';
 import { MobileTabBar } from '@/components/dashboard/MobileTabBar';
+import { SidebarNavButton } from '@/components/dashboard/shell/SidebarNavButton';
+import { NotificationToast } from '@/components/dashboard/shell/NotificationToast';
 import { WalletAvatar } from '@/components/ui/WalletAvatar';
 import { useUserSession } from '@/lib/hooks/useUserSession';
 import { useContractAddresses } from '@/lib/contracts/hooks';
@@ -592,42 +594,16 @@ export default function DashboardPage() {
               Menu
             </p>
 
-            {navItems.map((item) => {
-              const Icon = item.icon;
-              const isActive = activeNav === item.id;
-
-              return (
-                <button
-                  key={item.id}
-                  onClick={() => setActiveNav(item.id)}
-                  className={`
-                    w-[calc(100%-16px)] mx-2 mb-1 flex items-center gap-3 px-4 py-2.5 rounded-[12px] text-left transition-all duration-200 ease-[cubic-bezier(0.4,0,0.2,1)]
-                    ${
-                      isActive
-                        ? 'bg-ios-blue shadow-[0_2px_8px_rgba(0,105,217,0.25)]'
-                        : 'hover:bg-system-bg-secondary'
-                    }
-                  `}
-                >
-                  <Icon className={`w-5 h-5 ${isActive ? 'text-white' : 'text-label-quaternary'}`} />
-                  <span
-                    className={`text-[15px] font-medium tracking-[-0.01em] ${isActive ? 'text-white' : 'text-label-primary'}`}
-                  >
-                    {item.label}
-                  </span>
-                  {item.badge && (
-                    <span
-                      className={`
-                      ml-auto px-2 py-0.5 text-[11px] font-semibold rounded-full shadow-sm
-                      ${isActive ? 'bg-white/20 text-white' : 'bg-ios-green text-white'}
-                    `}
-                    >
-                      {item.badge}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
+            {navItems.map((item) => (
+              <SidebarNavButton
+                key={item.id}
+                icon={item.icon}
+                label={item.label}
+                badge={item.badge}
+                isActive={activeNav === item.id}
+                onClick={() => setActiveNav(item.id)}
+              />
+            ))}
 
             <div className="my-4 mx-4 border-t border-black/5" />
 
@@ -635,25 +611,15 @@ export default function DashboardPage() {
               Platform
             </p>
 
-            {platformItems.map((item) => {
-              const Icon = item.icon;
-              const isActive = activeNav === item.id;
-              return (
-                <button
-                  key={item.id}
-                  onClick={() => setActiveNav(item.id)}
-                  className={`
-                    w-[calc(100%-16px)] mx-2 mb-1 flex items-center gap-3 px-4 py-2.5 rounded-[12px] text-left transition-all duration-200 ease-[cubic-bezier(0.4,0,0.2,1)]
-                    ${isActive ? 'bg-ios-blue shadow-[0_2px_8px_rgba(0,105,217,0.25)]' : 'hover:bg-system-bg-secondary'}
-                  `}
-                >
-                  <Icon className={`w-5 h-5 ${isActive ? 'text-white' : 'text-label-quaternary'}`} />
-                  <span className={`text-[15px] font-medium tracking-[-0.01em] ${isActive ? 'text-white' : 'text-label-primary'}`}>
-                    {item.label}
-                  </span>
-                </button>
-              );
-            })}
+            {platformItems.map((item) => (
+              <SidebarNavButton
+                key={item.id}
+                icon={item.icon}
+                label={item.label}
+                isActive={activeNav === item.id}
+                onClick={() => setActiveNav(item.id)}
+              />
+            ))}
 
             <div className="my-4 mx-4 border-t border-black/5" />
 
@@ -718,17 +684,7 @@ export default function DashboardPage() {
         moreIcon={MoreHorizontal}
       />
 
-      {/* Notification Toast — token-based, no raw Tailwind grays */}
-      {notification && (
-        <div className="fixed top-20 lg:top-[68px] left-1/2 -translate-x-1/2 z-50 animate-in fade-in slide-in-from-top-2 duration-300 max-w-md px-4">
-          <div className="flex items-start gap-3 px-5 py-4 bg-label-primary text-white rounded-2xl shadow-ios-3">
-            <div className="w-2 h-2 mt-1.5 bg-ios-green rounded-full animate-pulse flex-shrink-0" />
-            <p className="text-sm font-medium whitespace-pre-line leading-relaxed">
-              {notification}
-            </p>
-          </div>
-        </div>
-      )}
+      <NotificationToast message={notification} />
 
       {/* Create Portfolio CTA disabled in SUI-only mode (EVM/Cronos required). */}
 
