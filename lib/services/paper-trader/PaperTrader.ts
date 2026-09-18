@@ -23,7 +23,7 @@ import {
 } from '@/lib/services/market-data/unified-price-provider';
 import { PredictionAggregatorService } from '@/lib/services/market-data/PredictionAggregatorService';
 import { getCronState, setCronState } from '@/lib/db/cron-state';
-import { createHedge, closeHedge } from '@/lib/db/hedges';
+import { createHedge } from '@/lib/db/hedges';
 import { query } from '@/lib/db/postgres';
 import { logger } from '@/lib/utils/logger';
 import { errMsg } from '@/lib/utils/error-handler';
@@ -654,13 +654,36 @@ export class PaperTrader {
     // Close DB row + persist funding + close reason
     if (orderId) {
       try {
-        await closeHedge(orderId, result.realizedPnlUsd, 'closed');
-        // Store funding separately for the dashboard's fee-vs-alpha breakdown
+        // Single atomic UPDATE — status + pnl + funding + close-reason together.
+        // Prior code did closeHedge() then a separate UPDATE for funding + reason;
+        // if the 2nd write failed, the row landed in a "closed but no close-reason"
+        // state that matched the phantom-close pattern from the reconciler bug
+        // and confused monitoring (observed 2026-09-17).
         await query(
-          `UPDATE hedges SET funding_paid = $1, reason = COALESCE(reason,'') || ' | close: ' || $2
-           WHERE order_id = $3`,
-          [result.fundingUsd, reason.slice(0, 100), orderId],
+          `UPDATE hedges
+           SET status = 'closed',
+               realized_pnl = $1,
+               current_pnl = $1,
+               funding_paid = $2,
+               closed_at = CURRENT_TIMESTAMP,
+               updated_at = CURRENT_TIMESTAMP,
+               reason = COALESCE(reason,'') || ' | close: ' || $3
+           WHERE order_id = $4`,
+          [result.realizedPnlUsd, result.fundingUsd, reason.slice(0, 100), orderId],
         );
+        // Treasury credit — kept as separate call (fire-and-forget, non-blocking).
+        // Guard mirrors closeHedge's own guard: only credit meaningful amounts.
+        if (Math.abs(result.realizedPnlUsd) > 0.01) {
+          try {
+            const { recordPnlCredit } = await import('@/lib/db/treasury');
+            await recordPnlCredit(orderId, result.realizedPnlUsd, `paperClose ${reason.slice(0, 60)}`);
+          } catch (err) {
+            logger.warn('[PaperTrader] treasury credit failed after close (non-fatal)', {
+              orderId,
+              error: err instanceof Error ? err.message : err,
+            });
+          }
+        }
       } catch (e) {
         logger.warn('[PaperTrader] closeHedge DB write failed', { error: errMsg(e) });
       }
