@@ -18,7 +18,6 @@ import {
   KEY_STATS,
   KEY_NAV_SERIES,
   KEY_LAST_RUN,
-  KEY_ORDER_ID,
   PAPER_STARTING_NAV,
   PAPER_UNIVERSE,
   PAPER_CHAIN,
@@ -55,10 +54,16 @@ interface PerAssetAgg {
 
 export async function GET(_req: NextRequest): Promise<NextResponse> {
   try {
-    const [nav, activePos, activeOrderId, stats, series, lastRun] = await Promise.all([
+    // Load active positions via the same helper the trader uses so we
+    // pick up concurrent-mode entries (array under KEY_POSITIONS) AND
+    // the legacy single slot. Diagnosed 2026-09-18: this endpoint was
+    // reading only KEY_POSITION; in concurrent mode that's null →
+    // the /paper dashboard rendered "no active position" while
+    // multiple positions were actually open.
+    const { loadActivePositions } = await import('@/lib/services/paper-trader/concurrent');
+    const [nav, activePositions, stats, series, lastRun] = await Promise.all([
       getCronState<number>(KEY_NAV),
-      getCronState<SimulatedPosition>(KEY_POSITION),
-      getCronState<string>(KEY_ORDER_ID),
+      loadActivePositions(),
       getCronState<PaperStats>(KEY_STATS),
       getCronState<Array<{ ts: number; nav: number }>>(KEY_NAV_SERIES),
       getCronState<number>(KEY_LAST_RUN),
@@ -66,42 +71,46 @@ export async function GET(_req: NextRequest): Promise<NextResponse> {
 
     const currentNavRealized = nav ?? PAPER_STARTING_NAV;
 
-    // If a position is open, mark it to market so the dashboard shows a
-    // live-ish NAV rather than the last-realized snapshot.
+    // Mark every active position to market so the dashboard shows a
+    // live-ish NAV summing unrealized PnL across all open positions.
     let unrealizedNav = currentNavRealized;
-    let activePosOut: any = null;
-    if (activePos) {
-      const markPrice = await getLivePrice(activePos.asset).catch(() => 0);
+    const activePositionsOut: any[] = [];
+    for (const entry of activePositions) {
+      const p = entry.position;
+      const markPrice = await getLivePrice(p.asset).catch(() => 0);
       if (markPrice > 0) {
-        const mtm = markToMarket(activePos, markPrice, Date.now());
-        unrealizedNav = currentNavRealized + mtm.unrealizedPnlUsd;
-        activePosOut = {
-          asset: activePos.asset,
-          side: activePos.side,
-          entryPrice: activePos.entryPrice,
+        const mtm = markToMarket(p, markPrice, Date.now());
+        unrealizedNav += mtm.unrealizedPnlUsd;
+        activePositionsOut.push({
+          asset: p.asset,
+          side: p.side,
+          entryPrice: p.entryPrice,
           markPrice,
-          notionalUsd: activePos.notionalUsd,
-          leverage: activePos.leverage,
-          openedAt: activePos.openedAt,
-          holdSeconds: Math.round((Date.now() - activePos.openedAt) / 1000),
+          notionalUsd: p.notionalUsd,
+          leverage: p.leverage,
+          openedAt: p.openedAt,
+          holdSeconds: Math.round((Date.now() - p.openedAt) / 1000),
           unrealizedPnlUsd: mtm.unrealizedPnlUsd,
           fundingAccruedUsd: mtm.fundingAccruedUsd,
-          orderId: activeOrderId,
-        };
+          orderId: entry.orderId,
+        });
       } else {
-        activePosOut = {
-          asset: activePos.asset,
-          side: activePos.side,
-          entryPrice: activePos.entryPrice,
+        activePositionsOut.push({
+          asset: p.asset,
+          side: p.side,
+          entryPrice: p.entryPrice,
           markPrice: null,
-          notionalUsd: activePos.notionalUsd,
-          leverage: activePos.leverage,
-          openedAt: activePos.openedAt,
-          holdSeconds: Math.round((Date.now() - activePos.openedAt) / 1000),
-          orderId: activeOrderId,
-        };
+          notionalUsd: p.notionalUsd,
+          leverage: p.leverage,
+          openedAt: p.openedAt,
+          holdSeconds: Math.round((Date.now() - p.openedAt) / 1000),
+          orderId: entry.orderId,
+        });
       }
     }
+    // Back-compat: keep activePosition as the newest single entry so
+    // existing UI code that reads .activePosition continues to work.
+    const activePosOut = activePositionsOut[0] ?? null;
 
     // Recent closed trades
     let recent: ClosedTradeRow[] = [];
@@ -191,6 +200,7 @@ export async function GET(_req: NextRequest): Promise<NextResponse> {
         lastRealizedUsd: s.lastRealizedUsd,
       },
       activePosition: activePosOut,
+      activePositions: activePositionsOut,
       recentTrades: recent.map((r) => ({
         id: r.id,
         orderId: r.order_id,
