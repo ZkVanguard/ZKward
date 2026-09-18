@@ -54,13 +54,28 @@ interface PolymarketMarket {
  */
 async function fetchPolymarketMarket(slug: string): Promise<PolymarketMarket | null> {
   try {
+    // `?closed=true` is REQUIRED to fetch resolved markets. The default
+    // endpoint filters them out — which is exactly the ones we want to
+    // score. Diagnosed 2026-09-18: 2 past-horizon BINARY interpretations
+    // sat unresolved because the resolver hit the "active only" endpoint.
     const resp = await fetch(
+      `https://gamma-api.polymarket.com/markets?slug=${encodeURIComponent(slug)}&closed=true`,
+      { signal: AbortSignal.timeout(6000) },
+    );
+    if (resp.ok) {
+      const arr = (await resp.json()) as PolymarketMarket[];
+      if (arr && arr.length > 0) return arr[0];
+    }
+    // Fallback: still-open market (not yet closed). extractBinaryOutcome
+    // returns null for these; caller counts as binaryStillOpen and retries
+    // next tick.
+    const respActive = await fetch(
       `https://gamma-api.polymarket.com/markets?slug=${encodeURIComponent(slug)}`,
       { signal: AbortSignal.timeout(6000) },
     );
-    if (!resp.ok) return null;
-    const arr = (await resp.json()) as PolymarketMarket[];
-    return arr && arr.length > 0 ? arr[0] : null;
+    if (!respActive.ok) return null;
+    const arrActive = (await respActive.json()) as PolymarketMarket[];
+    return arrActive && arrActive.length > 0 ? arrActive[0] : null;
   } catch {
     return null;
   }
