@@ -62,6 +62,21 @@ export const PAPER_REGRET_COOLDOWN_PCT = Number(
 );
 export const PAPER_REGRET_WINDOW = Number(process.env.PAPER_TRADER_REGRET_WINDOW || 20);
 
+// ── Discord digest mode ────────────────────────────────────────────
+// When enabled, TRADE-level OPEN/CLOSE events are buffered and flushed
+// as one summary Discord message on cadence. Halts, price failures, and
+// other WARN/KILL levels still fire immediately regardless. Opt-in —
+// default OFF preserves current per-trade behavior.
+export const PAPER_DISCORD_DIGEST_ENABLED =
+  (process.env.PAPER_TRADER_DISCORD_DIGEST || '').trim() === '1';
+export const PAPER_DIGEST_FLUSH_MS = Number(
+  process.env.PAPER_TRADER_DIGEST_FLUSH_MS || 60 * 60 * 1000,
+);
+export const PAPER_DIGEST_FLUSH_MAX_EVENTS = Number(
+  process.env.PAPER_TRADER_DIGEST_FLUSH_MAX_EVENTS || 20,
+);
+export const KEY_DIGEST_BUFFER = 'paper-trader:discord-digest';
+
 /**
  * Per-asset volatility multiplier — the "vol parity" fix. SOL and small-caps
  * are ~2x more volatile than BTC; equal notional means unequal risk. This
