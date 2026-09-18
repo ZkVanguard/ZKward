@@ -18,6 +18,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db/postgres';
 import { getSignalStats } from '@/lib/db/signal-outcomes';
 import { logger } from '@/lib/utils/logger';
+import { HEDGES_REAL_ONLY_SQL } from '@/lib/db/hedges-scope';
 import { verifyAdminBearer } from '@/lib/security/auth-middleware';
 
 export const runtime = 'nodejs';
@@ -74,7 +75,7 @@ export async function GET(req: NextRequest) {
     }>(
       `SELECT status, asset, realized_pnl, funding_paid, notional_value
        FROM hedges
-       WHERE simulation_mode = false
+       WHERE ${HEDGES_REAL_ONLY_SQL}
          AND (created_at >= $1 OR closed_at >= $1)`,
       [sinceIso]
     );

@@ -10,6 +10,7 @@
 import { query, queryOne } from './postgres';
 import { logger } from '@/lib/utils/logger';
 import { ensureHedgesTable, type Hedge } from './hedges-schema';
+import { HEDGES_REAL_ONLY_SQL } from './hedges-scope';
 
 export interface OnChainHedgeParams {
   hedgeIdOnchain: string;       // bytes32 from HedgeExecutor
@@ -369,7 +370,7 @@ export async function listActiveSuiOnchainHedges(): Promise<Array<{
     }>(
       `SELECT order_id, hedge_id_onchain, notional_value, created_at
        FROM hedges
-       WHERE chain = 'sui' AND on_chain = true AND status = 'active' AND simulation_mode = false`,
+       WHERE chain = 'sui' AND on_chain = true AND status = 'active' AND ${HEDGES_REAL_ONLY_SQL}`,
     );
     return rows.map(r => ({
       orderId: r.order_id,
