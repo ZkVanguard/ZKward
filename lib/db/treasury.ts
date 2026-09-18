@@ -34,6 +34,7 @@
 
 import { query } from '@/lib/db/postgres';
 import { logger } from '@/lib/utils/logger';
+import { HEDGES_REAL_ONLY_SQL } from '@/lib/db/hedges-scope';
 
 const DEFAULT_BUFFER_USD = 100;
 
@@ -234,7 +235,7 @@ export function canAffordReinvestment(
 export async function reconcileFromHedges(): Promise<{ credited: number; skipped: number }> {
   await ensureTreasuryTable();
   try {
-    // simulation_mode = false excludes the paper trader (portfolio -3,
+    // HEDGES_REAL_ONLY_SQL excludes the paper trader (portfolio -3,
     // chain hedera-testnet). Diagnosed 2026-09-18: reconciler was pulling
     // in 126 paper closes and crediting them to the real treasury via
     // recordPnlCredit — same root cause as the closeAtMark leak. Belt +
@@ -243,7 +244,7 @@ export async function reconcileFromHedges(): Promise<{ credited: number; skipped
       `SELECT order_id, realized_pnl
        FROM hedges
        WHERE status = 'closed'
-         AND simulation_mode = false
+         AND ${HEDGES_REAL_ONLY_SQL}
          AND realized_pnl IS NOT NULL
          AND ABS(realized_pnl) > 0.01`,
     );

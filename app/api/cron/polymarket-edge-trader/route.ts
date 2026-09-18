@@ -48,6 +48,7 @@ import { safeBluefinSnapshot, refreshBluefinCache } from '@/lib/services/sui/blu
 import { PredictionAggregatorService } from '@/lib/services/market-data/PredictionAggregatorService';
 import { getCronStateOr, setCronState } from '@/lib/db/cron-state';
 import { query } from '@/lib/db/postgres';
+import { HEDGES_REAL_ONLY_SQL } from '@/lib/db/hedges-scope';
 import { computeSizeMultiplier, computeRegretScore } from '@/lib/services/ai/regret-tracker';
 import { calibrate as calibrateProbability } from '@/lib/services/ai/probability-calibrator';
 import { regretBasedHalt, fundingEdge, exposureCap, riskGate } from '@/lib/services/trading/trade-quality-gates';
@@ -343,7 +344,7 @@ export async function GET(request: NextRequest): Promise<NextResponse<EdgeResult
                   created_at
            FROM hedges
            WHERE status='closed'
-             AND simulation_mode = false
+             AND ${HEDGES_REAL_ONLY_SQL}
              AND created_at > NOW() - INTERVAL '30 days'
            ORDER BY created_at DESC LIMIT 200`
         ).catch(() => []);

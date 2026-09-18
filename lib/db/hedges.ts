@@ -1,6 +1,7 @@
 import { query, queryOne } from './postgres';
 import crypto from 'crypto';
 import { logger } from '@/lib/utils/logger';
+import { HEDGES_REAL_ONLY_SQL } from './hedges-scope';
 
 // Schema + on-chain queries moved to sibling modules for readability;
 // re-exported so callers of '@/lib/db/hedges' don't need to know.
@@ -482,7 +483,7 @@ export async function closePerpHedgeBySymbolSide(args: {
       reason = COALESCE(reason, '') || ' | closed via ' || COALESCE($5, 'cron')
     WHERE id = (
       SELECT id FROM hedges
-      WHERE market = $1 AND side = $2 AND status = 'active' AND simulation_mode = false
+      WHERE market = $1 AND side = $2 AND status = 'active' AND ${HEDGES_REAL_ONLY_SQL}
       ORDER BY created_at DESC
       LIMIT 1
     )
@@ -544,7 +545,7 @@ export async function getRealizedPnlSince(sinceMs: number): Promise<{
          COALESCE(SUM(funding_paid), 0)::TEXT AS funding,
          COUNT(*)::TEXT AS cnt
        FROM hedges
-       WHERE simulation_mode = false
+       WHERE ${HEDGES_REAL_ONLY_SQL}
          AND status = 'closed'
          AND closed_at >= $1`,
       [sinceIso],
@@ -588,7 +589,7 @@ export async function getStaleActiveHedges(maxAgeMs: number): Promise<Array<{
     }>(
       `SELECT order_id, market, side, asset, created_at
        FROM hedges
-       WHERE simulation_mode = false
+       WHERE ${HEDGES_REAL_ONLY_SQL}
          AND status = 'active'
          AND created_at < $1
        ORDER BY created_at ASC
