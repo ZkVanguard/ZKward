@@ -89,9 +89,11 @@ export function getPool(): Pool {
       // realistic cron interval, so a quiet instance frees its slot in seconds.
       idleTimeoutMillis: isNeon ? 8000 : isAiven ? 2000 : 20000,
       connectionTimeoutMillis: isNeon ? 5000 : 3000,
-      // Statement timeout: kill queries that run too long (protects pool from hangs)
-      statement_timeout: 15000, // 15s max per query
-      query_timeout: 20000, // 20s max including queue wait
+      // statement_timeout deliberately not passed here — pg would send it as a
+      // libpq startup parameter, which PgBouncer (Bakchodi's front) rejects
+      // with "unsupported startup parameter". We SET it via the on-connect
+      // handler below instead — runtime SET works across all poolers.
+      query_timeout: 20000, // 20s max including queue wait — client-side only
       // Allow queued clients to fail fast instead of waiting forever
       allowExitOnIdle: isNeon, // Release all connections when idle on serverless
     });
