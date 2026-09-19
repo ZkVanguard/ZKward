@@ -19,7 +19,7 @@
  * Security: Verified by QStash signature or CRON_SECRET for internal calls
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse, after } from 'next/server';
 import { logger } from '@/lib/utils/logger';
 import { verifyCronRequest } from '@/lib/qstash';
 import { errMsg, errName } from '@/lib/utils/error-handler';
@@ -125,17 +125,7 @@ export async function GET(request: NextRequest): Promise<NextResponse<MasterCron
   }
   const cronSecret = process.env.CRON_SECRET?.trim() || '';
   
-  logger.info('[MasterCron] ═══════════════════════════════════════');
   logger.info('[MasterCron] Starting master cron orchestration');
-  logger.info('[MasterCron] ═══════════════════════════════════════');
-  
-  // Master fires every */5 via QStash. Sub-crons all have their own
-  // tryClaimCronRun(intervalMs) internally, so calling every 5min is safe
-  // for a */15 cron — it no-ops until its interval elapses.
-  //
-  // This 1-master-schedule pattern was adopted 2026-09-12 when the previous
-  // 10-schedule fan-out hit QStash's 1000/day free-tier quota. Master
-  // consolidates to ~288 messages/day (12/hour × 24) with headroom to spare.
 
   const cronJobs: Array<{ name: string; path: string; timeoutMs?: number }> = [
     { name: 'BlueFin Health',           path: '/api/cron/bluefin-health' },
@@ -150,38 +140,46 @@ export async function GET(request: NextRequest): Promise<NextResponse<MasterCron
     { name: 'SUI Collect Fees',         path: '/api/cron/sui-collect-fees' },
   ];
 
-  // Run all sub-crons in parallel. Each has its own timeout; one hang
-  // doesn't block the others. Sequential was a 275s worst-case ceiling
-  // that risked hitting Vercel's 300s maxDuration.
-  logger.info(`[MasterCron] fanning out to ${cronJobs.length} sub-crons in parallel`);
-  const results = await Promise.allSettled(
-    cronJobs.map((job) => runSubCron(job.name, job.path, cronSecret || '', job.timeoutMs)),
-  );
-  const subTasks: SubCronResult[] = results.map((r, i) =>
-    r.status === 'fulfilled'
-      ? r.value
-      : { name: cronJobs[i].name, success: false, duration: 0, error: errMsg(r.reason) },
-  );
-  
-  const succeeded = subTasks.filter(t => t.success).length;
-  const failed = subTasks.filter(t => !t.success).length;
-  const totalDuration = Date.now() - startTime;
-  
-  logger.info(`[MasterCron] ═══════════════════════════════════════`);
-  logger.info(`[MasterCron] Complete: ${succeeded}/${subTasks.length} succeeded in ${totalDuration}ms`);
-  logger.info(`[MasterCron] ═══════════════════════════════════════`);
-  
-  return NextResponse.json({
-    success: failed === 0,
-    ranAt,
-    totalDuration,
-    subTasks,
-    summary: {
-      total: subTasks.length,
-      succeeded,
-      failed,
-    },
+  // Fire-and-forget: return 202 immediately so the scheduler (jobs.zkward.com)
+  // gets an ack well within its per-delivery HTTP timeout. Sub-crons run in
+  // the Fluid Compute background via `after()`, which keeps the function
+  // alive up to maxDuration=300s after the response is flushed.
+  //
+  // Previously master awaited all sub-crons before responding — a 60s wait
+  // caused jobs.zkward.com to time out every delivery and retry to
+  // exhaustion (2026-09-19 obs: 4/8 attempts pending on a single delivery).
+  after(async () => {
+    const bgStart = Date.now();
+    logger.info(`[MasterCron:bg] fanning out to ${cronJobs.length} sub-crons in parallel`);
+    const results = await Promise.allSettled(
+      cronJobs.map((job) => runSubCron(job.name, job.path, cronSecret || '', job.timeoutMs)),
+    );
+    const subTasks: SubCronResult[] = results.map((r, i) =>
+      r.status === 'fulfilled'
+        ? r.value
+        : { name: cronJobs[i].name, success: false, duration: 0, error: errMsg(r.reason) },
+    );
+    const succeeded = subTasks.filter(t => t.success).length;
+    const failed = subTasks.filter(t => !t.success).length;
+    logger.info(`[MasterCron:bg] complete: ${succeeded}/${subTasks.length} in ${Date.now() - bgStart}ms`);
+    if (failed > 0) {
+      logger.warn('[MasterCron:bg] failures', {
+        failures: subTasks.filter(t => !t.success).map(t => ({ name: t.name, error: t.error })),
+      });
+    }
   });
+
+  return NextResponse.json({
+    success: true,
+    ranAt,
+    totalDuration: Date.now() - startTime,
+    subTasks: [],
+    summary: {
+      total: cronJobs.length,
+      succeeded: 0,
+      failed: 0,
+    },
+  }, { status: 202 });
 }
 
 // QStash sends POST, Vercel cron sends GET — support both
