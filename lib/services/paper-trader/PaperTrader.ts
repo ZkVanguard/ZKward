@@ -75,6 +75,7 @@ export {
   KEY_STATS,
   KEY_NAV_SERIES,
   KEY_LAST_RUN,
+  KEY_LAST_SKIP,
   NAV_SERIES_MAX,
 } from './config';
 export {
@@ -109,6 +110,7 @@ import {
   KEY_STATS,
   KEY_NAV_SERIES,
   KEY_LAST_RUN,
+  KEY_LAST_SKIP,
   NAV_SERIES_MAX,
 } from './config';
 import {
@@ -235,6 +237,7 @@ async function loadStats(nav: number, now: number): Promise<PaperStats> {
 export class PaperTrader {
   /** One paper-trading tick. Idempotent w.r.t. state — safe to double-invoke. */
   static async runTick(now: number = Date.now()): Promise<TickResult> {
+    let result: TickResult = { action: 'skipped', reason: 'unset' };
     try {
       // Flush accumulated OPEN/CLOSE digest events if due (opt-in via
       // PAPER_TRADER_DISCORD_DIGEST=1). No-op when digest disabled.
@@ -247,23 +250,30 @@ export class PaperTrader {
       // single-position path stays untouched otherwise.
       const { PAPER_MAX_CONCURRENT } = await import('./config');
       if (PAPER_MAX_CONCURRENT > 1) {
-        const result = await PaperTrader.runTickConcurrent(nav, now);
+        result = await PaperTrader.runTickConcurrent(nav, now);
         await pushNavSample(now, result.nav ?? nav);
         return result;
       }
 
       const activePos = await getCronState<SimulatedPosition>(KEY_POSITION);
       const activeOrderId = await getCronState<string>(KEY_ORDER_ID);
-      const result = activePos
+      result = activePos
         ? await PaperTrader.handleActive(activePos, nav, now, activeOrderId ?? undefined)
         : await PaperTrader.handleEntry(nav, now);
       await pushNavSample(now, result.nav ?? nav);
       return result;
     } catch (e) {
       logger.error('[PaperTrader] runTick failed', { error: errMsg(e) });
-      return { action: 'skipped', reason: `error: ${errMsg(e)}` };
+      result = { action: 'skipped', reason: `error: ${errMsg(e)}` };
+      return result;
     } finally {
       await setCronState(KEY_LAST_RUN, now).catch(() => {});
+      if (result.action === 'skipped') {
+        await setCronState(KEY_LAST_SKIP, {
+          at: now,
+          reason: result.reason ?? '',
+        }).catch(() => {});
+      }
     }
   }
 
