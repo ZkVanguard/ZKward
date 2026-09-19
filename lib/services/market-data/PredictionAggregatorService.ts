@@ -796,6 +796,36 @@ export class PredictionAggregatorService {
         if (funding) sources.push(funding);
       }
 
+      // 5c) Kalshi ATM-strike direction (2026-09-19). Different user
+      //     base than Polymarket (US institutional + retail). Binary
+      //     "BTC above $X at time T" markets — we infer direction from
+      //     where the ATM strike sits vs spot. Only BTC + ETH have
+      //     active Kalshi crypto markets.
+      if (asset === 'BTC' || asset === 'ETH') {
+        const spotForKalshi = cryptoComData.perAsset?.[asset]?.price ?? 0;
+        if (spotForKalshi > 0) {
+          const { getKalshiSignal } = await import('./KalshiMarketService');
+          const kalshi = await getKalshiSignal(asset, spotForKalshi);
+          if (kalshi && kalshi.direction !== 'NEUTRAL') {
+            sources.push({
+              name: `Kalshi ${asset}`,
+              type: 'short_term',
+              direction: kalshi.direction,
+              confidence: kalshi.confidence,
+              probability: 50 + kalshi.impliedMovePct * 5000, // ~0.6% implied move → probability 80
+              weight: 0.15,
+              rawData: {
+                atmStrike: kalshi.atmStrike,
+                spotPrice: kalshi.spotPrice,
+                impliedMovePct: kalshi.impliedMovePct,
+                marketCount: kalshi.marketCount,
+              },
+              fetchedAt: Date.now(),
+            });
+          }
+        }
+      }
+
       // 5b) Binance retail positioning (2026-09-19). BlueFin funding
       //     covers our own venue's short list; Binance is the biggest
       //     retail-crowded proxy and often shows more extreme readings.
