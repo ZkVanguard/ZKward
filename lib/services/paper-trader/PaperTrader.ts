@@ -549,7 +549,25 @@ export class PaperTrader {
     const rec = picked.prediction.recommendation;
     const side = picked.side;
 
-    // 2. Per-asset regret cooldown — chronically wrong (asset, side) skipped.
+    // 2a. Per-(asset, side) consecutive-loss streak guard — catches
+    //     regime shifts faster than the rolling regret cooldown.
+    //     Motivating incident 2026-09-19: 7-loss BTC LONG streak.
+    const { assetSideStreakRejection, trendMisalignmentRejection } = await import('./streak-guard');
+    const streakReject = await assetSideStreakRejection(asset, side, now);
+    if (streakReject) {
+      logger.info('[PaperTrader] streak-cooldown skip', { asset, side, reason: streakReject });
+      return { action: 'skipped', reason: streakReject, nav };
+    }
+
+    // 2b. Trend-alignment filter — refuses LONGs into a downtrend and
+    //     SHORTs into an uptrend (over the recent 6-trade window).
+    const trendReject = await trendMisalignmentRejection(asset, side);
+    if (trendReject) {
+      logger.info('[PaperTrader] trend-misalignment skip', { asset, side, reason: trendReject });
+      return { action: 'skipped', reason: trendReject, nav };
+    }
+
+    // 2c. Per-asset regret cooldown — the existing rolling-window check.
     const recentPnl = await assetSideRecentPnl(asset, side, PAPER_REGRET_WINDOW);
     if (recentPnl < -nav * PAPER_REGRET_COOLDOWN_PCT) {
       logger.info('[PaperTrader] regret cooldown skip', {
