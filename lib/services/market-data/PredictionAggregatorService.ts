@@ -455,6 +455,54 @@ export class PredictionAggregatorService {
   }
 
   /**
+   * Binance perpetual funding + long/short account ratio.
+   *
+   * Added 2026-09-19 to diversify beyond BlueFin (much smaller
+   * volume) for retail-positioning signal. Both are contrarian:
+   *   - funding > +0.03% per 8h (~30% APR) → longs crowded → SHORT
+   *   - long/short ratio > 1.5 or < 0.67 → extreme retail positioning
+   *
+   * Endpoints are public + free. Returns sparse map on any error.
+   */
+  private static async fetchBinancePositioning(
+    assets: string[],
+  ): Promise<Record<string, { funding: number; longShortRatio: number }>> {
+    const out: Record<string, { funding: number; longShortRatio: number }> = {};
+    const symbolFor = (asset: string) => `${asset.toUpperCase()}USDT`;
+    await Promise.all(
+      assets.map(async (rawAsset) => {
+        const asset = rawAsset.toUpperCase();
+        const symbol = symbolFor(asset);
+        try {
+          const [premiumResp, ratioResp] = await Promise.all([
+            fetch(`https://fapi.binance.com/fapi/v1/premiumIndex?symbol=${symbol}`, {
+              signal: AbortSignal.timeout(4000),
+              next: { revalidate: 60 },
+            }).catch(() => null),
+            fetch(
+              `https://fapi.binance.com/futures/data/globalLongShortAccountRatio?symbol=${symbol}&period=5m&limit=1`,
+              { signal: AbortSignal.timeout(4000), next: { revalidate: 300 } },
+            ).catch(() => null),
+          ]);
+          if (!premiumResp?.ok || !ratioResp?.ok) return;
+          const premiumJson = (await premiumResp.json()) as { lastFundingRate?: string };
+          const ratioJson = (await ratioResp.json()) as Array<{ longShortRatio?: string }>;
+          const funding = parseFloat(premiumJson.lastFundingRate ?? '');
+          const ratio = parseFloat(ratioJson[0]?.longShortRatio ?? '');
+          if (Number.isFinite(funding) && Number.isFinite(ratio) && ratio > 0) {
+            out[asset] = { funding, longShortRatio: ratio };
+          }
+        } catch (e) {
+          logger.debug('[PredictionAggregator] Binance fetch failed', {
+            asset, error: e instanceof Error ? e.message : String(e),
+          });
+        }
+      }),
+    );
+    return out;
+  }
+
+  /**
    * Fetch the LIVE funding rate per asset from Bluefin's market ticker.
    * Decimal per 8-hour funding interval (e.g. 0.0001 ≈ 11% APR).
    * Returns a sparse map — assets with no data are simply omitted.
@@ -580,13 +628,14 @@ export class PredictionAggregatorService {
     const upperAssets = assets.map(a => a.toUpperCase());
     const { getTrackedAssetList } = await import('./MultiAssetSignalService');
     const alignmentUniverse = Array.from(new Set([...getTrackedAssetList(), ...upperAssets]));
-    const [polymarketSignal, delphiPredictions, cryptoComData, fundingRates, multiAssetSignals, manifoldMarkets] = await Promise.all([
+    const [polymarketSignal, delphiPredictions, cryptoComData, fundingRates, multiAssetSignals, manifoldMarkets, binancePositioning] = await Promise.all([
       this.fetchPolymarketSignal(),
       this.fetchDelphiPredictions(),
       this.fetchCryptoComData(upperAssets),
       this.fetchBluefinFundingRates(assets),
       MultiAssetSignalService.getLatestSignals(alignmentUniverse).catch(() => ({} as Record<string, MultiAssetSignal | null>)),
       ManifoldMarketService.getCryptoMarkets(upperAssets).catch(() => [] as PredictionMarket[]),
+      this.fetchBinancePositioning(upperAssets).catch(() => ({} as Record<string, { funding: number; longShortRatio: number }>)),
     ]);
 
     // Feed real spot prices into the drift fusion's price-history channel.
@@ -745,6 +794,53 @@ export class PredictionAggregatorService {
       if (fundingRate === undefined) {
         const funding = this.approximateFundingRateSentiment(sources);
         if (funding) sources.push(funding);
+      }
+
+      // 5b) Binance retail positioning (2026-09-19). BlueFin funding
+      //     covers our own venue's short list; Binance is the biggest
+      //     retail-crowded proxy and often shows more extreme readings.
+      //     Both contrarian: crowded longs → SHORT signal.
+      const binance = binancePositioning[asset];
+      if (binance) {
+        // Funding rate (per 8h). >0.03% ≈ >30% APR is "crowded". Signal is
+        // contrarian: positive funding → longs paying → expect DOWN.
+        if (Math.abs(binance.funding) > 0.00005) {
+          const fundingDir: 'UP' | 'DOWN' = binance.funding > 0 ? 'DOWN' : 'UP';
+          const conf = Math.min(40 + Math.abs(binance.funding) * 200_000, 85);
+          sources.push({
+            name: `Binance ${asset} Funding`,
+            type: 'on_chain',
+            direction: fundingDir,
+            confidence: conf,
+            probability: 50 + Math.min(Math.abs(binance.funding) * 100_000, 25) * (fundingDir === 'UP' ? 1 : -1),
+            weight: 0.12,
+            rawData: { funding: binance.funding, aprPct: binance.funding * 3 * 365 * 100 },
+            fetchedAt: Date.now(),
+          });
+        }
+
+        // Long/short account ratio. Extreme (>1.5 or <0.67) = crowded retail;
+        // contrarian setup. Middle range (0.67-1.5) is uninformative noise.
+        const lsr = binance.longShortRatio;
+        if (lsr > 1.5 || lsr < 0.67) {
+          const crowdedLong = lsr > 1.5;
+          const contrarianDir: 'UP' | 'DOWN' = crowdedLong ? 'DOWN' : 'UP';
+          // Confidence scales with distance from neutral (1.0). At ratio 2.0
+          // or 0.5, we're at extreme conviction; at boundaries (1.5 / 0.67),
+          // moderate.
+          const deviation = crowdedLong ? lsr - 1.5 : 0.67 - lsr;
+          const conf = Math.min(45 + deviation * 60, 80);
+          sources.push({
+            name: `Binance ${asset} Long/Short`,
+            type: 'on_chain',
+            direction: contrarianDir,
+            confidence: conf,
+            probability: 50 + Math.min(deviation * 30, 25) * (contrarianDir === 'UP' ? 1 : -1),
+            weight: 0.10,
+            rawData: { longShortRatio: lsr, crowdedLong },
+            fetchedAt: Date.now(),
+          });
+        }
       }
 
       // 6) Cross-asset alignment as its own source. When 3+ assets agree on
