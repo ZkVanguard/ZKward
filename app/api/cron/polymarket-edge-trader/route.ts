@@ -40,7 +40,6 @@ import { logger } from '@/lib/utils/logger';
 import { verifyCronRequest } from '@/lib/qstash';
 import { errMsg } from '@/lib/utils/error-handler';
 import { computeEdgeStake } from '@/lib/services/trading/edge-sizing';
-import { expectedValueUsd } from '@/lib/services/hedging/quant-models';
 import { notifyDiscord } from '@/lib/utils/discord-notify';
 import { envFlag } from '@/lib/utils/env-flag';
 import { BluefinService, type BluefinPosition } from '@/lib/services/sui/BluefinService';
@@ -49,9 +48,7 @@ import { PredictionAggregatorService } from '@/lib/services/market-data/Predicti
 import { getCronStateOr, setCronState } from '@/lib/db/cron-state';
 import { query } from '@/lib/db/postgres';
 import { HEDGES_REAL_ONLY_SQL } from '@/lib/db/hedges-scope';
-import { computeSizeMultiplier, computeRegretScore } from '@/lib/services/ai/regret-tracker';
-import { calibrate as calibrateProbability } from '@/lib/services/ai/probability-calibrator';
-import { regretBasedHalt, fundingEdge, exposureCap, riskGate } from '@/lib/services/trading/trade-quality-gates';
+import { fundingEdge, exposureCap, riskGate } from '@/lib/services/trading/trade-quality-gates';
 import { checkBeforeTrade, completeTrade, getPriceAlertedSymbols } from '@/lib/services/agents/agent-trade-guard';
 import {
   SUPPORTED_ASSETS,
@@ -105,6 +102,8 @@ import {
   pickExitPrice,
 } from './handlers/state-transitions';
 import { reconcileActiveTrade } from './handlers/reconcile-active-trade';
+import { computeRegretGate } from './handlers/regret-gate';
+import { computeEvGate } from './handlers/ev-gate';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -325,61 +324,27 @@ export async function GET(request: NextRequest): Promise<NextResponse<EdgeResult
     const noEdgeStreak = priorNoEdgeStreak + 1;
     await setCronState(KEY_NOEDGE_STREAK, noEdgeStreak).catch(() => {});
 
-    // Regret-weighted conviction gate + full halt (2026-07-15).
-    // Two independent uses of regret data:
-    //   1. Multiplier (0.25-1.0) → adjusts MIN_CONFIDENCE + stake sizing
-    //   2. Raw score (-1..+1) → halts entire trader when < -0.3 (bad streak)
-    // Env gate REGRET_TRACKER_DISABLE=1 to bypass everything.
-    let regretMultiplierEarly = 1;
-    let regretScoreForHalt = 0;
-    try {
-      if ((process.env.REGRET_TRACKER_DISABLE ?? '') !== '1') {
-        // simulation_mode = false — 2026-09-18: the paper trader had 103
-        // losses in the same 30-day window; without this filter the live
-        // trader's regret score was dominated by paper trades → forced
-        // regretBasedHalt → live trader was halted for hours.
-        const rows = await query<{ open_confidence: number; realized_pnl: number; created_at: Date }>(
-          `SELECT COALESCE(open_confidence, 60) as open_confidence,
-                  COALESCE(realized_pnl, 0)::float as realized_pnl,
-                  created_at
-           FROM hedges
-           WHERE status='closed'
-             AND ${HEDGES_REAL_ONLY_SQL}
-             AND created_at > NOW() - INTERVAL '30 days'
-           ORDER BY created_at DESC LIMIT 200`
-        ).catch(() => []);
-        if (rows.length > 0) {
-          const decisions = rows.map((r) => ({
-            openConfidence: Number(r.open_confidence),
-            realizedPnl: Number(r.realized_pnl),
-            openedAt: new Date(r.created_at),
-          }));
-          regretMultiplierEarly = envFlag('REGRET_CONVICTION_GATE_DISABLE')
-            ? 1
-            : await computeSizeMultiplier({ recentDecisions: decisions });
-          regretScoreForHalt = computeRegretScore(decisions);
-        }
-      }
-    } catch { /* best-effort */ }
+    // Regret-weighted conviction gate + full halt. See handlers/regret-gate.ts
+    // for the query + threshold logic (extracted 2026-09-18).
+    const regret = await computeRegretGate();
+    const regretMultiplierEarly = regret.multiplier;
+    const regretScoreForHalt = regret.score;
 
-    // Regret-based full halt: distinct from conviction-adjustment above.
-    // Halts trader entirely for the tick when 30-day regret is deeply
-    // negative. Env: TRADER_REGRET_HALT_DISABLE=1 to keep trading
-    // through losing streaks.
-    if ((process.env.TRADER_REGRET_HALT_DISABLE ?? '') !== '1') {
-      const haltDecision = regretBasedHalt({ regretScore: regretScoreForHalt });
-      if (haltDecision.halt) {
-        logger.warn('[EdgeTrader] regret-based halt', haltDecision);
-        await notifyDiscord(
-          `🛑 Trader HALTED (regret ${regretScoreForHalt.toFixed(3)} < ${haltDecision.threshold})`,
-          'KILL', { haltDecision },
-        ).catch(() => {});
-        await recordSkip('regret-halt', haltDecision.reason);
-        return NextResponse.json({
-          success: true, ranAt, attempted: true, action: 'regret-halt',
-          reason: haltDecision.reason,
-        });
-      }
+    if (regret.halt) {
+      logger.warn('[EdgeTrader] regret-based halt', {
+        regretScore: regretScoreForHalt,
+        threshold: regret.halt.threshold,
+        reason: regret.halt.reason,
+      });
+      await notifyDiscord(
+        `🛑 Trader HALTED (regret ${regretScoreForHalt.toFixed(3)} < ${regret.halt.threshold})`,
+        'KILL', { regretScore: regretScoreForHalt, threshold: regret.halt.threshold, reason: regret.halt.reason },
+      ).catch(() => {});
+      await recordSkip('regret-halt', regret.halt.reason);
+      return NextResponse.json({
+        success: true, ranAt, attempted: true, action: 'regret-halt',
+        reason: regret.halt.reason,
+      });
     }
 
     const convictionAdjustMax = Number(process.env.REGRET_CONVICTION_MAX_ADJ_PCT) || 15;
@@ -828,47 +793,23 @@ export async function GET(request: NextRequest): Promise<NextResponse<EdgeResult
       });
     }
 
-    // ── Funding-adjusted EV gate ─────────────────────────────────────
-    // Kelly + calibration only check that p > 0.5 with edge margin. But
-    // a 55% edge held 30 min at 11% APR funding + 13 bps round-trip fees
-    // on a 3× levered notional is often NEGATIVE-EV once you subtract
-    // costs. Skipping these is exactly what prevented the wash-trade
-    // pattern from being visible before (100% phantom rate 2026-08-08).
-    // Payoff odds = 1 for symmetric perp bet (win or lose 1× stake in
-    // notional terms); leverage is captured via notionalUsd (= stake × L).
-    // Bayesian-shrunken probability from historical outcomes for this
-    // (asset, side, confidence-bucket). Falls back to raw when no
-    // history exists. Closes the biggest known PnL leak — historical
-    // conf 70-80 bucket won 12% of the time despite the model saying
-    // 74% confidence. Fed into EV gate so trades gate on truthful EV.
-    const calibration = await calibrateProbability({
+    // ── Funding-adjusted EV gate — see handlers/ev-gate.ts ───────────
+    const evGate = await computeEvGate({
       asset,
       side: side as 'LONG' | 'SHORT',
       rawConfidencePct: prediction.confidence,
-    });
-    const evP = Math.min(0.999, Math.max(0.001, calibration.pCalibrated));
-    const ev = expectedValueUsd({
-      probability: evP,
-      payoffOdds: 1,
       notionalUsd,
       holdingHours: EV_HOLDING_HOURS,
       fundingRateApr: EV_FUNDING_APR,
       feeBpsRoundTrip: EV_FEE_BPS_ROUND_TRIP,
+      evMinUsd: EV_MIN_USD,
     });
-    logger.info('[PolymarketEdge] probability calibration', {
-      asset, side,
-      rawConf: prediction.confidence,
-      pRaw: calibration.pRaw,
-      pCalibrated: calibration.pCalibrated,
-      nHistory: calibration.nHistory,
-      empiricalWinRate: calibration.empiricalWinRate,
-    });
-    if (ev.evUsd < EV_MIN_USD) {
-      const evReason = `ev-gate blocked ${asset} ${side}: EV=$${ev.evUsd.toFixed(3)} < min $${EV_MIN_USD.toFixed(2)} ` +
-        `(edge=$${ev.edgeUsd.toFixed(3)} funding=$${ev.fundingCostUsd.toFixed(3)} fees=$${ev.feeCostUsd.toFixed(3)}, ` +
-        `p=${(evP * 100).toFixed(1)}% notional=$${notionalUsd.toFixed(2)} hold=${EV_HOLDING_HOURS}h)`;
-      logger.warn('[PolymarketEdge] EV gate blocked entry', { reason: evReason, ev });
-      await recordSkip('no-edge', evReason);
+    logger.info('[PolymarketEdge] probability calibration', evGate.calibrationLog);
+    if (evGate.blockReason) {
+      logger.warn('[PolymarketEdge] EV gate blocked entry', {
+        reason: evGate.blockReason, ev: evGate.ev,
+      });
+      await recordSkip('no-edge', evGate.blockReason);
       return NextResponse.json({
         success: true,
         ranAt,
@@ -876,7 +817,7 @@ export async function GET(request: NextRequest): Promise<NextResponse<EdgeResult
         action: 'no-edge',
         stats: safeStats,
         daily,
-        reason: `ev-gate: ${evReason}`,
+        reason: `ev-gate: ${evGate.blockReason}`,
       });
     }
 
