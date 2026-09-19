@@ -34,7 +34,7 @@ export async function GET(_request: NextRequest): Promise<NextResponse> {
       SUI_AGENT_CAP_ID: process.env.SUI_AGENT_CAP_ID ? '✅ SET' : '❌ NOT SET',
       SUI_ADMIN_CAP_ID: process.env.SUI_ADMIN_CAP_ID ? '✅ SET' : '❌ NOT SET',
       BLUEFIN_PRIVATE_KEY: process.env.BLUEFIN_PRIVATE_KEY ? '✅ SET' : '❌ NOT SET',
-      QSTASH_CURRENT_SIGNING_KEY: process.env.QSTASH_CURRENT_SIGNING_KEY ? '✅ SET' : '❌ NOT SET',
+      JOBS_SIGNING_SECRET: process.env.JOBS_SIGNING_SECRET ? '✅ SET' : '❌ NOT SET',
     },
     poolConfig: SUI_USDC_POOL_CONFIG[network],
   };

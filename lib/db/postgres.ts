@@ -19,8 +19,7 @@ export function getPoolMetrics() {
 
 export function getPool(): Pool {
   if (!pool) {
-    // Supports Neon serverless, Aiven, and local PostgreSQL.
-    // Prefer DATABASE_POOL_URL (Neon pooler endpoint, port 6543) for high concurrency,
+    // Prefer DATABASE_POOL_URL (PgBouncer / Neon pooler) for high concurrency,
     // fall back to DATABASE_URL (direct connection).
     let connectionString =
       process.env.DATABASE_POOL_URL ||
@@ -31,7 +30,6 @@ export function getPool(): Pool {
     connectionString = connectionString.replace(/&?channel_binding=[^&]*/g, '').replace('?&', '?');
 
     const isNeon = connectionString.includes('neon.tech');
-    const isAiven = connectionString.includes('aivencloud.com');
 
     // Ensure sslmode=verify-full for Neon (replaces require/prefer modes)
     if (isNeon) {
@@ -44,14 +42,24 @@ export function getPool(): Pool {
       }
     }
 
-    // Any URL declaring sslmode=require (or providers we know enforce SSL) needs ssl on the pool.
     const requiresSsl =
-      isNeon || isAiven || /sslmode=(require|verify-full|verify-ca)/.test(connectionString);
-    // Neon pooler (port 6543) supports up to 10,000 connections
-    const isPooler = connectionString.includes(':6543') || connectionString.includes('-pooler.');
+      isNeon || /sslmode=(require|verify-full|verify-ca)/.test(connectionString);
+    const isPooler =
+      connectionString.includes(':6543') ||
+      connectionString.includes(':6432') ||
+      connectionString.includes('-pooler.');
 
-    // For non-Neon providers (e.g. Aiven) strip `sslmode` from the URL so pg-connection-string
-    // doesn't turn it into `ssl: true` (strict verify) and override the explicit ssl config below.
+    // Loopback tunnels (cloudflared, ssh -L) present the DB cert at 127.0.0.1
+    // — hostname assertion fails because the cert's CN is the real endpoint.
+    // Chain verification is still enforced; MITM is not a concern on loopback
+    // (traffic never leaves the machine before entering an encrypted tunnel).
+    // Anything else — including production pg.zkward.com — gets strict verify.
+    const isLoopback = /@(?:127\.0\.0\.1|localhost)[:/]/.test(connectionString);
+
+    // Strip sslmode from the URL so pg-connection-string's implicit "require
+    // aliases to verify-full" behavior doesn't override the explicit ssl
+    // option below. Neon keeps its sslmode= because we want its verify-full
+    // path there.
     if (requiresSsl && !isNeon) {
       connectionString = connectionString
         .replace(/([?&])sslmode=[^&]+/g, '$1')
@@ -60,41 +68,20 @@ export function getPool(): Pool {
 
     pool = new Pool({
       connectionString,
-      // Neon uses verify-full (rejectUnauthorized: true). Aiven needs SSL but we don't
-      // ship its CA cert here, so allow the unverified chain (still encrypted in transit).
       ssl: requiresSsl
-        ? isNeon
-          ? { rejectUnauthorized: true }
-          : { rejectUnauthorized: false }
+        ? isLoopback
+          ? { rejectUnauthorized: false }
+          : { rejectUnauthorized: true }
         : undefined,
-      // With Neon pooler: can safely use 25 connections per serverless instance.
-      // Aiven plan caps at connection_limit=20 total across the whole project
-      // — every Vercel instance shares that budget. Real observation 2026-05-30:
-      // mid-deploy fan-out (old + new instances simultaneously) saturated the
-      // budget at max=4. max=2 leaves room for ~8 concurrent instances + 4
-      // shared script/migration connections — still well under the cap given
-      // 2s idleTimeoutMillis releases between requests.
-      //
-      // Override via AIVEN_POOL_MAX (or DB_POOL_MAX as a generic catch-all)
-      // when scaling to a higher Aiven tier with connection_limit > 20.
-      max: isPooler
-        ? 25
-        : isAiven
-          ? Number(process.env.AIVEN_POOL_MAX) || Number(process.env.DB_POOL_MAX) || 2
-          : isNeon
-            ? 8
-            : 20,
-      min: isNeon ? 1 : isAiven ? 0 : 2,
-      // Aiven: release idle connections aggressively. 2s is faster than any
-      // realistic cron interval, so a quiet instance frees its slot in seconds.
-      idleTimeoutMillis: isNeon ? 8000 : isAiven ? 2000 : 20000,
+      max: isPooler ? 25 : isNeon ? 8 : 20,
+      min: isNeon ? 1 : 2,
+      idleTimeoutMillis: isNeon ? 8000 : 20000,
       connectionTimeoutMillis: isNeon ? 5000 : 3000,
       // statement_timeout deliberately not passed here — pg would send it as a
       // libpq startup parameter, which PgBouncer (Bakchodi's front) rejects
       // with "unsupported startup parameter". We SET it via the on-connect
       // handler below instead — runtime SET works across all poolers.
       query_timeout: 20000, // 20s max including queue wait — client-side only
-      // Allow queued clients to fail fast instead of waiting forever
       allowExitOnIdle: isNeon, // Release all connections when idle on serverless
     });
 
