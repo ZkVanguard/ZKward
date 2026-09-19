@@ -68,13 +68,61 @@ export async function getRealizedVolPct(currency: 'BTC' | 'ETH'): Promise<number
   }
 }
 
+/** Realized volatility for SOL/XRP/DOGE — computed from Binance's
+ *  1h klines (last 24h). Free public API. Returns annualized vol %.
+ *  Cache 5min TTL to match Deribit's cadence. */
+async function getBinanceRealizedVolPct(asset: string): Promise<number | null> {
+  const now = Date.now();
+  const cacheKey = `binance:${asset}`;
+  const cached = cache.get(cacheKey);
+  if (cached && now - cached.fetchedAt < CACHE_TTL_MS) return cached.vol;
+  try {
+    const resp = await fetch(
+      `https://fapi.binance.com/fapi/v1/klines?symbol=${asset}USDT&interval=1h&limit=24`,
+      { signal: AbortSignal.timeout(4000) },
+    );
+    if (!resp.ok) return null;
+    const raw = (await resp.json()) as unknown;
+    // klines format: [openTime, open, high, low, close, volume, ...]
+    if (!Array.isArray(raw) || raw.length < 6) return null;
+    const closes = raw.map((k) => parseFloat((k as unknown[])[4] as string)).filter(Number.isFinite);
+    if (closes.length < 6) return null;
+    // Log returns → stdev × sqrt(365 × 24) for annualized vol
+    const rets: number[] = [];
+    for (let i = 1; i < closes.length; i++) {
+      rets.push(Math.log(closes[i] / closes[i - 1]));
+    }
+    const mean = rets.reduce((a, b) => a + b, 0) / rets.length;
+    const variance = rets.reduce((a, b) => a + (b - mean) ** 2, 0) / rets.length;
+    const hourlyVol = Math.sqrt(variance);
+    const annualVol = hourlyVol * Math.sqrt(365 * 24) * 100;
+    if (!Number.isFinite(annualVol) || annualVol <= 0) return null;
+    cache.set(cacheKey, { vol: annualVol, fetchedAt: now });
+    return annualVol;
+  } catch (e) {
+    logger.debug('[VolGate] Binance klines fetch failed (fail-open)', {
+      asset, error: errMsg(e),
+    });
+    return null;
+  }
+}
+
 /** Rejection check: refuse the trade when the asset's annualized realized
- *  vol is below MIN_ANNUAL_VOL_PCT. Only fires for BTC + ETH (Deribit's
- *  vol index only covers those). Fail-open on any error. */
+ *  vol is below MIN_ANNUAL_VOL_PCT.
+ *
+ *  Coverage:
+ *    - BTC + ETH: Deribit's implied vol index (most reliable, options-implied)
+ *    - SOL, XRP, DOGE + others: Binance 1h klines → realized vol
+ *
+ *  Fail-open on any error. */
 export async function lowVolatilityRejection(asset: string): Promise<string | null> {
-  const currency = asset === 'BTC' ? 'BTC' : asset === 'ETH' ? 'ETH' : null;
-  if (!currency) return null; // no gate for SOL/XRP/DOGE
-  const vol = await getRealizedVolPct(currency);
+  const upper = asset.toUpperCase();
+  let vol: number | null = null;
+  if (upper === 'BTC' || upper === 'ETH') {
+    vol = await getRealizedVolPct(upper);
+  } else {
+    vol = await getBinanceRealizedVolPct(upper);
+  }
   if (vol == null) return null; // fail-open on fetch failure
   if (vol >= MIN_ANNUAL_VOL_PCT) return null;
   return `low-vol: ${asset} realized vol ${vol.toFixed(1)}% < min ${MIN_ANNUAL_VOL_PCT}% — 20min move likely below fee floor`;
