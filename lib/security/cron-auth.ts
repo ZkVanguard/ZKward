@@ -9,7 +9,7 @@
  * unauthenticated (6700b492). The misconfig branch must reject in production
  * and only ever allow when NO auth is configured AND NODE_ENV=development.
  */
-import { timingSafeEqual } from 'crypto';
+import { createHmac, timingSafeEqual } from 'crypto';
 
 /**
  * Constant-time check that an Authorization header carries the expected
@@ -27,6 +27,41 @@ export function cronSecretMatches(
   const provided = Buffer.from(authHeader, 'utf8');
   if (expected.length !== provided.length) return false;
   return timingSafeEqual(expected, provided);
+}
+
+/**
+ * Verify a delivery from the self-hosted jobs.zkward.com service.
+ * The service signs `${timestamp}.${jobId}.${rawBody}` with HMAC-SHA256 using
+ * JOBS_SIGNING_SECRET and delivers via the x-job-signature header (format
+ * `sha256=<hex>`). Callers must pass the RAW request body bytes, not a
+ * re-serialized JSON string (canonicalization would produce a different HMAC).
+ *
+ * Returns false (never throws) for missing/invalid inputs, expired timestamps,
+ * or signature mismatch. `nowMs` and `replayWindowSec` are injected for testability.
+ */
+export function jobsSignatureMatches(args: {
+  secret: string | null | undefined;
+  timestampHeader: string | null | undefined;
+  jobIdHeader: string | null | undefined;
+  signatureHeader: string | null | undefined;
+  rawBody: string;
+  nowMs: number;
+  replayWindowSec: number;
+}): boolean {
+  const { secret, timestampHeader, jobIdHeader, signatureHeader, rawBody, nowMs, replayWindowSec } = args;
+  if (!secret || !timestampHeader || !jobIdHeader || !signatureHeader) return false;
+
+  const tsNum = Number(timestampHeader);
+  if (!Number.isFinite(tsNum)) return false;
+  if (Math.abs(nowMs / 1000 - tsNum) > replayWindowSec) return false;
+
+  const supplied = signatureHeader.replace(/^sha256=/, '');
+  const expected = createHmac('sha256', secret)
+    .update(`${timestampHeader}.${jobIdHeader}.${rawBody}`)
+    .digest('hex');
+
+  if (supplied.length !== expected.length) return false;
+  return timingSafeEqual(Buffer.from(supplied, 'utf8'), Buffer.from(expected, 'utf8'));
 }
 
 export type UnauthedOutcome = 'allow-dev' | 'misconfig' | 'unauthorized';

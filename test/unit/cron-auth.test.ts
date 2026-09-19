@@ -4,7 +4,8 @@
  * auto-hedge POST unauthenticated (6700b492). Both predicates must fail closed.
  */
 import { describe, it, expect } from '@jest/globals';
-import { cronSecretMatches, classifyUnauthedOutcome } from '@/lib/security/cron-auth';
+import { createHmac } from 'crypto';
+import { cronSecretMatches, classifyUnauthedOutcome, jobsSignatureMatches } from '@/lib/security/cron-auth';
 
 describe('cronSecretMatches', () => {
   const SECRET = 's3cr3t-cron-value';
@@ -65,5 +66,66 @@ describe('classifyUnauthedOutcome', () => {
       classifyUnauthedOutcome({ hasSignature, hasCronSecret, isDevelopment: false });
     expect([prod(false, false), prod(true, false), prod(false, true), prod(true, true)])
       .not.toContain('allow-dev');
+  });
+});
+
+describe('jobsSignatureMatches', () => {
+  const SECRET = 'test-jobs-signing-secret-32bytes-min';
+  const JOB_ID = 'a1b2c3d4-1234-4567-89ab-cdef01234567';
+  const NOW_MS = 1789852800_000;
+  const TS_SEC = String(Math.floor(NOW_MS / 1000));
+
+  const sign = (ts: string, jobId: string, body: string) =>
+    'sha256=' + createHmac('sha256', SECRET).update(`${ts}.${jobId}.${body}`).digest('hex');
+
+  const valid = {
+    secret: SECRET,
+    timestampHeader: TS_SEC,
+    jobIdHeader: JOB_ID,
+    rawBody: '{"kind":"test"}',
+    nowMs: NOW_MS,
+    replayWindowSec: 300,
+  };
+
+  it('accepts a well-formed signature within the replay window', () => {
+    expect(jobsSignatureMatches({ ...valid, signatureHeader: sign(TS_SEC, JOB_ID, valid.rawBody) })).toBe(true);
+  });
+
+  it('accepts a signature without the sha256= prefix', () => {
+    const sig = sign(TS_SEC, JOB_ID, valid.rawBody).replace(/^sha256=/, '');
+    expect(jobsSignatureMatches({ ...valid, signatureHeader: sig })).toBe(true);
+  });
+
+  it('rejects when the body was tampered with', () => {
+    expect(jobsSignatureMatches({
+      ...valid,
+      signatureHeader: sign(TS_SEC, JOB_ID, valid.rawBody),
+      rawBody: '{"kind":"tampered"}',
+    })).toBe(false);
+  });
+
+  it('rejects when the timestamp is outside the replay window', () => {
+    const staleTs = String(Math.floor(NOW_MS / 1000) - 3600);
+    expect(jobsSignatureMatches({
+      ...valid,
+      timestampHeader: staleTs,
+      signatureHeader: sign(staleTs, JOB_ID, valid.rawBody),
+    })).toBe(false);
+  });
+
+  it('rejects a signature signed under a different secret', () => {
+    const otherSig = 'sha256=' + createHmac('sha256', 'attacker-secret')
+      .update(`${TS_SEC}.${JOB_ID}.${valid.rawBody}`)
+      .digest('hex');
+    expect(jobsSignatureMatches({ ...valid, signatureHeader: otherSig })).toBe(false);
+  });
+
+  it('returns false for any missing input (never throws)', () => {
+    const s = sign(TS_SEC, JOB_ID, valid.rawBody);
+    expect(jobsSignatureMatches({ ...valid, signatureHeader: s, secret: '' })).toBe(false);
+    expect(jobsSignatureMatches({ ...valid, signatureHeader: s, secret: undefined })).toBe(false);
+    expect(jobsSignatureMatches({ ...valid, signatureHeader: null })).toBe(false);
+    expect(jobsSignatureMatches({ ...valid, signatureHeader: s, jobIdHeader: null })).toBe(false);
+    expect(jobsSignatureMatches({ ...valid, signatureHeader: s, timestampHeader: 'not-a-number' })).toBe(false);
   });
 });

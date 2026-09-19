@@ -18,7 +18,9 @@
 import { Receiver } from '@upstash/qstash';
 import { NextRequest, NextResponse } from 'next/server';
 import { logger } from '@/lib/utils/logger';
-import { cronSecretMatches, classifyUnauthedOutcome } from '@/lib/security/cron-auth';
+import { cronSecretMatches, classifyUnauthedOutcome, jobsSignatureMatches } from '@/lib/security/cron-auth';
+
+const JOBS_REPLAY_WINDOW_SEC = 300;
 
 // Lazy singleton — created on first use
 let _receiver: Receiver | null = null;
@@ -56,6 +58,34 @@ export async function verifyCronRequest(
   request: NextRequest,
   routeName: string
 ): Promise<true | NextResponse> {
+  // Method 0: self-hosted jobs.zkward.com HMAC delivery
+  const jobsSig = request.headers.get('x-job-signature');
+  if (jobsSig) {
+    const jobsSecret = process.env.JOBS_SIGNING_SECRET?.trim();
+    const rawBody = request.method === 'POST' ? await request.clone().text() : '';
+    const ok = jobsSignatureMatches({
+      secret: jobsSecret,
+      timestampHeader: request.headers.get('x-job-timestamp'),
+      jobIdHeader: request.headers.get('x-job-id'),
+      signatureHeader: jobsSig,
+      rawBody,
+      nowMs: Date.now(),
+      replayWindowSec: JOBS_REPLAY_WINDOW_SEC,
+    });
+    if (ok) {
+      logger.debug(`[Jobs] ✅ HMAC verified for ${routeName}`, {
+        jobId: request.headers.get('x-job-id'),
+        attempt: request.headers.get('x-job-attempt'),
+      });
+      return true;
+    }
+    logger.warn(`[Jobs] ❌ HMAC verify failed for ${routeName}`, {
+      jobId: request.headers.get('x-job-id'),
+      hasSecret: !!jobsSecret,
+    });
+    // Fall through — allow QStash or CRON_SECRET to still authorize
+  }
+
   // Method 1: QStash signature verification
   const signature = request.headers.get('upstash-signature');
   if (signature) {
@@ -97,7 +127,7 @@ export async function verifyCronRequest(
   }
 
   switch (classifyUnauthedOutcome({
-    hasSignature: !!signature,
+    hasSignature: !!signature || !!jobsSig,
     hasCronSecret: !!cronSecret,
     isDevelopment: process.env.NODE_ENV === 'development',
   })) {
