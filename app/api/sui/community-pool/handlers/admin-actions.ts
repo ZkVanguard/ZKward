@@ -243,28 +243,31 @@ export async function handleTriggerCron(ctx: ActionCtx): Promise<NextResponse> {
     return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
   }
 
-  const qstashToken = process.env.QSTASH_TOKEN;
-  if (!qstashToken) {
-    return NextResponse.json({ success: false, error: 'QSTASH_TOKEN not configured' }, { status: 503 });
+  const jobsToken = process.env.JOBS_PUBLISH_TOKEN;
+  if (!jobsToken) {
+    return NextResponse.json({ success: false, error: 'JOBS_PUBLISH_TOKEN not configured' }, { status: 503 });
   }
 
   const cronUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://www.zkward.com'}/api/cron/sui-community-pool`;
-  const qstashBase = (process.env.QSTASH_URL || 'https://qstash-us-east-1.upstash.io').replace(/\/$/, '');
-  const res = await fetch(`${qstashBase}/v2/publish/${cronUrl}`, {
+  const jobsBase = (process.env.JOBS_URL || 'https://jobs.zkward.com').replace(/\/$/, '');
+  const res = await fetch(`${jobsBase}/v1/publish`, {
     method: 'POST',
     headers: {
-      Authorization: `Bearer ${qstashToken}`,
+      Authorization: `Bearer ${jobsToken}`,
       'Content-Type': 'application/json',
-      'Upstash-Method': 'GET',
     },
-    body: JSON.stringify({}),
+    body: JSON.stringify({
+      destination: cronUrl,
+      payload: { kind: 'sui-community-pool-adhoc' },
+      idempotencyKey: `sui-community-pool-adhoc-${Date.now()}`,
+    }),
   });
 
   const result = await res.json().catch(() => ({}));
   return NextResponse.json({
     success: res.ok,
     queued: res.ok,
-    messageId: (result as any)?.messageId,
+    jobId: (result as any)?.id,
     cronUrl,
     status: res.status,
     chain: 'sui',

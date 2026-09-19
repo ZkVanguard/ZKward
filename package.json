@@ -120,7 +120,6 @@
     "@pythnetwork/pyth-sui-js": "^3.0.0",
     "@stripe/stripe-js": "^9.15.0",
     "@tanstack/react-query": "^5.101.4",
-    "@upstash/qstash": "^2.11.3",
     "@upstash/ratelimit": "^2.0.8",
     "@upstash/redis": "^1.38.1",
     "@vercel/config": "^0.5.6",

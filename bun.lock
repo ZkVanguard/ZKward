@@ -9,7 +9,6 @@
         "@bluefin-exchange/pro-sdk": "^1.13.0",
         "@crypto.com/ai-agent-client": "^1.0.2",
         "@crypto.com/developer-platform-client": "^1.1.2",
-        "@crypto.com/facilitator-client": "^1.0.4",
         "@hashgraph/sdk": "^2.81.0",
         "@heroicons/react": "^2.2.0",
         "@mysten/dapp-kit": "^0.14.0",
@@ -23,7 +22,6 @@
         "@pythnetwork/pyth-sui-js": "^3.0.0",
         "@stripe/stripe-js": "^9.15.0",
         "@tanstack/react-query": "^5.101.4",
-        "@upstash/qstash": "^2.11.3",
         "@upstash/ratelimit": "^2.0.8",
         "@upstash/redis": "^1.38.1",
         "@vercel/config": "^0.5.6",
@@ -64,9 +62,6 @@
         "@types/react-dom": "^19.2.4",
         "@typescript-eslint/eslint-plugin": "^6.16.0",
         "@typescript-eslint/parser": "^6.16.0",
-        "@x402/core": "^2.25.0",
-        "@x402/fetch": "^2.25.0",
-        "@x402/hedera": "^2.25.0",
         "autoprefixer": "^10.5.4",
         "chai": "^4.2.0",
         "cross-env": "^10.1.0",
@@ -415,8 +410,6 @@
     "@crypto.com/ai-agent-client": ["@crypto.com/ai-agent-client@1.0.2", "", { "peerDependencies": { "tslib": "^2.6.2" } }, "sha512-yy/KmukubBtLDP4KUtRyXh3laIpzbTMJrifTmRxtxqRhMmuCb5XzTj401mn76AtPU8wOe5SSRpwWFbL4IrYQOw=="],
 
     "@crypto.com/developer-platform-client": ["@crypto.com/developer-platform-client@1.1.2", "", { "peerDependencies": { "tslib": "^2.6.2" } }, "sha512-BG0yu93FxsUM2Za/EWHyr5WXFxKwJ/chj/aNP7RtR3gk+w7kuvHlI6O/F9edGZDI+C8NPbuCaUNWKllopmPCNg=="],
-
-    "@crypto.com/facilitator-client": ["@crypto.com/facilitator-client@1.0.4", "", { "dependencies": { "ethers": "^6.15.0" }, "peerDependencies": { "tslib": "^2.6.2" } }, "sha512-cHqy/8femcAdv44DdAvxCTCHfFDTrg7hp9sYwjhkmZo8TigEEDFjjYHibCp0RzocBcfYD/n6KNsCNQ86UwUZ9A=="],
 
     "@cspotcode/source-map-support": ["@cspotcode/source-map-support@0.8.1", "", { "dependencies": { "@jridgewell/trace-mapping": "0.3.9" } }, "sha512-IchNf6dN4tHoMFIn/7OE8LWZ19Y6q/67Bmf6vnGREv8RSbBVb9LPJxEcnwrcwX6ixSvaiGoomAUvu4YSxXrVgw=="],
 
@@ -1510,8 +1503,6 @@
 
     "@upstash/core-analytics": ["@upstash/core-analytics@0.0.10", "", { "dependencies": { "@upstash/redis": "^1.28.3" } }, "sha512-7qJHGxpQgQr9/vmeS1PktEwvNAF7TI4iJDi8Pu2CFZ9YUGHZH4fOP5TfYlZ4aVxfopnELiE4BS4FBjyK7V1/xQ=="],
 
-    "@upstash/qstash": ["@upstash/qstash@2.11.3", "", { "dependencies": { "crypto-js": ">=4.2.0", "jose": "^5.2.3", "neverthrow": "^7.0.1" } }, "sha512-d5saGTDlkbKDFSANENtyf+zqkJen9ho17S24x9lXo+DwWjZ9IDM5WKUzUsshUv8ufZsSpxJWyrZ8jZ6r8dBuhg=="],
-
     "@upstash/ratelimit": ["@upstash/ratelimit@2.0.8", "", { "dependencies": { "@upstash/core-analytics": "^0.0.10" }, "peerDependencies": { "@upstash/redis": "^1.34.3" } }, "sha512-YSTMBJ1YIxsoPkUMX/P4DDks/xV5YYCswWMamU8ZIfK9ly6ppjRnVOyBhMDXBmzjODm4UQKcxsJPvaeFAijp5w=="],
 
     "@upstash/redis": ["@upstash/redis@1.38.4", "", { "dependencies": { "uncrypto": "^0.1.3" } }, "sha512-ZX69mKReun/yieyHYLoBg0eSiF6hjCQjd8zUKkJ5eCHehDV6P8S8oZOHxGSfkH1spfOhGZk0EGerBrfUsXow8g=="],
@@ -1591,10 +1582,6 @@
     "@walletconnect/window-metadata": ["@walletconnect/window-metadata@1.0.1", "", { "dependencies": { "@walletconnect/window-getters": "^1.0.1", "tslib": "1.14.1" } }, "sha512-9koTqyGrM2cqFRW517BPY/iEtUDx2r1+Pwwu5m7sJ7ka79wi3EyqhqcICk/yDmv6jAS1rjKgTKXlEhanYjijcA=="],
 
     "@x402/core": ["@x402/core@2.25.0", "", { "dependencies": { "zod": "^3.24.2" } }, "sha512-5Ys0XYz3FKutxVKoXC46R/XPT/oaAbuj7ahzrlVHwQxZJPH9u6u91IOh0ztz+7G/zYGsaXR8l3ety205QtEnUw=="],
-
-    "@x402/fetch": ["@x402/fetch@2.25.0", "", { "dependencies": { "@x402/core": "~2.25.0" } }, "sha512-kpmxnMTjxZJD5r4yVhRDtCrBVfGhum+XwrUUUdffi3Y91eAm9ZiWCDNHLtahOS2kmuzTR2NPbbIoohZQJmQsxg=="],
-
-    "@x402/hedera": ["@x402/hedera@2.25.0", "", { "dependencies": { "@hiero-ledger/proto": "2.31.0", "@hiero-ledger/sdk": "2.85.0", "@x402/core": "~2.25.0" } }, "sha512-mPtnyAtENqD3N/3i6ls1WhOCb1w/a2E5MQmePj4hVZWZO+YSUDY6BPGT9MQZbLGPmoNpUG5KfgKH1bYoTNGakA=="],
 
     "@zodios/core": ["@zodios/core@10.9.6", "", { "peerDependencies": { "axios": "^0.x || ^1.0.0", "zod": "^3.x" } }, "sha512-aH4rOdb3AcezN7ws8vDgBfGboZMk2JGGzEq/DtW65MhnRxyTGRuLJRWVQ/2KxDgWvV2F5oTkAS+5pnjKbl0n+A=="],
 
@@ -3010,8 +2997,6 @@
 
     "neo-async": ["neo-async@2.6.2", "", {}, "sha512-Yd3UES5mWCSqR+qNT93S3UoYUkqAZ9lLg8a7g9rimsWmYGK8cVToA4/sF3RrshdyV3sAGMXVUmpMYOw+dLpOuw=="],
 
-    "neverthrow": ["neverthrow@7.2.0", "", {}, "sha512-iGBUfFB7yPczHHtA8dksKTJ9E8TESNTAx1UQWW6TzMF280vo9jdPYpLUXrMN1BCkPdHFdNG3fxOt2CUad8KhAw=="],
-
     "next": ["next@16.3.4", "", { "dependencies": { "@next/env": "16.3.4", "@swc/helpers": "0.5.23", "baseline-browser-mapping": "^2.9.19", "caniuse-lite": "^1.0.30001579", "postcss": "8.5.23", "styled-jsx": "5.1.6" }, "optionalDependencies": { "@next/swc-darwin-arm64": "16.3.4", "@next/swc-darwin-x64": "16.3.4", "@next/swc-linux-arm64-gnu": "16.3.4", "@next/swc-linux-arm64-musl": "16.3.4", "@next/swc-linux-x64-gnu": "16.3.4", "@next/swc-linux-x64-musl": "16.3.4", "@next/swc-win32-arm64-msvc": "16.3.4", "@next/swc-win32-x64-msvc": "16.3.4", "sharp": "^0.35.4" }, "peerDependencies": { "@opentelemetry/api": "^1.1.0", "@playwright/test": "^1.51.1", "babel-plugin-react-compiler": "*", "react": "^18.2.0 || 19.0.0-rc-de68d2f4-20241204 || ^19.0.0", "react-dom": "^18.2.0 || 19.0.0-rc-de68d2f4-20241204 || ^19.0.0", "sass": "^1.3.0" }, "optionalPeers": ["@opentelemetry/api", "@playwright/test", "babel-plugin-react-compiler", "sass"], "bin": { "next": "dist/bin/next" } }, "sha512-/Ztf6CeRH+ejEXUrYtqI4gkS66eFIHuSwqi60RgcpWKodxFZx2/dqVCMKBwILfAHXQ+F1b1vAudgj3mnxqtoIA=="],
 
     "next-intl": ["next-intl@4.14.2", "", { "dependencies": { "@eloqnt/config": "^0.1.0", "@eloqnt/format-json": "^0.1.0", "@eloqnt/format-po": "^0.1.0", "@formatjs/intl-localematcher": "^0.8.1", "@parcel/watcher": "^2.4.1", "@swc/core": "~1.16.0", "icu-minify": "^4.14.2", "negotiator": "^1.0.0", "next-intl-swc-plugin-extractor": "4.14.2", "use-intl": "^4.14.2" }, "peerDependencies": { "next": "^12.0.0 || ^13.0.0 || ^14.0.0 || ^15.0.0 || ^16.0.0", "react": "^16.8.0 || ^17.0.0 || ^18.0.0 || >=19.0.0-rc <19.0.0 || ^19.0.0" } }, "sha512-rIq8me1uOa2qXnttJ6dUGYnHHL63Rh1FAIIDTJP5av5KSBmUzNBS17QAi07QDrUMY6KxFNeoCTRzSZRPUc97lg=="],
@@ -4328,8 +4313,6 @@
 
     "@typescript-eslint/utils/semver": ["semver@7.8.5", "", { "bin": { "semver": "bin/semver.js" } }, "sha512-Y7/KDsb8LjooZpwaqGyulO6DQlksgCncchHGk+sZIY4SBvUocMBEFH5Ur1fI4dV+Jvl0w6cjvucaIi40puRioA=="],
 
-    "@upstash/qstash/jose": ["jose@5.10.0", "", {}, "sha512-s+3Al/p9g32Iq+oqXxkW//7jk2Vig6FF1CFqzVXoTUXt2qz89YWbL+OwS17NFYEvxC35n0FKeGO2LGYSxeM2Gg=="],
-
     "@wagmi/connectors/@base-org/account": ["@base-org/account@2.4.0", "", { "dependencies": { "@coinbase/cdp-sdk": "^1.0.0", "@noble/hashes": "1.4.0", "clsx": "1.2.1", "eventemitter3": "5.0.1", "idb-keyval": "6.2.1", "ox": "0.6.9", "preact": "10.24.2", "viem": "^2.31.7", "zustand": "5.0.3" } }, "sha512-A4Umpi8B9/pqR78D1Yoze4xHyQaujioVRqqO3d6xuDFw9VRtjg6tK3bPlwE0aW+nVH/ntllCpPa2PbI8Rnjcug=="],
 
     "@wagmi/connectors/@coinbase/wallet-sdk": ["@coinbase/wallet-sdk@4.3.6", "", { "dependencies": { "@noble/hashes": "1.4.0", "clsx": "1.2.1", "eventemitter3": "5.0.1", "idb-keyval": "6.2.1", "ox": "0.6.9", "preact": "10.24.2", "viem": "^2.27.2", "zustand": "5.0.3" } }, "sha512-4q8BNG1ViL4mSAAvPAtpwlOs1gpC+67eQtgIwNvT3xyeyFFd+guwkc8bcX5rTmQhXpqnhzC4f0obACbP9CqMSA=="],
@@ -4375,8 +4358,6 @@
     "@walletconnect/window-getters/tslib": ["tslib@1.14.1", "", {}, "sha512-Xni35NKzjgMrwevysHTCArtLDpPvye8zV/0E4EyYn43P7/7qvQwPh9BGkHewbMulVntbigmcT7rdX3BNo9wRJg=="],
 
     "@walletconnect/window-metadata/tslib": ["tslib@1.14.1", "", {}, "sha512-Xni35NKzjgMrwevysHTCArtLDpPvye8zV/0E4EyYn43P7/7qvQwPh9BGkHewbMulVntbigmcT7rdX3BNo9wRJg=="],
-
-    "@x402/hedera/@hiero-ledger/sdk": ["@hiero-ledger/sdk@2.85.0", "", { "dependencies": { "@grpc/grpc-js": "1.12.6", "@hiero-ledger/cryptography": "1.19.0", "@hiero-ledger/proto": "2.31.0", "ansi-regex": "6.2.2", "ansi-styles": "6.2.3", "bignumber.js": "11.1.2", "bn.js": "5.2.3", "crypto-js": "4.2.0", "debug": "4.4.1", "ethers": "6.16.0", "js-base64": "3.7.4", "long": "5.3.1", "pino": "10.1.0", "pino-pretty": "13.0.0", "protobufjs": "8.2.0", "rfc4648": "1.5.3", "strip-ansi": "7.1.2", "utf8": "3.0.0" } }, "sha512-o9xmNHeIt7D2ZuetLTSJlrUI9S7dsEzaut61lOxIbne+9fDxGyYfkNrZaf65rOp2e/SltdwQMOseXyFXUdFqVg=="],
 
     "accepts/mime-types": ["mime-types@3.0.2", "", { "dependencies": { "mime-db": "^1.54.0" } }, "sha512-Lbgzdk0h4juoQ9fCKXW4by0UJqj+nOOrI9MJ1sSj4nI8aI2eo1qmvQEie4VD1glsS250n15LsWsYtCugiStS5A=="],
 
@@ -5196,16 +5177,6 @@
 
     "@walletconnect/utils/ox/@noble/curves": ["@noble/curves@1.9.1", "", { "dependencies": { "@noble/hashes": "1.8.0" } }, "sha512-k11yZxZg+t+gWvBbIswW0yoJlu8cHOC7dhunwOzoWH/mXGBiYyR4YY6hAEK/3EUs4UpB8la1RfdRpeGsFHkWsA=="],
 
-    "@x402/hedera/@hiero-ledger/sdk/@grpc/grpc-js": ["@grpc/grpc-js@1.12.6", "", { "dependencies": { "@grpc/proto-loader": "^0.7.13", "@js-sdsl/ordered-map": "^4.4.2" } }, "sha512-JXUj6PI0oqqzTGvKtzOkxtpsyPRNsrmhh41TtIz/zEB6J+AUiZZ0dxWzcMwO9Ns5rmSPuMdghlTbUuqIM48d3Q=="],
-
-    "@x402/hedera/@hiero-ledger/sdk/@hiero-ledger/cryptography": ["@hiero-ledger/cryptography@1.19.0", "", { "dependencies": { "@noble/curves": "1.8.1", "ansi-regex": "6.2.2", "ansi-styles": "6.2.3", "asn1js": "3.0.6", "bignumber.js": "11.1.2", "bn.js": "5.2.3", "buffer": "6.0.3", "crypto-js": "4.2.0", "debug": "4.4.1", "forge-light": "1.1.4", "js-base64": "3.7.7", "react-native-get-random-values": "2.0.0", "spark-md5": "3.0.2", "strip-ansi": "7.1.2", "tweetnacl": "1.0.3", "utf8": "3.0.0" } }, "sha512-6CN34QzPGpegFpQGw1dI77N+75ICdLPSSpcBQ35tyKiNruh6KjE9L0R0th5kcn5sdFw8CwHOPwDQ4+HaSyW0Yw=="],
-
-    "@x402/hedera/@hiero-ledger/sdk/ansi-styles": ["ansi-styles@6.2.3", "", {}, "sha512-4Dj6M28JB+oAH8kFkTLUo+a2jwOFkuqb3yucU0CANcRRUbxS0cP0nZYCGjcc3BNXwRIsUVmDGgzawme7zvJHvg=="],
-
-    "@x402/hedera/@hiero-ledger/sdk/ethers": ["ethers@6.16.0", "", { "dependencies": { "@adraffy/ens-normalize": "1.10.1", "@noble/curves": "1.2.0", "@noble/hashes": "1.3.2", "@types/node": "22.7.5", "aes-js": "4.0.0-beta.5", "tslib": "2.7.0", "ws": "8.17.1" } }, "sha512-U1wulmetNymijEhpSEQ7Ct/P/Jw9/e7R1j5XIbPRydgV2DjLVMsULDlNksq3RQnFgKoLlZf88ijYtWEXcPa07A=="],
-
-    "@x402/hedera/@hiero-ledger/sdk/protobufjs": ["protobufjs@8.2.0", "", { "dependencies": { "@types/node": ">=13.7.0", "long": "^5.0.0" } }, "sha512-oI+GC9iPxrQEr6wragljFKH46/r3rNsm6eg7F2fp6kBUMnf6/mesDRdBuF4gK+OyaKJ8N4C1B9s9cCeYdqFikg=="],
-
     "accepts/mime-types/mime-db": ["mime-db@1.54.0", "", {}, "sha512-aU5EJuIN2WDemCcAp2vFBfp/m4EAhWJnUNSSw0ixs7/kXbd6Pg64EmwJkNdFhB8aWt1sH2CTXrLxo/iAGV3oPQ=="],
 
     "babel-plugin-syntax-hermes-parser/hermes-parser/hermes-estree": ["hermes-estree@0.36.1", "", {}, "sha512-guv1nQ6IJ7S83NRFPWc3SA7IBZrdNC9kapwOq6uXvF4wP+sDCgjzQbKPCoyYmoyZRzztF/n/c36l/rccCZSiCw=="],
@@ -5694,20 +5665,6 @@
 
     "@wagmi/connectors/@walletconnect/ethereum-provider/@walletconnect/utils/viem": ["viem@2.23.2", "", { "dependencies": { "@noble/curves": "1.8.1", "@noble/hashes": "1.7.1", "@scure/bip32": "1.6.2", "@scure/bip39": "1.5.4", "abitype": "1.0.8", "isows": "1.0.6", "ox": "0.6.7", "ws": "8.18.0" }, "peerDependencies": { "typescript": ">=5.0.4" }, "optionalPeers": ["typescript"] }, "sha512-NVmW/E0c5crMOtbEAqMF0e3NmvQykFXhLOc/CkLIXOlzHSA6KXVz3CYVmaKqBF8/xtjsjHAGjdJN3Ru1kFJLaA=="],
 
-    "@x402/hedera/@hiero-ledger/sdk/@hiero-ledger/cryptography/@noble/curves": ["@noble/curves@1.8.1", "", { "dependencies": { "@noble/hashes": "1.7.1" } }, "sha512-warwspo+UYUPep0Q+vtdVB4Ugn8GGQj8iyB3gnRWsztmUHTI3S1nhdiWNsPUGL0vud7JlRRk1XEu7Lq1KGTnMQ=="],
-
-    "@x402/hedera/@hiero-ledger/sdk/@hiero-ledger/cryptography/js-base64": ["js-base64@3.7.7", "", {}, "sha512-7rCnleh0z2CkXhH67J8K1Ytz0b2Y+yxTPL+/KOJoa20hfnVQ/3/T6W/KflYI4bRHRagNeXeU2bkNGI3v1oS/lw=="],
-
-    "@x402/hedera/@hiero-ledger/sdk/ethers/@adraffy/ens-normalize": ["@adraffy/ens-normalize@1.10.1", "", {}, "sha512-96Z2IP3mYmF1Xg2cDm8f1gWGf/HUVedQ3FMifV4kG/PQ4yEP51xDtRAEfhVNt5f/uzpNkZHwWQuUcu6D6K+Ekw=="],
-
-    "@x402/hedera/@hiero-ledger/sdk/ethers/@noble/hashes": ["@noble/hashes@1.3.2", "", {}, "sha512-MVC8EAQp7MvEcm30KWENFjgR+Mkmf+D189XJTkFIlwohU5hcBbn1ZkKq7KVTi2Hme3PMGF390DaL52beVrIihQ=="],
-
-    "@x402/hedera/@hiero-ledger/sdk/ethers/@types/node": ["@types/node@22.7.5", "", { "dependencies": { "undici-types": "~6.19.2" } }, "sha512-jML7s2NAzMWc//QSJ1a3prpk78cOPchGvXJsC3C6R6PSMoooztvRVQEz89gmBTBY1SPMaqo5teB4uNHPdetShQ=="],
-
-    "@x402/hedera/@hiero-ledger/sdk/ethers/ws": ["ws@8.17.1", "", { "peerDependencies": { "bufferutil": "^4.0.1", "utf-8-validate": ">=5.0.2" }, "optionalPeers": ["bufferutil", "utf-8-validate"] }, "sha512-6XQFvXTkbfUOZOKKILFG1PDK2NDQs4azKQl26T0YS5CxqWLgXajbPZ+h4gZekJyRqFU8pvnbAbbs/3TgRPy+GQ=="],
-
-    "@x402/hedera/@hiero-ledger/sdk/protobufjs/long": ["long@5.3.2", "", {}, "sha512-mNAgZ1GmyNhD7AuqnTG3/VQ26o760+ZYBPKjPvugO8+nLbYfX6TVpJPseBvopbdY+qpZ/lKUnmEc1LeZYS3QAA=="],
-
     "cli-truncate/string-width/strip-ansi/ansi-regex": ["ansi-regex@6.3.0", "", {}, "sha512-WpDfL7NO6j7tH88IDBNVdUJxDh9nmCteAVW9dsep846XdwF4naCBK+/tGLX3KJgcpgMRXCFlTM2hKGoK9FsdrQ=="],
 
     "command-line-usage/chalk/ansi-styles/color-convert": ["color-convert@1.9.3", "", { "dependencies": { "color-name": "1.1.3" } }, "sha512-QfAUtd+vFdAtFQcC8CCyYt1fYWxSqAiK2cSD6zDB8N3cpsEBAvRxp9zOGg6G/SHHJYAT88/az/IuDGALsNVbGg=="],
@@ -5907,10 +5864,6 @@
     "@wagmi/connectors/@walletconnect/ethereum-provider/@walletconnect/utils/viem/ox": ["ox@0.6.7", "", { "dependencies": { "@adraffy/ens-normalize": "^1.10.1", "@noble/curves": "^1.6.0", "@noble/hashes": "^1.5.0", "@scure/bip32": "^1.5.0", "@scure/bip39": "^1.4.0", "abitype": "^1.0.6", "eventemitter3": "5.0.1" }, "peerDependencies": { "typescript": ">=5.4.0" }, "optionalPeers": ["typescript"] }, "sha512-17Gk/eFsFRAZ80p5eKqv89a57uXjd3NgIf1CaXojATPBuujVc/fQSVhBeAU9JCRB+k7J50WQAyWTxK19T9GgbA=="],
 
     "@wagmi/connectors/@walletconnect/ethereum-provider/@walletconnect/utils/viem/ws": ["ws@8.18.0", "", { "peerDependencies": { "bufferutil": "^4.0.1", "utf-8-validate": ">=5.0.2" }, "optionalPeers": ["bufferutil", "utf-8-validate"] }, "sha512-8VbfWfHLbbwu3+N6OKsOMpBdT4kXPDDB9cJk2bJ6mh9ucxdlnNvH1e+roYkKmN9Nxw2yjz7VzeO9oOz2zJ04Pw=="],
-
-    "@x402/hedera/@hiero-ledger/sdk/@hiero-ledger/cryptography/@noble/curves/@noble/hashes": ["@noble/hashes@1.7.1", "", {}, "sha512-B8XBPsn4vT/KJAGqDzbwztd+6Yte3P4V7iafm24bxgDe/mlRuK6xmWPuCNrKt2vDafZ8MfJLlchDG/vYafQEjQ=="],
-
-    "@x402/hedera/@hiero-ledger/sdk/ethers/@types/node/undici-types": ["undici-types@6.19.8", "", {}, "sha512-ve2KP6f/JnbPBFyobGHuerC9g1FYGn/F8n1LWTwNxCEzd6IfqTwUQcNXgEtmmQ6DlRrC1hrSrBnCZPokRrDHjw=="],
 
     "command-line-usage/chalk/ansi-styles/color-convert/color-name": ["color-name@1.1.3", "", {}, "sha512-72fSenhMw2HZMTVHeCA9KCmpEIbzWiQsjN+BHcBbS9vr1mtt+vJjPdksIBNUmKAW8TFUDPJK5SUU3QhE9NEXDw=="],
 
