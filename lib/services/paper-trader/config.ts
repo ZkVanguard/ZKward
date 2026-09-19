@@ -106,6 +106,7 @@ export const KEY_NAV = 'paper-trader:nav-usd';
 export const KEY_STATS = 'paper-trader:stats';
 export const KEY_NAV_SERIES = 'paper-trader:nav-series';
 export const KEY_LAST_RUN = 'cron:lastRun:paper-trader';
+export const KEY_LAST_SKIP = 'paper-trader:last-skip';
 // Concurrent-mode array of active positions. Only used when
 // PAPER_MAX_CONCURRENT > 1. Single-position mode continues to use
 // KEY_POSITION + KEY_ORDER_ID untouched. Migration is automatic on
