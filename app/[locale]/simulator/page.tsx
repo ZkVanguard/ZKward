@@ -24,6 +24,8 @@ import {
 import { ZKBadgeInline, type ZKProofData } from '../../../components/ZKVerificationBadge';
 import { SimulatorHeader } from '@/components/simulator/SimulatorHeader';
 import { RiskPolicyPanel } from '@/components/simulator/RiskPolicyPanel';
+import { ScenarioSelector } from '@/components/simulator/ScenarioSelector';
+import { RealEventDataCard } from '@/components/simulator/RealEventDataCard';
 import type {
   RealPriceData,
   RealZKProof,
@@ -1516,253 +1518,20 @@ Provide brief analysis: Is the hedge strategy working? What should we watch for 
         <RiskPolicyPanel />
 
         {/* Scenario Selector */}
-        <div className="bg-white rounded-[16px] sm:rounded-[20px] border border-black/5 p-4 sm:p-5 mb-5 sm:mb-6 shadow-sm">
-          <div className="flex flex-col sm:flex-row flex-wrap items-stretch gap-4">
-            <div className="flex-1 min-w-[150px]">
-              <label className="text-[12px] sm:text-[13px] font-medium text-[#86868b] mb-2 block">
-                Select Scenario
-              </label>
-              <select
-                value={selectedScenario.id}
-                onChange={(e) =>
-                  setSelectedScenario(scenarios.find((s) => s.id === e.target.value)!)
-                }
-                disabled={isRunning}
-                className="w-full bg-[#f5f5f7] border border-black/5 rounded-[10px] px-3 py-2.5 text-[#1d1d1f] focus:border-[#007AFF] focus:ring-2 focus:ring-[#007AFF]/20 focus:outline-none text-[14px] sm:text-[15px] transition-all"
-              >
-                {scenarios.map((scenario) => (
-                  <option key={scenario.id} value={scenario.id}>
-                    {scenario.name}
-                  </option>
-                ))}
-              </select>
-              <p className="text-[11px] sm:text-[12px] text-[#86868b] mt-1.5">
-                {selectedScenario.description}
-              </p>
-            </div>
+        <ScenarioSelector
+          selectedScenario={selectedScenario}
+          setSelectedScenario={setSelectedScenario}
+          isRunning={isRunning}
+          isPaused={isPaused}
+          elapsedTime={elapsedTime}
+          progress={progress}
+          onRun={runSimulation}
+          onPause={pauseSimulation}
+          onResume={resumeSimulation}
+          onReset={resetSimulation}
+        />
 
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-end gap-2 w-full sm:w-auto">
-              {!isRunning ? (
-                <button
-                  onClick={runSimulation}
-                  className="flex items-center justify-center gap-2 px-6 py-3 bg-[#34C759] text-white rounded-[12px] font-semibold text-[15px] hover:bg-[#2DB84D] active:scale-[0.98] transition-all shadow-sm w-full sm:w-auto"
-                >
-                  <Play className="w-5 h-5" />
-                  Execute Strategy
-                </button>
-              ) : (
-                <>
-                  {isPaused ? (
-                    <button
-                      onClick={resumeSimulation}
-                      className="flex items-center justify-center gap-2 px-4 py-2.5 bg-[#34C759] text-white rounded-[10px] font-semibold text-[14px] hover:bg-[#2DB84D] active:scale-[0.98] transition-all w-full sm:w-auto"
-                    >
-                      <Play className="w-4 h-4" />
-                      Resume
-                    </button>
-                  ) : (
-                    <button
-                      onClick={pauseSimulation}
-                      className="flex items-center justify-center gap-2 px-4 py-2.5 bg-[#FF9500] text-white rounded-[10px] font-semibold text-[14px] hover:bg-[#E68A00] active:scale-[0.98] transition-all w-full sm:w-auto"
-                    >
-                      <Pause className="w-4 h-4" />
-                      Pause
-                    </button>
-                  )}
-                </>
-              )}
-              <button
-                onClick={resetSimulation}
-                className="flex items-center justify-center gap-2 px-4 py-2.5 bg-[#f5f5f7] text-[#1d1d1f] rounded-[10px] font-medium text-[14px] hover:bg-[#e8e8ed] active:scale-[0.98] transition-all w-full sm:w-auto"
-              >
-                <RotateCcw className="w-4 h-4" />
-                Reset
-              </button>
-            </div>
-          </div>
-
-          {/* Progress Bar */}
-          {isRunning && (
-            <div className="mt-4">
-              <div className="flex justify-between text-[12px] sm:text-[13px] text-[#86868b] mb-1.5">
-                <span>Progress: {progress.toFixed(0)}%</span>
-                <span>
-                  Elapsed: {elapsedTime}s / {selectedScenario.duration}s
-                </span>
-              </div>
-              <div className="h-2 bg-[#e8e8ed] rounded-full overflow-hidden">
-                <motion.div
-                  className="h-full bg-gradient-to-r from-[#007AFF] to-[#5856D6]"
-                  initial={{ width: 0 }}
-                  animate={{ width: `${progress}%` }}
-                  transition={{ duration: 0.3 }}
-                />
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Real Event Data Card - shown for tariff scenario */}
-        {selectedScenario.type === 'tariff' && selectedScenario.eventData && (
-          <div className="bg-white rounded-[16px] sm:rounded-[20px] border-2 border-[#FF3B30]/30 p-4 sm:p-5 mb-5 sm:mb-6 shadow-sm">
-            <div className="flex items-start gap-3 sm:gap-4">
-              <div className="w-12 h-12 sm:w-14 sm:h-14 bg-[#FF3B30]/10 rounded-[14px] flex items-center justify-center flex-shrink-0">
-                <AlertTriangle className="w-6 h-6 sm:w-7 sm:h-7 text-[#FF3B30]" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex flex-wrap items-center gap-2 mb-2">
-                  <span className="text-[11px] sm:text-[12px] px-2.5 py-1 bg-[#AF52DE]/10 text-[#AF52DE] rounded-full font-semibold border border-[#AF52DE]/30">
-                    📜 HISTORICAL DATA
-                  </span>
-                  <span className="text-[11px] sm:text-[12px] px-2.5 py-1 bg-[#FF3B30]/10 text-[#FF3B30] rounded-full font-semibold border border-[#FF3B30]/30">
-                    REAL EVENT
-                  </span>
-                  <span className="text-[11px] sm:text-[12px] text-[#86868b]">
-                    {HISTORICAL_SNAPSHOTS['trump-tariff-crash'].timestamp}
-                  </span>
-                </div>
-                <h3 className="text-[17px] sm:text-[20px] font-bold text-[#FF3B30] mb-2">
-                  {selectedScenario.eventData.headline}
-                </h3>
-                <p className="text-[13px] sm:text-[14px] text-[#86868b] mb-4 leading-relaxed">
-                  {selectedScenario.eventData.marketContext}
-                </p>
-
-                {/* Historical Prediction Market Data */}
-                <div className="bg-[#AF52DE]/5 border border-[#AF52DE]/20 rounded-[12px] p-3 sm:p-4 mb-4">
-                  <div className="text-[#AF52DE] font-semibold text-[13px] sm:text-[14px] mb-3 flex items-center gap-2">
-                    <span>📜</span> Historical Prediction Market Data (Oct 10, 2025)
-                  </div>
-
-                  {/* Polymarket Historical */}
-                  <div className="mb-3">
-                    <div className="text-[11px] text-[#86868b] mb-2 font-semibold">POLYMARKET</div>
-                    <div className="grid grid-cols-1 gap-2">
-                      {HISTORICAL_SNAPSHOTS['trump-tariff-crash'].polymarket.map((p, i) => (
-                        <div key={i} className="bg-white rounded-[8px] p-2 border border-black/5">
-                          <div className="text-[11px] text-[#1d1d1f] mb-1">"{p.question}"</div>
-                          <div className="flex items-center justify-between">
-                            <span className="text-[13px] font-mono font-medium text-[#1d1d1f]">
-                              {p.probBefore}% →{' '}
-                              <span className="text-[#FF3B30]">{p.probAfter}%</span>
-                            </span>
-                            <span className="text-[10px] text-[#86868b]">
-                              ${(p.volume / 1e6).toFixed(1)}M • {p.timeToSpike}
-                            </span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Kalshi + PredictIt */}
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <div className="text-[11px] text-[#86868b] mb-2 font-semibold">KALSHI</div>
-                      {HISTORICAL_SNAPSHOTS['trump-tariff-crash'].kalshi.map((k, i) => (
-                        <div
-                          key={i}
-                          className="bg-white rounded-[8px] p-2 border border-black/5 mb-1"
-                        >
-                          <div className="text-[10px] text-[#1d1d1f] mb-1">{k.question}</div>
-                          <div className="text-[12px] font-mono">
-                            {k.probBefore}% → <span className="text-[#FF3B30]">{k.probAfter}%</span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                    <div>
-                      <div className="text-[11px] text-[#86868b] mb-2 font-semibold">PREDICTIT</div>
-                      {HISTORICAL_SNAPSHOTS['trump-tariff-crash'].predictit.map((p, i) => (
-                        <div
-                          key={i}
-                          className="bg-white rounded-[8px] p-2 border border-black/5 mb-1"
-                        >
-                          <div className="text-[10px] text-[#1d1d1f] mb-1">{p.question}</div>
-                          <div className="text-[12px] font-mono">
-                            {p.probBefore}% → <span className="text-[#FF3B30]">{p.probAfter}%</span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="mt-3 p-2 bg-[#34C759]/10 rounded-[8px] text-center">
-                    <span className="text-[#34C759] font-semibold text-[13px]">
-                      Delphi Consensus:{' '}
-                      {HISTORICAL_SNAPSHOTS['trump-tariff-crash'].delphiConsensus.before} →{' '}
-                      {HISTORICAL_SNAPSHOTS['trump-tariff-crash'].delphiConsensus.after} (
-                      {HISTORICAL_SNAPSHOTS['trump-tariff-crash'].delphiConsensus.confidence})
-                    </span>
-                  </div>
-                </div>
-
-                {/* Market Impact */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  <div className="bg-[#FF3B30]/5 rounded-[10px] p-3 border border-[#FF3B30]/20">
-                    <div className="text-[11px] sm:text-[12px] text-[#86868b] mb-1">
-                      Total Liquidations
-                    </div>
-                    <div className="text-[17px] sm:text-[20px] text-[#FF3B30] font-bold">
-                      $
-                      {(
-                        HISTORICAL_SNAPSHOTS['trump-tariff-crash'].marketData.totalLiquidations /
-                        1e9
-                      ).toFixed(1)}
-                      B
-                    </div>
-                  </div>
-                  <div className="bg-[#FF3B30]/5 rounded-[10px] p-3 border border-[#FF3B30]/20">
-                    <div className="text-[11px] sm:text-[12px] text-[#86868b] mb-1">
-                      Affected Traders
-                    </div>
-                    <div className="text-[17px] sm:text-[20px] text-[#FF3B30] font-bold">
-                      {HISTORICAL_SNAPSHOTS[
-                        'trump-tariff-crash'
-                      ].marketData.affectedAccounts.toLocaleString()}
-                    </div>
-                  </div>
-                  <div className="bg-[#FF9500]/5 rounded-[10px] p-3 border border-[#FF9500]/20">
-                    <div className="text-[11px] sm:text-[12px] text-[#86868b] mb-1">
-                      Volatility Spike
-                    </div>
-                    <div className="text-[17px] sm:text-[20px] text-[#FF9500] font-bold">
-                      {HISTORICAL_SNAPSHOTS['trump-tariff-crash'].marketData.btcVolatility.before} →{' '}
-                      {HISTORICAL_SNAPSHOTS['trump-tariff-crash'].marketData.btcVolatility.peak}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Historical Prices */}
-                <div className="mt-3 bg-[#f5f5f7] rounded-[10px] p-3">
-                  <div className="text-[11px] sm:text-[12px] text-[#86868b] mb-2">
-                    Historical Price Movement
-                  </div>
-                  <div className="flex flex-wrap gap-4">
-                    {Object.entries(HISTORICAL_SNAPSHOTS['trump-tariff-crash'].prices).map(
-                      ([symbol, data]) => (
-                        <div
-                          key={symbol}
-                          className="text-[13px] sm:text-[14px] text-[#1d1d1f] font-mono"
-                        >
-                          <span className="font-semibold">{symbol}:</span> $
-                          {data.before.toLocaleString()} → ${data.after.toLocaleString()}
-                          <span className="text-[#FF3B30] ml-1">({data.change}%)</span>
-                        </div>
-                      )
-                    )}
-                  </div>
-                </div>
-
-                <div className="mt-3 text-[10px] sm:text-[11px] text-[#86868b]">
-                  Historical Data Sources: Polymarket Archive • Kalshi Historical • PredictIt
-                  Records • Crypto.com Exchange Data
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
+        <RealEventDataCard selectedScenario={selectedScenario} />
         {/* Main Content Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
           {/* Portfolio State */}
