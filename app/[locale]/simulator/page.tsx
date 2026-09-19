@@ -22,6 +22,8 @@ import {
   WifiOff,
 } from 'lucide-react';
 import { ZKBadgeInline, type ZKProofData } from '../../../components/ZKVerificationBadge';
+import { SimulatorHeader } from '@/components/simulator/SimulatorHeader';
+import { RiskPolicyPanel } from '@/components/simulator/RiskPolicyPanel';
 import type {
   RealPriceData,
   RealZKProof,
@@ -1510,112 +1512,8 @@ Provide brief analysis: Is the hedge strategy working? What should we watch for 
   return (
     <div className="min-h-screen bg-[#f5f5f7]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
-        {/* Header */}
-        <div className="mb-6 sm:mb-8">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-br from-[#AF52DE] to-[#5856D6] rounded-[16px] flex items-center justify-center shadow-lg">
-              <Activity className="w-6 h-6 sm:w-7 sm:h-7 text-white" />
-            </div>
-            <div>
-              <h1 className="text-[28px] sm:text-[34px] lg:text-[40px] font-bold text-[#1d1d1f] tracking-[-0.02em]">
-                Portfolio Stress Simulator
-              </h1>
-              <p className="text-[14px] sm:text-[15px] text-[#86868b]">
-                Replay historical market events with REAL platform integrations
-              </p>
-            </div>
-          </div>
-
-          {/* Live API Status Indicators */}
-          <div className="flex flex-wrap gap-2 mt-3">
-            <div
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-medium ${
-                apiStatus.ollama
-                  ? 'bg-[#34C759]/10 text-[#34C759]'
-                  : 'bg-[#FF9500]/10 text-[#FF9500]'
-              }`}
-            >
-              {apiStatus.ollama ? <Wifi className="w-3 h-3" /> : <WifiOff className="w-3 h-3" />}
-              🤖 Ollama/Qwen {apiStatus.ollama ? '✓' : '○'}
-            </div>
-            <div
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-medium ${
-                apiStatus.prices
-                  ? 'bg-[#34C759]/10 text-[#34C759]'
-                  : 'bg-[#FF9500]/10 text-[#FF9500]'
-              }`}
-            >
-              {apiStatus.prices ? <Wifi className="w-3 h-3" /> : <WifiOff className="w-3 h-3" />}
-              Crypto.com API {apiStatus.prices ? '✓' : '○'}
-            </div>
-            <div
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-medium ${
-                apiStatus.zkBackend
-                  ? 'bg-[#34C759]/10 text-[#34C759]'
-                  : 'bg-[#FF9500]/10 text-[#FF9500]'
-              }`}
-            >
-              {apiStatus.zkBackend ? <Wifi className="w-3 h-3" /> : <WifiOff className="w-3 h-3" />}
-              ZK Backend {apiStatus.zkBackend ? '✓' : '○'}
-            </div>
-            <div
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-medium ${
-                apiStatus.agents
-                  ? 'bg-[#34C759]/10 text-[#34C759]'
-                  : 'bg-[#FF9500]/10 text-[#FF9500]'
-              }`}
-            >
-              {apiStatus.agents ? <Wifi className="w-3 h-3" /> : <WifiOff className="w-3 h-3" />}
-              Agent Swarm {apiStatus.agents ? '✓' : '○'}
-            </div>
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-medium bg-[#AF52DE]/10 text-[#AF52DE]">
-              📜 Historical Data Loaded
-            </div>
-            {Object.keys(realPrices).length > 0 && (
-              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-medium bg-[#007AFF]/10 text-[#007AFF]">
-                Live BTC ${realPrices.BTC?.toLocaleString() || '—'}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Risk Policy Panel */}
-        <div className="bg-white rounded-[16px] sm:rounded-[20px] border border-black/5 p-4 sm:p-5 mb-5 sm:mb-6 shadow-sm">
-          <h2 className="text-[15px] sm:text-[17px] font-semibold text-[#1d1d1f] mb-3 flex items-center gap-2">
-            <div className="w-8 h-8 bg-[#AF52DE]/10 rounded-[8px] flex items-center justify-center">
-              <Shield className="w-4 h-4 text-[#AF52DE]" />
-            </div>
-            Risk Policy (Institutional)
-          </h2>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-            <div className="bg-[#f5f5f7] rounded-[10px] p-3">
-              <div className="text-[11px] sm:text-[12px] text-[#86868b] mb-0.5">Max Drawdown</div>
-              <div className="text-[15px] sm:text-[17px] font-semibold text-[#1d1d1f]">
-                {(RISK_POLICY.maxDrawdown * 100).toFixed(1)}%
-              </div>
-            </div>
-            <div className="bg-[#f5f5f7] rounded-[10px] p-3">
-              <div className="text-[11px] sm:text-[12px] text-[#86868b] mb-0.5">Hedge Ratio</div>
-              <div className="text-[15px] sm:text-[17px] font-semibold text-[#1d1d1f]">
-                {(RISK_POLICY.hedgeRatio * 100).toFixed(0)}%
-              </div>
-            </div>
-            <div className="bg-[#f5f5f7] rounded-[10px] p-3">
-              <div className="text-[11px] sm:text-[12px] text-[#86868b] mb-0.5">VaR Threshold</div>
-              <div className="text-[15px] sm:text-[17px] font-semibold text-[#1d1d1f]">
-                {(RISK_POLICY.varThreshold * 100).toFixed(1)}%
-              </div>
-            </div>
-            <div className="bg-[#f5f5f7] rounded-[10px] p-3 col-span-2 sm:col-span-1">
-              <div className="text-[11px] sm:text-[12px] text-[#86868b] mb-0.5">
-                Allowed Instruments
-              </div>
-              <div className="text-[13px] sm:text-[14px] font-semibold text-[#1d1d1f]">
-                {RISK_POLICY.allowedInstruments.join(', ')}
-              </div>
-            </div>
-          </div>
-        </div>
+        <SimulatorHeader apiStatus={apiStatus} realPrices={realPrices} />
+        <RiskPolicyPanel />
 
         {/* Scenario Selector */}
         <div className="bg-white rounded-[16px] sm:rounded-[20px] border border-black/5 p-4 sm:p-5 mb-5 sm:mb-6 shadow-sm">
