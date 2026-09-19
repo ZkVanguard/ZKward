@@ -49,7 +49,7 @@ import { getCronStateOr, setCronState } from '@/lib/db/cron-state';
 import { query } from '@/lib/db/postgres';
 import { HEDGES_REAL_ONLY_SQL } from '@/lib/db/hedges-scope';
 import { fundingEdge, exposureCap, riskGate } from '@/lib/services/trading/trade-quality-gates';
-import { checkBeforeTrade, completeTrade, getPriceAlertedSymbols } from '@/lib/services/agents/agent-trade-guard';
+import { completeTrade, getPriceAlertedSymbols } from '@/lib/services/agents/agent-trade-guard';
 import {
   SUPPORTED_ASSETS,
   ASSET_MIN_QTY,
@@ -104,6 +104,7 @@ import {
 import { reconcileActiveTrade } from './handlers/reconcile-active-trade';
 import { computeRegretGate } from './handlers/regret-gate';
 import { computeEvGate } from './handlers/ev-gate';
+import { runAgentGate } from './handlers/agent-gate';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -847,31 +848,22 @@ export async function GET(request: NextRequest): Promise<NextResponse<EdgeResult
     const tickEpoch = Math.floor(now / (5 * 60 * 1000));
     const clientOrderId = `polyedge_${asset}_${tickEpoch}`;
 
-    // ── AGENT GATE — AG2 + AG4 ──────────────────────────────────────────
+    // ── AGENT GATE — see handlers/agent-gate.ts ────────────────────────
     // Same SafeExecutionGuard + HedgingAgent gate as sui-community-pool.
-    // The polymarket-edge-trader previously had its OWN inline risk gate
-    // ("mirrors RiskAgent's invariants without needing the actual agent");
-    // this unifies it under the same authoritative path so both crons share
-    // limits, cooldowns, and circuit breakers.
-    const guard = await checkBeforeTrade({
-      chain: 'sui',
+    // Discord intentionally silent on rejection — agent-guard rejections
+    // are routine safety behavior; repeat WARN messages are pure noise.
+    // Operators inspect via polymarket-edge:last-skip cron_state.
+    const agentGate = await runAgentGate({
       asset,
-      intendedSide: side as 'LONG' | 'SHORT',
+      side: side as 'LONG' | 'SHORT',
       notionalUsd,
-      agentSource: 'polymarket-edge-trader',
     });
-
-    if (!guard.approved) {
+    const guard = agentGate.guard;
+    if (agentGate.skipReason) {
       logger.warn('[PolymarketEdge] Agent guard BLOCKED', {
         asset, side, notionalUsd, stage: guard.stage, reason: guard.reason,
       });
-      const guardSkipReason = `agent-guard blocked ${asset} ${side} ($${notionalUsd.toFixed(2)}) at stage=${guard.stage}: ${guard.reason}`;
-      await recordSkip('no-edge', guardSkipReason);
-      // Discord intentionally silent here — agent-guard rejections are
-      // routine safety behavior (PriceMonitor alerts fire routinely),
-      // and repeat WARN messages for the same block are pure noise.
-      // Operators can inspect via polymarket-edge:last-skip cron_state.
-      // Discord stays for real capital events only: open, close, KILL.
+      await recordSkip('no-edge', agentGate.skipReason);
       return NextResponse.json({
         success: false,
         ranAt,
