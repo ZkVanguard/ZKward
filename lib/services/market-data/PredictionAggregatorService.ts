@@ -66,6 +66,14 @@ export interface AggregatedPrediction {
 const CACHE_KEY = 'prediction_aggregation';
 const CACHE_TTL_MS = 20_000; // 20 seconds - balance freshness vs. API load
 
+/**
+ * In-memory OI history — one-tick-back per asset. Populated by
+ * fetchBybitPositioning; consumed as delta% in getPerAssetPredictions.
+ * Serverless-scoped (dies with the lambda), which is fine — after 20s
+ * the cache warms up again.
+ */
+const OI_CACHE = new Map<string, number>();
+
 import { CACHE_TAG_CRYPTOCOM_TICKER, CACHE_TAG_BLUEFIN_FUNDING } from './cache-tags';
 // Re-export so anything that previously imported the tags from here keeps
 // working; no importers today, kept for symmetry with the prior commit.
@@ -503,6 +511,54 @@ export class PredictionAggregatorService {
   }
 
   /**
+   * Bybit perpetual funding rate + open interest.
+   *
+   * Added 2026-09-19 to give SOL/XRP/DOGE the same signal richness as
+   * BTC/ETH. Bybit has deep liquidity in the small-caps (XRP OI ~$212M,
+   * DOGE OI ~$1.5B) so their funding + OI are meaningful retail-
+   * positioning signals for those assets specifically.
+   *
+   * OI change (delta from prior fetch) is the interesting signal:
+   *   - OI RISING with price → new longs entering → potential top
+   *   - OI FALLING with stable price → shorts closing → bullish
+   *   - OI FALLING with dropping price → longs capitulating → bottom
+   */
+  private static async fetchBybitPositioning(
+    assets: string[],
+  ): Promise<Record<string, { funding: number; openInterest: number }>> {
+    const out: Record<string, { funding: number; openInterest: number }> = {};
+    const symbolFor = (asset: string) => `${asset.toUpperCase()}USDT`;
+    await Promise.all(
+      assets.map(async (rawAsset) => {
+        const asset = rawAsset.toUpperCase();
+        const symbol = symbolFor(asset);
+        try {
+          const resp = await fetch(
+            `https://api.bybit.com/v5/market/tickers?category=linear&symbol=${symbol}`,
+            { signal: AbortSignal.timeout(4000), next: { revalidate: 60 } },
+          ).catch(() => null);
+          if (!resp?.ok) return;
+          const json = (await resp.json()) as {
+            result?: { list?: Array<{ fundingRate?: string; openInterest?: string }> };
+          };
+          const t = json.result?.list?.[0];
+          if (!t) return;
+          const funding = parseFloat(t.fundingRate ?? '');
+          const oi = parseFloat(t.openInterest ?? '');
+          if (Number.isFinite(funding) && Number.isFinite(oi) && oi > 0) {
+            out[asset] = { funding, openInterest: oi };
+          }
+        } catch (e) {
+          logger.debug('[PredictionAggregator] Bybit fetch failed', {
+            asset, error: e instanceof Error ? e.message : String(e),
+          });
+        }
+      }),
+    );
+    return out;
+  }
+
+  /**
    * Fetch the LIVE funding rate per asset from Bluefin's market ticker.
    * Decimal per 8-hour funding interval (e.g. 0.0001 ≈ 11% APR).
    * Returns a sparse map — assets with no data are simply omitted.
@@ -628,7 +684,7 @@ export class PredictionAggregatorService {
     const upperAssets = assets.map(a => a.toUpperCase());
     const { getTrackedAssetList } = await import('./MultiAssetSignalService');
     const alignmentUniverse = Array.from(new Set([...getTrackedAssetList(), ...upperAssets]));
-    const [polymarketSignal, delphiPredictions, cryptoComData, fundingRates, multiAssetSignals, manifoldMarkets, binancePositioning] = await Promise.all([
+    const [polymarketSignal, delphiPredictions, cryptoComData, fundingRates, multiAssetSignals, manifoldMarkets, binancePositioning, bybitPositioning] = await Promise.all([
       this.fetchPolymarketSignal(),
       this.fetchDelphiPredictions(),
       this.fetchCryptoComData(upperAssets),
@@ -636,7 +692,21 @@ export class PredictionAggregatorService {
       MultiAssetSignalService.getLatestSignals(alignmentUniverse).catch(() => ({} as Record<string, MultiAssetSignal | null>)),
       ManifoldMarketService.getCryptoMarkets(upperAssets).catch(() => [] as PredictionMarket[]),
       this.fetchBinancePositioning(upperAssets).catch(() => ({} as Record<string, { funding: number; longShortRatio: number }>)),
+      this.fetchBybitPositioning(upperAssets).catch(() => ({} as Record<string, { funding: number; openInterest: number }>)),
     ]);
+
+    // Track OI delta from previous fetch to compute change %.
+    // Rising OI + rising price = new leveraged longs entering (crowded top signal).
+    // Rising OI + falling price = new shorts entering (crowded bottom).
+    // Falling OI = positions unwinding (calm signal, no crowd).
+    const oiDeltas: Record<string, number> = {};
+    for (const [asset, data] of Object.entries(bybitPositioning)) {
+      const prev = OI_CACHE.get(asset);
+      if (prev !== undefined && prev > 0) {
+        oiDeltas[asset] = (data.openInterest - prev) / prev;
+      }
+      OI_CACHE.set(asset, data.openInterest);
+    }
 
     // Feed real spot prices into the drift fusion's price-history channel.
     // This is the source the price-momentum drift component reads — it
@@ -820,6 +890,66 @@ export class PredictionAggregatorService {
                 impliedMovePct: kalshi.impliedMovePct,
                 marketCount: kalshi.marketCount,
               },
+              fetchedAt: Date.now(),
+            });
+          }
+        }
+      }
+
+      // 5d) Bybit funding + OI change (2026-09-19). Covers ALL 5
+      //     assets (BTC/ETH/SOL/XRP/DOGE). Bybit is the #1 venue for
+      //     small-cap crypto perps, so signals here are the STRONGEST
+      //     retail-positioning read for SOL/XRP/DOGE.
+      const bybit = bybitPositioning[asset];
+      if (bybit) {
+        // Funding (contrarian, same shape as Binance).
+        if (Math.abs(bybit.funding) > 0.00005) {
+          const fundingDir: 'UP' | 'DOWN' = bybit.funding > 0 ? 'DOWN' : 'UP';
+          const conf = Math.min(40 + Math.abs(bybit.funding) * 200_000, 85);
+          sources.push({
+            name: `Bybit ${asset} Funding`,
+            type: 'on_chain',
+            direction: fundingDir,
+            confidence: conf,
+            probability: 50 + Math.min(Math.abs(bybit.funding) * 100_000, 25) * (fundingDir === 'UP' ? 1 : -1),
+            weight: 0.12,
+            rawData: { funding: bybit.funding, aprPct: bybit.funding * 3 * 365 * 100 },
+            fetchedAt: Date.now(),
+          });
+        }
+
+        // OI delta — new positions entering means fresh leverage in the
+        // market. Rising OI is often a top signal (crowded longs
+        // entering); falling OI a bottom signal (weak hands out).
+        // Only fire when |delta| > 2% (below is noise).
+        const oiDelta = oiDeltas[asset];
+        if (oiDelta !== undefined && Math.abs(oiDelta) > 0.02) {
+          const priceMomentum = cryptoComData.perAsset?.[asset]?.change24h ?? 0;
+          // OI rising + price rising = crowded LONG → SHORT signal.
+          // OI rising + price falling = crowded SHORT → LONG signal.
+          // OI falling = capitulation, weak signal in direction of price.
+          const oiRising = oiDelta > 0;
+          const priceRising = priceMomentum > 0;
+          let oiDir: 'UP' | 'DOWN' | null = null;
+          if (oiRising) {
+            oiDir = priceRising ? 'DOWN' : 'UP'; // contrarian
+          } else {
+            // Falling OI — weak signal, only use if the price is also
+            // moving decisively (>1% change).
+            if (Math.abs(priceMomentum) > 1) {
+              oiDir = priceRising ? 'UP' : 'DOWN'; // aligned
+            }
+          }
+          if (oiDir) {
+            const conf = Math.min(35 + Math.abs(oiDelta) * 500, 70);
+            sources.push({
+              name: `Bybit ${asset} OI Change`,
+              type: 'on_chain',
+              direction: oiDir,
+              confidence: conf,
+              probability: 50 + Math.min(Math.abs(oiDelta) * 200, 25) * (oiDir === 'UP' ? 1 : -1),
+              weight: 0.10,
+              rawData: { oiDelta, priceMomentum, oiRising },
               fetchedAt: Date.now(),
             });
           }
