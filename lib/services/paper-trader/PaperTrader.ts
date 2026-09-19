@@ -567,6 +567,16 @@ export class PaperTrader {
       return { action: 'skipped', reason: trendReject, nav };
     }
 
+    // 2b'. Volatility gate — refuse trades in low-vol regimes where the
+    //      expected 20-min move can't beat fee friction. Deribit realized
+    //      vol for BTC/ETH; other assets fall through.
+    const { lowVolatilityRejection } = await import('./volatility-gate');
+    const volReject = await lowVolatilityRejection(asset);
+    if (volReject) {
+      logger.info('[PaperTrader] low-vol skip', { asset, reason: volReject });
+      return { action: 'skipped', reason: volReject, nav };
+    }
+
     // 2c. Per-asset regret cooldown — the existing rolling-window check.
     const recentPnl = await assetSideRecentPnl(asset, side, PAPER_REGRET_WINDOW);
     if (recentPnl < -nav * PAPER_REGRET_COOLDOWN_PCT) {
