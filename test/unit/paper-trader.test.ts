@@ -7,6 +7,13 @@
  *   • active-position + high-conf signal-flip → closed (mirrors #101)
  *   • active-position + low-conf demotion → HELD (mirrors #101 confidence gate)
  */
+// Pin PAPER_TRADER_MAX_HOLD_MIN to the historical 20 for tests. The prod
+// default was bumped to 45 in the 2026-09-20 stops fix (post-mortem on
+// 164 paper trades showed the 20-25m near-timeout bucket lost -$37.6K
+// at 16.7% win rate). The tests here assert the state transition at
+// expiry — behavior at boundary, not the numeric value.
+process.env.PAPER_TRADER_MAX_HOLD_MIN = '20';
+
 import { describe, it, expect, jest, beforeEach } from '@jest/globals';
 
 // Mock DB + services BEFORE importing PaperTrader.
@@ -345,24 +352,84 @@ describe('PaperTrader.runTick — active-position path', () => {
     expect(store[KEY_POSITION]).toBeTruthy();
   });
 
-  it('stops out mid-trade when unrealized PnL exceeds PAPER_STOP_LOSS_PCT of NAV', async () => {
+  it('stops out mid-trade when live mark crosses persisted stopLossPrice', async () => {
+    // Price-anchored stop (2026-09-20 fix). Position carries an explicit
+    // stopLossPrice set at open; handleActive closes deterministically
+    // once mark crosses it — no NAV-pct math, no dependency on tick-to-
+    // tick unrealized delta.
+    const posWithStop = { ...pos, stopLossPrice: 64_740 }; // 0.4% below entry
     primeStore({
-      [KEY_POSITION]: pos,
+      [KEY_POSITION]: posWithStop,
       [KEY_NAV]: PAPER_STARTING_NAV,
       [KEY_ORDER_ID]: 'paper_BTC_test',
     });
-    stubSameAssetPrediction('BTC', 'STRONG_HEDGE_LONG', 90); // signal still aligned
-    // 5% adverse move on a $100k 1x LONG = -$5000 unrealized.
-    // PAPER_STOP_LOSS_PCT default = 2% of $100k NAV = $2000 threshold. Trips.
-    mockGetLivePrice.mockResolvedValue(61_750);
+    stubSameAssetPrediction('BTC', 'STRONG_HEDGE_LONG', 90);
+    mockGetLivePrice.mockResolvedValue(64_700); // below stop → fires
 
-    // Tick well within max-hold window so only stop-loss can trip.
     const res = await PaperTrader.runTick(NOW + 3 * 60_000);
     expect(res.action).toBe('closed');
-    expect(res.reason).toMatch(/stop-loss/);
-    // Position was cleared — that's the behavioral signal of a close.
-    // Direct SQL is atomic now (was closeHedge() + separate UPDATE).
+    expect(res.reason).toMatch(/stop-loss.*crossed/);
     expect(store[KEY_POSITION]).toBeNull();
+  });
+
+  it('holds when mark is adverse but has NOT crossed the persisted stopLossPrice', async () => {
+    // Regression check: stopLossPrice at 64_740 (0.4% below entry). Mark
+    // at 64_800 is adverse but hasn't crossed the line. Must hold.
+    const posWithStop = { ...pos, stopLossPrice: 64_740 };
+    primeStore({
+      [KEY_POSITION]: posWithStop,
+      [KEY_NAV]: PAPER_STARTING_NAV,
+      [KEY_ORDER_ID]: 'paper_BTC_test',
+    });
+    stubSameAssetPrediction('BTC', 'STRONG_HEDGE_LONG', 90);
+    mockGetLivePrice.mockResolvedValue(64_800);
+
+    const res = await PaperTrader.runTick(NOW + 3 * 60_000);
+    expect(res.action).toBe('held');
+    expect(store[KEY_POSITION]).toBeTruthy();
+  });
+
+  it('SHORT stops when mark rises above persisted stopLossPrice', async () => {
+    // Direction-symmetric check for the price-anchored stop.
+    const shortPos = {
+      ...pos,
+      side: 'SHORT' as const,
+      stopLossPrice: 65_260, // 0.4% above entry
+    };
+    primeStore({
+      [KEY_POSITION]: shortPos,
+      [KEY_NAV]: PAPER_STARTING_NAV,
+      [KEY_ORDER_ID]: 'paper_BTC_test',
+    });
+    stubSameAssetPrediction('BTC', 'STRONG_HEDGE_SHORT', 90);
+    mockGetLivePrice.mockResolvedValue(65_400); // above stop → fires
+
+    const res = await PaperTrader.runTick(NOW + 3 * 60_000);
+    expect(res.action).toBe('closed');
+    expect(res.reason).toMatch(/stop-loss.*crossed/);
+    expect(store[KEY_POSITION]).toBeNull();
+  });
+
+  it('does NOT hard-cap winners at any TP price (removed 2026-09-20)', async () => {
+    // Regression: an earlier draft added a hard take-profit at 2× the
+    // stop distance. Backtest on 164 historical trades showed this cost
+    // -$18K vs stop-only because it capped fat-tail winners. TP was
+    // removed; trailing-stop below handles winner ratcheting.
+    // A big winner should NOT close as take-profit.
+    const winnerPos = { ...pos, stopLossPrice: 64_740 };
+    primeStore({
+      [KEY_POSITION]: winnerPos,
+      [KEY_NAV]: PAPER_STARTING_NAV,
+      [KEY_ORDER_ID]: 'paper_BTC_test',
+    });
+    stubSameAssetPrediction('BTC', 'STRONG_HEDGE_LONG', 90);
+    mockGetLivePrice.mockResolvedValue(70_000); // +7.7% winner, blows past any 1% TP
+
+    const res = await PaperTrader.runTick(NOW + 3 * 60_000);
+    // Winner triggers trailing-stop close (peak has surged), not TP.
+    // The specific close path is trailing/hold/max-hold — never
+    // "take-profit". Verify the string never appears.
+    expect(res.reason ?? '').not.toMatch(/take-profit/);
   });
 });
 

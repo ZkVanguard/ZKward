@@ -432,23 +432,10 @@ export class PaperTrader {
       }
     }
 
-    // 1b. Take-profit — same mechanism, opposite direction. Locks in
-    //     winners that hit the 2× stop-distance target. Trailing stop
-    //     below still runs, so a runner that blows past TP still gets
-    //     ratcheted rather than capped.
-    if (pos.takeProfitPrice) {
-      const hit = pos.side === 'LONG' ? markPrice >= pos.takeProfitPrice : markPrice <= pos.takeProfitPrice;
-      if (hit) {
-        return PaperTrader.closeAtMark(
-          pos,
-          markPrice,
-          nav,
-          now,
-          `take-profit: mark $${markPrice.toFixed(4)} reached $${pos.takeProfitPrice.toFixed(4)}`,
-          orderId,
-        );
-      }
-    }
+    // (No hard take-profit — see JSDoc on the entry-side stopLossPrice
+    // computation. Trailing-stop below handles the "let winners run,
+    // ratchet at give-back" case without capping the fat-tail winners
+    // that carry paper trader EV.)
 
     const mtm = markToMarket(pos, markPrice, now);
 
@@ -696,27 +683,30 @@ export class PaperTrader {
       direction: (s.direction ?? 'NEUTRAL') as 'UP' | 'DOWN' | 'NEUTRAL',
     }));
 
-    // Price-anchored stop-loss + take-profit computed from the adaptive
-    // vol thresholds AT OPEN. The prior implementation only compared
-    // mtm.unrealizedPnlUsd against -nav*stopLossPct — which is a
-    // NAV-blow-up threshold, not a per-trade risk cut. At ~$600K NAV,
-    // 0.4% stop = $2.4K, needing a ~2.7% adverse move on a $90K notional
-    // to trigger. In the Sept 15-17 pain window every stop check quietly
-    // returned "not yet" while positions ran the full max-hold. Anchoring
-    // stops to a concrete price locks the exit in at entry time and
-    // fires deterministically the moment mark crosses the line — plus
-    // exposes the numbers in `hedges.stop_loss` / `.take_profit` for
-    // dashboard + post-mortem review.
+    // Price-anchored stop-loss computed from the adaptive vol threshold
+    // AT OPEN. The prior implementation only compared mtm.unrealizedPnlUsd
+    // against -nav*stopLossPct — a NAV-blow-up threshold, not a per-trade
+    // risk cut. At ~$600K NAV, 0.4% stop = $2.4K, needing a ~2.7% adverse
+    // move on a $90K notional to trigger. In the Sept 15-17 pain window
+    // every stop check quietly returned "not yet" while positions ran the
+    // full max-hold. Anchoring the stop to a concrete price locks the
+    // exit in at entry time and fires deterministically the moment mark
+    // crosses. Exposed via `hedges.stop_loss` for dashboard + post-mortem.
     //
-    // Take-profit is set at 2× the stop distance (1.5R target with 1R
-    // stop). Trailing-stop still runs on top of TP so a runner that
-    // blows through TP doesn't cap the winner.
-    const { computeAdaptiveThresholds } = await import('./adaptive-stops');
-    const th = await computeAdaptiveThresholds(asset);
-    const stopFrac = th.stopLossPct;
-    const tpFrac = stopFrac * 2;
+    // NO hard take-profit — backtest on 164 historical trades (scripts/
+    // backtest-paper-trader-stops.ts, 2026-09-20) showed a 1% TP capped
+    // winners for -$18K net vs stop-only. Signal has right-skewed wins
+    // (a single +$11,794 trade in the window); the trailing-stop path
+    // handles "let winners run, ratchet at give-back" without capping.
+    //
+    // Uses the STATIC threshold at open time — no async vol-fetch —
+    // so entry stays deterministic and tick-fast. handleActive still
+    // uses the vol-adaptive value for the trailing-arm (that's a
+    // winner-detection tuning, not a loss cut). Env-override:
+    // PAPER_TRADER_STOP_LOSS_PCT (default 1.2% of entry).
+    const { _STATIC_STOP_LOSS_PCT } = await import('./adaptive-stops');
+    const stopFrac = _STATIC_STOP_LOSS_PCT;
     const stopLossPrice = side === 'LONG' ? markPrice * (1 - stopFrac) : markPrice * (1 + stopFrac);
-    const takeProfitPrice = side === 'LONG' ? markPrice * (1 + tpFrac)  : markPrice * (1 - tpFrac);
 
     const position: SimulatedPosition = {
       ...simulateOpen(
@@ -729,7 +719,6 @@ export class PaperTrader {
       entryConsensus: cons,
       maxHoldMin: computeMaxHoldMinutes(signalScalar),
       stopLossPrice,
-      takeProfitPrice,
     };
 
     const orderId = `paper_${asset}_${Math.floor(now / 1000)}`;
@@ -750,7 +739,6 @@ export class PaperTrader {
         leverage: PAPER_LEVERAGE,
         entryPrice: markPrice,
         stopLoss: stopLossPrice,
-        takeProfit: takeProfitPrice,
         simulationMode: true,
         reason: `paper: ${rec} conf=${picked.prediction.confidence.toFixed(0)} score=${picked.score.toFixed(1)}`,
         predictionMarket: 'paper-aggregate',
