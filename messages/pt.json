@@ -151,17 +151,6 @@
       }
     }
   },
-  "agents": {
-    "title": "Rede de agentes de IA",
-    "subtitle": "Gestão de portfólio autônoma 24/7 com consenso multiagente",
-    "active": "Ativo",
-    "idle": "Inativo",
-    "monitoring": "Monitorando",
-    "leadAgent": "Agente líder de risco",
-    "marketAgent": "Agente de inteligência de mercado",
-    "complianceAgent": "Agente de conformidade",
-    "executionAgent": "Agente de execução"
-  },
   "common": {
     "loading": "Carregando...",
     "error": "Erro",

@@ -151,17 +151,6 @@
       }
     }
   },
-  "agents": {
-    "title": "AI代理网络",
-    "subtitle": "通过多代理共识实现24/7自主投资组合管理",
-    "active": "活跃",
-    "idle": "空闲",
-    "monitoring": "监控中",
-    "leadAgent": "Lead Risk Orchestrator",
-    "marketAgent": "Market Intelligence Agent",
-    "complianceAgent": "Compliance Agent",
-    "executionAgent": "Execution Agent"
-  },
   "common": {
     "loading": "加载中...",
     "error": "错误",

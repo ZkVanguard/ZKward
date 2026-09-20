@@ -76,7 +76,7 @@
     "twitter": "Twitter",
     "privacy": "プライバシーポリシー",
     "terms": "利用規約",
-    "rights": "All rights reserved.",
+    "rights": "全著作権所有。",
     "testnet": "SUI Mainnet",
     "stage": "Mainnet ライブ",
     "migrationNotice": "Formerly zkvanguard.xyz — zkward.com is our new home.",
@@ -150,17 +150,6 @@
         "protectedDesc": "すべての機密データは暗号化されています。ZK証明により、ポジションはプライベートに保たれつつ、オンチェーンで検証可能です。"
       }
     }
-  },
-  "agents": {
-    "title": "AIエージェントネットワーク",
-    "subtitle": "マルチエージェントコンセンサスによる24時間365日の自律的ポートフォリオ管理",
-    "active": "アクティブ",
-    "idle": "アイドル",
-    "monitoring": "モニタリング中",
-    "leadAgent": "Lead Risk Orchestrator",
-    "marketAgent": "マーケットインテリジェンスエージェント",
-    "complianceAgent": "コンプライアンスエージェント",
-    "executionAgent": "エグゼキューションエージェント"
   },
   "common": {
     "loading": "読み込み中...",

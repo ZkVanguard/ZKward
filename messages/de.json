@@ -151,17 +151,6 @@
       }
     }
   },
-  "agents": {
-    "title": "KI-Agenten-Netzwerk",
-    "subtitle": "24/7 autonomes Portfoliomanagement mit Multi-Agenten-Konsens",
-    "active": "Aktiv",
-    "idle": "Inaktiv",
-    "monitoring": "Überwachung",
-    "leadAgent": "Lead Risk Orchestrator",
-    "marketAgent": "Market Intelligence Agent",
-    "complianceAgent": "Compliance Agent",
-    "executionAgent": "Execution Agent"
-  },
   "common": {
     "loading": "Laden...",
     "error": "Fehler",
