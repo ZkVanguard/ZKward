@@ -20,7 +20,11 @@ export const PAPER_LEVERAGE = Number(process.env.PAPER_TRADER_LEVERAGE || 3);
 // trade risked 60% of NAV in gross notional. Observed 118 trades, 25%
 // win rate, -$62.5k in 2.4 days on a $607k NAV — sizing did the damage,
 // not signal quality.
-export const PAPER_STAKE_PCT = Number(process.env.PAPER_TRADER_STAKE_PCT || 0.05);
+// Reduced again 2026-09-20 from 0.05 -> 0.02 for RESEARCH MODE (paired
+// with loosened entry gates below). More trades × smaller size = more
+// data with the same risk budget. Bump back to 0.05 or higher when the
+// mainnet-readiness gates in docs/PAPER_TO_MAINNET_READINESS.md go green.
+export const PAPER_STAKE_PCT = Number(process.env.PAPER_TRADER_STAKE_PCT || 0.02);
 
 // ── Entry thresholds ────────────────────────────────────────────────
 export const PAPER_MIN_CONFIDENCE = Number(process.env.PAPER_TRADER_MIN_CONFIDENCE || 55);
@@ -126,9 +130,13 @@ export const NAV_SERIES_MAX = 500;
 // Default 1 = legacy single-position mode. Bump to open positions on
 // multiple assets simultaneously. Cap enforced at handleEntry — once
 // N positions are active, new opens skip until one closes.
+// RESEARCH MODE (2026-09-20): 1 → 3 to parallelize entries across
+// assets and burn through more sample trades per hour. Correlation
+// cluster cap (PAPER_MAX_SAME_DIR_PER_CLUSTER) still holds so BTC/
+// ETH/SOL can't all be same-side long at once.
 export const PAPER_MAX_CONCURRENT = Math.max(
   1,
-  Number(process.env.PAPER_TRADER_MAX_CONCURRENT || 1),
+  Number(process.env.PAPER_TRADER_MAX_CONCURRENT || 3),
 );
 
 /**
@@ -170,12 +178,22 @@ export const PAPER_MAX_SAME_DIR_PER_CLUSTER = Math.max(
 //   2. Stability: require the aggregate to hold the same direction
 //      across the last K ticks. Kills the flip-flop pattern where
 //      opens close via signal-flip within 9 min of entry.
+// RESEARCH MODE (2026-09-20): loosened from 0.60 to 0.55 to un-block
+// the trader after a 20-hour idle stretch where every candidate was
+// getting rejected at exactly 50% source agreement. Cost: slightly
+// noisier entries. Mitigation: PAPER_STAKE_PCT halved to 0.02 above,
+// and the price-anchored stop-loss + 45m max-hold shipped 2026-09-20
+// bound per-trade damage. Tighten back to 0.6+ once the mainnet-
+// readiness gates in docs/PAPER_TO_MAINNET_READINESS.md go green.
 export const PAPER_MIN_MAJORITY_PCT = Number(
-  process.env.PAPER_TRADER_MIN_MAJORITY_PCT || 0.6,
+  process.env.PAPER_TRADER_MIN_MAJORITY_PCT || 0.55,
 );
+// RESEARCH MODE: 2 → 1 tick. Faster time-to-first-trade after a
+// signal appears. Cost: less filter on flip-flop signals; the 45m
+// max-hold catches most of the flip-then-reverse pattern anyway.
 export const PAPER_MIN_STABLE_TICKS = Math.max(
   1,
-  Number(process.env.PAPER_TRADER_MIN_STABLE_TICKS || 2),
+  Number(process.env.PAPER_TRADER_MIN_STABLE_TICKS || 1),
 );
 export const KEY_SIGNAL_HISTORY = 'paper-trader:signal-history';
 

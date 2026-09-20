@@ -29,7 +29,12 @@ import { logger } from '@/lib/utils/logger';
 import { errMsg } from '@/lib/utils/error-handler';
 
 const DERIBIT_VOL_URL = 'https://www.deribit.com/api/v2/public/get_historical_volatility';
-const MIN_ANNUAL_VOL_PCT = Number(process.env.PAPER_TRADER_MIN_ANNUAL_VOL_PCT || 40);
+// RESEARCH MODE (2026-09-20): 40 → 25 so BTC (currently ~32% annualized)
+// stops getting rejected at the vol-gate. Cost: some 20-min BTC moves
+// will be inside the 13bp fee floor. Mitigation: 45m base max-hold now
+// gives moves time to develop; price-anchored stop caps downside.
+// Tighten back to 40 once mainnet-readiness gates are green.
+const MIN_ANNUAL_VOL_PCT = Number(process.env.PAPER_TRADER_MIN_ANNUAL_VOL_PCT || 25);
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 min — vol data updates hourly on Deribit
 
 interface CacheEntry {
