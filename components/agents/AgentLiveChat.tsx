@@ -29,9 +29,11 @@ interface Message {
 }
 
 const QUICK_PROMPTS = [
-  'Why did the trader stop opening positions?',
   'How is BTC doing right now?',
-  'What did our last 5 hedges do?',
+  'Market snapshot — BTC, ETH, SOL, SUI',
+  'What does the prediction market think about ETH?',
+  'Explain funding rates in two sentences',
+  'What did our vault do in the last 24h?',
   'Is our AI predicting correctly this week?',
 ];
 
@@ -264,13 +266,13 @@ export function AgentLiveChat() {
       <div className="border-b border-separator-opaque/40 px-3 sm:px-5 py-2.5 sm:py-3.5 flex-shrink-0">
         <div className="flex items-center gap-2">
           <Bot className="w-4 h-4 text-ios-blue flex-shrink-0" />
-          <h3 className="text-callout sm:text-headline font-semibold text-label-primary truncate">Ask the vault</h3>
+          <h3 className="text-callout sm:text-headline font-semibold text-label-primary truncate">Ask about crypto, markets, or the vault</h3>
           <span className="ml-auto text-caption-2 text-label-tertiary hidden sm:inline flex-shrink-0">
-            Read-only, six tools
+            Read-only
           </span>
         </div>
         <p className="text-caption-1 sm:text-footnote text-label-tertiary mt-1">
-          Every answer reads live state.
+          Live prices. Live signals. Live vault state.
         </p>
       </div>
 
@@ -382,7 +384,7 @@ export function AgentLiveChat() {
             }
           }}
           rows={1}
-          placeholder="Ask about hedges, signals, PnL..."
+          placeholder="Ask a market question or a vault question..."
           disabled={pending || ready !== true}
           // Use 16px base font-size on mobile so iOS Safari doesn't
           // auto-zoom the viewport when the textarea focuses. Anything

@@ -398,7 +398,7 @@
     "header": {
       "badge": "七个代理，实时，只读",
       "title": "问 ZKward。",
-      "subtitle": "与金库对话。每个回答都从代理使用的相同工具中读取实时状态。毫不排练。"
+      "subtitle": "加密货币、市场、金库。每个回答都跑在实时数据上 — 价格、预测信号、链上状态。毫无排练。"
     },
     "meetTheCrew": "认识团队",
     "architecture": "架构",
@@ -407,7 +407,7 @@
       "lead": {
         "name": "Lead",
         "role": "调度员",
-        "description": "读取你的问题，判断谁应处理，并将各部分缝合为一个答案。",
+        "description": "读取你的问题，选择专家，把答案缝合成一份回复。",
         "capabilities": {
           "c1": "自然语言意图解析",
           "c2": "路由到合适的专家",
@@ -418,7 +418,7 @@
       "risk": {
         "name": "Risk",
         "role": "担忧者",
-        "description": "监控池子多少处于风险中，标记接近清算的仓位，并对整体组合健康度打分。",
+        "description": "跟踪池子敞口。标记接近清算的仓位。为组合健康度打分。",
         "capabilities": {
           "c1": "在险价值（VaR）计算",
           "c2": "波动率与夏普比率",
@@ -429,7 +429,7 @@
       "hedging": {
         "name": "Hedging",
         "role": "保险经纪人",
-        "description": "当 Risk 标记时，Hedging 选择抵消它的反向交易。空头规模、杠杆和资产在开仓前均经过置信度评分。",
+        "description": "当 Risk 标记时选择反向交易。规模、杠杆和资产在开仓前都获得置信度评分。",
         "capabilities": {
           "c1": "空头仓位定量",
           "c2": "期权策略生成",
@@ -439,8 +439,8 @@
       },
       "settlement": {
         "name": "Settlement",
-        "role": "签名者",
-        "description": "将决策转为链上交易。在可能时批处理以节省 gas，生成 ZK 证明，并知道失败时如何回滚。",
+        "role": "公证员",
+        "description": "把决策变成链上交易。批处理省 gas，生成 ZK 证明，失败时回滚。",
         "capabilities": {
           "c1": "批量交易处理",
           "c2": "Gas 优化，通常 20 到 40%",
@@ -451,7 +451,7 @@
       "reporting": {
         "name": "Reporting",
         "role": "记账员",
-        "description": "编写发生事项的通俗摘要。日报、周报、月报与按需的审计跟踪。",
+        "description": "用通俗语言记录每日、每周、每月。按需生成审计跟踪。",
         "capabilities": {
           "c1": "日报、周报、月报",
           "c2": "绩效与 P&L 跟踪",
@@ -462,7 +462,7 @@
       "priceMonitor": {
         "name": "Price Monitor",
         "role": "瞭望员",
-        "description": "监控 BTC、ETH、SUI 和 CRO 的 5 分钟预测市场行情。信号翻转时，秒级广播供他人响应。",
+        "description": "每 5 分钟监控 BTC、ETH、SUI、CRO 的预测行情。信号翻转时秒级广播。",
         "capabilities": {
           "c1": "BTC/ETH/SUI/CRO 阈值监控",
           "c2": "Polymarket 5 分钟事件流",
@@ -472,8 +472,8 @@
       },
       "suiPool": {
         "name": "SUI Pool",
-        "role": "池子运营方",
-        "description": "运营 SUI USDC 社区池。读取融合信号，在四种资产间选择配置，通过 BlueFin 再平衡，绝不允许任何人绕过链上安全护栏。",
+        "role": "运营者",
+        "description": "运营 SUI USDC 池。读取融合信号，在四种资产中选择配置，通过 BlueFin 再平衡。绝不绕过链上防护。",
         "capabilities": {
           "c1": "BTC、ETH、SUI、CRO 四资产配置",
           "c2": "BlueFin 聚合再平衡",

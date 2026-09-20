@@ -398,7 +398,7 @@
     "header": {
       "badge": "Sette agenti, live, sola lettura",
       "title": "Chiedi a ZKward.",
-      "subtitle": "Parla al vault. Ogni risposta legge lo stato live dagli stessi strumenti che usano gli agenti. Niente di preparato."
+      "subtitle": "Cripto, mercati, il vault. Ogni risposta gira su dati live — prezzi, segnali di previsione, stato on-chain. Niente di preparato."
     },
     "meetTheCrew": "Conosci il team",
     "architecture": "Architettura",
@@ -407,7 +407,7 @@
       "lead": {
         "name": "Lead",
         "role": "Il dispatcher",
-        "description": "Legge cosa hai chiesto, decide chi dovrebbe gestirlo e ricuce i pezzi in un'unica risposta.",
+        "description": "Legge quel che hai chiesto, sceglie lo specialista, ricuce la risposta in un unico pezzo.",
         "capabilities": {
           "c1": "Parsing dell'intento in linguaggio naturale",
           "c2": "Instrada allo specialista giusto",
@@ -418,7 +418,7 @@
       "risk": {
         "name": "Risk",
         "role": "L'ansioso",
-        "description": "Osserva quanto del pool è a rischio, segnala posizioni vicine alla liquidazione e valuta la salute complessiva del portafoglio.",
+        "description": "Segue l'esposizione del pool. Segnala posizioni vicine alla liquidazione. Assegna un punteggio alla salute del portafoglio.",
         "capabilities": {
           "c1": "Calcolo del Value at Risk (VaR)",
           "c2": "Volatilità e rapporto di Sharpe",
@@ -429,7 +429,7 @@
       "hedging": {
         "name": "Hedging",
         "role": "Il broker assicurativo",
-        "description": "Quando Risk segnala qualcosa, Hedging sceglie la contro-operazione che compensa. Dimensione short, leva e asset ricevono un confidence score prima dell'apertura.",
+        "description": "Sceglie la contro-operazione quando Risk segnala qualcosa. Dimensione, leva e asset ricevono ciascuno un confidence score prima dell'apertura.",
         "capabilities": {
           "c1": "Dimensionamento di posizioni short",
           "c2": "Generazione di strategie su opzioni",
@@ -439,8 +439,8 @@
       },
       "settlement": {
         "name": "Settlement",
-        "role": "Il firmatario",
-        "description": "Trasforma una decisione in una transazione on-chain. Fa batch dove serve per risparmiare gas, produce la prova ZK e sa come tornare indietro in caso di errore.",
+        "role": "Il notaio",
+        "description": "Trasforma decisioni in transazioni on-chain. Fa batch per risparmiare gas, produce la prova ZK, torna indietro in caso di fallimento.",
         "capabilities": {
           "c1": "Elaborazione batch di transazioni",
           "c2": "Ottimizzazione del gas, tipicamente 20-40 per cento",
@@ -451,7 +451,7 @@
       "reporting": {
         "name": "Reporting",
         "role": "Il ragioniere",
-        "description": "Compila il riepilogo in linguaggio comprensibile di ciò che è successo. Quotidiano, settimanale, mensile e on-demand per l'audit trail.",
+        "description": "Scrive il resoconto in linguaggio chiaro di ogni giorno, settimana e mese. Traccia di audit anche su richiesta.",
         "capabilities": {
           "c1": "Report quotidiani, settimanali e mensili",
           "c2": "Tracking performance e P&L",
@@ -462,7 +462,7 @@
       "priceMonitor": {
         "name": "Price Monitor",
         "role": "La vedetta",
-        "description": "Osserva il ticker dei prediction market ogni 5 minuti su BTC, ETH, SUI e CRO. Quando un segnale si inverte, trasmette in secondi perché gli altri reagiscano.",
+        "description": "Osserva il ticker di previsione ogni 5 minuti su BTC, ETH, SUI, CRO. Trasmette le inversioni in secondi.",
         "capabilities": {
           "c1": "Sorveglianza soglie BTC, ETH, SUI, CRO",
           "c2": "Stream eventi Polymarket 5 min",
@@ -472,8 +472,8 @@
       },
       "suiPool": {
         "name": "SUI Pool",
-        "role": "L'operatore del pool",
-        "description": "Gestisce il pool comunitario USDC di SUI. Legge il segnale fuso, sceglie l'allocazione tra quattro asset, ribilancia via BlueFin e non lascia bypassare i guardrail on-chain.",
+        "role": "L'operatore",
+        "description": "Gestisce il pool USDC di SUI. Legge il segnale fuso, sceglie l'allocazione tra quattro asset, ribilancia via BlueFin. Non aggira mai le protezioni on-chain.",
         "capabilities": {
           "c1": "Allocazione quattro-asset su BTC, ETH, SUI, CRO",
           "c2": "Ribilanciamento con aggregatore BlueFin",
