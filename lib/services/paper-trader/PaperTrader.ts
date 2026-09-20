@@ -406,30 +406,41 @@ export class PaperTrader {
       }
     }
 
-    // 1. Stop-loss (2026-09-17) — bail before the 20-min max-hold if the
-    //    position has already leaked > PAPER_STOP_LOSS_PCT of NAV. Prevents
-    //    the "hold-through-drawdown" pattern that dominated the -$62k bleed.
+    // L7 — vol-adaptive stop-loss + trailing-arm. Replaces the two static
+    // constants with vol-scaled percentages. Falls back to static on any
+    // vol-fetch failure (fail-open). See adaptive-stops.ts for the math.
+    const { computeAdaptiveThresholds } = await import('./adaptive-stops');
+    const thresholds = await computeAdaptiveThresholds(pos.asset);
+    const stopLossPct = thresholds.stopLossPct;
+    const trailingArmPct = thresholds.trailingArmPct;
+
+    // 1. Stop-loss — bail before max-hold if the position has already
+    //    leaked > stopLossPct of NAV. Vol-scaled: in a 60% vol regime
+    //    a 1.2% static stop gets stopped out by noise; adaptive expands
+    //    to ~2%. In a 25% regime it tightens to ~0.5% — cuts losers
+    //    that never had signal-edge to begin with.
     const mtm = markToMarket(pos, markPrice, now);
-    if (mtm.unrealizedPnlUsd < -nav * PAPER_STOP_LOSS_PCT) {
+    if (mtm.unrealizedPnlUsd < -nav * stopLossPct) {
       return PaperTrader.closeAtMark(
         pos,
         markPrice,
         nav,
         now,
-        `stop-loss: unrealized -$${Math.abs(mtm.unrealizedPnlUsd).toFixed(2)} > ${(PAPER_STOP_LOSS_PCT * 100).toFixed(1)}% of NAV`,
+        `stop-loss: unrealized -$${Math.abs(mtm.unrealizedPnlUsd).toFixed(2)} > ${(stopLossPct * 100).toFixed(2)}% of NAV (${thresholds.source})`,
         orderId,
       );
     }
 
-    // 2. Trailing stop — once we've been up >= PAPER_TRAILING_STOP_ARM_PCT
-    //    of NAV, close if we've given back PAPER_TRAILING_STOP_GIVEBACK_PCT
-    //    of that peak. Locks in half the winner instead of letting max-hold
-    //    return the full move to zero.
+    // 2. Trailing stop — once we've been up >= trailingArmPct of NAV,
+    //    close if we've given back PAPER_TRAILING_STOP_GIVEBACK_PCT
+    //    of that peak. Locks in the winner. Trailing-arm is also
+    //    vol-scaled — only arm on genuinely directional moves, not
+    //    chop that touches the fee-recovery threshold.
     const priorPeak = pos.peakUnrealizedPnl ?? 0;
     const priorTrough = pos.troughUnrealizedPnl ?? 0;
     const currentPeak = Math.max(priorPeak, mtm.unrealizedPnlUsd);
     const currentTrough = Math.min(priorTrough, mtm.unrealizedPnlUsd);
-    const trailingArmed = currentPeak >= nav * PAPER_TRAILING_STOP_ARM_PCT;
+    const trailingArmed = currentPeak >= nav * trailingArmPct;
     if (
       trailingArmed &&
       mtm.unrealizedPnlUsd < currentPeak * (1 - PAPER_TRAILING_STOP_GIVEBACK_PCT)
