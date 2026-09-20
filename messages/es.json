@@ -280,30 +280,30 @@
       "members": "miembros"
     },
     "hero": {
-      "headline1": "Una bóveda que",
-      "headline2": "muestra su trabajo.",
-      "subtitle": "ZKward es una bóveda cripto autónoma. Siete agentes de IA realizan las operaciones. Cada cobertura se cierra con un recibo criptográfico que puedes verificar tú mismo. Pool pequeño a propósito. Dinero real."
+      "headline1": "La bóveda IA",
+      "headline2": "con recibos.",
+      "subtitle": "Deposita USDC. Siete agentes debaten y operan. Cada cobertura cierra con una prueba criptográfica verificable on-chain."
     },
     "vault": {
-      "poolNav": "NAV del pool",
-      "sharePrice": "Precio por acción",
+      "poolNav": "Valor del pool",
+      "sharePrice": "Por acción",
       "capacity": "Capacidad",
       "capacityOf": "{current} de {cap}"
     },
     "cta": {
       "depositUsdc": "Depositar USDC",
-      "howItWorks": "Cómo funciona",
+      "howItWorks": "Ver el bucle",
       "viewSource": "Ver el código",
       "installApp": "Instalar app",
       "installIosHint": "Para instalar: toca el icono Compartir en Safari, desplázate y toca «Añadir a la pantalla de inicio»."
     },
     "composition": {
-      "eyebrow": "Composición en vivo",
-      "title": "Dónde está tu USDC ahora mismo.",
+      "eyebrow": "Ahora mismo",
+      "title": "Dónde vive tu USDC.",
       "body": "La IA reajusta cada 30 minutos entre BTC, ETH y SUI según señales de mercado en vivo. El USDC inactivo cuenta como reserva defensiva. Se actualiza cada 30 s."
     },
     "howItWorks": {
-      "eyebrow": "Cómo funciona",
+      "eyebrow": "El bucle",
       "title": "Tres piezas en movimiento. Un solo bucle.",
       "body": "Corre cada cinco minutos, todo el día, sin ti. Depositas una vez y observas.",
       "step1": {
@@ -328,8 +328,8 @@
         "hint": "Aplicado por el contrato Move. No es una cifra de marketing."
       },
       "freshOracle": {
-        "title": "Oráculo fresco",
-        "value": "Modo estricto",
+        "title": "Precio fresco",
+        "value": "Máximo 2 h",
         "hint": "Los depósitos revierten si la atestación del NAV tiene más de dos horas."
       },
       "withdrawThrottle": {
@@ -354,17 +354,17 @@
       "body": "El dashboard, los agentes, las pruebas, el whitepaper, la historia. Nada oculto tras un login salvo tu propia wallet.",
       "dashboard": {
         "eyebrow": "Dashboard",
-        "title": "Tu pool, en una sola pantalla.",
+        "title": "Tu pool, una pantalla.",
         "body": "Saldo, coberturas, drawdown y el feed de pruebas. Se actualiza cada minuto. Lo que ves es lo que dice la cadena."
       },
       "rwa": {
         "eyebrow": "Activos del mundo real",
-        "title": "Activos off-chain, prueba on-chain.",
+        "title": "Activos off-chain. Prueba on-chain.",
         "body": "Firmas de custodio vinculan carteras a activos reales manteniendo privadas las tenencias. Pensado para emisores e instituciones."
       },
       "agents": {
         "eyebrow": "Los siete agentes",
-        "title": "Conoce a los especialistas.",
+        "title": "Siete especialistas. Un bucle.",
         "body": "Lead, Risk, Hedging, Settlement, Reporting, Price Monitor, SUI Pool. Cada uno tiene su función. Las operaciones grandes necesitan un 2 de 3."
       },
       "zk": {

@@ -280,30 +280,30 @@
       "members": "メンバー"
     },
     "hero": {
-      "headline1": "仕事ぶりを見せる",
-      "headline2": "金庫です。",
-      "subtitle": "ZKward は自律型の暗号資産金庫です。7 体の AI エージェントが取引を実行します。各ヘッジは、あなた自身が検証できる暗号学的レシート付きでクローズします。あえて小さなプール。本物のお金。"
+      "headline1": "レシートを出す",
+      "headline2": "AI 金庫。",
+      "subtitle": "USDC を入金。7 体のエージェントが議論して取引。各ヘッジは、誰でもオンチェーンで検証できる暗号学的証明とともに終了。"
     },
     "vault": {
-      "poolNav": "プール NAV",
-      "sharePrice": "1 口当たり価格",
+      "poolNav": "プール残高",
+      "sharePrice": "1 口当たり",
       "capacity": "キャパシティ",
       "capacityOf": "{cap} 中 {current}"
     },
     "cta": {
       "depositUsdc": "USDC を入金",
-      "howItWorks": "仕組み",
+      "howItWorks": "ループを見る",
       "viewSource": "ソースを見る",
       "installApp": "アプリをインストール",
       "installIosHint": "インストール方法：Safari で共有アイコンをタップし、下にスクロールして「ホーム画面に追加」をタップします。"
     },
     "composition": {
-      "eyebrow": "ライブ構成",
-      "title": "あなたの USDC は今どこにあるか。",
+      "eyebrow": "今この瞬間",
+      "title": "あなたの USDC の居場所。",
       "body": "AI は 30 分ごとに、ライブの市場シグナルに基づいて BTC、ETH、SUI の間でリバランスします。遊休 USDC は防御的なバケットとしてカウントします。30 秒ごとに更新。"
     },
     "howItWorks": {
-      "eyebrow": "仕組み",
+      "eyebrow": "ループ",
       "title": "動く部品は 3 つ。ループは 1 つ。",
       "body": "5 分ごと、終日、あなた抜きで動きます。1 度入金したら、見ているだけ。",
       "step1": {
@@ -328,8 +328,8 @@
         "hint": "Move コントラクトによって強制されます。マーケティングの数字ではありません。"
       },
       "freshOracle": {
-        "title": "新鮮なオラクル",
-        "value": "厳格モード",
+        "title": "新鮮な価格",
+        "value": "最大 2 時間",
         "hint": "NAV 認証が 2 時間より古い場合、入金はリバートします。"
       },
       "withdrawThrottle": {
@@ -349,7 +349,7 @@
       }
     },
     "surfaces": {
-      "eyebrow": "ざっと見て回る",
+      "eyebrow": "見て回る",
       "title": "ZKward のあらゆる隅が公開されています。",
       "body": "ダッシュボード、エージェント、証明、ホワイトペーパー、ストーリー。あなた自身のウォレット以外、ログインの向こうに隠れているものはありません。",
       "dashboard": {
@@ -359,12 +359,12 @@
       },
       "rwa": {
         "eyebrow": "現実世界資産",
-        "title": "オフチェーン資産、オンチェーン証明。",
+        "title": "オフチェーン資産。オンチェーン証明。",
         "body": "カストディアン署名がポートフォリオを実資産に結び付けつつ、保有情報を非公開に保ちます。発行体と機関のために構築。"
       },
       "agents": {
         "eyebrow": "7 体のエージェント",
-        "title": "スペシャリストと会う。",
+        "title": "7 人のスペシャリスト。1 つのループ。",
         "body": "Lead、Risk、Hedging、Settlement、Reporting、Price Monitor、SUI Pool。それぞれ役割があります。大きな取引は 2/3 の合意が必要。"
       },
       "zk": {

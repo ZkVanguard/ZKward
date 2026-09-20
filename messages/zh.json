@@ -280,30 +280,30 @@
       "members": "成员"
     },
     "hero": {
-      "headline1": "一个自证其账的",
-      "headline2": "加密金库。",
-      "subtitle": "ZKward 是一个自主运行的加密金库。七个 AI 代理执行交易。每笔对冲都以你能亲自验证的密码学收据结束。刻意保持小规模的池子。真实的资金。"
+      "headline1": "会出示回执的",
+      "headline2": "AI 金库。",
+      "subtitle": "存入 USDC。七个代理辩论后交易。每笔对冲以任何人都能链上验证的密码学证明结束。"
     },
     "vault": {
       "poolNav": "池子净值",
-      "sharePrice": "份额价格",
+      "sharePrice": "每份价格",
       "capacity": "容量",
       "capacityOf": "{current} / {cap}"
     },
     "cta": {
       "depositUsdc": "存入 USDC",
-      "howItWorks": "工作原理",
+      "howItWorks": "看看循环",
       "viewSource": "查看源码",
       "installApp": "安装应用",
       "installIosHint": "安装方法：在 Safari 中点击「分享」图标，向下滚动，点击「添加到主屏幕」。"
     },
     "composition": {
-      "eyebrow": "实时构成",
-      "title": "你的 USDC 现在在哪里。",
+      "eyebrow": "此刻",
+      "title": "你的 USDC 在哪里。",
       "body": "AI 根据实时市场信号，每 30 分钟在 BTC、ETH 和 SUI 之间再平衡。闲置的 USDC 作为防御性储备。每 30 秒刷新一次。"
     },
     "howItWorks": {
-      "eyebrow": "工作原理",
+      "eyebrow": "循环",
       "title": "三个运转部件。一个闭环。",
       "body": "全天每五分钟运行一次，无需你参与。存入一次，坐等即可。",
       "step1": {
@@ -328,8 +328,8 @@
         "hint": "由 Move 合约强制执行。不是营销数字。"
       },
       "freshOracle": {
-        "title": "新鲜的预言机",
-        "value": "严格模式",
+        "title": "新鲜价格",
+        "value": "最长 2 小时",
         "hint": "如果净值证明超过两小时，存款会被回退。"
       },
       "withdrawThrottle": {
@@ -354,17 +354,17 @@
       "body": "仪表盘、代理、证明、白皮书、故事。除了你自己的钱包，没有任何东西藏在登录之后。",
       "dashboard": {
         "eyebrow": "仪表盘",
-        "title": "你的池子，一屏纵览。",
+        "title": "你的池子，一屏。",
         "body": "余额、对冲、回撤和证明流。每分钟刷新。你看到的就是链上所说的。"
       },
       "rwa": {
         "eyebrow": "现实世界资产",
-        "title": "链下资产，链上证明。",
+        "title": "链下资产。链上证明。",
         "body": "托管人签名将投资组合与真实资产绑定，同时保持持仓私密。为发行方和机构而建。"
       },
       "agents": {
         "eyebrow": "七个代理",
-        "title": "认识这些专家。",
+        "title": "七位专家。一个循环。",
         "body": "Lead、Risk、Hedging、Settlement、Reporting、Price Monitor、SUI Pool。各司其职。大额交易需要 2/3 同意。"
       },
       "zk": {

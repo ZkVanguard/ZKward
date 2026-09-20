@@ -280,30 +280,30 @@
       "members": "멤버"
     },
     "hero": {
-      "headline1": "일한 흔적을 보여주는",
-      "headline2": "볼트.",
-      "subtitle": "ZKward는 자율 암호 볼트입니다. 7명의 AI 에이전트가 매매합니다. 모든 헤지는 직접 검증할 수 있는 암호학적 영수증과 함께 종료됩니다. 의도적으로 작은 풀. 진짜 돈."
+      "headline1": "영수증 있는",
+      "headline2": "AI 볼트.",
+      "subtitle": "USDC를 예치. 일곱 에이전트가 논쟁 후 거래. 모든 헤지는 누구나 온체인에서 검증 가능한 암호학적 증명으로 끝납니다."
     },
     "vault": {
-      "poolNav": "풀 NAV",
-      "sharePrice": "지분 가격",
+      "poolNav": "풀 가치",
+      "sharePrice": "지분당",
       "capacity": "용량",
       "capacityOf": "{cap} 중 {current}"
     },
     "cta": {
       "depositUsdc": "USDC 입금",
-      "howItWorks": "작동 방식",
+      "howItWorks": "루프 보기",
       "viewSource": "소스 보기",
       "installApp": "앱 설치",
       "installIosHint": "설치하려면: Safari에서 공유 아이콘을 탭하고, 아래로 스크롤한 뒤 '홈 화면에 추가'를 탭하세요."
     },
     "composition": {
-      "eyebrow": "라이브 구성",
-      "title": "당신의 USDC가 지금 어디에 있는지.",
+      "eyebrow": "지금",
+      "title": "당신의 USDC가 있는 곳.",
       "body": "AI는 실시간 시장 신호를 바탕으로 30분마다 BTC, ETH, SUI 사이에서 리밸런싱합니다. 유휴 USDC는 방어 버킷으로 계산됩니다. 30초마다 새로고침."
     },
     "howItWorks": {
-      "eyebrow": "작동 방식",
+      "eyebrow": "루프",
       "title": "움직이는 부품 셋. 루프 하나.",
       "body": "당신 없이도 하루 종일 5분마다 돕니다. 한 번 입금하고 지켜보세요.",
       "step1": {
@@ -328,8 +328,8 @@
         "hint": "Move 계약이 강제합니다. 마케팅 숫자가 아닙니다."
       },
       "freshOracle": {
-        "title": "신선한 오라클",
-        "value": "엄격 모드",
+        "title": "신선한 가격",
+        "value": "최대 2시간",
         "hint": "NAV 증명이 2시간보다 오래되면 입금이 되돌려집니다."
       },
       "withdrawThrottle": {
@@ -349,22 +349,22 @@
       }
     },
     "surfaces": {
-      "eyebrow": "둘러보세요",
+      "eyebrow": "둘러보기",
       "title": "ZKward의 모든 구석이 공개되어 있습니다.",
       "body": "대시보드, 에이전트, 증명, 백서, 이야기. 자신의 지갑 외에는 로그인 뒤에 숨겨진 것이 없습니다.",
       "dashboard": {
         "eyebrow": "대시보드",
-        "title": "당신의 풀, 한 화면에.",
+        "title": "당신의 풀, 한 화면.",
         "body": "잔고, 헤지, 드로다운, 증명 피드. 매분 새로고침. 보이는 것이 체인이 말하는 것입니다."
       },
       "rwa": {
         "eyebrow": "실물 자산",
-        "title": "오프체인 자산, 온체인 증명.",
+        "title": "오프체인 자산. 온체인 증명.",
         "body": "수탁자 서명이 포트폴리오를 실제 자산에 묶으면서 보유는 비공개로 유지합니다. 발행자와 기관을 위해 구축."
       },
       "agents": {
         "eyebrow": "일곱 에이전트",
-        "title": "전문가들을 만나보세요.",
+        "title": "일곱 전문가. 하나의 루프.",
         "body": "Lead, Risk, Hedging, Settlement, Reporting, Price Monitor, SUI Pool. 각자 역할이 있습니다. 큰 거래는 2/3 합의가 필요합니다."
       },
       "zk": {

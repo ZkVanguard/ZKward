@@ -22,43 +22,43 @@
       "members": "members"
     },
     "hero": {
-      "headline1": "A vault that",
-      "headline2": "shows its work.",
-      "subtitle": "ZKward is an autonomous crypto vault. Seven AI agents make the trades. Every hedge closes with a cryptographic receipt you can verify yourself. Small pool on purpose. Real money."
+      "headline1": "The AI vault",
+      "headline2": "with receipts.",
+      "subtitle": "Deposit USDC. Seven agents debate, then trade. Every hedge closes with a cryptographic proof anyone can verify on-chain."
     },
     "vault": {
-      "poolNav": "Pool NAV",
-      "sharePrice": "Share price",
+      "poolNav": "Pool value",
+      "sharePrice": "Per share",
       "capacity": "Capacity",
       "capacityOf": "{current} of {cap}"
     },
     "cta": {
       "depositUsdc": "Deposit USDC",
-      "howItWorks": "How it works",
+      "howItWorks": "See the loop",
       "viewSource": "View source",
       "installApp": "Install app",
       "installIosHint": "To install: tap the Share icon in Safari, scroll down, and tap \"Add to Home Screen\"."
     },
     "composition": {
-      "eyebrow": "Live composition",
-      "title": "Where your USDC is right now.",
-      "body": "The AI rebalances every 30 minutes across BTC, ETH and SUI based on live market signals. Idle USDC counts as a defensive bucket. Refreshes every 30s."
+      "eyebrow": "Right now",
+      "title": "Where your USDC lives.",
+      "body": "Rebalances every 30 minutes across BTC, ETH, and SUI. Idle USDC counts as defense. Refreshes every 30s."
     },
     "howItWorks": {
-      "eyebrow": "How it works",
+      "eyebrow": "The loop",
       "title": "Three moving parts. One loop.",
-      "body": "It runs every five minutes, all day, without you. You deposit once and watch.",
+      "body": "Runs every five minutes. All day. Without you.",
       "step1": {
         "title": "The AI reads the room",
-        "body": "Ten signal sources. Polymarket, Kalshi, Deribit vol, funding rates from four venues, price momentum. Fuse into a single allocation target. Seven agents have to agree before capital moves."
+        "body": "Ten signals — Polymarket, Kalshi, Deribit vol, funding rates, price momentum — fused into one target. Seven agents must agree before capital moves."
       },
       "step2": {
         "title": "The pool rebalances",
-        "body": "Your USDC is swapped across BTC, ETH, and SUI on-chain. Drift-based. The pool only trades when the allocation actually shifts. Nothing wasted on churn."
+        "body": "Your USDC swaps across BTC, ETH, and SUI on-chain. Drift-based. Only trades when the target shifts. Nothing wasted on churn."
       },
       "step3": {
         "title": "A hedge lands with a proof",
-        "body": "A matching BlueFin perpetual position balances the risk. Every open and close writes a STARK proof of the decision to the chain. Anyone can verify it. Nobody can fake it."
+        "body": "A matching BlueFin perpetual balances the risk. Every open and close writes a STARK proof to the chain. Verifiable. Unfakeable."
       }
     },
     "trust": {
@@ -67,69 +67,69 @@
       "poolCap": {
         "title": "Pool cap",
         "value": "$10,000",
-        "hint": "Enforced by the Move contract. Not a marketing number."
+        "hint": "Enforced by the Move contract."
       },
       "freshOracle": {
-        "title": "Fresh oracle",
-        "value": "Strict mode",
-        "hint": "Deposits revert if the NAV attestation is older than two hours."
+        "title": "Fresh price",
+        "value": "2-hour max",
+        "hint": "Deposits revert if the price attestation is stale."
       },
       "withdrawThrottle": {
         "title": "Withdraw throttle",
         "value": "25% / day",
-        "hint": "A single account cannot drain the pool. Rate limit on-chain."
+        "hint": "One account can't drain the pool."
       },
       "proofs": {
         "title": "Proofs, not promises",
         "value": "Post-quantum",
-        "hint": "STARK proofs on the Goldilocks field. Quantum-safe by design."
+        "hint": "STARK on the Goldilocks field. Quantum-safe by design."
       },
       "twoChains": {
         "title": "Two chains, one code",
         "value": "Hedera + SUI",
-        "hint": "Live on both. SUI is the flagship. Hedera is the fallback."
+        "hint": "SUI leads. Hedera backs up."
       }
     },
     "surfaces": {
-      "eyebrow": "Have a look around",
+      "eyebrow": "Look around",
       "title": "Every corner of ZKward is public.",
-      "body": "The dashboard, the agents, the proofs, the whitepaper, the story. Nothing hidden behind a login except your own wallet.",
+      "body": "Dashboard, agents, proofs, whitepaper, story. Nothing behind a login except your wallet.",
       "dashboard": {
         "eyebrow": "Dashboard",
-        "title": "Your pool, in one screen.",
-        "body": "Balance, hedges, drawdown, and the proof feed. Refreshes every minute. What you see is what the chain says."
+        "title": "Your pool, one screen.",
+        "body": "Balance, hedges, drawdown, proofs. Refreshed every minute."
       },
       "rwa": {
         "eyebrow": "Real-world assets",
-        "title": "Off-chain assets, on-chain proof.",
-        "body": "Custodian signatures bind portfolios to real assets while keeping the holdings private. Built for issuers and institutions."
+        "title": "Off-chain assets. On-chain proof.",
+        "body": "Custodian signatures bind portfolios to real assets. Holdings stay private."
       },
       "agents": {
         "eyebrow": "The seven agents",
-        "title": "Meet the specialists.",
-        "body": "Lead, Risk, Hedging, Settlement, Reporting, Price Monitor, SUI Pool. Each has a job. Big trades need 2-of-3 to agree."
+        "title": "Seven specialists. One loop.",
+        "body": "Lead, Risk, Hedging, Settlement, Reporting, Price Monitor, SUI Pool. Big trades need 2-of-3."
       },
       "zk": {
         "eyebrow": "Zero-knowledge proofs",
         "title": "Not screenshots. Math.",
-        "body": "Post-quantum STARK proofs, verifiable in your browser. 180-bit soundness. No trusted setup, no elliptic curves."
+        "body": "Post-quantum STARK proofs, verifiable in your browser. 180-bit soundness."
       },
       "story": {
         "eyebrow": "Our story",
         "title": "How we got here.",
-        "body": "A five-minute read. Warm, honest, and yes, we tell you when we lose money. That is the whole point."
+        "body": "A five-minute read. We tell you when we lose money, too."
       },
       "whitepaper": {
         "eyebrow": "Whitepaper",
         "title": "The technical version.",
-        "body": "Prediction-market alpha, 7-agent architecture, STARK-attested execution, roadmap, references. For the engineers in the room."
+        "body": "Prediction-market alpha, 7-agent architecture, STARK-attested execution."
       }
     },
     "finalCta": {
       "title": "Come see it running.",
       "body": "Connect a wallet, deposit USDC, close the tab. The AI takes it from there.",
       "alreadyIn": "{count} already in.",
-      "paused": "Deposits currently paused for maintenance."
+      "paused": "Deposits paused for maintenance."
     }
   },
   "agentsPage": {
