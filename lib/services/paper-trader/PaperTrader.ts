@@ -257,6 +257,16 @@ export class PaperTrader {
         return result;
       }
 
+      // L4 — signal-source decay check. Runs at most hourly (gated inside),
+      // disables sources whose 30-trade win rate collapses below the floor.
+      // Fire-and-forget: even if it errors we keep trading.
+      void (async () => {
+        try {
+          const { runSourceDecayCheck } = await import('./source-decay');
+          await runSourceDecayCheck(now);
+        } catch { /* non-fatal */ }
+      })();
+
       const nav = (await getCronState<number>(KEY_NAV)) ?? PAPER_STARTING_NAV;
 
       // Concurrent-mode branch: PAPER_MAX_CONCURRENT > 1 unlocks the
