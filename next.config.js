@@ -149,20 +149,54 @@ const nextConfig = {
         ],
       },
       {
-        // Public static images (favicon.svg, logo-official.svg, grid.svg,
-        // whitepaper.pdf, chain logos). Long cache with revalidation.
-        source: '/:path(.*\\.(svg|png|jpg|jpeg|webp|avif|pdf|ico|woff|woff2))',
-        headers: [
-          { key: 'Cache-Control', value: 'public, max-age=2592000, s-maxage=31536000' },
-        ],
+        // Public static images + PDF. Individual rules — Next's route
+        // matcher uses path-to-regexp v6 which doesn't accept multi-
+        // extension groups like /:path(.*\.(svg|png|...)). One header
+        // block per extension keeps the config valid and readable.
+        source: '/:path*.svg',
+        headers: [{ key: 'Cache-Control', value: 'public, max-age=2592000, s-maxage=31536000' }],
+      },
+      {
+        source: '/:path*.png',
+        headers: [{ key: 'Cache-Control', value: 'public, max-age=2592000, s-maxage=31536000' }],
+      },
+      {
+        source: '/:path*.jpg',
+        headers: [{ key: 'Cache-Control', value: 'public, max-age=2592000, s-maxage=31536000' }],
+      },
+      {
+        source: '/:path*.webp',
+        headers: [{ key: 'Cache-Control', value: 'public, max-age=2592000, s-maxage=31536000' }],
+      },
+      {
+        source: '/:path*.pdf',
+        headers: [{ key: 'Cache-Control', value: 'public, max-age=2592000, s-maxage=31536000' }],
+      },
+      {
+        source: '/:path*.woff2',
+        headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }],
       },
       {
         // llms.txt / rss.xml / sitemap regenerate cheaply — 1h browser,
         // 1d CDN.
-        source: '/(llms.txt|llms-full.txt|rss.xml|sitemap.xml|robots.txt)',
-        headers: [
-          { key: 'Cache-Control', value: 'public, max-age=3600, s-maxage=86400' },
-        ],
+        source: '/llms.txt',
+        headers: [{ key: 'Cache-Control', value: 'public, max-age=3600, s-maxage=86400' }],
+      },
+      {
+        source: '/llms-full.txt',
+        headers: [{ key: 'Cache-Control', value: 'public, max-age=3600, s-maxage=86400' }],
+      },
+      {
+        source: '/rss.xml',
+        headers: [{ key: 'Cache-Control', value: 'public, max-age=3600, s-maxage=86400' }],
+      },
+      {
+        source: '/sitemap.xml',
+        headers: [{ key: 'Cache-Control', value: 'public, max-age=3600, s-maxage=86400' }],
+      },
+      {
+        source: '/robots.txt',
+        headers: [{ key: 'Cache-Control', value: 'public, max-age=3600, s-maxage=86400' }],
       },
       {
         source: '/:path*',
