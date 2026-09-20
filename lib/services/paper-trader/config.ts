@@ -28,12 +28,19 @@ export const PAPER_MIN_CONSENSUS = Number(process.env.PAPER_TRADER_MIN_CONSENSUS
 export const PAPER_MIN_SOURCES = Number(process.env.PAPER_TRADER_MIN_SOURCES || 2);
 
 // ── Hold windows ────────────────────────────────────────────────────
-export const PAPER_MAX_HOLD_MIN = Number(process.env.PAPER_TRADER_MAX_HOLD_MIN || 20);
+// Bumped 2026-09-20 from 20 → 45 min. Post-mortem on 164 paper trades
+// (Bakchodi hedges 2026-09-15 to 09-19): the 20-25m near-timeout bucket
+// held 72 trades / -$37.6K at 16.7% win rate — the timer was chopping
+// positions right at their max drawdown. Trades that survived past the
+// timer had markedly better outcomes: 25-45m bucket 46.7% win rate,
+// 45m+ bucket 41.7%. Base ceiling shifted so moves get time to develop.
+// Kill switch: set PAPER_TRADER_MAX_HOLD_MIN=20 in env to revert.
+export const PAPER_MAX_HOLD_MIN = Number(process.env.PAPER_TRADER_MAX_HOLD_MIN || 45);
 // Signal-strength-scaled hold ceiling: strong signals earn more time so
 // moves develop past the 13bp fee floor. Weak signals stay at the base.
-// At scalar=0.4 (min gate 55/50): +0min → 20 min hold.
-// At scalar=1.0 (strong 80/75):    +36min → 56 min hold.
-// At scalar=2.0 (95/95):           +90min → 110 min hold.
+// At scalar=0.4 (min gate 55/50): +0min  → 45 min hold.
+// At scalar=1.0 (strong 80/75):   +36min → 81 min hold.
+// At scalar=2.0 (95/95):          +90min → 135 min hold.
 export const PAPER_MAX_HOLD_EXTRA_MIN = Number(
   process.env.PAPER_TRADER_MAX_HOLD_EXTRA_MIN || 90,
 );

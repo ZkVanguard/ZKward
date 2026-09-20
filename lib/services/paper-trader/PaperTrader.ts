@@ -406,30 +406,51 @@ export class PaperTrader {
       }
     }
 
-    // L7 — vol-adaptive stop-loss + trailing-arm. Replaces the two static
-    // constants with vol-scaled percentages. Falls back to static on any
-    // vol-fetch failure (fail-open). See adaptive-stops.ts for the math.
+    // L7 — vol-adaptive trailing-arm. (The stop-loss half moved to
+    // price-anchored per-position stops at open — see the entry path.
+    // Trailing-arm still uses the vol-scaled NAV pct because it's about
+    // detecting a winning-move plateau, not cutting a losing trade.)
     const { computeAdaptiveThresholds } = await import('./adaptive-stops');
     const thresholds = await computeAdaptiveThresholds(pos.asset);
-    const stopLossPct = thresholds.stopLossPct;
     const trailingArmPct = thresholds.trailingArmPct;
 
-    // 1. Stop-loss — bail before max-hold if the position has already
-    //    leaked > stopLossPct of NAV. Vol-scaled: in a 60% vol regime
-    //    a 1.2% static stop gets stopped out by noise; adaptive expands
-    //    to ~2%. In a 25% regime it tightens to ~0.5% — cuts losers
-    //    that never had signal-edge to begin with.
-    const mtm = markToMarket(pos, markPrice, now);
-    if (mtm.unrealizedPnlUsd < -nav * stopLossPct) {
-      return PaperTrader.closeAtMark(
-        pos,
-        markPrice,
-        nav,
-        now,
-        `stop-loss: unrealized -$${Math.abs(mtm.unrealizedPnlUsd).toFixed(2)} > ${(stopLossPct * 100).toFixed(2)}% of NAV (${thresholds.source})`,
-        orderId,
-      );
+    // 1a. Price-anchored stop-loss — fires the tick mark crosses the
+    //     line set at open. Deterministic vs the old NAV-percentage
+    //     check which quietly never triggered (see post-mortem in
+    //     simulated-executor SimulatedPosition JSDoc).
+    if (pos.stopLossPrice) {
+      const hit = pos.side === 'LONG' ? markPrice <= pos.stopLossPrice : markPrice >= pos.stopLossPrice;
+      if (hit) {
+        return PaperTrader.closeAtMark(
+          pos,
+          markPrice,
+          nav,
+          now,
+          `stop-loss: mark $${markPrice.toFixed(4)} crossed $${pos.stopLossPrice.toFixed(4)}`,
+          orderId,
+        );
+      }
     }
+
+    // 1b. Take-profit — same mechanism, opposite direction. Locks in
+    //     winners that hit the 2× stop-distance target. Trailing stop
+    //     below still runs, so a runner that blows past TP still gets
+    //     ratcheted rather than capped.
+    if (pos.takeProfitPrice) {
+      const hit = pos.side === 'LONG' ? markPrice >= pos.takeProfitPrice : markPrice <= pos.takeProfitPrice;
+      if (hit) {
+        return PaperTrader.closeAtMark(
+          pos,
+          markPrice,
+          nav,
+          now,
+          `take-profit: mark $${markPrice.toFixed(4)} reached $${pos.takeProfitPrice.toFixed(4)}`,
+          orderId,
+        );
+      }
+    }
+
+    const mtm = markToMarket(pos, markPrice, now);
 
     // 2. Trailing stop — once we've been up >= trailingArmPct of NAV,
     //    close if we've given back PAPER_TRAILING_STOP_GIVEBACK_PCT
@@ -675,6 +696,28 @@ export class PaperTrader {
       direction: (s.direction ?? 'NEUTRAL') as 'UP' | 'DOWN' | 'NEUTRAL',
     }));
 
+    // Price-anchored stop-loss + take-profit computed from the adaptive
+    // vol thresholds AT OPEN. The prior implementation only compared
+    // mtm.unrealizedPnlUsd against -nav*stopLossPct — which is a
+    // NAV-blow-up threshold, not a per-trade risk cut. At ~$600K NAV,
+    // 0.4% stop = $2.4K, needing a ~2.7% adverse move on a $90K notional
+    // to trigger. In the Sept 15-17 pain window every stop check quietly
+    // returned "not yet" while positions ran the full max-hold. Anchoring
+    // stops to a concrete price locks the exit in at entry time and
+    // fires deterministically the moment mark crosses the line — plus
+    // exposes the numbers in `hedges.stop_loss` / `.take_profit` for
+    // dashboard + post-mortem review.
+    //
+    // Take-profit is set at 2× the stop distance (1.5R target with 1R
+    // stop). Trailing-stop still runs on top of TP so a runner that
+    // blows through TP doesn't cap the winner.
+    const { computeAdaptiveThresholds } = await import('./adaptive-stops');
+    const th = await computeAdaptiveThresholds(asset);
+    const stopFrac = th.stopLossPct;
+    const tpFrac = stopFrac * 2;
+    const stopLossPrice = side === 'LONG' ? markPrice * (1 - stopFrac) : markPrice * (1 + stopFrac);
+    const takeProfitPrice = side === 'LONG' ? markPrice * (1 + tpFrac)  : markPrice * (1 - tpFrac);
+
     const position: SimulatedPosition = {
       ...simulateOpen(
         { asset, side, notionalUsd, leverage: PAPER_LEVERAGE, entryPrice: markPrice },
@@ -685,6 +728,8 @@ export class PaperTrader {
       entryConfidence: conf,
       entryConsensus: cons,
       maxHoldMin: computeMaxHoldMinutes(signalScalar),
+      stopLossPrice,
+      takeProfitPrice,
     };
 
     const orderId = `paper_${asset}_${Math.floor(now / 1000)}`;
@@ -704,6 +749,8 @@ export class PaperTrader {
         notionalValue: notionalUsd,
         leverage: PAPER_LEVERAGE,
         entryPrice: markPrice,
+        stopLoss: stopLossPrice,
+        takeProfit: takeProfitPrice,
         simulationMode: true,
         reason: `paper: ${rec} conf=${picked.prediction.confidence.toFixed(0)} score=${picked.score.toFixed(1)}`,
         predictionMarket: 'paper-aggregate',
