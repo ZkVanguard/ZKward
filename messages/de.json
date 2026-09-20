@@ -255,7 +255,7 @@
   },
   "cookies": {
     "title": "Cookie-Einstellungen",
-    "description": "Wir verwenden Cookies, um Ihre Erfahrung zu verbessern und die Plattformnutzung zu analysieren. Ihre Wallet-Adresse ist öffentliche Blockchain-Daten - wir sammeln keine persönlichen Informationen.",
+    "description": "Cookies verbessern dein Erlebnis. Deine Wallet-Adresse ist öffentliche Blockchain-Daten — wir sammeln keine persönlichen Informationen.",
     "privacyPolicy": "Datenschutzrichtlinie",
     "customize": "Anpassen",
     "necessaryOnly": "Nur Notwendige",
@@ -538,7 +538,7 @@
   },
   "faq": {
     "meta": {
-      "title": "Häufig gestellte Fragen — ZKward",
+      "title": "FAQ — ZKward",
       "description": "Was ZKward ist, wie es funktioniert, was mit deinem Geld passiert und warum der Paper-Trader gerade im Minus ist."
     },
     "header": {
@@ -552,15 +552,15 @@
     },
     "q2": {
       "q": "Ist ZKward ein Hedgefonds?",
-      "a": "Nein. Ein Hedgefonds ist eine spezifische regulierte Rechtsform. ZKward ist ein On-chain-Vault. Non-custodial, permissionless, keine Akkreditierung erforderlich, On-chain-Gebührenbuchhaltung, Open-Source-Strategie. Er fährt ähnliche Directional-Strategien, aber mit öffentlichen Beweisen statt vierteljährlicher Briefe."
+      "a": "Nein. Ein Hedgefonds ist eine regulierte Rechtsform. ZKward ist ein On-chain-Vault — non-custodial, permissionless, keine Akkreditierung, On-chain-Gebührenbuchhaltung, Open-Source-Strategie. Ähnliche Directional-Plays, aber mit öffentlichen Beweisen statt vierteljährlicher Briefe."
     },
     "q3": {
       "q": "Wie viel kann ich einzahlen?",
-      "a": "Der Pool ist während der Operational-Proof-Phase durch den Move-Vertrag insgesamt auf 10.000 $ gedeckelt. Das wird on-chain erzwungen. Niemand, uns eingeschlossen, kann ihn ohne Governance-Aktion anheben. Cap-Erhöhungen erfolgen Schritt für Schritt, nachdem jede Stufe einen echten Drawdown-Test überstanden hat."
+      "a": "10.000 $ insgesamt, gedeckelt vom Move-Vertrag während der Operational-Proof-Phase. On-chain durchgesetzt — niemand, uns eingeschlossen, kann sie ohne Governance-Aktion anheben. Der Cap steigt Schritt für Schritt, sobald jede Stufe einen echten Drawdown-Test überlebt."
     },
     "q4": {
       "q": "Wo werden meine Mittel verwahrt?",
-      "a": "In einem SUI-Move-Objekt, das vom Pool-Vertrag kontrolliert wird. Deine Keys bleiben bei dir. Das ist non-custodial. Auszahlungen sind permissionless und jederzeit möglich, mit einem on-chain durchgesetzten 25-%-pro-Tag-Konto-Throttle gegen Draining-Angriffe."
+      "a": "In einem SUI-Move-Objekt, das vom Pool-Vertrag kontrolliert wird. Non-custodial — deine Keys bleiben bei dir. Auszahlungen sind permissionless und jederzeit möglich, mit einem on-chain durchgesetzten 25-%-pro-Tag-Konto-Throttle gegen Draining-Angriffe."
     },
     "q5": {
       "q": "Was ist ein STARK-Beweis und warum sollte mich das interessieren?",
@@ -576,7 +576,7 @@
     },
     "q8": {
       "q": "Warum verliert der Paper-Trader gerade Geld?",
-      "a": "Öffentliche Transparenz. Wir betreiben einen Paper-Trader gegen echte Signale und veröffentlichen jeden Trade. Gewinne und Verluste. Der aktuelle kumulative Paper-PnL liegt bei etwa -68.000 $, während wir das neue Gate-System (Volatility-Filter, Streak Guard, Trend Alignment, Signal-Quality) feintunen. Wenn wir die Verluste versteckten, hätten die Gewinne keine Aussage."
+      "a": "Öffentliche Transparenz. Wir lassen einen Paper-Trader gegen echte Signale laufen und veröffentlichen jeden Trade — Gewinne und Verluste. Der kumulative Paper-PnL liegt um -68.000 $, während wir das neue Gate-System (Volatility-Filter, Streak Guard, Trend Alignment, Signal-Quality) feintunen. Wenn wir die Verluste versteckten, hätten die Gewinne keine Aussage."
     },
     "q9": {
       "q": "Woher weiß ich, dass die KI sich nichts ausdenkt?",
@@ -606,7 +606,7 @@
     "description": "Die vollständige ZKward-These: Prediction-Market-Alpha, 7-Agenten-Architektur, STARK-attestierte Ausführung, Tokenomics, Roadmap."
   },
   "legacyBanner": {
-    "message": "<strong>zkvanguard.xyz wird bald abgeschaltet.</strong> Wir sind umgezogen auf <link>zkward.com</link>. Bitte aktualisiere deine Lesezeichen.",
+    "message": "<strong>zkvanguard.xyz wird abgeschaltet</strong> — wir sind jetzt auf <link>zkward.com</link>.",
     "dismiss": "Schließen"
   }
 }

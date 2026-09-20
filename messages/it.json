@@ -255,7 +255,7 @@
   },
   "cookies": {
     "title": "Preferenze cookie",
-    "description": "Utilizziamo i cookie per migliorare la vostra esperienza e analizzare l'utilizzo della piattaforma. Il vostro indirizzo wallet è un dato pubblico della blockchain - non raccogliamo informazioni personali.",
+    "description": "I cookie migliorano la tua esperienza. Il tuo indirizzo wallet è dato pubblico di blockchain — non raccogliamo informazioni personali.",
     "privacyPolicy": "Informativa sulla privacy",
     "customize": "Personalizza",
     "necessaryOnly": "Solo necessari",
@@ -538,7 +538,7 @@
   },
   "faq": {
     "meta": {
-      "title": "Domande frequenti — ZKward",
+      "title": "FAQ — ZKward",
       "description": "Cos'è ZKward, come funziona, cosa succede ai tuoi soldi e perché il paper trader è attualmente in rosso."
     },
     "header": {
@@ -552,15 +552,15 @@
     },
     "q2": {
       "q": "ZKward è un hedge fund?",
-      "a": "No. Un hedge fund è una struttura giuridica regolata specifica. ZKward è un vault on-chain. Non-custodial, permissionless, nessun accreditamento richiesto, contabilità delle fee on-chain, strategia open-source. Esegue strategie direzionali simili ma con prove pubbliche invece di lettere trimestrali."
+      "a": "No. Un hedge fund è una struttura giuridica regolata specifica. ZKward è un vault on-chain — non-custodial, senza permessi, senza accreditamento, contabilità delle fee on-chain, strategia open-source. Giocate direzionali simili, ma con prove pubbliche invece di lettere trimestrali."
     },
     "q3": {
       "q": "Quanto posso depositare?",
-      "a": "Il pool è limitato a 10.000 $ totali dal contratto Move durante la fase di prova operativa. È imposto on-chain. Nessuno, noi compresi, può alzarlo senza un'azione di governance. L'aumento del cap avviene passo dopo passo dopo che ogni fase sopravvive a un vero test di drawdown."
+      "a": "10.000 $ in totale, limitati dal contratto Move nella fase di prova operativa. Imposto on-chain — nessuno, noi compresi, può alzarlo senza un'azione di governance. Il tetto sale passo dopo passo mentre ogni fase sopravvive a un vero test di drawdown."
     },
     "q4": {
       "q": "Dove sono custoditi i miei fondi?",
-      "a": "In un oggetto SUI Move controllato dal contratto del pool. Le tue chiavi restano con te. È non-custodial. I prelievi sono permissionless e disponibili in qualsiasi momento, con un throttle del 25 % giornaliero per conto imposto on-chain per prevenire attacchi di svuotamento."
+      "a": "In un oggetto SUI Move controllato dal contratto del pool. Non-custodial — le tue chiavi restano con te. I prelievi sono senza permessi e disponibili in qualsiasi momento, con un throttle del 25 % giornaliero per conto imposto on-chain per prevenire attacchi di svuotamento."
     },
     "q5": {
       "q": "Cos'è una prova STARK e perché mi importa?",
@@ -576,7 +576,7 @@
     },
     "q8": {
       "q": "Perché il paper trader sta perdendo soldi adesso?",
-      "a": "Trasparenza pubblica. Facciamo girare un paper trader contro segnali reali e pubblichiamo ogni operazione. Vincite e perdite. Il PnL cumulativo su carta attuale è intorno a -68.000 $ mentre affiniamo il nuovo sistema di gate (filtro volatilità, streak guard, allineamento trend, qualità segnale). Se nascondessimo le perdite, le vincite non significherebbero nulla."
+      "a": "Trasparenza pubblica. Facciamo girare un paper trader contro segnali reali e pubblichiamo ogni operazione — vittorie e perdite. Il PnL cumulativo su carta è attorno a -68.000 $ mentre affiniamo il nuovo sistema di gate (filtro volatilità, streak guard, allineamento trend, qualità segnale). Se nascondessimo le perdite, le vittorie non significherebbero nulla."
     },
     "q9": {
       "q": "Come so che l'AI non se lo sta inventando?",
@@ -606,7 +606,7 @@
     "description": "La tesi completa di ZKward: alpha dei prediction market, architettura a 7 agenti, esecuzione attestata da STARK, tokenomics, roadmap."
   },
   "legacyBanner": {
-    "message": "<strong>zkvanguard.xyz verrà dismesso a breve.</strong> Ci siamo trasferiti su <link>zkward.com</link>. Aggiorna i preferiti.",
+    "message": "<strong>zkvanguard.xyz sta chiudendo</strong> — ora siamo su <link>zkward.com</link>.",
     "dismiss": "Chiudi"
   }
 }

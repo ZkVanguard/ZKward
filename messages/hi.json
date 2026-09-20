@@ -255,7 +255,7 @@
   },
   "cookies": {
     "title": "कुकी प्राथमिकताएं",
-    "description": "हम आपके अनुभव को बेहतर बनाने और प्लेटफॉर्म उपयोग का विश्लेषण करने के लिए कुकीज़ का उपयोग करते हैं। आपका वॉलेट एड्रेस पब्लिक ब्लॉकचेन डेटा है—हम व्यक्तिगत जानकारी एकत्र नहीं करते।",
+    "description": "कुकीज़ आपके अनुभव को बेहतर बनाती हैं। आपका wallet address सार्वजनिक blockchain डेटा है — हम व्यक्तिगत जानकारी नहीं जुटाते।",
     "privacyPolicy": "गोपनीयता नीति",
     "customize": "कस्टमाइज़",
     "necessaryOnly": "केवल आवश्यक",
@@ -538,7 +538,7 @@
   },
   "faq": {
     "meta": {
-      "title": "अक्सर पूछे जाने वाले प्रश्न — ZKward",
+      "title": "FAQ — ZKward",
       "description": "ZKward क्या है, कैसे काम करता है, आपके पैसे का क्या होता है, और paper trader फ़िलहाल घाटे में क्यों है।"
     },
     "header": {
@@ -552,15 +552,15 @@
     },
     "q2": {
       "q": "क्या ZKward एक hedge fund है?",
-      "a": "नहीं। Hedge fund एक विशिष्ट नियमित क़ानूनी संरचना है। ZKward एक on-chain वॉल्ट है। Non-custodial, permissionless, कोई accreditation नहीं चाहिए, on-chain fee accounting, open-source strategy। समान directional strategies चलाता है परन्तु तिमाही पत्रों की जगह सार्वजनिक प्रमाणों के साथ।"
+      "a": "नहीं। Hedge fund एक विशिष्ट नियमित क़ानूनी संरचना है। ZKward एक on-chain वॉल्ट है — non-custodial, permissionless, कोई accreditation नहीं, on-chain fee accounting, open-source strategy। समान directional खेल, लेकिन तिमाही पत्रों की जगह सार्वजनिक प्रमाणों के साथ।"
     },
     "q3": {
       "q": "मैं कितना जमा कर सकता हूँ?",
-      "a": "operational-proof चरण के दौरान Move कॉन्ट्रैक्ट द्वारा पूल कुल $10,000 तक सीमित है। यह on-chain लागू होता है। हमारे सहित कोई भी बिना governance action इसे नहीं बढ़ा सकता। हर चरण असली drawdown परीक्षण से बचने के बाद cap-lifting क़दम-दर-क़दम होती है।"
+      "a": "कुल $10,000, operational-proof चरण के दौरान Move कॉन्ट्रैक्ट द्वारा capped। on-chain लागू — हमारे सहित कोई भी बिना governance action इसे नहीं बढ़ा सकता। हर चरण असली drawdown परीक्षण से बचने पर cap क़दम-दर-क़दम बढ़ती है।"
     },
     "q4": {
       "q": "मेरे फ़ंड कहाँ रखे जाते हैं?",
-      "a": "पूल कॉन्ट्रैक्ट द्वारा नियंत्रित SUI Move object में। आपकी keys आपके पास ही रहती हैं। यह non-custodial है। निकासी permissionless है और किसी भी समय उपलब्ध है, draining attacks रोकने के लिए on-chain 25% प्रति दिन प्रति अकाउंट throttle के साथ।"
+      "a": "पूल कॉन्ट्रैक्ट द्वारा नियंत्रित SUI Move object में। Non-custodial — आपकी keys आपके पास ही रहती हैं। निकासी permissionless है और किसी भी समय उपलब्ध है, draining हमलों को रोकने के लिए on-chain लागू 25% प्रति दिन प्रति अकाउंट throttle के साथ।"
     },
     "q5": {
       "q": "STARK proof क्या है और मुझे इसकी चिंता क्यों करनी चाहिए?",
@@ -576,7 +576,7 @@
     },
     "q8": {
       "q": "Paper trader अभी पैसा क्यों गँवा रहा है?",
-      "a": "सार्वजनिक पारदर्शिता। हम असली सिग्नल के विरुद्ध paper trader चलाते हैं और हर ट्रेड प्रकाशित करते हैं। जीत और हार। नए gate system (volatility filter, streak guard, trend alignment, signal-quality) को ट्यून करते समय वर्तमान संचयी paper PnL लगभग -$68,000 है। यदि हम हानि छिपाते, तो जीत का कुछ मतलब नहीं होता।"
+      "a": "सार्वजनिक पारदर्शिता। हम असली सिग्नल के विरुद्ध paper trader चलाते हैं और हर ट्रेड प्रकाशित करते हैं — जीत और हार। संचयी paper PnL लगभग -$68,000 पर है जबकि हम नया gate system (volatility filter, streak guard, trend alignment, signal-quality) ट्यून कर रहे हैं। यदि हम हानि छिपाते, तो जीत का कुछ मतलब नहीं होता।"
     },
     "q9": {
       "q": "मैं कैसे जानूँ कि AI बना नहीं रहा?",
@@ -606,7 +606,7 @@
     "description": "पूर्ण ZKward thesis: prediction-market alpha, 7-एजेंट आर्किटेक्चर, STARK-प्रमाणित निष्पादन, tokenomics, roadmap।"
   },
   "legacyBanner": {
-    "message": "<strong>zkvanguard.xyz जल्द ही बंद हो जाएगा।</strong> हम <link>zkward.com</link> पर आ गए हैं। कृपया अपने बुकमार्क अपडेट करें।",
+    "message": "<strong>zkvanguard.xyz बंद हो रहा है</strong> — अब हम <link>zkward.com</link> पर हैं।",
     "dismiss": "बंद करें"
   }
 }
