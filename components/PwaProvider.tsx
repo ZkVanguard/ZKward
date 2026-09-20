@@ -3,7 +3,7 @@
 import { useEffect } from 'react';
 
 /**
- * Registers the ZkWard service worker exactly once per page load.
+ * Registers the ZKward service worker exactly once per page load.
  *
  * Why a dedicated provider component: registration MUST run client-side (there's
  * no navigator in SSR) and it's called from the root layout, which is a Server

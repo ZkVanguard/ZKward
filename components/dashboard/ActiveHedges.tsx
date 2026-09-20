@@ -41,7 +41,7 @@ export const ActiveHedges = memo(function ActiveHedges({ address, compact = fals
   
   // EIP-712 domain for signatures (dynamic based on chain)
   const getEIP712Domain = useCallback(() => ({
-    name: 'ZkVanguard',
+    name: 'ZKward',
     version: '1',
     chainId: chainId || CHAIN_IDS.CRONOS_TESTNET,
     verifyingContract: contractAddresses.hedgeExecutor,

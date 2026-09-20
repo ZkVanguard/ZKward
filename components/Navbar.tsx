@@ -73,6 +73,7 @@ export const Navbar = memo(function Navbar() {
     { href: '/zk', label: t('zk') },
     { href: '/rwa', label: t('rwa') },
     { href: '/whitepaper', label: t('whitepaper') },
+    { href: '/story', label: t('story') },
   ];
 
   return (
@@ -98,7 +99,7 @@ export const Navbar = memo(function Navbar() {
             on responsive audits. Clip contains it without altering layout. */}
         <div className="flex items-center justify-between h-[52px] min-w-0 overflow-x-clip">
           {/* Logo — brand mark + wordmark. Logo component already renders
-              the "ZkWard" text from sm: (640px+); no extra span needed. */}
+              the "ZKward" text from sm: (640px+); no extra span needed. */}
           <Link href="/" className="flex items-center gap-2 -ml-2">
             <Logo />
           </Link>

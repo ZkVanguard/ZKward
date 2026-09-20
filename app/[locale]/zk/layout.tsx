@@ -18,7 +18,7 @@ export async function generateMetadata(
     },
     // See agents/layout.tsx — openGraph/twitter omitted so the file-
     // convention OG image survives; title.template composes 'ZK-STARK
-    // proofs · ZkWard'.
+    // proofs · ZKward'.
   };
 }
 

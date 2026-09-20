@@ -20,7 +20,7 @@ const CRON_KEY_LAST_DRIFT_SHA = 'deploy-watchdog:last-drift-sha';
 const CRON_KEY_LAST_ALERT = 'deploy-watchdog:last-alert-ms';
 
 const PROD_URL = (process.env.PROD_URL || 'https://www.zkward.com').replace(/\/$/, '');
-const REPO = (process.env.DEPLOY_WATCHDOG_REPO || 'ZkVanguard/ZkVanguard').trim();
+const REPO = (process.env.DEPLOY_WATCHDOG_REPO || 'ZKward/ZKward').trim();
 
 export interface WatchdogResult {
   ok: boolean;

@@ -1,5 +1,5 @@
 /**
- * Live agent status chat — asks the ZkWard status oracle (ASI + tools).
+ * Live agent status chat — asks the ZKward status oracle (ASI + tools).
  * Read-only. Grounds every answer in live DB state via 6 agent tools.
  */
 'use client';

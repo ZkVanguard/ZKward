@@ -1,6 +1,6 @@
 
 /**
- * Advanced LLM Provider for ZkWard
+ * Advanced LLM Provider for ZKward
  * Integrates Crypto.com AI SDK with streaming, context management, and RAG capabilities
  */
 

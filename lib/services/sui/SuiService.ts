@@ -49,7 +49,7 @@ export const SUI_TOKENS = {
 /**
  * SUI Service Class
  *
- * Wraps @mysten/sui SDK functionality for ZkWard
+ * Wraps @mysten/sui SDK functionality for ZKward
  */
 export class SuiService {
   private network: SuiNetworkType;

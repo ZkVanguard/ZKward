@@ -1,7 +1,7 @@
 /**
  * SUI Contract Hooks
  * 
- * React hooks for interacting with ZkWard Move modules on SUI
+ * React hooks for interacting with ZKward Move modules on SUI
  */
 
 import { useCallback, useState } from 'react';

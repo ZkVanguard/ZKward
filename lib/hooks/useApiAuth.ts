@@ -28,7 +28,7 @@ export function useApiAuth(address?: string | null) {
     }
     if (!address) throw new Error('Wallet not connected');
     const timestamp = Math.floor(now / 1000);
-    const message = `ZkWard AI Chat\n\nWallet: ${address}\ntimestamp:${timestamp}`;
+    const message = `ZKward AI Chat\n\nWallet: ${address}\ntimestamp:${timestamp}`;
     const signature = await signMessageAsync({ message });
     const headers = {
       'x-wallet-address': address,

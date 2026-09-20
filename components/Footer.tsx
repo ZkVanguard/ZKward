@@ -24,6 +24,7 @@ export const Footer = memo(function Footer() {
                 <li><Link href="/agents" className={LINK_CLASS}>{t('agents')}</Link></li>
                 <li><Link href="/simulator" className={LINK_CLASS}>{t('simulator')}</Link></li>
                 <li><Link href="/whitepaper" className={LINK_CLASS}>{t('documentation')}</Link></li>
+                <li><Link href="/story" className={LINK_CLASS}>{t('story')}</Link></li>
               </ul>
             </div>
 
@@ -58,7 +59,7 @@ export const Footer = memo(function Footer() {
         <div className="border-t border-separator-opaque/40 py-6">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div className="text-caption-1 text-label-tertiary leading-relaxed">
-              © {currentYear} ZkWard. {t('rights')}
+              © {currentYear} ZKward. {t('rights')}
               <span className="hidden md:inline ml-2">·</span>
               <span className="block md:inline md:ml-2 text-ios-blue">{t('testnet')}</span>
               <div className="mt-1 text-caption-2 text-label-tertiary">{t('migrationNotice')}</div>

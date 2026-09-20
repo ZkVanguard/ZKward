@@ -32,7 +32,7 @@ export interface DriftAlertDecision {
  *   drifted=true  + stuckMs >= 60min    → KILL (re-alert; resets clock)
  *   drifted=true  + otherwise           → no-op (WARN already fired, KILL cooldown)
  */
-export function decideAlert(input: DriftAlertInput, repo = 'ZkVanguard/ZkVanguard'): DriftAlertDecision {
+export function decideAlert(input: DriftAlertInput, repo = 'ZKward/ZKward'): DriftAlertDecision {
   const { runningSha, originSha, originAgeMs, prevDriftSha, lastAlertMs, now } = input;
   const drifted = runningSha !== originSha;
   const isFreshPush = originAgeMs < DRIFT_GRACE_MS;

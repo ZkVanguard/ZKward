@@ -242,7 +242,7 @@ export function PortfolioTab() {
       <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 min-w-0">
         <div className="min-w-0">
           <div className="text-[11px] sm:text-[12px] text-[#86868b] uppercase tracking-wide font-medium mb-1">Platform overview</div>
-          <h1 className="text-2xl sm:text-3xl md:text-[32px] font-semibold text-[#1d1d1f] tracking-[-0.02em] leading-tight break-words">Your ZkWard portfolio</h1>
+          <h1 className="text-2xl sm:text-3xl md:text-[32px] font-semibold text-[#1d1d1f] tracking-[-0.02em] leading-tight break-words">Your ZKward portfolio</h1>
           <p className="text-xs sm:text-[13px] text-[#86868b] mt-1 font-mono truncate tabular-nums">{wallet.slice(0, 10)}…{wallet.slice(-6)}</p>
         </div>
         {data?.asOf && (
