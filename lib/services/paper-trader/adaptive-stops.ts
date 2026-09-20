@@ -74,26 +74,39 @@ async function annualVolFor(asset: string): Promise<number | null> {
 export async function computeAdaptiveThresholds(asset: string): Promise<AdaptiveThresholds> {
   try {
     const annualPct = await annualVolFor(asset);
-    if (!annualPct || annualPct <= 0) {
-      return {
-        stopLossPct: STATIC_STOP_LOSS_PCT,
-        trailingArmPct: STATIC_TRAILING_ARM_PCT,
-        source: 'static-fallback',
-      };
+    let stopLossPct = STATIC_STOP_LOSS_PCT;
+    let trailingArmPct = STATIC_TRAILING_ARM_PCT;
+    let src: AdaptiveThresholds['source'] = 'static-fallback';
+
+    if (annualPct && annualPct > 0) {
+      // annualPct is a percentage (e.g. 34 means 34%). Convert to fraction
+      // for the sqrt scaling.
+      const annualFrac = annualPct / 100;
+      const expectedMoveFrac = annualFrac / Math.sqrt(MIN_PER_YEAR_20MIN);
+      stopLossPct = Math.max(
+        MIN_STOP_PCT,
+        Math.min(MAX_STOP_PCT, expectedMoveFrac * STOP_MULTIPLE),
+      );
+      trailingArmPct = Math.max(
+        MIN_ARM_PCT,
+        Math.min(MAX_ARM_PCT, expectedMoveFrac * TRAILING_ARM_MULTIPLE),
+      );
+      src = 'adaptive';
     }
-    // annualPct is a percentage (e.g. 34 means 34%). Convert to fraction
-    // for the sqrt scaling.
-    const annualFrac = annualPct / 100;
-    const expectedMoveFrac = annualFrac / Math.sqrt(MIN_PER_YEAR_20MIN);
-    const stopLossPct = Math.max(
-      MIN_STOP_PCT,
-      Math.min(MAX_STOP_PCT, expectedMoveFrac * STOP_MULTIPLE),
-    );
-    const trailingArmPct = Math.max(
-      MIN_ARM_PCT,
-      Math.min(MAX_ARM_PCT, expectedMoveFrac * TRAILING_ARM_MULTIPLE),
-    );
-    return { stopLossPct, trailingArmPct, source: 'adaptive' };
+
+    // L10 — apply the active regime's stop multiplier on top of the
+    // vol-adaptive value. Chop → 0.75× stop, trending → 1.5× stop, so
+    // winners get room to run in a trend but losers cut fast in chop.
+    try {
+      const { getCurrentRegime, getRegimeMultipliers } = await import('./regime');
+      const { regime } = await getCurrentRegime();
+      const mults = getRegimeMultipliers(regime);
+      stopLossPct = Math.max(MIN_STOP_PCT, Math.min(MAX_STOP_PCT, stopLossPct * mults.stopLossMult));
+      // Trailing arm not regime-scaled — it's about winning-move detection,
+      // regime primarily affects loss tolerance.
+    } catch { /* regime lookup optional */ }
+
+    return { stopLossPct, trailingArmPct, source: src };
   } catch (e) {
     logger.debug('[AdaptiveStops] compute failed (fail-open)', {
       asset, error: errMsg(e),
