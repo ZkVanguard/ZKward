@@ -85,10 +85,10 @@ export const Navbar = memo(function Navbar() {
       // hard white bar sitting on top of the effect instead of glass.
       // The graph bg in SuiPoolLanding extends 96px above section top
       // so the navbar has real content to blur across its full height.
-      className={`fixed top-0 left-0 right-0 z-50 pt-safe pl-safe pr-safe transition-all duration-[250ms] ease-[cubic-bezier(0.4,0,0.2,1)] ${
+      className={`fixed top-0 left-0 right-0 z-50 pt-safe pl-safe pr-safe backdrop-blur-2xl backdrop-saturate-[180%] border-b transition-all duration-[250ms] ease-[cubic-bezier(0.4,0,0.2,1)] before:pointer-events-none before:absolute before:inset-x-0 before:top-0 before:h-px before:bg-gradient-to-r before:from-transparent before:via-white/60 before:to-transparent ${
         scrolled
-          ? 'bg-system-bg-primary/72 backdrop-blur-xl shadow-ios-1 border-b border-separator-opaque/20'
-          : 'bg-system-bg-primary/60 backdrop-blur-xl'
+          ? 'bg-system-bg-primary/65 shadow-[0_1px_0_rgba(255,255,255,0.4)_inset,0_8px_24px_-12px_rgba(0,0,0,0.12)] border-separator-opaque/25'
+          : 'bg-system-bg-primary/45 shadow-[0_1px_0_rgba(255,255,255,0.35)_inset] border-white/25'
       }`}
     >
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
@@ -98,7 +98,7 @@ export const Navbar = memo(function Navbar() {
             visual edge of the nav bar without expanding the padded content
             box), but they inflate scrollWidth and register as inner overflow
             on responsive audits. Clip contains it without altering layout. */}
-        <div className="flex items-center justify-between h-[52px] min-w-0 overflow-x-clip">
+        <div className="flex items-center justify-between h-[56px] min-w-0 overflow-x-clip">
           {/* Logo — brand mark + wordmark. Logo component already renders
               the "ZKward" text from sm: (640px+); no extra span needed. */}
           <Link href="/" className="flex items-center gap-2 -ml-2">
@@ -140,7 +140,7 @@ export const Navbar = memo(function Navbar() {
 
         {/* Mobile Navigation - Clean iOS-style list */}
         {isOpen && (
-          <div className="lg:hidden pb-safe-4 border-t border-black/10 animate-fade-in max-h-[calc(100vh-52px-env(safe-area-inset-top))] overflow-y-auto">
+          <div className="lg:hidden pb-safe-4 border-t border-black/10 animate-fade-in max-h-[calc(100vh-56px-env(safe-area-inset-top))] overflow-y-auto">
             <div className="py-2 space-y-0.5">
               {navLinks.map((link) => (
                 <Link
