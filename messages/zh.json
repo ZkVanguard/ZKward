@@ -8,7 +8,8 @@
     "vault": "金库",
     "zk": "ZK",
     "whitepaper": "白皮书",
-    "rwa": "RWA"
+    "rwa": "RWA",
+    "story": "故事"
   },
   "hero": {
     "eyebrow": "SUI Mainnet",
@@ -77,7 +78,8 @@
     "testnet": "SUI主网",
     "stage": "主网上线",
     "migrationNotice": "Formerly zkvanguard.xyz — zkward.com is our new home.",
-    "builtWith": "基于ZK-STARK构建"
+    "builtWith": "基于ZK-STARK构建",
+    "story": "我们的故事"
   },
   "connect": {
     "button": "连接钱包",

@@ -8,7 +8,8 @@
     "vault": "볼트",
     "zk": "ZK",
     "whitepaper": "백서",
-    "rwa": "RWA"
+    "rwa": "RWA",
+    "story": "스토리"
   },
   "hero": {
     "eyebrow": "SUI Mainnet",
@@ -77,7 +78,8 @@
     "testnet": "SUI Mainnet",
     "stage": "메인넷 라이브",
     "migrationNotice": "Formerly zkvanguard.xyz — zkward.com is our new home.",
-    "builtWith": "ZK-STARK로 구축"
+    "builtWith": "ZK-STARK로 구축",
+    "story": "우리 이야기"
   },
   "connect": {
     "button": "지갑 연결",

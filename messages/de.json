@@ -8,7 +8,8 @@
     "vault": "Vault",
     "zk": "ZK",
     "whitepaper": "Whitepaper",
-    "rwa": "RWA"
+    "rwa": "RWA",
+    "story": "Story"
   },
   "hero": {
     "eyebrow": "SUI Mainnet",
@@ -77,7 +78,8 @@
     "testnet": "SUI Mainnet",
     "stage": "Mainnet Live",
     "migrationNotice": "Formerly zkvanguard.xyz — zkward.com is our new home.",
-    "builtWith": "Entwickelt mit ZK-STARK"
+    "builtWith": "Entwickelt mit ZK-STARK",
+    "story": "Unsere Story"
   },
   "connect": {
     "button": "Wallet verbinden",
