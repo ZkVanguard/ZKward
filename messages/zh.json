@@ -10,8 +10,8 @@
     "whitepaper": "白皮书",
     "rwa": "RWA",
     "story": "故事",
-    "enterApp": "Enter app",
-    "faq": "FAQ"
+    "enterApp": "打开应用",
+    "faq": "常见问题"
   },
   "hero": {
     "eyebrow": "SUI Mainnet",
@@ -305,336 +305,336 @@
   },
   "landing": {
     "status": {
-      "liveOn": "Live on",
-      "hederaTestnet": "Hedera Testnet",
-      "suiMainnet": "SUI Mainnet",
-      "member": "member",
-      "members": "members"
+      "liveOn": "已上线",
+      "hederaTestnet": "Hedera 测试网",
+      "suiMainnet": "SUI 主网",
+      "member": "成员",
+      "members": "成员"
     },
     "hero": {
-      "headline1": "A vault that",
-      "headline2": "shows its work.",
-      "subtitle": "ZKward is an autonomous crypto vault. Seven AI agents make the trades. Every hedge closes with a cryptographic receipt you can verify yourself. Small pool on purpose. Real money."
+      "headline1": "一个自证其账的",
+      "headline2": "加密金库。",
+      "subtitle": "ZKward 是一个自主运行的加密金库。七个 AI 代理执行交易。每笔对冲都以你能亲自验证的密码学收据结束。刻意保持小规模的池子。真实的资金。"
     },
     "vault": {
-      "poolNav": "Pool NAV",
-      "sharePrice": "Share price",
-      "capacity": "Capacity",
-      "capacityOf": "{current} of {cap}"
+      "poolNav": "池子净值",
+      "sharePrice": "份额价格",
+      "capacity": "容量",
+      "capacityOf": "{current} / {cap}"
     },
     "cta": {
-      "depositUsdc": "Deposit USDC",
-      "howItWorks": "How it works",
-      "viewSource": "View source",
-      "installApp": "Install app",
-      "installIosHint": "To install: tap the Share icon in Safari, scroll down, and tap \"Add to Home Screen\"."
+      "depositUsdc": "存入 USDC",
+      "howItWorks": "工作原理",
+      "viewSource": "查看源码",
+      "installApp": "安装应用",
+      "installIosHint": "安装方法：在 Safari 中点击「分享」图标，向下滚动，点击「添加到主屏幕」。"
     },
     "composition": {
-      "eyebrow": "Live composition",
-      "title": "Where your USDC is right now.",
-      "body": "The AI rebalances every 30 minutes across BTC, ETH and SUI based on live market signals. Idle USDC counts as a defensive bucket. Refreshes every 30s."
+      "eyebrow": "实时构成",
+      "title": "你的 USDC 现在在哪里。",
+      "body": "AI 根据实时市场信号，每 30 分钟在 BTC、ETH 和 SUI 之间再平衡。闲置的 USDC 作为防御性储备。每 30 秒刷新一次。"
     },
     "howItWorks": {
-      "eyebrow": "How it works",
-      "title": "Three moving parts. One loop.",
-      "body": "It runs every five minutes, all day, without you. You deposit once and watch.",
+      "eyebrow": "工作原理",
+      "title": "三个运转部件。一个闭环。",
+      "body": "全天每五分钟运行一次，无需你参与。存入一次，坐等即可。",
       "step1": {
-        "title": "The AI reads the room",
-        "body": "Ten signal sources. Polymarket, Kalshi, Deribit vol, funding rates from four venues, price momentum. Fuse into a single allocation target. Seven agents have to agree before capital moves."
+        "title": "AI 读懂市场氛围",
+        "body": "十个信号源：Polymarket、Kalshi、Deribit 波动率、四家场所的资金费率、价格动量。融合成一个统一的仓位目标。七个代理必须达成一致，资金才会动。"
       },
       "step2": {
-        "title": "The pool rebalances",
-        "body": "Your USDC is swapped across BTC, ETH, and SUI on-chain. Drift-based. The pool only trades when the allocation actually shifts. Nothing wasted on churn."
+        "title": "池子再平衡",
+        "body": "你的 USDC 在链上在 BTC、ETH、SUI 之间兑换。基于偏移。只有当配置真正变化时才交易。不为反复调整而浪费。"
       },
       "step3": {
-        "title": "A hedge lands with a proof",
-        "body": "A matching BlueFin perpetual position balances the risk. Every open and close writes a STARK proof of the decision to the chain. Anyone can verify it. Nobody can fake it."
+        "title": "对冲落地伴随证明",
+        "body": "配对的 BlueFin 永续仓位平衡风险。每次开仓和平仓都会把决策的 STARK 证明写入链上。人人可验证。无人可伪造。"
       }
     },
     "trust": {
-      "title": "The rails are written into the contract.",
-      "body": "Not a policy on our website. Rules the chain enforces, whether we're paying attention or not.",
+      "title": "护栏写进了合约里。",
+      "body": "不是网站上的一条政策。是链会强制执行的规则，无论我们是否留意。",
       "poolCap": {
-        "title": "Pool cap",
-        "value": "$10,000",
-        "hint": "Enforced by the Move contract. Not a marketing number."
+        "title": "池子上限",
+        "value": "10,000 美元",
+        "hint": "由 Move 合约强制执行。不是营销数字。"
       },
       "freshOracle": {
-        "title": "Fresh oracle",
-        "value": "Strict mode",
-        "hint": "Deposits revert if the NAV attestation is older than two hours."
+        "title": "新鲜的预言机",
+        "value": "严格模式",
+        "hint": "如果净值证明超过两小时，存款会被回退。"
       },
       "withdrawThrottle": {
-        "title": "Withdraw throttle",
-        "value": "25% / day",
-        "hint": "A single account cannot drain the pool. Rate limit on-chain."
+        "title": "提现节流",
+        "value": "每日 25%",
+        "hint": "单个账户无法抽干池子。链上限速。"
       },
       "proofs": {
-        "title": "Proofs, not promises",
-        "value": "Post-quantum",
-        "hint": "STARK proofs on the Goldilocks field. Quantum-safe by design."
+        "title": "证明，不是承诺",
+        "value": "抗量子",
+        "hint": "在 Goldilocks 域上的 STARK 证明。设计即抗量子。"
       },
       "twoChains": {
-        "title": "Two chains, one code",
+        "title": "两条链，一份代码",
         "value": "Hedera + SUI",
-        "hint": "Live on both. SUI is the flagship. Hedera is the fallback."
+        "hint": "两条链都在线上。SUI 是旗舰。Hedera 是备份。"
       }
     },
     "surfaces": {
-      "eyebrow": "Have a look around",
-      "title": "Every corner of ZKward is public.",
-      "body": "The dashboard, the agents, the proofs, the whitepaper, the story. Nothing hidden behind a login except your own wallet.",
+      "eyebrow": "四处看看",
+      "title": "ZKward 的每个角落都公开。",
+      "body": "仪表盘、代理、证明、白皮书、故事。除了你自己的钱包，没有任何东西藏在登录之后。",
       "dashboard": {
-        "eyebrow": "Dashboard",
-        "title": "Your pool, in one screen.",
-        "body": "Balance, hedges, drawdown, and the proof feed. Refreshes every minute. What you see is what the chain says."
+        "eyebrow": "仪表盘",
+        "title": "你的池子，一屏纵览。",
+        "body": "余额、对冲、回撤和证明流。每分钟刷新。你看到的就是链上所说的。"
       },
       "rwa": {
-        "eyebrow": "Real-world assets",
-        "title": "Off-chain assets, on-chain proof.",
-        "body": "Custodian signatures bind portfolios to real assets while keeping the holdings private. Built for issuers and institutions."
+        "eyebrow": "现实世界资产",
+        "title": "链下资产，链上证明。",
+        "body": "托管人签名将投资组合与真实资产绑定，同时保持持仓私密。为发行方和机构而建。"
       },
       "agents": {
-        "eyebrow": "The seven agents",
-        "title": "Meet the specialists.",
-        "body": "Lead, Risk, Hedging, Settlement, Reporting, Price Monitor, SUI Pool. Each has a job. Big trades need 2-of-3 to agree."
+        "eyebrow": "七个代理",
+        "title": "认识这些专家。",
+        "body": "Lead、Risk、Hedging、Settlement、Reporting、Price Monitor、SUI Pool。各司其职。大额交易需要 2/3 同意。"
       },
       "zk": {
-        "eyebrow": "Zero-knowledge proofs",
-        "title": "Not screenshots. Math.",
-        "body": "Post-quantum STARK proofs, verifiable in your browser. 180-bit soundness. No trusted setup, no elliptic curves."
+        "eyebrow": "零知识证明",
+        "title": "不是截图。是数学。",
+        "body": "抗量子 STARK 证明，可在浏览器中验证。180 位可靠性。无需可信设置，无椭圆曲线。"
       },
       "story": {
-        "eyebrow": "Our story",
-        "title": "How we got here.",
-        "body": "A five-minute read. Warm, honest, and yes, we tell you when we lose money. That is the whole point."
+        "eyebrow": "我们的故事",
+        "title": "我们是怎么走到这里的。",
+        "body": "五分钟阅读。温暖、诚实，而且是的，我们赔钱时会告诉你。这才是重点。"
       },
       "whitepaper": {
-        "eyebrow": "Whitepaper",
-        "title": "The technical version.",
-        "body": "Prediction-market alpha, 7-agent architecture, STARK-attested execution, roadmap, references. For the engineers in the room."
+        "eyebrow": "白皮书",
+        "title": "技术版本。",
+        "body": "预测市场 alpha、7 代理架构、STARK 证明执行、路线图、参考。给房间里的工程师。"
       }
     },
     "finalCta": {
-      "title": "Come see it running.",
-      "body": "Connect a wallet, deposit USDC, close the tab. The AI takes it from there.",
-      "alreadyIn": "{count} already in.",
-      "paused": "Deposits currently paused for maintenance."
+      "title": "来看它运行。",
+      "body": "连接钱包，存入 USDC，关闭标签页。剩下的交给 AI。",
+      "alreadyIn": "已有 {count} 加入。",
+      "paused": "维护期间存款暂停。"
     }
   },
   "agentsPage": {
     "meta": {
-      "title": "The seven agents — ZKward",
-      "description": "Seven specialists that argue with each other before any real money moves. Live chat, read-only."
+      "title": "七个代理 — ZKward",
+      "description": "七位专家在任何真实资金移动之前相互辩论。实时聊天，只读。"
     },
     "header": {
-      "badge": "Seven agents, live, read-only",
-      "title": "Ask ZKward.",
-      "subtitle": "Talk to the vault. Every answer reads live state from the same tools the agents use. Nothing rehearsed."
+      "badge": "七个代理，实时，只读",
+      "title": "问 ZKward。",
+      "subtitle": "与金库对话。每个回答都从代理使用的相同工具中读取实时状态。毫不排练。"
     },
-    "meetTheCrew": "Meet the crew",
-    "architecture": "Architecture",
-    "architectureBody": "All agents talk through a central <bus>MessageBus</bus> and extend a common <base>BaseAgent</base>. Each concern owns one file. Nothing shares state through globals.",
+    "meetTheCrew": "认识团队",
+    "architecture": "架构",
+    "architectureBody": "所有代理通过中央 <bus>MessageBus</bus> 通信，并扩展共同的 <base>BaseAgent</base>。每个关注点由一个文件承担。没有通过全局共享状态。",
     "agents": {
       "lead": {
         "name": "Lead",
-        "role": "The dispatcher",
-        "description": "Reads what you asked, figures out who should handle it, and stitches the pieces back into one answer.",
+        "role": "调度员",
+        "description": "读取你的问题，判断谁应处理，并将各部分缝合为一个答案。",
         "capabilities": {
-          "c1": "Natural language intent parsing",
-          "c2": "Routes to the right specialist",
-          "c3": "Merges results into one reply",
-          "c4": "Coordinates multi-agent calls"
+          "c1": "自然语言意图解析",
+          "c2": "路由到合适的专家",
+          "c3": "将结果融合为单一回复",
+          "c4": "协调多代理调用"
         }
       },
       "risk": {
         "name": "Risk",
-        "role": "The worrier",
-        "description": "Watches how much of the pool is at risk, flags positions that are getting close to liquidation, and scores overall portfolio health.",
+        "role": "担忧者",
+        "description": "监控池子多少处于风险中，标记接近清算的仓位，并对整体组合健康度打分。",
         "capabilities": {
-          "c1": "Value at Risk (VaR) calculation",
-          "c2": "Volatility and Sharpe ratio",
-          "c3": "Liquidation distance per position",
-          "c4": "Portfolio health score, 0 to 100"
+          "c1": "在险价值（VaR）计算",
+          "c2": "波动率与夏普比率",
+          "c3": "每个仓位的清算距离",
+          "c4": "组合健康度得分，0 到 100"
         }
       },
       "hedging": {
         "name": "Hedging",
-        "role": "The insurance broker",
-        "description": "When Risk flags something, Hedging picks the counter-trade that offsets it. Short size, leverage, and asset all confidence-scored before anything opens.",
+        "role": "保险经纪人",
+        "description": "当 Risk 标记时，Hedging 选择抵消它的反向交易。空头规模、杠杆和资产在开仓前均经过置信度评分。",
         "capabilities": {
-          "c1": "Short position sizing",
-          "c2": "Options strategy generation",
-          "c3": "Cross-asset correlation analysis",
-          "c4": "Every strategy tagged with a confidence score"
+          "c1": "空头仓位定量",
+          "c2": "期权策略生成",
+          "c3": "跨资产相关性分析",
+          "c4": "每个策略都带置信度得分"
         }
       },
       "settlement": {
         "name": "Settlement",
-        "role": "The signer",
-        "description": "Turns a decision into an on-chain transaction. Batches where it can to save gas, produces the ZK proof, and knows how to unwind if something fails.",
+        "role": "签名者",
+        "description": "将决策转为链上交易。在可能时批处理以节省 gas，生成 ZK 证明，并知道失败时如何回滚。",
         "capabilities": {
-          "c1": "Batch transaction processing",
-          "c2": "Gas optimization, typically 20 to 40 percent",
-          "c3": "ZK-STARK proof coordination",
-          "c4": "Rollback and retry on failure"
+          "c1": "批量交易处理",
+          "c2": "Gas 优化，通常 20 到 40%",
+          "c3": "ZK-STARK 证明协调",
+          "c4": "失败时回滚与重试"
         }
       },
       "reporting": {
         "name": "Reporting",
-        "role": "The bookkeeper",
-        "description": "Compiles the plain-English summary of what happened. Runs daily, weekly, monthly, and on-demand for the audit trail.",
+        "role": "记账员",
+        "description": "编写发生事项的通俗摘要。日报、周报、月报与按需的审计跟踪。",
         "capabilities": {
-          "c1": "Daily, weekly, and monthly reports",
-          "c2": "Performance and P&L tracking",
-          "c3": "Top positions analysis",
-          "c4": "Historical trend detection"
+          "c1": "日报、周报、月报",
+          "c2": "绩效与 P&L 跟踪",
+          "c3": "头部仓位分析",
+          "c4": "历史趋势检测"
         }
       },
       "priceMonitor": {
         "name": "Price Monitor",
-        "role": "The lookout",
-        "description": "Watches the 5-minute prediction-market ticker across BTC, ETH, SUI, and CRO. When a signal flips, it broadcasts inside seconds so the others can react.",
+        "role": "瞭望员",
+        "description": "监控 BTC、ETH、SUI 和 CRO 的 5 分钟预测市场行情。信号翻转时，秒级广播供他人响应。",
         "capabilities": {
-          "c1": "BTC, ETH, SUI, CRO threshold watch",
-          "c2": "Polymarket 5-min event stream",
-          "c3": "Fires on signal flip",
-          "c4": "Per-asset alert routing"
+          "c1": "BTC/ETH/SUI/CRO 阈值监控",
+          "c2": "Polymarket 5 分钟事件流",
+          "c3": "信号翻转即触发",
+          "c4": "按资产分发告警"
         }
       },
       "suiPool": {
         "name": "SUI Pool",
-        "role": "The pool operator",
-        "description": "Runs the SUI USDC community pool. Reads the fused signal, picks the allocation across four assets, rebalances via BlueFin, and never lets anyone bypass the on-chain safety guards.",
+        "role": "池子运营方",
+        "description": "运营 SUI USDC 社区池。读取融合信号，在四种资产间选择配置，通过 BlueFin 再平衡，绝不允许任何人绕过链上安全护栏。",
         "capabilities": {
-          "c1": "Four-asset allocation across BTC, ETH, SUI, CRO",
-          "c2": "BlueFin aggregator rebalance",
-          "c3": "SafeExecutionGuard enforcement",
-          "c4": "Rebalances only when AI confidence clears 65 percent"
+          "c1": "BTC、ETH、SUI、CRO 四资产配置",
+          "c2": "BlueFin 聚合再平衡",
+          "c3": "SafeExecutionGuard 执行",
+          "c4": "只有当 AI 置信度超过 65% 才再平衡"
         }
       }
     }
   },
   "story": {
     "meta": {
-      "title": "Our story — ZKward",
-      "description": "How ZKward started, what it does, and why we tell you when it loses money."
+      "title": "我们的故事 — ZKward",
+      "description": "ZKward 如何开始，做什么，以及为何我们在它赔钱时告诉你。"
     },
     "header": {
-      "eyebrow": "Our story",
-      "title": "How we got here",
-      "subtitle": "Five minutes. No jargon. Grab a coffee."
+      "eyebrow": "我们的故事",
+      "title": "我们是怎么走到这里的",
+      "subtitle": "五分钟。没有术语。拿杯咖啡。"
     },
-    "intro": "The project used to be called <em>ZkVanguard</em>. People kept asking if we were a bond fund. It sounded like your dad's retirement plan. So we renamed it to <strong>ZKward</strong>. Same idea, slightly awkward to say out loud. You'll get used to it.",
+    "intro": "项目以前叫 <em>ZkVanguard</em>。人们总问我们是不是债券基金。听起来像你父亲的退休计划。所以我们改名为 <strong>ZKward</strong>。同样的想法，念起来略拗口。你会习惯的。",
     "whatItIs": {
-      "heading": "What it is, in one sentence",
-      "body": "A savings pool that trades for you and shows its math, so you don't have to take our word for it."
+      "heading": "一句话说明它是什么",
+      "body": "一个替你交易并展示其数学的储蓄池，让你不用听我们的话。"
     },
     "howItWorks": {
-      "heading": "How it works, plainly",
-      "body1": "You put in USDC. A small crew of computer programs reads what people are betting on in prediction markets (like Polymarket) and lines up trades on crypto based on that. When it makes a trade, it also produces a little cryptographic receipt that anyone can check. The receipt proves the trade followed the rules. Without revealing your position.",
-      "body2": "Think of it as an autopilot with a black box flight recorder. Except the recorder is public, and the autopilot won't take off in bad weather."
+      "heading": "直白地说，它如何工作",
+      "body1": "你放入 USDC。一支小小的程序队伍读取人们在预测市场（如 Polymarket）上下注的内容，并据此在加密市场排布交易。当它交易时，还会生成一张任何人都能核验的小小密码学收据。收据证明交易遵守了规则。而不会泄露你的仓位。",
+      "body2": "把它想成带黑匣子的自动驾驶。只是黑匣子公开，而且自动驾驶在恶劣天气不会起飞。"
     },
     "whereStarted": {
-      "heading": "Where it started",
-      "body1": "A hackathon weekend. Too much coffee. One question: <em>if computers move real money, why does anyone trust their reasoning?</em> We thought we'd answer in two days. It took eighteen months.",
-      "body2": "Along the way we won five hackathons, contributed to Tether's wallet toolkit, and shipped on a handful of blockchains. Most of the test deployments lasted about an afternoon. <strong>SUI</strong> stuck. It's fast, cheap, and doesn't break when you look at it wrong. That's where the money lives now."
+      "heading": "它从哪里开始",
+      "body1": "一个黑客松周末。咖啡太多。一个问题：<em>如果计算机在移动真实的资金，为什么有人会信任它们的推理？</em> 我们本以为两天能回答，结果花了十八个月。",
+      "body2": "一路上我们赢了五个黑客松、为 Tether 的钱包工具集做了贡献，在多条区块链上部署。大多数测试部署只撑了一个下午。<strong>SUI</strong> 撑住了。它快、便宜，并且你怎么看都不会坏。钱现在就住在那里。"
     },
     "shipToday": {
-      "heading": "What we ship today",
-      "item1": "A real pool on SUI mainnet. Small on purpose. The contract itself caps deposits at $10,000. We wanted to prove it works before scaling. Slow is the point.",
-      "item2": "Eight safety switches that can pause the whole thing if something looks off. One tripped yesterday, after a rough day of testing (more on that below).",
-      "item3": "A learning loop: the AI grades its own trades, retrains overnight, and tries again. Sometimes it gets better. Sometimes it finds new ways to fail. We publish both.",
-      "item4": "A cryptographic receipt for every trade. Not a screenshot. A proof."
+      "heading": "我们今天交付的",
+      "item1": "SUI 主网上的一个真实池子。刻意小。合约本身把存款上限设在 10,000 美元。我们想在扩大之前先证明它能工作。慢就是重点。",
+      "item2": "八个安全开关，若发现异常可暂停整个系统。昨天在一天艰难测试后触发了一个（详见下文）。",
+      "item3": "一个学习循环：AI 给自己的交易打分，夜间重新训练，再次尝试。有时会变好。有时会找到新的失败方式。我们都发布。",
+      "item4": "每笔交易都有一张密码学收据。不是截图。是证明。"
     },
     "whyWeTell": {
-      "heading": "Why we tell you when it loses",
-      "body1": "Most projects only talk about their wins. Right now, our test trader is down about $68,000 on paper. We're telling you because that's the whole point. If you can't see the losses, the wins don't mean much.",
-      "body2": "Also, hiding a loss is how a small loss turns into a much larger one three months later. We tried that once. Do not recommend."
+      "heading": "为什么我们在赔钱时告诉你",
+      "body1": "大多数项目只谈胜利。目前，我们的测试交易员在纸面上大约亏损 68,000 美元。我们告诉你，因为这才是重点。如果你看不到亏损，胜利就没什么意义。",
+      "body2": "此外，隐藏亏损是小损失在三个月后变成更大损失的方式。我们试过一次。不推荐。"
     },
     "whoBuilds": {
-      "heading": "Who's making it",
-      "body1": "Mostly one person, working from nine time zones away from most of you. Computer science degree, some years at big companies, an unreasonable number of side quests. Funded by savings and small grants that pay out roughly around the time the founder starts skipping lunch.",
-      "body2": "The paper trader has occasionally cost more per month than the founder eats. We consider this on-brand."
+      "heading": "谁在做",
+      "body1": "主要是一个人，距离你们大多数人有九个时区。计算机科学学位，在大公司工作过若干年，副业多到不合理。由积蓄和小额资助支撑，这些资助的到账时间大约与创始人开始跳过午餐同步。",
+      "body2": "有时候纸面交易员一个月的开销超过创始人的伙食费。我们认为这很符合品牌。"
     },
     "next": {
-      "heading": "Where this goes next",
-      "body": "Two things need to happen. First, prove the trader stops losing money in the test pool. Then raise the deposit cap, one careful step at a time, with a real drawdown test at each step. If we skip a step, please yell at us on <telegram>Telegram</telegram>."
+      "heading": "接下来它要去哪里",
+      "body": "两件事需要发生。首先，证明交易员在测试池中不再赔钱。然后逐步提高存款上限，每一步都伴随真实回撤测试。如果我们跳过一步，请到 <telegram>Telegram</telegram> 上骂我们。"
     },
     "footer": {
-      "technical": "Want the technical version? {link}",
-      "readWhitepaper": "Read the whitepaper",
-      "orJust": "Or just {link}.",
-      "openApp": "open the app"
+      "technical": "想看技术版本吗？{link}",
+      "readWhitepaper": "阅读白皮书",
+      "orJust": "或者干脆 {link}。",
+      "openApp": "打开应用"
     }
   },
   "faq": {
     "meta": {
-      "title": "Frequently asked questions — ZKward",
-      "description": "What ZKward is, how it works, what happens with your money, and why the paper trader is currently in the red."
+      "title": "常见问题 — ZKward",
+      "description": "ZKward 是什么、如何工作、你的资金会发生什么，以及为何纸面交易员目前处于亏损中。"
     },
     "header": {
-      "eyebrow": "FAQ",
-      "title": "Common questions",
-      "subtitle": "Short answers. If yours is missing, email {email} and we'll add it."
+      "eyebrow": "常见问题",
+      "title": "常见问题",
+      "subtitle": "简短的回答。如果缺你的问题，发邮件到 {email}，我们会加上。"
     },
     "q1": {
-      "q": "What is ZKward?",
-      "a": "ZKward is an autonomous crypto vault. You deposit USDC. Seven AI agents read prediction markets, funding rates, and price momentum, then trade across BTC, ETH, and SUI. Every hedge decision closes with a cryptographic proof anyone can verify on-chain."
+      "q": "ZKward 是什么？",
+      "a": "ZKward 是一个自主运行的加密金库。你存入 USDC。七个 AI 代理读取预测市场、资金费率与价格动量，然后在 BTC、ETH 和 SUI 中交易。每次对冲决策都以任何人可以在链上验证的密码学证明结束。"
     },
     "q2": {
-      "q": "Is ZKward a hedge fund?",
-      "a": "No. A hedge fund is a specific regulated legal structure. ZKward is an on-chain vault. Non-custodial, permissionless, no accreditation required, on-chain fee accounting, open-source strategy. It runs similar directional strategies but with public proofs instead of quarterly letters."
+      "q": "ZKward 是对冲基金吗？",
+      "a": "不是。对冲基金是一种特定的受监管法律结构。ZKward 是一个链上金库。非托管、无许可、无需资格认证、链上费用记账、开源策略。它运行相似的方向性策略，但用公开证明替代季度信件。"
     },
     "q3": {
-      "q": "How much can I deposit?",
-      "a": "The pool is capped at $10,000 total by the Move contract during the operational-proof phase. This is enforced on-chain. Nobody, including us, can raise it without a governance action. Cap-lifting happens step by step after each stage survives a real drawdown test."
+      "q": "我最多能存多少？",
+      "a": "在运营验证阶段，Move 合约将池子上限总额限定为 10,000 美元。这是链上强制的。包括我们在内，没有人可以在不进行治理操作的情况下提高。上限提升在每一步通过真实回撤测试后逐步进行。"
     },
     "q4": {
-      "q": "Where are my funds held?",
-      "a": "In a SUI Move object controlled by the pool contract. Your keys stay with you. This is non-custodial. Withdrawals are permissionless and available anytime, with a 25% per-day account throttle enforced on-chain to prevent draining attacks."
+      "q": "我的资金保管在哪里？",
+      "a": "在由池子合约控制的 SUI Move 对象中。你的密钥仍在你手上。是非托管的。提现无许可且随时可用，并有链上强制执行的每账户每日 25% 节流，以防止抽干攻击。"
     },
     "q5": {
-      "q": "What is a STARK proof and why do I care?",
-      "a": "A STARK proof is a mathematical receipt that lets anyone verify a computation happened correctly, without seeing the private inputs. When ZKward opens or closes a hedge, it writes a STARK proof to the chain proving the trade followed the vault rules (asset caps, leverage caps, size limits). No black box. No \"trust us.\""
+      "q": "什么是 STARK 证明，为什么我需要关心？",
+      "a": "STARK 证明是一份数学收据，让任何人在不看到私有输入的情况下验证某次计算正确执行。当 ZKward 开仓或平仓时，它会向链上写入 STARK 证明，证明交易遵守了金库规则（资产上限、杠杆上限、规模限制）。没有黑箱，也没有「信我们」。"
     },
     "q6": {
-      "q": "What chains does ZKward run on?",
-      "a": "SUI mainnet is the lead chain (live pool at package 0x107292…7b726). Reference deployments exist on Hedera Testnet, Sepolia, Cronos EVM, Oasis Sapphire, and Arbitrum Sepolia. Portability is proven; production expands where demand justifies it."
+      "q": "ZKward 在哪些链上运行？",
+      "a": "SUI 主网是主链（在 package 0x107292…7b726 上有实时池子）。参考部署存在于 Hedera Testnet、Sepolia、Cronos EVM、Oasis Sapphire 和 Arbitrum Sepolia。可移植性已经证明；生产会在需求合理的地方扩展。"
     },
     "q7": {
-      "q": "What are the fees?",
-      "a": "50 basis points annual management and 10% performance on realised profits. Fees are routed through a MSafe multisig-held FeeManagerCap, distinct from the operational AdminCap. The fee path cannot be seized by an admin key compromise."
+      "q": "费用是多少？",
+      "a": "50 个基点的年管理费和 10% 的已实现利润业绩费。费用通过由 MSafe 多签持有的 FeeManagerCap 走，与运营用的 AdminCap 分开。费用路径不会因 admin 密钥被入侵而被劫持。"
     },
     "q8": {
-      "q": "Why is the paper trader losing money right now?",
-      "a": "Public transparency. We run a paper trader against real signals and publish every trade. Wins and losses. Current cumulative paper PnL is around -$68,000 while we tune the new gate system (volatility filter, streak guard, trend alignment, signal-quality). If we hid the losses, the wins would not mean anything."
+      "q": "为什么纸面交易员目前在亏钱？",
+      "a": "公开透明。我们对真实信号运行一个纸面交易员，并公布每笔交易，胜负都包括。当前纸面累计 PnL 大约 -68,000 美元，我们同时在调整新的 gate 系统（波动率过滤、连败守卫、趋势对齐、信号质量）。如果我们隐瞒亏损，胜利就没有任何意义。"
     },
     "q9": {
-      "q": "How do I know the AI is not just making it up?",
-      "a": "Every decision that moves capital emits a STARK proof committed to the SUI chain. The proof binds the decision to on-chain invariants (asset caps, leverage caps, size). Anyone can verify with the on-chain verifier. Trades under $100K also pass a 5-second cooldown, a 30-bps slippage ceiling, and a max-3-concurrent breaker. Trades over $100K need a 2-of-3 vote from the agent quorum."
+      "q": "我怎么知道 AI 不是在编造？",
+      "a": "每一个移动资金的决策都会在 SUI 链上提交一份 STARK 证明。证明将决策绑定到链上不变量（资产上限、杠杆上限、规模）。任何人都可以用链上验证器核验。低于 100K 美元的交易还会经过 5 秒冷却、30 bps 滑点上限和最多 3 个并发的 breaker。高于 100K 美元的交易则需要代理法定人数 2/3 的投票。"
     },
     "q10": {
-      "q": "Is ZKward safe against quantum computers?",
-      "a": "The STARK proof system is transparent (no trusted setup) and uses only SHA-256 Merkle trees and the Goldilocks prime field. No elliptic curves, no discrete-log, no pairings. Shor's algorithm. The quantum attack that breaks RSA and ECDSA. Is a non-threat here. Effective soundness is 180 bits, 52 bits above NIST post-quantum Level 1."
+      "q": "ZKward 对量子计算机安全吗？",
+      "a": "STARK 证明系统是透明的（无需可信设置），只使用 SHA-256 Merkle 树与 Goldilocks 素域。没有椭圆曲线，没有离散对数，没有配对。破解 RSA 与 ECDSA 的 Shor 算法在这里不是威胁。有效可靠性为 180 位，比 NIST 后量子 Level 1 高 52 位。"
     },
     "q11": {
-      "q": "Can I withdraw at any time?",
-      "a": "Yes. Withdrawal is permissionless. You sign a transaction, the contract calculates your share of the pool NAV, funds return to your wallet. A 25% per-day throttle per account is enforced by the contract to prevent draining under stress. There is no lockup, no notice period, no manager approval."
+      "q": "我可以随时提现吗？",
+      "a": "可以。提现是无许可的。你签署一笔交易，合约计算你在池子 NAV 中的份额，资金返回你的钱包。合约会执行每账户每日 25% 的节流，以防止在压力下被抽干。没有锁定期、没有通知期、也没有管理者审批。"
     },
     "q12": {
-      "q": "How do I contact the team?",
-      "a": "Email ashish.regmi@zkward.com or join our Telegram (link in the footer). GitHub issues also work for technical questions."
+      "q": "我如何联系团队？",
+      "a": "邮件发到 ashish.regmi@zkward.com 或加入我们的 Telegram（页脚有链接）。技术问题也可以发 GitHub issue。"
     },
     "footer": {
-      "technical": "Want the full technical version? {link}",
-      "readWhitepaper": "Read the whitepaper",
-      "orRead": "Or read {link}.",
-      "ourStory": "our story"
+      "technical": "想看完整的技术版本？{link}",
+      "readWhitepaper": "阅读白皮书",
+      "orRead": "或阅读{link}。",
+      "ourStory": "我们的故事"
     }
   },
   "whitepaperMeta": {
-    "title": "Whitepaper",
-    "description": "The full ZKward thesis: prediction-market alpha, 7-agent architecture, STARK-attested execution, tokenomics, roadmap."
+    "title": "白皮书",
+    "description": "ZKward 完整论述：预测市场 alpha、7 代理架构、STARK 证明执行、代币经济学、路线图。"
   }
 }

@@ -10,7 +10,7 @@
     "whitepaper": "Whitepaper",
     "rwa": "RWA",
     "story": "História",
-    "enterApp": "Enter app",
+    "enterApp": "Abrir o app",
     "faq": "FAQ"
   },
   "hero": {
@@ -305,336 +305,336 @@
   },
   "landing": {
     "status": {
-      "liveOn": "Live on",
+      "liveOn": "Ao vivo em",
       "hederaTestnet": "Hedera Testnet",
       "suiMainnet": "SUI Mainnet",
-      "member": "member",
-      "members": "members"
+      "member": "membro",
+      "members": "membros"
     },
     "hero": {
-      "headline1": "A vault that",
-      "headline2": "shows its work.",
-      "subtitle": "ZKward is an autonomous crypto vault. Seven AI agents make the trades. Every hedge closes with a cryptographic receipt you can verify yourself. Small pool on purpose. Real money."
+      "headline1": "Um cofre que",
+      "headline2": "mostra o seu trabalho.",
+      "subtitle": "ZKward é um cofre cripto autónomo. Sete agentes de IA fazem as operações. Cada cobertura fecha com um recibo criptográfico que pode verificar sozinho. Pool pequeno de propósito. Dinheiro real."
     },
     "vault": {
-      "poolNav": "Pool NAV",
-      "sharePrice": "Share price",
-      "capacity": "Capacity",
-      "capacityOf": "{current} of {cap}"
+      "poolNav": "NAV do pool",
+      "sharePrice": "Preço por quota",
+      "capacity": "Capacidade",
+      "capacityOf": "{current} de {cap}"
     },
     "cta": {
-      "depositUsdc": "Deposit USDC",
-      "howItWorks": "How it works",
-      "viewSource": "View source",
-      "installApp": "Install app",
-      "installIosHint": "To install: tap the Share icon in Safari, scroll down, and tap \"Add to Home Screen\"."
+      "depositUsdc": "Depositar USDC",
+      "howItWorks": "Como funciona",
+      "viewSource": "Ver o código",
+      "installApp": "Instalar app",
+      "installIosHint": "Para instalar: toque no ícone Partilhar no Safari, deslize e toque em «Adicionar ao Ecrã Principal»."
     },
     "composition": {
-      "eyebrow": "Live composition",
-      "title": "Where your USDC is right now.",
-      "body": "The AI rebalances every 30 minutes across BTC, ETH and SUI based on live market signals. Idle USDC counts as a defensive bucket. Refreshes every 30s."
+      "eyebrow": "Composição ao vivo",
+      "title": "Onde está o seu USDC agora.",
+      "body": "A IA rebalanceia a cada 30 minutos entre BTC, ETH e SUI com base em sinais de mercado ao vivo. USDC parado conta como reserva defensiva. Atualiza a cada 30 s."
     },
     "howItWorks": {
-      "eyebrow": "How it works",
-      "title": "Three moving parts. One loop.",
-      "body": "It runs every five minutes, all day, without you. You deposit once and watch.",
+      "eyebrow": "Como funciona",
+      "title": "Três peças em movimento. Um só loop.",
+      "body": "Corre a cada cinco minutos, o dia todo, sem si. Deposita uma vez e observa.",
       "step1": {
-        "title": "The AI reads the room",
-        "body": "Ten signal sources. Polymarket, Kalshi, Deribit vol, funding rates from four venues, price momentum. Fuse into a single allocation target. Seven agents have to agree before capital moves."
+        "title": "A IA lê a sala",
+        "body": "Dez fontes de sinal: Polymarket, Kalshi, volatilidade Deribit, funding rates de quatro venues, momentum de preço. Fundidos num único alvo de alocação. Sete agentes têm de concordar antes do capital se mover."
       },
       "step2": {
-        "title": "The pool rebalances",
-        "body": "Your USDC is swapped across BTC, ETH, and SUI on-chain. Drift-based. The pool only trades when the allocation actually shifts. Nothing wasted on churn."
+        "title": "O pool rebalanceia",
+        "body": "O seu USDC é trocado entre BTC, ETH e SUI on-chain. Baseado em drift. O pool só opera quando a alocação muda de verdade. Nada desperdiçado em churn."
       },
       "step3": {
-        "title": "A hedge lands with a proof",
-        "body": "A matching BlueFin perpetual position balances the risk. Every open and close writes a STARK proof of the decision to the chain. Anyone can verify it. Nobody can fake it."
+        "title": "Uma cobertura chega com prova",
+        "body": "Uma posição perpétua BlueFin correspondente equilibra o risco. Cada abertura e encerramento escreve uma prova STARK da decisão na cadeia. Qualquer pessoa pode verificar. Ninguém pode falsificar."
       }
     },
     "trust": {
-      "title": "The rails are written into the contract.",
-      "body": "Not a policy on our website. Rules the chain enforces, whether we're paying attention or not.",
+      "title": "Os trilhos estão escritos no contrato.",
+      "body": "Não é política no nosso site. Regras que a cadeia aplica, quer estejamos atentos ou não.",
       "poolCap": {
-        "title": "Pool cap",
-        "value": "$10,000",
-        "hint": "Enforced by the Move contract. Not a marketing number."
+        "title": "Limite do pool",
+        "value": "10 000 $",
+        "hint": "Aplicado pelo contrato Move. Não é um número de marketing."
       },
       "freshOracle": {
-        "title": "Fresh oracle",
-        "value": "Strict mode",
-        "hint": "Deposits revert if the NAV attestation is older than two hours."
+        "title": "Oracle fresco",
+        "value": "Modo estrito",
+        "hint": "Os depósitos são revertidos se a atestação NAV tiver mais de duas horas."
       },
       "withdrawThrottle": {
-        "title": "Withdraw throttle",
-        "value": "25% / day",
-        "hint": "A single account cannot drain the pool. Rate limit on-chain."
+        "title": "Limite de levantamento",
+        "value": "25 % / dia",
+        "hint": "Uma única conta não pode esvaziar o pool. Rate limit on-chain."
       },
       "proofs": {
-        "title": "Proofs, not promises",
-        "value": "Post-quantum",
-        "hint": "STARK proofs on the Goldilocks field. Quantum-safe by design."
+        "title": "Provas, não promessas",
+        "value": "Pós-quântica",
+        "hint": "Provas STARK sobre o campo Goldilocks. Seguras post-quantum por design."
       },
       "twoChains": {
-        "title": "Two chains, one code",
+        "title": "Duas cadeias, um código",
         "value": "Hedera + SUI",
-        "hint": "Live on both. SUI is the flagship. Hedera is the fallback."
+        "hint": "Ao vivo em ambas. SUI é a principal. Hedera é o fallback."
       }
     },
     "surfaces": {
-      "eyebrow": "Have a look around",
-      "title": "Every corner of ZKward is public.",
-      "body": "The dashboard, the agents, the proofs, the whitepaper, the story. Nothing hidden behind a login except your own wallet.",
+      "eyebrow": "Dê uma volta",
+      "title": "Cada canto do ZKward é público.",
+      "body": "O dashboard, os agentes, as provas, o whitepaper, a história. Nada escondido atrás de login exceto a sua wallet.",
       "dashboard": {
         "eyebrow": "Dashboard",
-        "title": "Your pool, in one screen.",
-        "body": "Balance, hedges, drawdown, and the proof feed. Refreshes every minute. What you see is what the chain says."
+        "title": "O seu pool, num só ecrã.",
+        "body": "Saldo, coberturas, drawdown e o feed de provas. Atualiza a cada minuto. O que vê é o que a cadeia diz."
       },
       "rwa": {
-        "eyebrow": "Real-world assets",
-        "title": "Off-chain assets, on-chain proof.",
-        "body": "Custodian signatures bind portfolios to real assets while keeping the holdings private. Built for issuers and institutions."
+        "eyebrow": "Ativos do mundo real",
+        "title": "Ativos off-chain, prova on-chain.",
+        "body": "Assinaturas do custodiante ligam carteiras a ativos reais mantendo posições privadas. Feito para emissores e instituições."
       },
       "agents": {
-        "eyebrow": "The seven agents",
-        "title": "Meet the specialists.",
-        "body": "Lead, Risk, Hedging, Settlement, Reporting, Price Monitor, SUI Pool. Each has a job. Big trades need 2-of-3 to agree."
+        "eyebrow": "Os sete agentes",
+        "title": "Conheça os especialistas.",
+        "body": "Lead, Risk, Hedging, Settlement, Reporting, Price Monitor, SUI Pool. Cada um com o seu papel. Operações grandes precisam de 2-de-3."
       },
       "zk": {
-        "eyebrow": "Zero-knowledge proofs",
-        "title": "Not screenshots. Math.",
-        "body": "Post-quantum STARK proofs, verifiable in your browser. 180-bit soundness. No trusted setup, no elliptic curves."
+        "eyebrow": "Provas de conhecimento zero",
+        "title": "Não são capturas. É matemática.",
+        "body": "Provas STARK pós-quânticas, verificáveis no browser. Solidez de 180 bits. Sem trusted setup, sem curvas elípticas."
       },
       "story": {
-        "eyebrow": "Our story",
-        "title": "How we got here.",
-        "body": "A five-minute read. Warm, honest, and yes, we tell you when we lose money. That is the whole point."
+        "eyebrow": "A nossa história",
+        "title": "Como chegámos aqui.",
+        "body": "Cinco minutos de leitura. Calorosa, honesta e sim, dizemos quando perdemos dinheiro. É todo o ponto."
       },
       "whitepaper": {
         "eyebrow": "Whitepaper",
-        "title": "The technical version.",
-        "body": "Prediction-market alpha, 7-agent architecture, STARK-attested execution, roadmap, references. For the engineers in the room."
+        "title": "A versão técnica.",
+        "body": "Alpha dos prediction markets, arquitetura de 7 agentes, execução atestada por STARK, roadmap, referências. Para as engenheiras da sala."
       }
     },
     "finalCta": {
-      "title": "Come see it running.",
-      "body": "Connect a wallet, deposit USDC, close the tab. The AI takes it from there.",
-      "alreadyIn": "{count} already in.",
-      "paused": "Deposits currently paused for maintenance."
+      "title": "Venha vê-lo a correr.",
+      "body": "Ligue uma wallet, deposite USDC, feche a aba. A IA trata do resto.",
+      "alreadyIn": "{count} já dentro.",
+      "paused": "Depósitos pausados para manutenção."
     }
   },
   "agentsPage": {
     "meta": {
-      "title": "The seven agents — ZKward",
-      "description": "Seven specialists that argue with each other before any real money moves. Live chat, read-only."
+      "title": "Os sete agentes — ZKward",
+      "description": "Sete especialistas que discutem entre si antes de mover dinheiro real. Chat ao vivo, apenas leitura."
     },
     "header": {
-      "badge": "Seven agents, live, read-only",
-      "title": "Ask ZKward.",
-      "subtitle": "Talk to the vault. Every answer reads live state from the same tools the agents use. Nothing rehearsed."
+      "badge": "Sete agentes, ao vivo, apenas leitura",
+      "title": "Pergunte ao ZKward.",
+      "subtitle": "Fale com o cofre. Cada resposta lê estado ao vivo das mesmas ferramentas que os agentes usam. Nada ensaiado."
     },
-    "meetTheCrew": "Meet the crew",
-    "architecture": "Architecture",
-    "architectureBody": "All agents talk through a central <bus>MessageBus</bus> and extend a common <base>BaseAgent</base>. Each concern owns one file. Nothing shares state through globals.",
+    "meetTheCrew": "Conheça a equipa",
+    "architecture": "Arquitetura",
+    "architectureBody": "Todos os agentes comunicam por um <bus>MessageBus</bus> central e estendem um <base>BaseAgent</base> comum. Cada responsabilidade vive num ficheiro. Nada partilha estado por globais.",
     "agents": {
       "lead": {
         "name": "Lead",
-        "role": "The dispatcher",
-        "description": "Reads what you asked, figures out who should handle it, and stitches the pieces back into one answer.",
+        "role": "O despachante",
+        "description": "Lê o que perguntou, decide quem deve tratar e cose as peças numa única resposta.",
         "capabilities": {
-          "c1": "Natural language intent parsing",
-          "c2": "Routes to the right specialist",
-          "c3": "Merges results into one reply",
-          "c4": "Coordinates multi-agent calls"
+          "c1": "Análise de intenção em linguagem natural",
+          "c2": "Encaminha para o especialista certo",
+          "c3": "Funde resultados numa só resposta",
+          "c4": "Coordena chamadas multi-agente"
         }
       },
       "risk": {
         "name": "Risk",
-        "role": "The worrier",
-        "description": "Watches how much of the pool is at risk, flags positions that are getting close to liquidation, and scores overall portfolio health.",
+        "role": "O preocupado",
+        "description": "Observa quanto do pool está em risco, marca posições próximas de liquidação e pontua a saúde geral da carteira.",
         "capabilities": {
-          "c1": "Value at Risk (VaR) calculation",
-          "c2": "Volatility and Sharpe ratio",
-          "c3": "Liquidation distance per position",
-          "c4": "Portfolio health score, 0 to 100"
+          "c1": "Cálculo de Value at Risk (VaR)",
+          "c2": "Volatilidade e rácio de Sharpe",
+          "c3": "Distância à liquidação por posição",
+          "c4": "Pontuação de saúde da carteira, 0 a 100"
         }
       },
       "hedging": {
         "name": "Hedging",
-        "role": "The insurance broker",
-        "description": "When Risk flags something, Hedging picks the counter-trade that offsets it. Short size, leverage, and asset all confidence-scored before anything opens.",
+        "role": "O corretor de seguros",
+        "description": "Quando o Risk marca algo, o Hedging escolhe a operação contrária que compensa. Tamanho short, alavancagem e ativo com confidence score antes de abrir.",
         "capabilities": {
-          "c1": "Short position sizing",
-          "c2": "Options strategy generation",
-          "c3": "Cross-asset correlation analysis",
-          "c4": "Every strategy tagged with a confidence score"
+          "c1": "Dimensionamento de posições short",
+          "c2": "Geração de estratégias de opções",
+          "c3": "Análise de correlação cross-asset",
+          "c4": "Cada estratégia etiquetada com confidence score"
         }
       },
       "settlement": {
         "name": "Settlement",
-        "role": "The signer",
-        "description": "Turns a decision into an on-chain transaction. Batches where it can to save gas, produces the ZK proof, and knows how to unwind if something fails.",
+        "role": "O assinante",
+        "description": "Transforma uma decisão em transação on-chain. Faz batch quando pode para poupar gas, produz a prova ZK e sabe fazer rollback em falha.",
         "capabilities": {
-          "c1": "Batch transaction processing",
-          "c2": "Gas optimization, typically 20 to 40 percent",
-          "c3": "ZK-STARK proof coordination",
-          "c4": "Rollback and retry on failure"
+          "c1": "Processamento em batch de transações",
+          "c2": "Otimização de gas, tipicamente 20 a 40 por cento",
+          "c3": "Coordenação de provas ZK-STARK",
+          "c4": "Rollback e retry em falha"
         }
       },
       "reporting": {
         "name": "Reporting",
-        "role": "The bookkeeper",
-        "description": "Compiles the plain-English summary of what happened. Runs daily, weekly, monthly, and on-demand for the audit trail.",
+        "role": "O contabilista",
+        "description": "Compila o resumo em linguagem clara do que aconteceu. Diário, semanal, mensal e on-demand para o audit trail.",
         "capabilities": {
-          "c1": "Daily, weekly, and monthly reports",
-          "c2": "Performance and P&L tracking",
-          "c3": "Top positions analysis",
-          "c4": "Historical trend detection"
+          "c1": "Relatórios diários, semanais e mensais",
+          "c2": "Tracking de performance e P&L",
+          "c3": "Análise das top positions",
+          "c4": "Deteção de tendências históricas"
         }
       },
       "priceMonitor": {
         "name": "Price Monitor",
-        "role": "The lookout",
-        "description": "Watches the 5-minute prediction-market ticker across BTC, ETH, SUI, and CRO. When a signal flips, it broadcasts inside seconds so the others can react.",
+        "role": "A vigia",
+        "description": "Observa o ticker de prediction markets a cada 5 minutos em BTC, ETH, SUI e CRO. Quando um sinal inverte, transmite em segundos para os outros reagirem.",
         "capabilities": {
-          "c1": "BTC, ETH, SUI, CRO threshold watch",
-          "c2": "Polymarket 5-min event stream",
-          "c3": "Fires on signal flip",
-          "c4": "Per-asset alert routing"
+          "c1": "Vigilância de limiares BTC, ETH, SUI, CRO",
+          "c2": "Stream de eventos Polymarket 5 min",
+          "c3": "Dispara na inversão de sinal",
+          "c4": "Routing de alertas por ativo"
         }
       },
       "suiPool": {
         "name": "SUI Pool",
-        "role": "The pool operator",
-        "description": "Runs the SUI USDC community pool. Reads the fused signal, picks the allocation across four assets, rebalances via BlueFin, and never lets anyone bypass the on-chain safety guards.",
+        "role": "O operador do pool",
+        "description": "Opera o pool comunitário USDC de SUI. Lê o sinal fundido, escolhe a alocação entre quatro ativos, rebalanceia via BlueFin e não deixa ninguém contornar os guarda-corpos on-chain.",
         "capabilities": {
-          "c1": "Four-asset allocation across BTC, ETH, SUI, CRO",
-          "c2": "BlueFin aggregator rebalance",
-          "c3": "SafeExecutionGuard enforcement",
-          "c4": "Rebalances only when AI confidence clears 65 percent"
+          "c1": "Alocação quatro-ativos: BTC, ETH, SUI, CRO",
+          "c2": "Rebalanceamento via agregador BlueFin",
+          "c3": "Aplicação do SafeExecutionGuard",
+          "c4": "Só rebalanceia quando a confiança IA passa 65 por cento"
         }
       }
     }
   },
   "story": {
     "meta": {
-      "title": "Our story — ZKward",
-      "description": "How ZKward started, what it does, and why we tell you when it loses money."
+      "title": "A nossa história — ZKward",
+      "description": "Como o ZKward começou, o que faz e porque dizemos quando perde dinheiro."
     },
     "header": {
-      "eyebrow": "Our story",
-      "title": "How we got here",
-      "subtitle": "Five minutes. No jargon. Grab a coffee."
+      "eyebrow": "A nossa história",
+      "title": "Como chegámos aqui",
+      "subtitle": "Cinco minutos. Sem jargão. Vá buscar um café."
     },
-    "intro": "The project used to be called <em>ZkVanguard</em>. People kept asking if we were a bond fund. It sounded like your dad's retirement plan. So we renamed it to <strong>ZKward</strong>. Same idea, slightly awkward to say out loud. You'll get used to it.",
+    "intro": "O projeto chamava-se antes <em>ZkVanguard</em>. As pessoas perguntavam sempre se éramos um fundo de obrigações. Soava ao plano de reforma do seu pai. Por isso renomeámo-lo para <strong>ZKward</strong>. Mesma ideia, um bocado esquisito de dizer. Vai habituar-se.",
     "whatItIs": {
-      "heading": "What it is, in one sentence",
-      "body": "A savings pool that trades for you and shows its math, so you don't have to take our word for it."
+      "heading": "O que é, numa frase",
+      "body": "Um pool de poupança que opera por si e mostra a sua matemática, para não ter de acreditar na nossa palavra."
     },
     "howItWorks": {
-      "heading": "How it works, plainly",
-      "body1": "You put in USDC. A small crew of computer programs reads what people are betting on in prediction markets (like Polymarket) and lines up trades on crypto based on that. When it makes a trade, it also produces a little cryptographic receipt that anyone can check. The receipt proves the trade followed the rules. Without revealing your position.",
-      "body2": "Think of it as an autopilot with a black box flight recorder. Except the recorder is public, and the autopilot won't take off in bad weather."
+      "heading": "Como funciona, simplesmente",
+      "body1": "Põe USDC. Uma pequena equipa de programas lê no que as pessoas apostam em prediction markets (como o Polymarket) e alinha operações em cripto com base nisso. Quando opera, também produz um pequeno recibo criptográfico que qualquer um pode verificar. O recibo prova que a operação seguiu as regras. Sem revelar a sua posição.",
+      "body2": "Pense nele como um piloto automático com caixa negra. Só que a caixa é pública, e o piloto não descola com mau tempo."
     },
     "whereStarted": {
-      "heading": "Where it started",
-      "body1": "A hackathon weekend. Too much coffee. One question: <em>if computers move real money, why does anyone trust their reasoning?</em> We thought we'd answer in two days. It took eighteen months.",
-      "body2": "Along the way we won five hackathons, contributed to Tether's wallet toolkit, and shipped on a handful of blockchains. Most of the test deployments lasted about an afternoon. <strong>SUI</strong> stuck. It's fast, cheap, and doesn't break when you look at it wrong. That's where the money lives now."
+      "heading": "Onde começou",
+      "body1": "Um fim de semana de hackathon. Café a mais. Uma pergunta: <em>se computadores movem dinheiro real, porque é que alguém confia no seu raciocínio?</em> Pensámos responder em dois dias. Levou dezoito meses.",
+      "body2": "Pelo caminho ganhámos cinco hackathons, contribuímos para o toolkit de wallet da Tether e fizemos deploy em várias blockchains. A maioria dos deploys de teste durou uma tarde. <strong>SUI</strong> aguentou. É rápida, barata e não parte se olharmos torto. É lá que vive o dinheiro agora."
     },
     "shipToday": {
-      "heading": "What we ship today",
-      "item1": "A real pool on SUI mainnet. Small on purpose. The contract itself caps deposits at $10,000. We wanted to prove it works before scaling. Slow is the point.",
-      "item2": "Eight safety switches that can pause the whole thing if something looks off. One tripped yesterday, after a rough day of testing (more on that below).",
-      "item3": "A learning loop: the AI grades its own trades, retrains overnight, and tries again. Sometimes it gets better. Sometimes it finds new ways to fail. We publish both.",
-      "item4": "A cryptographic receipt for every trade. Not a screenshot. A proof."
+      "heading": "O que enviamos hoje",
+      "item1": "Um pool real na mainnet do SUI. Pequeno de propósito. O contrato em si limita depósitos a 10 000 $. Queríamos provar que funciona antes de escalar. Devagar é o ponto.",
+      "item2": "Oito interruptores de segurança que podem pausar tudo se algo parecer estranho. Um disparou ontem, depois de um dia difícil de testes (mais abaixo).",
+      "item3": "Um loop de aprendizagem: a IA pontua as próprias operações, treina de novo à noite e tenta outra vez. Às vezes melhora. Às vezes descobre novas formas de falhar. Publicamos ambas.",
+      "item4": "Um recibo criptográfico por cada operação. Não uma captura. Uma prova."
     },
     "whyWeTell": {
-      "heading": "Why we tell you when it loses",
-      "body1": "Most projects only talk about their wins. Right now, our test trader is down about $68,000 on paper. We're telling you because that's the whole point. If you can't see the losses, the wins don't mean much.",
-      "body2": "Also, hiding a loss is how a small loss turns into a much larger one three months later. We tried that once. Do not recommend."
+      "heading": "Porque dizemos quando perde",
+      "body1": "A maioria dos projetos só fala das vitórias. Neste momento, o nosso trader de teste está a cerca de -68 000 $ no papel. Dizemos porque esse é todo o ponto. Se não pode ver as perdas, as vitórias não significam grande coisa.",
+      "body2": "Além disso, esconder uma perda é como uma pequena perda se torna muito maior três meses depois. Já tentámos uma vez. Não recomendamos."
     },
     "whoBuilds": {
-      "heading": "Who's making it",
-      "body1": "Mostly one person, working from nine time zones away from most of you. Computer science degree, some years at big companies, an unreasonable number of side quests. Funded by savings and small grants that pay out roughly around the time the founder starts skipping lunch.",
-      "body2": "The paper trader has occasionally cost more per month than the founder eats. We consider this on-brand."
+      "heading": "Quem faz",
+      "body1": "Sobretudo uma pessoa, a trabalhar a nove fusos de distância da maioria de vós. Licenciatura em informática, alguns anos em grandes empresas, um número irrazoável de projetos paralelos. Financiado com poupanças e pequenas bolsas que pagam mais ou menos quando o fundador começa a saltar o almoço.",
+      "body2": "O paper trader chegou a custar mais por mês do que o fundador come. Consideramos isto on-brand."
     },
     "next": {
-      "heading": "Where this goes next",
-      "body": "Two things need to happen. First, prove the trader stops losing money in the test pool. Then raise the deposit cap, one careful step at a time, with a real drawdown test at each step. If we skip a step, please yell at us on <telegram>Telegram</telegram>."
+      "heading": "Para onde vai",
+      "body": "Duas coisas têm de acontecer. Primeiro, provar que o trader deixa de perder dinheiro no pool de teste. Depois subir o limite de depósito, um passo cuidadoso de cada vez, com um teste real de drawdown em cada passo. Se saltarmos um passo, gritem connosco no <telegram>Telegram</telegram>."
     },
     "footer": {
-      "technical": "Want the technical version? {link}",
-      "readWhitepaper": "Read the whitepaper",
-      "orJust": "Or just {link}.",
-      "openApp": "open the app"
+      "technical": "Quer a versão técnica? {link}",
+      "readWhitepaper": "Ler o whitepaper",
+      "orJust": "Ou apenas {link}.",
+      "openApp": "abrir o app"
     }
   },
   "faq": {
     "meta": {
-      "title": "Frequently asked questions — ZKward",
-      "description": "What ZKward is, how it works, what happens with your money, and why the paper trader is currently in the red."
+      "title": "Perguntas frequentes — ZKward",
+      "description": "O que é o ZKward, como funciona, o que acontece ao seu dinheiro e porque o paper trader está agora no vermelho."
     },
     "header": {
       "eyebrow": "FAQ",
-      "title": "Common questions",
-      "subtitle": "Short answers. If yours is missing, email {email} and we'll add it."
+      "title": "Perguntas comuns",
+      "subtitle": "Respostas curtas. Se falta a sua, escreva para {email} e acrescentamos."
     },
     "q1": {
-      "q": "What is ZKward?",
-      "a": "ZKward is an autonomous crypto vault. You deposit USDC. Seven AI agents read prediction markets, funding rates, and price momentum, then trade across BTC, ETH, and SUI. Every hedge decision closes with a cryptographic proof anyone can verify on-chain."
+      "q": "O que é o ZKward?",
+      "a": "O ZKward é um cofre cripto autónomo. Deposita USDC. Sete agentes de IA leem prediction markets, funding rates e momentum de preço, depois operam em BTC, ETH e SUI. Cada decisão de cobertura fecha com uma prova criptográfica que qualquer um pode verificar on-chain."
     },
     "q2": {
-      "q": "Is ZKward a hedge fund?",
-      "a": "No. A hedge fund is a specific regulated legal structure. ZKward is an on-chain vault. Non-custodial, permissionless, no accreditation required, on-chain fee accounting, open-source strategy. It runs similar directional strategies but with public proofs instead of quarterly letters."
+      "q": "O ZKward é um hedge fund?",
+      "a": "Não. Um hedge fund é uma estrutura jurídica regulada específica. O ZKward é um cofre on-chain. Não-custodial, sem permissão, sem acreditação, contabilidade de fees on-chain, estratégia open-source. Corre estratégias direcionais semelhantes mas com provas públicas em vez de cartas trimestrais."
     },
     "q3": {
-      "q": "How much can I deposit?",
-      "a": "The pool is capped at $10,000 total by the Move contract during the operational-proof phase. This is enforced on-chain. Nobody, including us, can raise it without a governance action. Cap-lifting happens step by step after each stage survives a real drawdown test."
+      "q": "Quanto posso depositar?",
+      "a": "O pool está limitado a 10 000 $ no total pelo contrato Move durante a fase de prova operacional. É imposto on-chain. Ninguém, incluindo nós, o pode subir sem uma ação de governação. A subida do limite acontece passo a passo depois de cada etapa sobreviver a um teste real de drawdown."
     },
     "q4": {
-      "q": "Where are my funds held?",
-      "a": "In a SUI Move object controlled by the pool contract. Your keys stay with you. This is non-custodial. Withdrawals are permissionless and available anytime, with a 25% per-day account throttle enforced on-chain to prevent draining attacks."
+      "q": "Onde ficam os meus fundos?",
+      "a": "Num objeto SUI Move controlado pelo contrato do pool. As suas chaves ficam consigo. É não-custodial. Levantamentos são sem permissão e disponíveis em qualquer momento, com um throttle de 25 % ao dia por conta imposto on-chain para prevenir ataques de esvaziamento."
     },
     "q5": {
-      "q": "What is a STARK proof and why do I care?",
-      "a": "A STARK proof is a mathematical receipt that lets anyone verify a computation happened correctly, without seeing the private inputs. When ZKward opens or closes a hedge, it writes a STARK proof to the chain proving the trade followed the vault rules (asset caps, leverage caps, size limits). No black box. No \"trust us.\""
+      "q": "O que é uma prova STARK e porque me importa?",
+      "a": "Uma prova STARK é um recibo matemático que permite a qualquer um verificar que um cálculo aconteceu corretamente, sem ver os inputs privados. Quando o ZKward abre ou fecha uma cobertura, escreve uma prova STARK na cadeia a provar que a operação seguiu as regras do cofre (caps de ativo, alavancagem, tamanho). Sem caixa negra. Sem «confiem em nós»."
     },
     "q6": {
-      "q": "What chains does ZKward run on?",
-      "a": "SUI mainnet is the lead chain (live pool at package 0x107292…7b726). Reference deployments exist on Hedera Testnet, Sepolia, Cronos EVM, Oasis Sapphire, and Arbitrum Sepolia. Portability is proven; production expands where demand justifies it."
+      "q": "Em que cadeias corre o ZKward?",
+      "a": "A mainnet do SUI é a cadeia principal (pool ao vivo no pacote 0x107292…7b726). Deploys de referência existem em Hedera Testnet, Sepolia, Cronos EVM, Oasis Sapphire e Arbitrum Sepolia. A portabilidade está provada; a produção expande-se onde a procura o justifica."
     },
     "q7": {
-      "q": "What are the fees?",
-      "a": "50 basis points annual management and 10% performance on realised profits. Fees are routed through a MSafe multisig-held FeeManagerCap, distinct from the operational AdminCap. The fee path cannot be seized by an admin key compromise."
+      "q": "Quais são as fees?",
+      "a": "50 pontos-base anuais de gestão e 10 % de performance sobre lucros realizados. As fees passam por um FeeManagerCap detido por multisig MSafe, distinto do AdminCap operacional. O caminho das fees não pode ser tomado por comprometimento da chave admin."
     },
     "q8": {
-      "q": "Why is the paper trader losing money right now?",
-      "a": "Public transparency. We run a paper trader against real signals and publish every trade. Wins and losses. Current cumulative paper PnL is around -$68,000 while we tune the new gate system (volatility filter, streak guard, trend alignment, signal-quality). If we hid the losses, the wins would not mean anything."
+      "q": "Porque é que o paper trader está a perder agora?",
+      "a": "Transparência pública. Corremos um paper trader contra sinais reais e publicamos cada operação. Ganhos e perdas. O PnL cumulativo em papel atual anda perto de -68 000 $ enquanto afinamos o novo sistema de gates (filtro de volatilidade, guarda de streak, alinhamento de tendência, qualidade de sinal). Se escondêssemos as perdas, os ganhos não significariam nada."
     },
     "q9": {
-      "q": "How do I know the AI is not just making it up?",
-      "a": "Every decision that moves capital emits a STARK proof committed to the SUI chain. The proof binds the decision to on-chain invariants (asset caps, leverage caps, size). Anyone can verify with the on-chain verifier. Trades under $100K also pass a 5-second cooldown, a 30-bps slippage ceiling, and a max-3-concurrent breaker. Trades over $100K need a 2-of-3 vote from the agent quorum."
+      "q": "Como sei que a IA não está a inventar?",
+      "a": "Cada decisão que move capital emite uma prova STARK ancorada na cadeia SUI. A prova liga a decisão a invariantes on-chain (caps de ativo, alavancagem, tamanho). Qualquer um pode verificar com o verificador on-chain. Operações abaixo de 100 K $ passam ainda um cooldown de 5 segundos, um teto de slippage de 30 bps e um breaker de máximo 3 concorrentes. Operações acima de 100 K $ precisam de voto 2-de-3 do quórum de agentes."
     },
     "q10": {
-      "q": "Is ZKward safe against quantum computers?",
-      "a": "The STARK proof system is transparent (no trusted setup) and uses only SHA-256 Merkle trees and the Goldilocks prime field. No elliptic curves, no discrete-log, no pairings. Shor's algorithm. The quantum attack that breaks RSA and ECDSA. Is a non-threat here. Effective soundness is 180 bits, 52 bits above NIST post-quantum Level 1."
+      "q": "O ZKward é seguro contra computadores quânticos?",
+      "a": "O sistema de provas STARK é transparente (sem trusted setup) e usa apenas árvores de Merkle SHA-256 e o campo primo Goldilocks. Sem curvas elípticas, sem discrete-log, sem pairings. O algoritmo de Shor, que quebra RSA e ECDSA, não é uma ameaça aqui. A solidez efetiva é de 180 bits, 52 bits acima do Nível 1 pós-quântico do NIST."
     },
     "q11": {
-      "q": "Can I withdraw at any time?",
-      "a": "Yes. Withdrawal is permissionless. You sign a transaction, the contract calculates your share of the pool NAV, funds return to your wallet. A 25% per-day throttle per account is enforced by the contract to prevent draining under stress. There is no lockup, no notice period, no manager approval."
+      "q": "Posso levantar a qualquer momento?",
+      "a": "Sim. O levantamento é sem permissão. Assina uma transação, o contrato calcula a sua parte do NAV do pool, os fundos voltam à sua wallet. Um throttle de 25 % ao dia por conta é imposto pelo contrato para prevenir esvaziamento sob stress. Sem lockup, sem aviso prévio, sem aprovação de gestor."
     },
     "q12": {
-      "q": "How do I contact the team?",
-      "a": "Email ashish.regmi@zkward.com or join our Telegram (link in the footer). GitHub issues also work for technical questions."
+      "q": "Como contacto a equipa?",
+      "a": "Envie e-mail para ashish.regmi@zkward.com ou junte-se ao nosso Telegram (link no rodapé). GitHub issues também servem para perguntas técnicas."
     },
     "footer": {
-      "technical": "Want the full technical version? {link}",
-      "readWhitepaper": "Read the whitepaper",
-      "orRead": "Or read {link}.",
-      "ourStory": "our story"
+      "technical": "Quer a versão técnica completa? {link}",
+      "readWhitepaper": "Ler o whitepaper",
+      "orRead": "Ou leia {link}.",
+      "ourStory": "a nossa história"
     }
   },
   "whitepaperMeta": {
     "title": "Whitepaper",
-    "description": "The full ZKward thesis: prediction-market alpha, 7-agent architecture, STARK-attested execution, tokenomics, roadmap."
+    "description": "A tese completa do ZKward: alpha dos prediction markets, arquitetura de 7 agentes, execução atestada por STARK, tokenomics, roadmap."
   }
 }
