@@ -92,16 +92,19 @@ export const Navbar = memo(function Navbar() {
       }`}
     >
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
-        {/* overflow-x-clip contains the 8-16px scrollWidth caused by the
-            -ml-2 / -mr-2 negative margins on the Logo and hamburger button.
-            Those margins are intentional (they push the tap targets to the
-            visual edge of the nav bar without expanding the padded content
-            box), but they inflate scrollWidth and register as inner overflow
-            on responsive audits. Clip contains it without altering layout. */}
-        <div className="flex items-center justify-between h-[56px] min-w-0 overflow-x-clip">
+        {/* No overflow clip on the row: the logo tile's outer blue glow
+            (12px shadow) sits flush at this edge and got severed by
+            overflow-x-clip, reading as "cut off on the left". The -mr-2
+            on the hamburger stays inside the parent's px-4/6/8 padding,
+            so no scrollWidth escapes the page anyway. */}
+        <div className="flex items-center justify-between h-[56px] min-w-0">
           {/* Logo — brand mark + wordmark. Logo component already renders
-              the "ZKward" text from sm: (640px+); no extra span needed. */}
-          <Link href="/" className="flex items-center gap-2 -ml-2">
+              the "ZKward" text from sm: (640px+); no extra span needed.
+              ml-1 sm:ml-2 gives the glass tile air off the container's
+              padding edge — without it the tile reads as clamped to the
+              left rail because its border makes it look "closed off"
+              compared to the softer text-links on the right. */}
+          <Link href="/" className="flex items-center gap-2 ml-1 sm:ml-2">
             <Logo />
           </Link>
 
