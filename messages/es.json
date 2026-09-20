@@ -481,6 +481,30 @@
           "c4": "Solo reequilibra cuando la confianza de la IA supera el 65 por ciento"
         }
       }
+    },
+    "chat": {
+      "title": "Pregunta sobre cripto, mercados o la bóveda",
+      "readOnly": "Solo lectura",
+      "subtitle": "Precios en vivo. Señales en vivo. Estado de bóveda en vivo.",
+      "tryOneOfThese": "Prueba una de estas:",
+      "thinking": "pensando…",
+      "placeholder": "Haz una pregunta sobre el mercado o la bóveda…",
+      "send": "Preguntar",
+      "sending": "Enviando",
+      "sendAria": "Enviar",
+      "rateLimited": "Límite alcanzado. Espera ~30 s antes de preguntar de nuevo.",
+      "requestFailed": "La solicitud falló (HTTP {status}).",
+      "networkError": "Error de red",
+      "toolCalls": "{count, plural, =1 {# llamada a herramienta} other {# llamadas a herramientas}}",
+      "notConfigured": "Oráculo de estado no configurado (falta ASI_API_KEY en prod).",
+      "prompts": {
+        "p1": "¿Cómo va BTC ahora mismo?",
+        "p2": "Snapshot del mercado — BTC, ETH, SOL, SUI",
+        "p3": "¿Qué piensa el mercado de predicción sobre ETH?",
+        "p4": "Explica las funding rates en dos frases",
+        "p5": "¿Qué hizo nuestra bóveda en las últimas 24 h?",
+        "p6": "¿Está acertando nuestra IA esta semana?"
+      }
     }
   },
   "story": {

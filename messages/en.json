@@ -143,6 +143,30 @@
       "subtitle": "Crypto, markets, the vault. Every answer runs on live data — prices, prediction signals, on-chain state. Nothing rehearsed."
     },
     "meetTheCrew": "Meet the crew",
+    "chat": {
+      "title": "Ask about crypto, markets, or the vault",
+      "readOnly": "Read-only",
+      "subtitle": "Live prices. Live signals. Live vault state.",
+      "tryOneOfThese": "Try one of these:",
+      "thinking": "thinking…",
+      "placeholder": "Ask a market question or a vault question…",
+      "send": "Ask",
+      "sending": "Sending",
+      "sendAria": "Send",
+      "rateLimited": "Rate limited. Please wait ~30s before asking again.",
+      "requestFailed": "Request failed (HTTP {status}).",
+      "networkError": "Network error",
+      "toolCalls": "{count, plural, =1 {# tool call} other {# tool calls}}",
+      "notConfigured": "Status oracle not configured (waiting on ASI_API_KEY in prod).",
+      "prompts": {
+        "p1": "How is BTC doing right now?",
+        "p2": "Market snapshot — BTC, ETH, SOL, SUI",
+        "p3": "What does the prediction market think about ETH?",
+        "p4": "Explain funding rates in two sentences",
+        "p5": "What did our vault do in the last 24h?",
+        "p6": "Is our AI predicting correctly this week?"
+      }
+    },
     "architecture": "Architecture",
     "architectureBody": "All agents talk through a central <bus>MessageBus</bus> and extend a common <base>BaseAgent</base>. Each concern owns one file. Nothing shares state through globals.",
     "agents": {

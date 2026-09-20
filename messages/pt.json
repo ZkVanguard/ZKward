@@ -481,6 +481,30 @@
           "c4": "Só rebalanceia quando a confiança IA passa 65 por cento"
         }
       }
+    },
+    "chat": {
+      "title": "Pergunte sobre cripto, mercados ou o cofre",
+      "readOnly": "Somente leitura",
+      "subtitle": "Preços ao vivo. Sinais ao vivo. Estado do cofre ao vivo.",
+      "tryOneOfThese": "Experimente uma destas:",
+      "thinking": "a pensar…",
+      "placeholder": "Faça uma pergunta de mercado ou de cofre…",
+      "send": "Perguntar",
+      "sending": "A enviar",
+      "sendAria": "Enviar",
+      "rateLimited": "Limite atingido. Aguarde ~30 s antes de perguntar de novo.",
+      "requestFailed": "Falha no pedido (HTTP {status}).",
+      "networkError": "Erro de rede",
+      "toolCalls": "{count, plural, =1 {# chamada de ferramenta} other {# chamadas de ferramenta}}",
+      "notConfigured": "Oráculo de estado não configurado (à espera de ASI_API_KEY em prod).",
+      "prompts": {
+        "p1": "Como está o BTC agora?",
+        "p2": "Snapshot do mercado — BTC, ETH, SOL, SUI",
+        "p3": "O que o mercado de previsão pensa sobre ETH?",
+        "p4": "Explica as funding rates em duas frases",
+        "p5": "O que fez o nosso cofre nas últimas 24 h?",
+        "p6": "A nossa IA está a acertar esta semana?"
+      }
     }
   },
   "story": {

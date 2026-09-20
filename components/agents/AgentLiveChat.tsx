@@ -5,6 +5,7 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { useTranslations } from 'next-intl';
 import { Send, Bot, User, Loader2, Wrench, AlertCircle, ChevronDown } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -28,14 +29,8 @@ interface Message {
   rateLimited?: boolean;
 }
 
-const QUICK_PROMPTS = [
-  'How is BTC doing right now?',
-  'Market snapshot — BTC, ETH, SOL, SUI',
-  'What does the prediction market think about ETH?',
-  'Explain funding rates in two sentences',
-  'What did our vault do in the last 24h?',
-  'Is our AI predicting correctly this week?',
-];
+// Prompt IDs — labels come from translations via t(`prompts.${id}`).
+const PROMPT_IDS = ['p1', 'p2', 'p3', 'p4', 'p5', 'p6'] as const;
 
 function AssistantMarkdown({ content }: { content: string }) {
   return (
@@ -80,6 +75,7 @@ function AssistantMarkdown({ content }: { content: string }) {
 }
 
 export function AgentLiveChat() {
+  const t = useTranslations('agentsPage.chat');
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [pending, setPending] = useState(false);
@@ -139,7 +135,7 @@ export function AgentLiveChat() {
       if (r.status === 429) {
         patch(msg => ({
           ...msg,
-          content: 'Rate limited. Please wait ~30s before asking again.',
+          content: t('rateLimited'),
           error: true,
           rateLimited: true,
           streaming: false,
@@ -149,7 +145,7 @@ export function AgentLiveChat() {
       if (!r.ok || !r.body) {
         patch(msg => ({
           ...msg,
-          content: `Request failed (HTTP ${r.status}).`,
+          content: t('requestFailed', { status: r.status }),
           error: true,
           streaming: false,
         }));
@@ -232,7 +228,7 @@ export function AgentLiveChat() {
     } catch (e) {
       patch(msg => ({
         ...msg,
-        content: e instanceof Error ? e.message : 'Network error',
+        content: e instanceof Error ? e.message : t('networkError'),
         error: true,
         streaming: false,
       }));
@@ -240,14 +236,14 @@ export function AgentLiveChat() {
       setPending(false);
       patch(msg => (msg.streaming ? { ...msg, streaming: false } : msg));
     }
-  }, [pending]);
+  }, [pending, t]);
 
   if (ready === false) {
     return (
       <div className="bg-system-bg-secondary rounded-ios-xl p-6 border border-separator-opaque/40 text-center">
         <AlertCircle className="w-6 h-6 text-ios-orange mx-auto mb-2" />
         <p className="text-callout text-label-secondary">
-          Status oracle not configured (waiting on <code className="text-caption-1">ASI_API_KEY</code> in prod).
+          {t('notConfigured')}
         </p>
       </div>
     );
@@ -266,31 +262,34 @@ export function AgentLiveChat() {
       <div className="border-b border-separator-opaque/40 px-3 sm:px-5 py-2.5 sm:py-3.5 flex-shrink-0">
         <div className="flex items-center gap-2">
           <Bot className="w-4 h-4 text-ios-blue flex-shrink-0" />
-          <h3 className="text-callout sm:text-headline font-semibold text-label-primary truncate">Ask about crypto, markets, or the vault</h3>
+          <h3 className="text-callout sm:text-headline font-semibold text-label-primary truncate">{t('title')}</h3>
           <span className="ml-auto text-caption-2 text-label-tertiary hidden sm:inline flex-shrink-0">
-            Read-only
+            {t('readOnly')}
           </span>
         </div>
         <p className="text-caption-1 sm:text-footnote text-label-tertiary mt-1">
-          Live prices. Live signals. Live vault state.
+          {t('subtitle')}
         </p>
       </div>
 
       <div ref={scrollRef} className="flex-1 overflow-y-auto overflow-x-hidden px-3 sm:px-5 py-3 sm:py-4 space-y-3 sm:space-y-4">
         {messages.length === 0 && (
           <div className="space-y-3">
-            <p className="text-callout text-label-tertiary">Try one of these:</p>
+            <p className="text-callout text-label-tertiary">{t('tryOneOfThese')}</p>
             <div className="flex flex-wrap gap-2">
-              {QUICK_PROMPTS.map(p => (
-                <button
-                  key={p}
-                  onClick={() => send(p)}
-                  disabled={pending}
-                  className="text-footnote px-3 py-1.5 rounded-full bg-system-bg-secondary border border-separator-opaque/40 text-label-secondary hover:text-label-primary hover:border-ios-blue/50 transition-colors disabled:opacity-50"
-                >
-                  {p}
-                </button>
-              ))}
+              {PROMPT_IDS.map(id => {
+                const label = t(`prompts.${id}`);
+                return (
+                  <button
+                    key={id}
+                    onClick={() => send(label)}
+                    disabled={pending}
+                    className="text-footnote px-3 py-1.5 rounded-full bg-system-bg-secondary border border-separator-opaque/40 text-label-secondary hover:text-label-primary hover:border-ios-blue/50 transition-colors disabled:opacity-50"
+                  >
+                    {label}
+                  </button>
+                );
+              })}
             </div>
           </div>
         )}
@@ -324,7 +323,7 @@ export function AgentLiveChat() {
                     {m.streaming && !m.content && (
                       <span className="inline-flex items-center gap-2 text-label-tertiary text-body">
                         <Loader2 className="w-4 h-4 animate-spin" />
-                        <span>thinking…</span>
+                        <span>{t('thinking')}</span>
                       </span>
                     )}
                     {m.streaming && m.content && (
@@ -340,7 +339,7 @@ export function AgentLiveChat() {
                   <summary className="inline-flex items-center gap-1 cursor-pointer hover:text-label-secondary select-none list-none">
                     <Wrench className="w-3 h-3" />
                     <span>
-                      {m.toolCalls.length} tool call{m.toolCalls.length === 1 ? '' : 's'}
+                      {t('toolCalls', { count: m.toolCalls.length })}
                       {m.elapsedMs ? ` · ${m.elapsedMs}ms` : ''}
                     </span>
                     <ChevronDown className="w-3 h-3 group-open:rotate-180 transition-transform" />
@@ -384,7 +383,7 @@ export function AgentLiveChat() {
             }
           }}
           rows={1}
-          placeholder="Ask a market question or a vault question..."
+          placeholder={t('placeholder')}
           disabled={pending || ready !== true}
           // Use 16px base font-size on mobile so iOS Safari doesn't
           // auto-zoom the viewport when the textarea focuses. Anything
@@ -396,10 +395,10 @@ export function AgentLiveChat() {
           type="submit"
           disabled={pending || !input.trim() || ready !== true}
           className="px-3 sm:px-4 py-2 rounded-ios bg-ios-blue text-white font-medium text-callout disabled:opacity-40 disabled:cursor-not-allowed hover:bg-ios-blue/90 transition-colors flex items-center gap-1.5 sm:gap-2 flex-shrink-0 min-h-[42px]"
-          aria-label="Send"
+          aria-label={t('sendAria')}
         >
           {pending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-          <span className="hidden sm:inline">{pending ? 'Sending' : 'Ask'}</span>
+          <span className="hidden sm:inline">{pending ? t('sending') : t('send')}</span>
         </button>
       </form>
     </div>

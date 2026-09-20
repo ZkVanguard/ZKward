@@ -481,6 +481,30 @@
           "c4": "Ribilancia solo quando la confidence AI supera il 65 per cento"
         }
       }
+    },
+    "chat": {
+      "title": "Chiedi di cripto, mercati o del vault",
+      "readOnly": "Solo lettura",
+      "subtitle": "Prezzi live. Segnali live. Stato del vault live.",
+      "tryOneOfThese": "Prova una di queste:",
+      "thinking": "sto pensando…",
+      "placeholder": "Fai una domanda di mercato o sul vault…",
+      "send": "Chiedi",
+      "sending": "Invio",
+      "sendAria": "Invia",
+      "rateLimited": "Limite raggiunto. Attendi ~30 s prima di richiedere.",
+      "requestFailed": "Richiesta fallita (HTTP {status}).",
+      "networkError": "Errore di rete",
+      "toolCalls": "{count, plural, =1 {# chiamata a strumento} other {# chiamate a strumento}}",
+      "notConfigured": "Oracolo di stato non configurato (in prod attende ASI_API_KEY).",
+      "prompts": {
+        "p1": "Come sta andando BTC ora?",
+        "p2": "Snapshot del mercato — BTC, ETH, SOL, SUI",
+        "p3": "Cosa pensa il mercato di previsione di ETH?",
+        "p4": "Spiega i funding rate in due frasi",
+        "p5": "Cosa ha fatto il nostro vault nelle ultime 24 h?",
+        "p6": "La nostra IA sta predicendo bene questa settimana?"
+      }
     }
   },
   "story": {

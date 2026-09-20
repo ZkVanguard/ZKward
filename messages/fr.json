@@ -481,6 +481,30 @@
           "c4": "Rééquilibre uniquement quand la confiance IA dépasse 65 pour cent"
         }
       }
+    },
+    "chat": {
+      "title": "Poser une question sur la crypto, les marchés ou le coffre",
+      "readOnly": "Lecture seule",
+      "subtitle": "Prix live. Signaux live. État du coffre live.",
+      "tryOneOfThese": "Essayez-en une :",
+      "thinking": "en train de réfléchir…",
+      "placeholder": "Posez une question marché ou une question coffre…",
+      "send": "Demander",
+      "sending": "Envoi",
+      "sendAria": "Envoyer",
+      "rateLimited": "Limite atteinte. Attendez ~30 s avant de redemander.",
+      "requestFailed": "La requête a échoué (HTTP {status}).",
+      "networkError": "Erreur réseau",
+      "toolCalls": "{count, plural, =1 {# appel d'outil} other {# appels d'outils}}",
+      "notConfigured": "Oracle de statut non configuré (attente de ASI_API_KEY en prod).",
+      "prompts": {
+        "p1": "Comment va BTC en ce moment ?",
+        "p2": "Snapshot du marché — BTC, ETH, SOL, SUI",
+        "p3": "Que pense le marché de prédiction pour ETH ?",
+        "p4": "Explique les funding rates en deux phrases",
+        "p5": "Qu'a fait notre coffre ces 24 dernières heures ?",
+        "p6": "Notre IA prédit-elle correctement cette semaine ?"
+      }
     }
   },
   "story": {
