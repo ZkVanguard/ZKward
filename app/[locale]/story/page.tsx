@@ -1,17 +1,18 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { getTranslations } from 'next-intl/server';
 import { locales, defaultLocale } from '@/i18n/routing';
 
 export async function generateMetadata(
   { params }: { params: Promise<{ locale: string }> },
 ): Promise<Metadata> {
   const { locale } = await params;
+  const t = await getTranslations({ locale, namespace: 'story.meta' });
   const route = '/story';
   const canonical = locale === defaultLocale ? route : `/${locale}${route}`;
   return {
-    title: 'Our story — ZKward',
-    description:
-      "How ZKward started, what it does, and why we tell you when it loses money.",
+    title: t('title'),
+    description: t('description'),
     alternates: {
       canonical,
       languages: Object.fromEntries(
@@ -21,14 +22,19 @@ export async function generateMetadata(
   };
 }
 
-export default function StoryPage() {
+export default async function StoryPage({ params }: { params: Promise<{ locale: string }> }) {
+  const { locale } = await params;
+  const t = await getTranslations({ locale, namespace: 'story' });
+  const tMeta = await getTranslations({ locale, namespace: 'story.meta' });
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://zkward.com';
   const articleLd = {
     '@context': 'https://schema.org',
     '@type': 'AboutPage',
-    name: 'How we got here — ZKward',
+    // JSON-LD name stays in the request locale so search engines index the
+    // localised page correctly.
+    name: tMeta('title'),
     url: `${baseUrl}/story`,
-    inLanguage: 'en',
+    inLanguage: locale,
     isPartOf: { '@id': `${baseUrl}/#website` },
     about: { '@id': `${baseUrl}/#org` },
     mainEntity: {
@@ -50,134 +56,94 @@ export default function StoryPage() {
       <article className="max-w-[680px] mx-auto px-4 sm:px-6">
         <header className="mb-10">
           <p className="text-caption-1 uppercase tracking-widest text-ios-blue font-semibold mb-3">
-            Our story
+            {t('header.eyebrow')}
           </p>
           <h1 className="text-title-1 sm:text-large-title font-bold text-label-primary tracking-tight">
-            How we got here
+            {t('header.title')}
           </h1>
           <p className="mt-4 text-body text-label-secondary">
-            Five minutes. No jargon. Grab a coffee.
+            {t('header.subtitle')}
           </p>
         </header>
 
         <section className="space-y-6 text-body text-label-primary leading-relaxed">
           <p>
-            The project used to be called <em>ZkVanguard</em>. People kept asking if we
-            were a bond fund. It sounded like your dad&rsquo;s retirement plan. So we
-            renamed it to <strong>ZKward</strong>. Same idea, slightly awkward to say
-            out loud. You&rsquo;ll get used to it.
+            {t.rich('intro', {
+              em: (chunks) => <em>{chunks}</em>,
+              strong: (chunks) => <strong>{chunks}</strong>,
+            })}
           </p>
 
-          <h2 className="text-title-2 font-semibold pt-3">What it is, in one sentence</h2>
+          <h2 className="text-title-2 font-semibold pt-3">{t('whatItIs.heading')}</h2>
+          <p>{t('whatItIs.body')}</p>
+
+          <h2 className="text-title-2 font-semibold pt-3">{t('howItWorks.heading')}</h2>
+          <p>{t('howItWorks.body1')}</p>
+          <p>{t('howItWorks.body2')}</p>
+
+          <h2 className="text-title-2 font-semibold pt-3">{t('whereStarted.heading')}</h2>
           <p>
-            A savings pool that trades for you and shows its math, so you don&rsquo;t
-            have to take our word for it.
+            {t.rich('whereStarted.body1', {
+              em: (chunks) => <em>{chunks}</em>,
+            })}
+          </p>
+          <p>
+            {t.rich('whereStarted.body2', {
+              strong: (chunks) => <strong>{chunks}</strong>,
+            })}
           </p>
 
-          <h2 className="text-title-2 font-semibold pt-3">How it works, plainly</h2>
-          <p>
-            You put in USDC. A small crew of computer programs reads what people are
-            betting on in prediction markets (like Polymarket) and lines up trades on
-            crypto based on that. When it makes a trade, it also produces a little
-            cryptographic receipt that anyone can check. The receipt proves the trade
-            followed the rules. Without revealing your position.
-          </p>
-          <p>
-            Think of it as an autopilot with a black box flight recorder. Except the
-            recorder is public, and the autopilot won&rsquo;t take off in bad weather.
-          </p>
-
-          <h2 className="text-title-2 font-semibold pt-3">Where it started</h2>
-          <p>
-            A hackathon weekend. Too much coffee. One question:{' '}
-            <em>if computers move real money, why does anyone trust their reasoning?</em>{' '}
-            We thought we&rsquo;d answer in two days. It took eighteen months.
-          </p>
-          <p>
-            Along the way we won five hackathons, contributed to Tether&rsquo;s wallet
-            toolkit, and shipped on a handful of blockchains. Most of the test
-            deployments lasted about an afternoon. <strong>SUI</strong> stuck. It&rsquo;s
-            fast, cheap, and doesn&rsquo;t break when you look at it wrong. That&rsquo;s
-            where the money lives now.
-          </p>
-
-          <h2 className="text-title-2 font-semibold pt-3">What we ship today</h2>
+          <h2 className="text-title-2 font-semibold pt-3">{t('shipToday.heading')}</h2>
           <ul className="list-disc list-outside pl-5 space-y-2">
-            <li>
-              A real pool on SUI mainnet. Small on purpose. The contract itself caps
-              deposits at $10,000. We wanted to prove it works before scaling. Slow is
-              the point.
-            </li>
-            <li>
-              Eight safety switches that can pause the whole thing if something looks
-              off. One tripped yesterday, after a rough day of testing (more on that
-              below).
-            </li>
-            <li>
-              A learning loop: the AI grades its own trades, retrains overnight, and
-              tries again. Sometimes it gets better. Sometimes it finds new ways to
-              fail. We publish both.
-            </li>
-            <li>
-              A cryptographic receipt for every trade. Not a screenshot. A proof.
-            </li>
+            <li>{t('shipToday.item1')}</li>
+            <li>{t('shipToday.item2')}</li>
+            <li>{t('shipToday.item3')}</li>
+            <li>{t('shipToday.item4')}</li>
           </ul>
 
-          <h2 className="text-title-2 font-semibold pt-3">Why we tell you when it loses</h2>
-          <p>
-            Most projects only talk about their wins. Right now, our test trader is
-            down about $68,000 on paper. We&rsquo;re telling you because that&rsquo;s
-            the whole point. If you can&rsquo;t see the losses, the wins don&rsquo;t
-            mean much.
-          </p>
-          <p>
-            Also, hiding a loss is how a small loss turns into a much larger one three
-            months later. We tried that once. Do not recommend.
-          </p>
+          <h2 className="text-title-2 font-semibold pt-3">{t('whyWeTell.heading')}</h2>
+          <p>{t('whyWeTell.body1')}</p>
+          <p>{t('whyWeTell.body2')}</p>
 
-          <h2 className="text-title-2 font-semibold pt-3">Who&rsquo;s making it</h2>
-          <p>
-            Mostly one person, working from nine time zones away from most of you.
-            Computer science degree, some years at big companies, an unreasonable
-            number of side quests. Funded by savings and small grants that pay out
-            roughly around the time the founder starts skipping lunch.
-          </p>
-          <p>
-            The paper trader has occasionally cost more per month than the founder
-            eats. We consider this on-brand.
-          </p>
+          <h2 className="text-title-2 font-semibold pt-3">{t('whoBuilds.heading')}</h2>
+          <p>{t('whoBuilds.body1')}</p>
+          <p>{t('whoBuilds.body2')}</p>
 
-          <h2 className="text-title-2 font-semibold pt-3">Where this goes next</h2>
+          <h2 className="text-title-2 font-semibold pt-3">{t('next.heading')}</h2>
           <p>
-            Two things need to happen. First, prove the trader stops losing money in
-            the test pool. Then raise the deposit cap, one careful step at a time,
-            with a real drawdown test at each step. If we skip a step, please yell at
-            us on{' '}
-            <a
-              href="https://t.me/+QoAodv90iWExZmVh"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-ios-blue hover:underline"
-            >
-              Telegram
-            </a>
-            .
+            {t.rich('next.body', {
+              telegram: (chunks) => (
+                <a
+                  href="https://t.me/+QoAodv90iWExZmVh"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-ios-blue hover:underline"
+                >
+                  {chunks}
+                </a>
+              ),
+            })}
           </p>
         </section>
 
         <footer className="mt-12 pt-8 border-t border-separator-opaque/40 flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between text-subheadline text-label-secondary">
           <div>
-            Want the technical version?{' '}
-            <Link href="/whitepaper" className="text-ios-blue hover:underline font-medium">
-              Read the whitepaper
-            </Link>
+            {t.rich('footer.technical', {
+              link: () => (
+                <Link href="/whitepaper" className="text-ios-blue hover:underline font-medium">
+                  {t('footer.readWhitepaper')}
+                </Link>
+              ),
+            })}
           </div>
           <div>
-            Or just{' '}
-            <Link href="/dashboard" className="text-ios-blue hover:underline font-medium">
-              open the app
-            </Link>
-            .
+            {t.rich('footer.orJust', {
+              link: () => (
+                <Link href="/dashboard" className="text-ios-blue hover:underline font-medium">
+                  {t('footer.openApp')}
+                </Link>
+              ),
+            })}
           </div>
         </footer>
       </article>

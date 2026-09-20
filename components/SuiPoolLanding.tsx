@@ -3,6 +3,7 @@
 import type { RefObject } from 'react';
 import { memo, useEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useTranslations } from 'next-intl';
 import { Link } from '@/i18n/routing';
 import { useHederaPool, type HederaPoolResponse } from '@/lib/hooks/useHederaPool';
 import {
@@ -128,12 +129,13 @@ function formatUsd(n: number, decimals = 2): string {
 }
 
 // Compact member/share formatter that also handles pluralisation.
+// singular/plural come from translations — never inline English defaults.
 function formatCount(n: number, singular: string, plural: string): string {
   if (!Number.isFinite(n) || n < 0) return `… ${plural}`;
   const rounded = Math.floor(n);
   if (rounded >= 1_000_000) return `${(rounded / 1_000_000).toFixed(1)}M ${plural}`;
   if (rounded >= 10_000)    return `${(rounded / 1_000).toFixed(1)}K ${plural}`;
-  if (rounded >= 1_000)     return `${rounded.toLocaleString('en-US')} ${plural}`;
+  if (rounded >= 1_000)     return `${rounded.toLocaleString()} ${plural}`;
   return `${rounded} ${rounded === 1 ? singular : plural}`;
 }
 
@@ -464,6 +466,7 @@ function HeroGraphBg() {
 }
 
 export const SuiPoolLanding = memo(function SuiPoolLanding() {
+  const t = useTranslations('landing');
   // Read the shared Hedera pool query. Same cache key as HederaVaultCallout
   // above + the dashboard's useCommunityPool. Three consumers, one fetch.
   const { data: rawPool, isPending: loading } = useHederaPool('testnet');
@@ -507,13 +510,13 @@ export const SuiPoolLanding = memo(function SuiPoolLanding() {
                     <span className="relative inline-flex rounded-full h-2 w-2" style={{ backgroundColor: '#00A79F' }} />
                   </span>
                   <span className="text-footnote font-medium text-label-secondary">
-                    Live on <span style={{ color: '#00A79F' }} className="font-semibold">Hedera Testnet</span> · <span style={{ color: '#4DA2FF' }} className="font-semibold">SUI Mainnet</span>
+                    {t('status.liveOn')} <span style={{ color: '#00A79F' }} className="font-semibold">{t('status.hederaTestnet')}</span> · <span style={{ color: '#4DA2FF' }} className="font-semibold">{t('status.suiMainnet')}</span>
                   </span>
                 </span>
               }
               right={
                 <span className="text-footnote font-semibold text-label-primary tabular-nums">
-                  {formatCount(pool?.memberCount ?? 0, 'member', 'members')}
+                  {formatCount(pool?.memberCount ?? 0, t('status.member'), t('status.members'))}
                 </span>
               }
             />
@@ -526,16 +529,14 @@ export const SuiPoolLanding = memo(function SuiPoolLanding() {
             className="font-display text-center text-[38px] xs:text-[44px] sm:text-[54px] md:text-[62px] lg:text-[68px] xl:text-[80px] font-semibold tracking-[-0.04em] leading-[0.96] text-label-primary mb-4 sm:mb-6"
             style={{ textWrap: 'balance', hyphens: 'none', overflowWrap: 'normal' }}
           >
-            A vault that
+            {t('hero.headline1')}
             <br />
-            <span className="whitespace-nowrap">shows its work.</span>
+            <span className="whitespace-nowrap">{t('hero.headline2')}</span>
           </h1>
 
           {/* Subtitle — plain-English promise; brand-forward for search. */}
           <p className="text-center text-base sm:text-[19px] text-label-secondary max-w-[600px] mx-auto leading-relaxed mb-10 sm:mb-14 px-1">
-            ZKward is an autonomous crypto vault. Seven AI agents make the trades.
-            Every hedge closes with a cryptographic receipt you can verify yourself.
-            Small pool on purpose. Real money.
+            {t('hero.subtitle')}
           </p>
 
           {/* ─── VAULT METER (signature element) ─── */}
@@ -550,7 +551,18 @@ export const SuiPoolLanding = memo(function SuiPoolLanding() {
               THIS container (not the whole hero) so the card feels 3D
               without a page-wide pointer-follow background glow. */}
           <VaultTiltScene>
-            <VaultMeter pool={pool} loading={loading} cap={TVL_CAP_USD} />
+            <VaultMeter
+              pool={pool}
+              loading={loading}
+              cap={TVL_CAP_USD}
+              labels={{
+                poolNav: t('vault.poolNav'),
+                sharePrice: t('vault.sharePrice'),
+                capacity: t('vault.capacity'),
+                capacityOf: (current, cap) =>
+                  t('vault.capacityOf', { current, cap }),
+              }}
+            />
           </VaultTiltScene>
           {/* CTAs */}
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 mb-6">
@@ -565,7 +577,7 @@ export const SuiPoolLanding = memo(function SuiPoolLanding() {
               className="group inline-flex items-center justify-center gap-3 pl-6 pr-2.5 h-[52px] sm:h-[56px] bg-ios-blue text-white text-headline font-semibold rounded-ios-xl hover:bg-ios-blueHover active:scale-[0.97] shadow-ios-2 w-full sm:w-auto"
               style={{ transition: `all 500ms ${SPRING}` }}
             >
-              Deposit USDC
+              {t('cta.depositUsdc')}
               <span
                 aria-hidden
                 className="w-9 h-9 rounded-full bg-white/15 flex items-center justify-center group-hover:translate-x-1 group-hover:-translate-y-[1px] group-hover:scale-105"
@@ -578,7 +590,7 @@ export const SuiPoolLanding = memo(function SuiPoolLanding() {
               href="#how-it-works"
               className="inline-flex items-center gap-1 h-[52px] sm:h-[56px] px-2 text-headline font-medium text-label-secondary hover:text-ios-blue transition-colors"
             >
-              How it works
+              {t('cta.howItWorks')}
               <ArrowRight className="w-4 h-4" strokeWidth={2.25} />
             </a>
           </div>
@@ -601,15 +613,13 @@ export const SuiPoolLanding = memo(function SuiPoolLanding() {
             {/* Left: heading */}
             <div className="lg:max-w-[420px] lg:sticky lg:top-24 min-w-0">
               <p className="text-[11px] sm:text-caption-1 font-semibold uppercase tracking-wide text-ios-blue mb-2 sm:mb-3">
-                Live composition
+                {t('composition.eyebrow')}
               </p>
               <h2 className="text-[26px] sm:text-[34px] md:text-[40px] lg:text-[48px] font-display font-semibold tracking-[-0.03em] leading-[1.05] text-label-primary mb-3 sm:mb-5 break-words">
-                Where your USDC is right now.
+                {t('composition.title')}
               </h2>
               <p className="text-sm sm:text-callout text-label-secondary leading-relaxed sm:leading-[1.55]">
-                The AI rebalances every 30 minutes across BTC, ETH and SUI based
-                on live market signals. Idle USDC counts as a defensive bucket.
-                Refreshes every 30s.
+                {t('composition.body')}
               </p>
             </div>
 
@@ -683,13 +693,13 @@ export const SuiPoolLanding = memo(function SuiPoolLanding() {
         <Reveal className="max-w-[1100px] mx-auto">
           <div className="text-center mb-10 sm:mb-14 md:mb-16">
             <p className="text-[11px] sm:text-caption-1 font-semibold uppercase tracking-wide text-ios-blue mb-2 sm:mb-3">
-              How it works
+              {t('howItWorks.eyebrow')}
             </p>
             <h2 className="text-[26px] sm:text-[34px] md:text-[44px] lg:text-[52px] font-display font-semibold tracking-[-0.03em] leading-[1.05] text-label-primary mb-3 sm:mb-4 break-words">
-              Three moving parts. One loop.
+              {t('howItWorks.title')}
             </h2>
             <p className="text-sm sm:text-callout text-label-secondary max-w-[560px] mx-auto leading-relaxed sm:leading-[1.55] px-1">
-              It runs every five minutes, all day, without you. You deposit once and watch.
+              {t('howItWorks.body')}
             </p>
           </div>
 
@@ -698,22 +708,22 @@ export const SuiPoolLanding = memo(function SuiPoolLanding() {
               step={1}
               icon={<Sparkles className="w-5 h-5" />}
               accent="from-ios-blue to-[#5AC8FA]"
-              title="The AI reads the room"
-              body="Ten signal sources. Polymarket, Kalshi, Deribit vol, funding rates from four venues, price momentum. Fuse into a single allocation target. Seven agents have to agree before capital moves."
+              title={t('howItWorks.step1.title')}
+              body={t('howItWorks.step1.body')}
             />
             <TimelineStep
               step={2}
               icon={<Zap className="w-5 h-5" />}
               accent="from-[#34C759] to-[#30D158]"
-              title="The pool rebalances"
-              body="Your USDC is swapped across BTC, ETH, and SUI on-chain. Drift-based. The pool only trades when the allocation actually shifts. Nothing wasted on churn."
+              title={t('howItWorks.step2.title')}
+              body={t('howItWorks.step2.body')}
             />
             <TimelineStep
               step={3}
               icon={<ShieldCheck className="w-5 h-5" />}
               accent="from-[#AF52DE] to-[#BF5AF2]"
-              title="A hedge lands with a proof"
-              body="A matching BlueFin perpetual position balances the risk. Every open and close writes a STARK proof of the decision to the chain. Anyone can verify it. Nobody can fake it."
+              title={t('howItWorks.step3.title')}
+              body={t('howItWorks.step3.body')}
               last
             />
           </div>
@@ -727,43 +737,43 @@ export const SuiPoolLanding = memo(function SuiPoolLanding() {
         <Reveal className="max-w-[1100px] mx-auto">
           <div className="text-center mb-8 sm:mb-12">
             <h2 className="text-[24px] sm:text-[28px] md:text-[36px] lg:text-[42px] font-display font-semibold tracking-[-0.03em] leading-[1.05] text-label-primary mb-3 break-words">
-              The rails are written into the contract.
+              {t('trust.title')}
             </h2>
             <p className="text-sm sm:text-callout text-label-secondary max-w-[560px] mx-auto leading-relaxed mb-2">
-              Not a policy on our website. Rules the chain enforces, whether we&rsquo;re paying attention or not.
+              {t('trust.body')}
             </p>
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-2.5 sm:gap-4 min-w-0">
             <TrustBadge
               icon={<Lock className="w-5 h-5" />}
-              title="Pool cap"
-              value="$10,000"
-              hint="Enforced by the Move contract. Not a marketing number."
+              title={t('trust.poolCap.title')}
+              value={t('trust.poolCap.value')}
+              hint={t('trust.poolCap.hint')}
             />
             <TrustBadge
               icon={<Layers className="w-5 h-5" />}
-              title="Fresh oracle"
-              value="Strict mode"
-              hint="Deposits revert if the NAV attestation is older than two hours."
+              title={t('trust.freshOracle.title')}
+              value={t('trust.freshOracle.value')}
+              hint={t('trust.freshOracle.hint')}
             />
             <TrustBadge
               icon={<ShieldCheck className="w-5 h-5" />}
-              title="Withdraw throttle"
-              value="25% / day"
-              hint="A single account cannot drain the pool. Rate limit on-chain."
+              title={t('trust.withdrawThrottle.title')}
+              value={t('trust.withdrawThrottle.value')}
+              hint={t('trust.withdrawThrottle.hint')}
             />
             <TrustBadge
               icon={<BarChart3 className="w-5 h-5" />}
-              title="Proofs, not promises"
-              value="Post-quantum"
-              hint="STARK proofs on the Goldilocks field. Quantum-safe by design."
+              title={t('trust.proofs.title')}
+              value={t('trust.proofs.value')}
+              hint={t('trust.proofs.hint')}
             />
             <TrustBadge
               icon={<Layers className="w-5 h-5" />}
-              title="Two chains, one code"
-              value="Hedera + SUI"
-              hint="Live on both. SUI is the flagship. Hedera is the fallback."
+              title={t('trust.twoChains.title')}
+              value={t('trust.twoChains.value')}
+              hint={t('trust.twoChains.hint')}
             />
           </div>
         </Reveal>
@@ -775,53 +785,52 @@ export const SuiPoolLanding = memo(function SuiPoolLanding() {
         <Reveal className="max-w-[1100px] mx-auto">
           <div className="text-center mb-8 sm:mb-10 md:mb-12">
             <div className="inline-block text-[11px] sm:text-caption-1 font-semibold uppercase tracking-wide text-label-tertiary mb-2 sm:mb-3">
-              Have a look around
+              {t('surfaces.eyebrow')}
             </div>
             <h2 className="text-[24px] sm:text-[28px] md:text-[36px] lg:text-[44px] font-display font-semibold tracking-[-0.03em] leading-[1.05] text-label-primary mb-3 sm:mb-4 break-words">
-              Every corner of ZKward is public.
+              {t('surfaces.title')}
             </h2>
             <p className="text-sm sm:text-callout md:text-[18px] text-label-secondary max-w-[640px] mx-auto leading-relaxed sm:leading-[1.5] px-1">
-              The dashboard, the agents, the proofs, the whitepaper, the story.
-              Nothing hidden behind a login except your own wallet.
+              {t('surfaces.body')}
             </p>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 min-w-0">
             <SurfaceCard
               href="/dashboard"
-              eyebrow="Dashboard"
-              title="Your pool, in one screen."
-              body="Balance, hedges, drawdown, and the proof feed. Refreshes every minute. What you see is what the chain says."
+              eyebrow={t('surfaces.dashboard.eyebrow')}
+              title={t('surfaces.dashboard.title')}
+              body={t('surfaces.dashboard.body')}
             />
             <SurfaceCard
               href="/rwa"
-              eyebrow="Real-world assets"
-              title="Off-chain assets, on-chain proof."
-              body="Custodian signatures bind portfolios to real assets while keeping the holdings private. Built for issuers and institutions."
+              eyebrow={t('surfaces.rwa.eyebrow')}
+              title={t('surfaces.rwa.title')}
+              body={t('surfaces.rwa.body')}
             />
             <SurfaceCard
               href="/agents"
-              eyebrow="The seven agents"
-              title="Meet the specialists."
-              body="Lead, Risk, Hedging, Settlement, Reporting, Price Monitor, SUI Pool. Each has a job. Big trades need 2-of-3 to agree."
+              eyebrow={t('surfaces.agents.eyebrow')}
+              title={t('surfaces.agents.title')}
+              body={t('surfaces.agents.body')}
             />
             <SurfaceCard
               href="/zk"
-              eyebrow="Zero-knowledge proofs"
-              title="Not screenshots. Math."
-              body="Post-quantum STARK proofs, verifiable in your browser. 180-bit soundness. No trusted setup, no elliptic curves."
+              eyebrow={t('surfaces.zk.eyebrow')}
+              title={t('surfaces.zk.title')}
+              body={t('surfaces.zk.body')}
             />
             <SurfaceCard
               href="/story"
-              eyebrow="Our story"
-              title="How we got here."
-              body="A five-minute read. Warm, honest, and yes, we tell you when we lose money. That is the whole point."
+              eyebrow={t('surfaces.story.eyebrow')}
+              title={t('surfaces.story.title')}
+              body={t('surfaces.story.body')}
             />
             <SurfaceCard
               href="/whitepaper"
-              eyebrow="Whitepaper"
-              title="The technical version."
-              body="Prediction-market alpha, 7-agent architecture, STARK-attested execution, roadmap, references. For the engineers in the room."
+              eyebrow={t('surfaces.whitepaper.eyebrow')}
+              title={t('surfaces.whitepaper.title')}
+              body={t('surfaces.whitepaper.body')}
             />
           </div>
         </Reveal>
@@ -833,11 +842,18 @@ export const SuiPoolLanding = memo(function SuiPoolLanding() {
       <section className="py-14 sm:py-20 md:py-24 px-4 sm:px-5 lg:px-8 bg-system-bg-primary min-w-0">
         <div className="max-w-[720px] mx-auto text-center min-w-0">
           <h2 className="text-[24px] sm:text-[32px] md:text-[40px] font-display font-semibold tracking-[-0.03em] leading-[1.05] text-label-primary mb-3 break-words">
-            Come see it running.
+            {t('finalCta.title')}
           </h2>
           <p className="text-sm sm:text-callout text-label-secondary mb-6 leading-relaxed px-1">
-            Connect a wallet, deposit USDC, close the tab. The AI takes it from there.
-            {pool && <> {formatCount(pool.memberCount, 'member', 'members')} already in.</>}
+            {t('finalCta.body')}
+            {pool && (
+              <>
+                {' '}
+                {t('finalCta.alreadyIn', {
+                  count: formatCount(pool.memberCount, t('status.member'), t('status.members')),
+                })}
+              </>
+            )}
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
             <Link
@@ -845,7 +861,7 @@ export const SuiPoolLanding = memo(function SuiPoolLanding() {
               className="group inline-flex items-center justify-center gap-3 w-full sm:w-auto pl-6 pr-2.5 h-[52px] bg-ios-blue text-white text-headline font-semibold rounded-ios-xl hover:bg-ios-blueHover active:scale-[0.97] shadow-ios-2"
               style={{ transition: `all 500ms ${SPRING}` }}
             >
-              Deposit USDC
+              {t('cta.depositUsdc')}
               <span
                 aria-hidden
                 className="w-9 h-9 rounded-full bg-white/15 flex items-center justify-center group-hover:translate-x-1 group-hover:-translate-y-[1px] group-hover:scale-105"
@@ -860,13 +876,13 @@ export const SuiPoolLanding = memo(function SuiPoolLanding() {
               rel="noopener noreferrer"
               className="inline-flex items-center gap-2 h-[52px] px-2 text-headline font-medium text-label-secondary hover:text-ios-blue transition-colors"
             >
-              View source
+              {t('cta.viewSource')}
               <ArrowRight className="w-4 h-4" strokeWidth={2.25} />
             </a>
           </div>
           {pool?.paused && (
             <p className="mt-4 text-footnote text-ios-orange font-medium">
-              Deposits currently paused for maintenance.
+              {t('finalCta.paused')}
             </p>
           )}
         </div>
@@ -883,11 +899,17 @@ export const SuiPoolLanding = memo(function SuiPoolLanding() {
 // vault's live state: NAV, allocation, capacity. Replaces the generic
 // text-hero + 4-stat-card pattern. Every landing sells; this one shows.
 function VaultMeter({
-  pool, loading, cap,
+  pool, loading, cap, labels,
 }: {
   pool: PoolSummary | null | undefined;
   loading: boolean;
   cap: number;
+  labels: {
+    poolNav: string;
+    sharePrice: string;
+    capacity: string;
+    capacityOf: (current: string, cap: string) => string;
+  };
 }) {
   const entries = pool
     ? Object.entries(pool.allocation || {})
@@ -911,7 +933,7 @@ function VaultMeter({
       <div className="flex items-end justify-between gap-4 mb-5 sm:mb-6 pt-1">
         <div className="min-w-0">
           <div className="text-[10px] sm:text-caption-1 uppercase tracking-wide font-semibold text-label-tertiary mb-1.5">
-            Pool NAV
+            {labels.poolNav}
           </div>
           {loading ? (
             // Skeleton matches final NAV width (~7ch) + height so data
@@ -925,7 +947,7 @@ function VaultMeter({
         </div>
         <div className="text-right flex-shrink-0">
           <div className="text-[10px] sm:text-caption-1 uppercase tracking-wide font-semibold text-label-tertiary mb-1.5">
-            Share price
+            {labels.sharePrice}
           </div>
           {loading ? (
             <div className="h-[20px] sm:h-[26px] w-[6ch] rounded-md bg-system-bg-grouped animate-pulse ml-auto" />
@@ -965,12 +987,12 @@ function VaultMeter({
       {/* Capacity */}
       <div className="pt-5 sm:pt-6 border-t border-separator-opaque/30">
         <div className="flex items-center justify-between text-xs sm:text-caption-1 mb-2">
-          <span className="text-label-tertiary uppercase tracking-wide font-semibold">Capacity</span>
+          <span className="text-label-tertiary uppercase tracking-wide font-semibold">{labels.capacity}</span>
           {loading ? (
             <span className="inline-block h-[12px] w-[12ch] rounded bg-system-bg-grouped animate-pulse" />
           ) : (
             <span className="tabular-nums text-label-secondary">
-              {`${formatUsd(pool?.totalNAV ?? 0)} of ${formatUsd(cap)}`}
+              {labels.capacityOf(formatUsd(pool?.totalNAV ?? 0), formatUsd(cap))}
             </span>
           )}
         </div>
