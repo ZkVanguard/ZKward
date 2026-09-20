@@ -15,6 +15,8 @@ const MARKETING_ROUTES: Array<{ path: string; priority: number; changeFrequency:
   { path: '/whitepaper', priority: 0.9, changeFrequency: 'monthly' },
   { path: '/story', priority: 0.8, changeFrequency: 'monthly' },
   { path: '/faq', priority: 0.8, changeFrequency: 'monthly' },
+  { path: '/glossary', priority: 0.7, changeFrequency: 'monthly' },
+  { path: '/team', priority: 0.6, changeFrequency: 'monthly' },
   { path: '/simulator', priority: 0.7, changeFrequency: 'monthly' },
   { path: '/privacy', priority: 0.3, changeFrequency: 'monthly' },
   { path: '/terms', priority: 0.3, changeFrequency: 'monthly' },
