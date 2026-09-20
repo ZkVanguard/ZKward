@@ -1,16 +1,13 @@
 import { ImageResponse } from 'next/og';
+import { NextResponse } from 'next/server';
 
-// File-based icon convention. Next serves this at `/icon` with
-// Content-Type: image/png and auto-injects <link rel="icon" ...> into
-// every <head>. 512×512 satisfies Google Search Console's Organization
-// schema `logo` guidance (≥112×112, ideally 512×512) and the PWA
-// manifest's "any" icon slot.
+// 180×180 apple-touch-icon at /api/apple-icon. iOS home-screen icon.
+// Solid background (no radius) — iOS applies its own rounded-square
+// mask.
 export const runtime = 'nodejs';
-export const size = { width: 512, height: 512 };
-export const contentType = 'image/png';
 
-export default function Icon() {
-  return new ImageResponse(
+export async function GET() {
+  const image = new ImageResponse(
     (
       <div
         style={{
@@ -20,14 +17,13 @@ export default function Icon() {
           alignItems: 'center',
           justifyContent: 'center',
           background: '#5372FF',
-          borderRadius: 88,
         }}
       >
         <div
           style={{
             fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
             fontWeight: 900,
-            fontSize: 260,
+            fontSize: 92,
             color: '#FFFFFF',
             letterSpacing: '-0.06em',
             lineHeight: 1,
@@ -37,6 +33,16 @@ export default function Icon() {
         </div>
       </div>
     ),
-    { ...size },
+    { width: 180, height: 180 },
   );
+
+  const buf = await image.arrayBuffer();
+  return new NextResponse(buf, {
+    status: 200,
+    headers: {
+      'Content-Type': 'image/png',
+      'Cache-Control': 'public, max-age=31536000, immutable',
+      'Content-Length': String(buf.byteLength),
+    },
+  });
 }

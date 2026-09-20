@@ -8,7 +8,8 @@
     "vault": "ヴォールト",
     "zk": "ZK",
     "whitepaper": "ホワイトペーパー",
-    "rwa": "RWA"
+    "rwa": "RWA",
+    "story": "ストーリー"
   },
   "hero": {
     "eyebrow": "SUI Mainnet",
@@ -77,7 +78,8 @@
     "testnet": "SUI Mainnet",
     "stage": "Mainnet ライブ",
     "migrationNotice": "Formerly zkvanguard.xyz — zkward.com is our new home.",
-    "builtWith": "ZK-STARKで構築"
+    "builtWith": "ZK-STARKで構築",
+    "story": "私たちのストーリー"
   },
   "connect": {
     "button": "ウォレットを接続",

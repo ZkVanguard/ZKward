@@ -8,7 +8,8 @@
     "vault": "الخزنة",
     "zk": "ZK",
     "whitepaper": "الورقة البيضاء",
-    "rwa": "RWA"
+    "rwa": "RWA",
+    "story": "قصتنا"
   },
   "hero": {
     "eyebrow": "SUI Mainnet",
@@ -77,7 +78,8 @@
     "testnet": "SUI Mainnet",
     "stage": "الشبكة الرئيسية مباشرة",
     "migrationNotice": "Formerly zkvanguard.xyz — zkward.com is our new home.",
-    "builtWith": "مبني على ZK-STARK"
+    "builtWith": "مبني على ZK-STARK",
+    "story": "قصتنا"
   },
   "connect": {
     "button": "توصيل المحفظة",

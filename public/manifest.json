@@ -15,19 +15,19 @@
   "categories": ["finance", "productivity"],
   "icons": [
     {
-      "src": "/icon",
+      "src": "/api/icon",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/icon",
+      "src": "/api/icon",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
     },
     {
-      "src": "/apple-icon",
+      "src": "/api/apple-icon",
       "sizes": "180x180",
       "type": "image/png",
       "purpose": "any"
@@ -45,28 +45,28 @@
       "short_name": "Vault",
       "description": "Deposit or withdraw from the SUI USDC vault",
       "url": "/dashboard",
-      "icons": [{ "src": "/icon", "sizes": "512x512", "type": "image/png" }]
+      "icons": [{ "src": "/api/icon", "sizes": "512x512", "type": "image/png" }]
     },
     {
       "name": "Agents",
       "short_name": "Agents",
       "description": "Live 7-agent status",
       "url": "/agents",
-      "icons": [{ "src": "/icon", "sizes": "512x512", "type": "image/png" }]
+      "icons": [{ "src": "/api/icon", "sizes": "512x512", "type": "image/png" }]
     },
     {
       "name": "ZK proofs",
       "short_name": "ZK",
       "description": "Verify a proof or read the STARK explainer",
       "url": "/zk",
-      "icons": [{ "src": "/icon", "sizes": "512x512", "type": "image/png" }]
+      "icons": [{ "src": "/api/icon", "sizes": "512x512", "type": "image/png" }]
     },
     {
       "name": "Our story",
       "short_name": "Story",
       "description": "How ZKward started, in plain English",
       "url": "/story",
-      "icons": [{ "src": "/icon", "sizes": "512x512", "type": "image/png" }]
+      "icons": [{ "src": "/api/icon", "sizes": "512x512", "type": "image/png" }]
     }
   ],
   "prefer_related_applications": false

@@ -8,7 +8,8 @@
     "vault": "Хранилище",
     "zk": "ZK",
     "whitepaper": "Whitepaper",
-    "rwa": "RWA"
+    "rwa": "RWA",
+    "story": "История"
   },
   "hero": {
     "eyebrow": "SUI Mainnet",
@@ -77,7 +78,8 @@
     "testnet": "SUI Mainnet",
     "stage": "Mainnet Запущен",
     "migrationNotice": "Formerly zkvanguard.xyz — zkward.com is our new home.",
-    "builtWith": "Построено на ZK-STARK"
+    "builtWith": "Построено на ZK-STARK",
+    "story": "Наша история"
   },
   "connect": {
     "button": "Подключить кошелёк",

@@ -83,17 +83,17 @@ export async function generateMetadata(
     creator: 'ZKward',
     publisher: 'ZKward',
     applicationName: 'ZKward',
-    // Icons are also emitted by the file-based conventions at
-    // app/icon.tsx (32×32-ish favicon) and app/apple-icon.tsx (180×180).
-    // Keeping the SVG here as the shortcut lets desktop browsers use a
-    // crisp vector when they support it.
+    // Icons served by API routes (/api/icon at 512×512, /api/apple-icon
+    // at 180×180). File-based app/icon.tsx collided with the [locale]
+    // catch-all — every request fell through to /404. API routes bypass
+    // that entirely. SVG kept as the shortcut for crisp desktop favicons.
     icons: {
       icon: [
-        { url: '/icon', type: 'image/png', sizes: '512x512' },
+        { url: '/api/icon', type: 'image/png', sizes: '512x512' },
         { url: '/favicon.svg', type: 'image/svg+xml' },
       ],
       shortcut: '/favicon.svg',
-      apple: [{ url: '/apple-icon', sizes: '180x180', type: 'image/png' }],
+      apple: [{ url: '/api/apple-icon', sizes: '180x180', type: 'image/png' }],
     },
     manifest: '/manifest.json',
     appleWebApp: {
@@ -163,7 +163,7 @@ export default async function LocaleLayout(
   // JSON-LD structured data — Organization + WebSite. Emitted on every
   // page so Google can build a knowledge-panel + sitelinks searchbox.
   //
-  // Logo is a 512×512 PNG served by app/icon.tsx. Google Search Console
+  // Logo is a 512×512 PNG served by app/api/icon.tsx. Google Search Console
   // requires raster (PNG/JPG/WebP) for the Organization logo — SVG is
   // accepted by some crawlers but not shown in the knowledge panel.
   //
@@ -182,8 +182,8 @@ export default async function LocaleLayout(
         url: baseUrl,
         logo: {
           '@type': 'ImageObject',
-          url: `${baseUrl}/icon`,
-          contentUrl: `${baseUrl}/icon`,
+          url: `${baseUrl}/api/icon`,
+          contentUrl: `${baseUrl}/api/icon`,
           width: 512,
           height: 512,
           caption: 'ZKward',
