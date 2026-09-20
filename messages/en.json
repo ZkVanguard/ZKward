@@ -485,17 +485,6 @@
       }
     }
   },
-  "agents": {
-    "title": "AI Agent Network",
-    "subtitle": "24/7 autonomous portfolio management with multi-agent consensus",
-    "active": "Active",
-    "idle": "Idle",
-    "monitoring": "Monitoring",
-    "leadAgent": "Lead Risk Orchestrator",
-    "marketAgent": "Market Intelligence Agent",
-    "complianceAgent": "Compliance Agent",
-    "executionAgent": "Execution Agent"
-  },
   "common": {
     "loading": "Loading...",
     "error": "Error",

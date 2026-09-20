@@ -173,7 +173,7 @@
         "role": "बीमा दलाल",
         "description": "जब Risk ले केही फ्ल्याग गर्छ, Hedging ले त्यसलाई भरपाई गर्ने counter-trade छनोट गर्छ। खुल्नु अघि Short size, leverage, र सम्पत्ति सबै confidence-scored।",
         "capabilities": {
-          "c1": "Short position sizing",
+          "c1": "सर्ट पोज़िसन साइजिङ",
           "c2": "Options रणनीति उत्पादन",
           "c3": "Cross-asset correlation विश्लेषण",
           "c4": "प्रत्येक रणनीतिमा confidence score ट्याग"
@@ -207,7 +207,7 @@
         "description": "BTC, ETH, SUI, र CRO मा ५-मिनेटको prediction-market ticker हेर्छ। संकेत फर्केमा, सेकेन्डभित्रै प्रसारण गर्छ ताकि अरूले प्रतिक्रिया दिन सकून्।",
         "capabilities": {
           "c1": "BTC, ETH, SUI, CRO threshold निगरानी",
-          "c2": "Polymarket ५-मिनेट event stream",
+          "c2": "Polymarket ५-मिनेट इभेन्ट स्ट्रिम",
           "c3": "संकेत flip मा फायर हुन्छ",
           "c4": "प्रति-asset alert routing"
         }
@@ -218,7 +218,7 @@
         "description": "SUI USDC कम्युनिटी पूल चलाउँछ। फ्युज्ड संकेत पढ्छ, चारवटा सम्पत्तिमा वितरण छनोट गर्छ, BlueFin मार्फत पुनर्संतुलन गर्छ, र कसैलाई on-chain सुरक्षा गार्ड्स बाइपास गर्न दिँदैन।",
         "capabilities": {
           "c1": "BTC, ETH, SUI, CRO मा चार-सम्पत्ति वितरण",
-          "c2": "BlueFin aggregator पुनर्संतुलन",
+          "c2": "BlueFin एग्रीगेटरमार्फत पुनर्संतुलन",
           "c3": "SafeExecutionGuard प्रवर्तन",
           "c4": "AI confidence ६५ प्रतिशत नाघेमा मात्र पुनर्संतुलन"
         }
@@ -484,17 +484,6 @@
         "protectedDesc": "सबै संवेदनशील डेटा encrypted छ। ZK प्रमाणहरूले तपाईंका positions निजी रहन्छन् जबकि on-chain प्रमाणयोग्य हुन्छन् भन्ने सुनिश्चित गर्छन्।"
       }
     }
-  },
-  "agents": {
-    "title": "AI एजेन्ट नेटवर्क",
-    "subtitle": "बहु-एजेन्ट सर्वसम्मतिसहित २४/७ स्वायत्त पोर्टफोलियो व्यवस्थापन",
-    "active": "सक्रिय",
-    "idle": "निष्क्रिय",
-    "monitoring": "निगरानी",
-    "leadAgent": "Lead जोखिम Orchestrator",
-    "marketAgent": "बजार बुद्धिमत्ता एजेन्ट",
-    "complianceAgent": "अनुपालन एजेन्ट",
-    "executionAgent": "कार्यान्वयन एजेन्ट"
   },
   "common": {
     "loading": "लोड हुँदै...",

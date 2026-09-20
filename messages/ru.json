@@ -151,17 +151,6 @@
       }
     }
   },
-  "agents": {
-    "title": "Сеть ИИ-агентов",
-    "subtitle": "Автономное управление портфелем 24/7 с мульти-агентным консенсусом",
-    "active": "Активен",
-    "idle": "Неактивен",
-    "monitoring": "Мониторинг",
-    "leadAgent": "Lead Risk Orchestrator",
-    "marketAgent": "Market Intelligence Agent",
-    "complianceAgent": "Compliance Agent",
-    "executionAgent": "Execution Agent"
-  },
   "common": {
     "loading": "Загрузка...",
     "error": "Ошибка",

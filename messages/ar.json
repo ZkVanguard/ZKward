@@ -151,17 +151,6 @@
       }
     }
   },
-  "agents": {
-    "title": "شبكة وكلاء الذكاء الاصطناعي",
-    "subtitle": "إدارة محفظة مستقلة على مدار الساعة مع إجماع متعدد الوكلاء",
-    "active": "نشط",
-    "idle": "خامل",
-    "monitoring": "المراقبة",
-    "leadAgent": "Lead Risk Orchestrator",
-    "marketAgent": "Market Intelligence Agent",
-    "complianceAgent": "Compliance Agent",
-    "executionAgent": "Execution Agent"
-  },
   "common": {
     "loading": "جاري التحميل...",
     "error": "خطأ",

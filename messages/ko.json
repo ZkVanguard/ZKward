@@ -76,7 +76,7 @@
     "twitter": "Twitter",
     "privacy": "개인정보 보호정책",
     "terms": "서비스 이용약관",
-    "rights": "All rights reserved.",
+    "rights": "모든 권리 보유.",
     "testnet": "SUI Mainnet",
     "stage": "메인넷 라이브",
     "migrationNotice": "Formerly zkvanguard.xyz — zkward.com is our new home.",
@@ -150,17 +150,6 @@
         "protectedDesc": "모든 민감한 데이터는 암호화됩니다. ZK 증명은 온체인에서 검증할 수 있으면서도 포지션을 프라이빗하게 유지합니다."
       }
     }
-  },
-  "agents": {
-    "title": "AI 에이전트 네트워크",
-    "subtitle": "멀티 에이전트 합의를 통한 24/7 자율 포트폴리오 관리",
-    "active": "활성",
-    "idle": "대기",
-    "monitoring": "모니터링",
-    "leadAgent": "Lead Risk Orchestrator",
-    "marketAgent": "마켓 인텔리전스 에이전트",
-    "complianceAgent": "컴플라이언스 에이전트",
-    "executionAgent": "익스큐션 에이전트"
   },
   "common": {
     "loading": "로딩 중...",
