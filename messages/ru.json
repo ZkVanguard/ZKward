@@ -242,23 +242,7 @@
     "targetMarket": "Целевой рынок",
     "targetDescription": "Крипто-нативный ритейл · пользователи DeFi · держатели индивидуальных портфелей",
     "potentialUsers": "Потенциальные пользователи",
-    "usersDescription": "Беттеры Polymarket, энтузиасты ИИ-агентов, пользователи DeFi-хранилищ, держатели токенизированных портфелей",
-    "competitiveEdge": "Наше конкурентное преимущество",
-    "traditionalTools": "Традиционные инструменты управления рисками",
-    "noAiAutomation": "Без ИИ-автоматизации",
-    "defiProtocols": "DeFi-протоколы",
-    "noPredictionSignals": "Нет сигналов рынков прогнозов",
-    "centralizedServices": "Централизованные сервисы",
-    "custodialRisk": "Кастодиальный риск",
-    "whyWins": "Почему побеждает ZkWard",
-    "aiPowered": "Автоматизация на базе ИИ",
-    "aiDescription": "5 специализированных агентов работают круглосуточно",
-    "zkVerificationFeature": "Верификация ZK-STARK",
-    "zkDescription": "Конфиденциальность + проверяемость гарантированы",
-    "nonCustodial": "Некастодиальный",
-    "nonCustodialDescription": "Ваши ключи — ваши криптоактивы",
-    "gasOptimization": "Оптимизация газа",
-    "gasDescription": "Спонсированные транзакции в SUI Mainnet"
+    "usersDescription": "Беттеры Polymarket, энтузиасты ИИ-агентов, пользователи DeFi-хранилищ, держатели токенизированных портфелей"
   },
   "liveMetrics": {
     "title": "Метрики платформы в реальном времени",
@@ -278,12 +262,7 @@
     "q3Title": "Q3 2026: Рост",
     "q3Description": "Производственный запуск с институциональными партнёрствами",
     "q4Title": "Q4 2026: Масштабирование",
-    "q4Description": "$500M+ TVL в нескольких сетях",
-    "inProgress": "В процессе",
-    "upcoming": "Скоро",
-    "planned": "Запланировано",
-    "completed": "Завершено",
-    "live": "В эфире"
+    "q4Description": "$500M+ TVL в нескольких сетях"
   },
   "cookies": {
     "title": "Настройки файлов cookie",
@@ -636,5 +615,9 @@
   "whitepaperMeta": {
     "title": "Whitepaper",
     "description": "Полный тезис ZKward: alpha предсказательных рынков, архитектура на 7 агентов, STARK-заверенное исполнение, tokenomics, roadmap."
+  },
+  "legacyBanner": {
+    "message": "<strong>zkvanguard.xyz скоро закроется.</strong> Мы переехали на <link>zkward.com</link>. Пожалуйста, обновите закладки.",
+    "dismiss": "Закрыть"
   }
 }

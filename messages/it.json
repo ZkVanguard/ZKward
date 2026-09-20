@@ -242,23 +242,7 @@
     "targetMarket": "Mercato target",
     "targetDescription": "Retail cripto-nativo · utenti DeFi · titolari di portafogli individuali",
     "potentialUsers": "Utenti potenziali",
-    "usersDescription": "Scommettitori di Polymarket, appassionati di agenti IA, utenti di vault DeFi",
-    "competitiveEdge": "Il nostro vantaggio competitivo",
-    "traditionalTools": "Strumenti di rischio tradizionali",
-    "noAiAutomation": "Nessuna automazione AI",
-    "defiProtocols": "Protocolli DeFi",
-    "noPredictionSignals": "Nessun segnale dai mercati di previsione",
-    "centralizedServices": "Servizi centralizzati",
-    "custodialRisk": "Rischio di custodia",
-    "whyWins": "Perché ZkWard vince",
-    "aiPowered": "Automazione basata su AI",
-    "aiDescription": "7 agenti specializzati che lavorano 24/7",
-    "zkVerificationFeature": "Verifica ZK-STARK",
-    "zkDescription": "Privacy + Auditabilità garantite",
-    "nonCustodial": "Non-custodial",
-    "nonCustodialDescription": "Le vostre chiavi, le vostre crypto",
-    "gasOptimization": "Ottimizzazione gas",
-    "gasDescription": "Transazioni sponsorizzate su SUI Mainnet"
+    "usersDescription": "Scommettitori di Polymarket, appassionati di agenti IA, utenti di vault DeFi"
   },
   "liveMetrics": {
     "title": "Metriche piattaforma in tempo reale",
@@ -278,12 +262,7 @@
     "q3Title": "Q3 2026: Crescita",
     "q3Description": "Lancio in produzione con partnership istituzionali",
     "q4Title": "Q4 2026: Scalabilità",
-    "q4Description": "$500M+ TVL su più chain",
-    "inProgress": "In corso",
-    "upcoming": "In arrivo",
-    "planned": "Pianificato",
-    "completed": "Completato",
-    "live": "In Diretta"
+    "q4Description": "$500M+ TVL su più chain"
   },
   "cookies": {
     "title": "Preferenze cookie",
@@ -636,5 +615,9 @@
   "whitepaperMeta": {
     "title": "Whitepaper",
     "description": "La tesi completa di ZKward: alpha dei prediction market, architettura a 7 agenti, esecuzione attestata da STARK, tokenomics, roadmap."
+  },
+  "legacyBanner": {
+    "message": "<strong>zkvanguard.xyz verrà dismesso a breve.</strong> Ci siamo trasferiti su <link>zkward.com</link>. Aggiorna i preferiti.",
+    "dismiss": "Chiudi"
   }
 }

@@ -615,5 +615,9 @@
     "preferencesDescription": "Remember your settings and preferences",
     "rejectOptional": "Reject Optional",
     "savePreferences": "Save Preferences"
+  },
+  "legacyBanner": {
+    "message": "<strong>zkvanguard.xyz will retire soon.</strong> We've moved to <link>zkward.com</link>. Please update your bookmarks.",
+    "dismiss": "Dismiss"
   }
 }

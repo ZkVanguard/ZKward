@@ -242,23 +242,7 @@
     "targetMarket": "Marché cible",
     "targetDescription": "Retail crypto-natif · utilisateurs DeFi · détenteurs de portefeuilles individuels",
     "potentialUsers": "Utilisateurs potentiels",
-    "usersDescription": "Parieurs Polymarket, passionnés d'agents IA, utilisateurs de coffres DeFi, détenteurs de portefeuilles tokenisés",
-    "competitiveEdge": "Notre avantage concurrentiel",
-    "traditionalTools": "Outils de risque traditionnels",
-    "noAiAutomation": "Pas d'automatisation IA",
-    "defiProtocols": "Protocoles DeFi",
-    "noPredictionSignals": "Pas de signaux de marchés de prédiction",
-    "centralizedServices": "Services centralisés",
-    "custodialRisk": "Risque de garde",
-    "whyWins": "Pourquoi ZkWard gagne",
-    "aiPowered": "Automatisation alimentée par l'IA",
-    "aiDescription": "7 agents spécialisés travaillant 24/7",
-    "zkVerificationFeature": "Vérification ZK-STARK",
-    "zkDescription": "Confidentialité + Auditabilité garanties",
-    "nonCustodial": "Non-custodial",
-    "nonCustodialDescription": "Vos clés, vos cryptos",
-    "gasOptimization": "Optimisation du gas",
-    "gasDescription": "Transactions sponsorisées sur SUI Mainnet"
+    "usersDescription": "Parieurs Polymarket, passionnés d'agents IA, utilisateurs de coffres DeFi, détenteurs de portefeuilles tokenisés"
   },
   "liveMetrics": {
     "title": "Métriques en temps réel",
@@ -278,12 +262,7 @@
     "q3Title": "T3 2026: Croissance",
     "q3Description": "Lancement en production avec partenariats institutionnels",
     "q4Title": "T4 2026: Croissance",
-    "q4Description": "+500M$ TVL sur plusieurs chaînes",
-    "inProgress": "En cours",
-    "upcoming": "À venir",
-    "planned": "Planifié",
-    "completed": "Terminé",
-    "live": "En Direct"
+    "q4Description": "+500M$ TVL sur plusieurs chaînes"
   },
   "cookies": {
     "title": "Préférences de cookies",
@@ -636,5 +615,9 @@
   "whitepaperMeta": {
     "title": "Whitepaper",
     "description": "La thèse complète de ZKward : alpha des marchés de prédiction, architecture à 7 agents, exécution attestée par STARK, tokenomics, roadmap."
+  },
+  "legacyBanner": {
+    "message": "<strong>zkvanguard.xyz sera bientôt retiré.</strong> Nous avons déménagé sur <link>zkward.com</link>. Merci de mettre à jour vos favoris.",
+    "dismiss": "Fermer"
   }
 }

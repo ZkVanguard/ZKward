@@ -9,6 +9,7 @@ import { CookieConsent } from '../../components/CookieConsent';
 import { PwaProvider } from '../../components/PwaProvider';
 import { LegacyDomainBanner } from '../../components/LegacyDomainBanner';
 import { locales } from '../../i18n/request';
+import { localeDir } from '../../i18n/routing';
 import { IntlProvider } from '../../components/IntlProvider';
 
 // System-font stack for display face. Google Fonts (Space Grotesk) was
@@ -247,7 +248,7 @@ export default async function LocaleLayout(
   };
 
   return (
-    <html lang={locale} suppressHydrationWarning>
+    <html lang={locale} dir={localeDir(locale)} suppressHydrationWarning>
       <head>
         {/* Resource hints for third-parties the marketing pages actually hit.
             Cronos preconnect removed — project runs on SUI mainnet, not Cronos. */}

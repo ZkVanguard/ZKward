@@ -242,23 +242,7 @@
     "targetMarket": "目标市场",
     "targetDescription": "原生加密散户 · DeFi 用户 · 个人投资组合持有人",
     "potentialUsers": "潜在用户",
-    "usersDescription": "Polymarket 投注者、AI 代理爱好者、DeFi 金库用户、代币化投资组合持有人",
-    "competitiveEdge": "我们的竞争优势",
-    "traditionalTools": "传统风险工具",
-    "noAiAutomation": "无AI自动化",
-    "defiProtocols": "DeFi协议",
-    "noPredictionSignals": "无预测市场信号",
-    "centralizedServices": "中心化服务",
-    "custodialRisk": "托管风险",
-    "whyWins": "为何ZkWard胜出",
-    "aiPowered": "AI驱动自动化",
-    "aiDescription": "5个专业代理全天候工作",
-    "zkVerificationFeature": "ZK-STARK验证",
-    "zkDescription": "隐私 + 可审计性保证",
-    "nonCustodial": "非托管",
-    "nonCustodialDescription": "您的密钥，您的加密货币",
-    "gasOptimization": "Gas优化",
-    "gasDescription": "SUI主网上的赞助交易"
+    "usersDescription": "Polymarket 投注者、AI 代理爱好者、DeFi 金库用户、代币化投资组合持有人"
   },
   "liveMetrics": {
     "title": "实时平台指标",
@@ -278,12 +262,7 @@
     "q3Title": "2026年第三季度：增长",
     "q3Description": "与机构合作伙伴正式上线",
     "q4Title": "2026年第四季度：扩展",
-    "q4Description": "多链$500M+ TVL",
-    "inProgress": "进行中",
-    "upcoming": "即将推出",
-    "planned": "计划中",
-    "completed": "已完成",
-    "live": "实时"
+    "q4Description": "多链$500M+ TVL"
   },
   "cookies": {
     "title": "Cookie偏好设置",
@@ -636,5 +615,9 @@
   "whitepaperMeta": {
     "title": "白皮书",
     "description": "ZKward 完整论述：预测市场 alpha、7 代理架构、STARK 证明执行、代币经济学、路线图。"
+  },
+  "legacyBanner": {
+    "message": "<strong>zkvanguard.xyz 即将下线。</strong>我们已迁移至 <link>zkward.com</link>。请更新你的书签。",
+    "dismiss": "关闭"
   }
 }
