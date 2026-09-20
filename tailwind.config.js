@@ -16,9 +16,10 @@ module.exports = {
       fontFamily: {
         // Body/UI — SF system stack (fast, familiar, no web-font cost)
         sans: ['-apple-system', 'BlinkMacSystemFont', 'SF Pro Display', 'SF Pro Text', 'system-ui', 'sans-serif'],
-        // Display — Space Grotesk, self-hosted via next/font/google in layout.tsx.
-        // Applied to hero headlines (h1/h2). SF fallback prevents FOUT while loading.
-        display: ['var(--font-display)', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+        // Display — pure system font stack. Space Grotesk was dropped
+        // 2026-09-20 to remove the render-blocking font CSS and the
+        // WOFF2 payload. LCP win, near-identical look at heading weights.
+        display: ['-apple-system', 'BlinkMacSystemFont', 'SF Pro Display', 'system-ui', 'sans-serif'],
       },
       colors: {
         // Apple iOS System Colors - Light Mode.

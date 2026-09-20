@@ -1,7 +1,6 @@
 import { notFound } from 'next/navigation';
 import { getTranslations } from 'next-intl/server';
 import type { Metadata, Viewport } from 'next';
-import { Space_Grotesk } from 'next/font/google';
 import '../../styles/globals.css';
 import { Providers } from '../providers';
 import { NavbarSwitch } from '../../components/NavbarSwitch';
@@ -12,19 +11,12 @@ import { LegacyDomainBanner } from '../../components/LegacyDomainBanner';
 import { locales } from '../../i18n/request';
 import { IntlProvider } from '../../components/IntlProvider';
 
-// Display face — self-hosted (no <link> to fonts.googleapis.com), variable
-// CSS var consumed by `font-display` utility in tailwind config. Applied to
-// hero headlines only; body stays on SF for zero-cost native feel.
-// Only weight 600 is ever paired with .font-display in the marketing
-// surface (h1/h2). Dropping 500 + 700 shaves ~2/3 of the font payload on
-// cold visits without any visual change. If a future headline needs bold,
-// add '700' back here explicitly.
-const displayFont = Space_Grotesk({
-  subsets: ['latin'],
-  weight: ['600'],
-  variable: '--font-display',
-  display: 'swap',
-});
+// System-font stack for display face. Google Fonts (Space Grotesk) was
+// dropped 2026-09-20 — it added a render-blocking CSS request and a
+// 15-KB WOFF2 payload for one heading weight. System fonts render
+// instantly, have zero network cost, and look near-identical at the
+// weights we use. Kill the bytes, get the LCP back.
+const displayFontClass = 'font-display';
 
 export function generateStaticParams() {
   return locales.map((locale) => ({ locale }));
@@ -255,7 +247,7 @@ export default async function LocaleLayout(
   };
 
   return (
-    <html lang={locale} className={displayFont.variable} suppressHydrationWarning>
+    <html lang={locale} suppressHydrationWarning>
       <head>
         {/* Resource hints for third-parties the marketing pages actually hit.
             Cronos preconnect removed — project runs on SUI mainnet, not Cronos. */}
