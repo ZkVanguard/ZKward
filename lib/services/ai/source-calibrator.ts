@@ -177,11 +177,17 @@ export async function applyCalibrationToSources<
   S extends { name: string; type?: string; weight: number },
 >(sources: S[]): Promise<S[]> {
   if (!sources || sources.length === 0) return sources;
+  // L4 — signal-decay auto-disable. Reads the multiplier map written by
+  // paper-trader/source-decay.ts. A source explicitly zeroed by decay
+  // stays zero even after Bayesian shrinkage kicks it back toward 0.5:
+  // decay is a hard kill, calibrator is a soft weight.
+  const decayMults = await getCronState<Record<string, number>>('source-decay:weight-multipliers') ?? {};
   const withMults = await Promise.all(
     sources.map(async (s) => {
       const key = normalizeSourceKey(s.name, s.type ?? '');
-      const mult = await getCalibratedMultiplier(key);
-      return { ...s, weight: s.weight * mult };
+      const bayes = await getCalibratedMultiplier(key);
+      const decay = decayMults[key] ?? 1;
+      return { ...s, weight: s.weight * bayes * decay };
     }),
   );
   const total = withMults.reduce((sum, s) => sum + s.weight, 0);
