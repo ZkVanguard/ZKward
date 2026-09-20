@@ -223,6 +223,34 @@ export default async function LocaleLayout(
           'query-input': 'required name=search_term_string',
         },
       },
+      {
+        // Tell Google we are a software product, not a blog. Enables
+        // the software knowledge-panel treatment and the "install" /
+        // "open" call-to-action in some SERP layouts.
+        '@type': 'SoftwareApplication',
+        '@id': `${baseUrl}/#software`,
+        name: 'ZKward',
+        applicationCategory: 'FinanceApplication',
+        applicationSubCategory: 'Cryptocurrency Vault',
+        operatingSystem: 'Web, iOS, Android (PWA)',
+        url: baseUrl,
+        author: { '@id': `${baseUrl}/#org` },
+        publisher: { '@id': `${baseUrl}/#org` },
+        offers: {
+          '@type': 'Offer',
+          price: '0',
+          priceCurrency: 'USD',
+          description: 'Free to use. Protocol fees: 50 bps annual management + 10% performance on realised profits.',
+        },
+        featureList: [
+          'Autonomous AI trading',
+          'Zero-knowledge STARK proofs',
+          'Non-custodial vault',
+          'Multi-chain (SUI, Hedera)',
+          'On-chain hedge attestations',
+          'Post-quantum cryptography',
+        ],
+      },
     ],
   };
 

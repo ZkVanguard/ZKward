@@ -12,7 +12,7 @@ export default function robots(): MetadataRoute.Robots {
     rules: [
       {
         userAgent: '*',
-        allow: ['/', '/api/icon', '/api/apple-icon'],
+        allow: ['/', '/api/icon', '/api/apple-icon', '/llms.txt', '/llms-full.txt', '/rss.xml', '/.well-known/'],
         disallow: ['/api/', '/dashboard', '/paper', '/_next/'],
       },
     ],
