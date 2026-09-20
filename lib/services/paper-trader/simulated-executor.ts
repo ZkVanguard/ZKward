@@ -63,6 +63,17 @@ export interface SimulatedPosition {
   // handleActive uses this instead of the static PAPER_MAX_HOLD_MIN so
   // strong signals earn more time to develop past the fee floor.
   maxHoldMin?: number;
+  // Per-position stop-loss / take-profit prices, computed from the
+  // adaptive-vol thresholds at open and locked to the entry price so
+  // the check is deterministic per tick against live mark (independent
+  // of NAV drift between ticks). Prior implementation only compared
+  // mtm.unrealizedPnlUsd against -nav*stopLossPct — 138 / 164 paper
+  // trades force-closed at max-hold with -$450 avg loss because that
+  // threshold was calibrated to NAV blow-up (0.4-2% of ~$600K NAV =
+  // $2.4K-$12K) not per-trade risk. Price-anchored stops fire cleanly
+  // regardless of NAV size. Both optional for backward-compat.
+  stopLossPrice?: number;
+  takeProfitPrice?: number;
 }
 
 export interface SimulatedCloseResult {
