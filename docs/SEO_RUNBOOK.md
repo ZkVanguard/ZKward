@@ -90,3 +90,15 @@ Set these in Vercel Production (and Preview if you want previews to verify too):
 - **Do not** disallow `/story` or `/whitepaper` in `robots.ts` — those are the primary brand pages after the home page.
 - **Do not** set `canonical` on locale pages to point at the default-locale URL. Each locale is a distinct canonical; hreflang stitches them together as siblings.
 - **Do not** ship `noindex` on any marketing page. Even if content is thin, Google is more forgiving to indexed-but-quiet than to noindexed-and-hidden.
+
+## LLM discovery layer (added 2026-09-20)
+
+- **`/llms.txt`** — short summary + link index, following the Answer.AI standard from September 2024. ChatGPT, Perplexity, and Claude web-browse tools all check this file when they visit a domain.
+- **`/llms-full.txt`** — full content dump (story + whitepaper) for LLM crawlers that want the deep version. Loaded from `content/whitepaper.md` so it never drifts.
+- **`/rss.xml`** — RSS feed of the main marketing pages. LLM training crawlers (Common Crawl, GPTBot, PerplexityBot, ClaudeBot) prefer structured feeds.
+- **`/faq`** — 12 common questions with `FAQPage` + `BreadcrumbList` JSON-LD. Google shows FAQs as rich results in SERP; LLMs quote FAQ answers verbatim.
+- **`/.well-known/security.txt`** — trust signal. Static file in `public/`.
+
+## Google Ads
+
+See `docs/GOOGLE_ADS_PLAYBOOK.md` for a copy-paste campaign. Recommended: $3/day budget on the brand-defence ad group to bridge the 2–6 week gap while organic ranking catches up.
