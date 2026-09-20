@@ -1,30 +1,42 @@
 {
-  "name": "ZkWard — AI-managed vault on Sui",
-  "short_name": "ZkWard",
-  "description": "Autonomous AI vault trading prediction-market alpha on Sui, ZK-STARK-attested on-chain.",
+  "name": "ZKward — AI-managed vault on SUI",
+  "short_name": "ZKward",
+  "description": "Autonomous AI vault trading prediction-market alpha on SUI, ZK-STARK-attested on-chain.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "display_override": ["window-controls-overlay", "standalone", "minimal-ui", "browser"],
   "orientation": "portrait-primary",
   "background_color": "#ffffff",
-  "theme_color": "#ffffff",
+  "theme_color": "#5372FF",
   "id": "/",
   "lang": "en",
   "dir": "ltr",
   "categories": ["finance", "productivity"],
   "icons": [
     {
-      "src": "/logo-official.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
+      "src": "/icon",
+      "sizes": "512x512",
+      "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/logo-official.svg",
+      "src": "/icon",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/apple-icon",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/favicon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
-      "purpose": "maskable"
+      "purpose": "any"
     }
   ],
   "shortcuts": [
@@ -33,21 +45,28 @@
       "short_name": "Vault",
       "description": "Deposit or withdraw from the SUI USDC vault",
       "url": "/dashboard",
-      "icons": [{ "src": "/logo-official.svg", "sizes": "any" }]
+      "icons": [{ "src": "/icon", "sizes": "512x512", "type": "image/png" }]
     },
     {
       "name": "Agents",
       "short_name": "Agents",
       "description": "Live 7-agent status",
       "url": "/agents",
-      "icons": [{ "src": "/logo-official.svg", "sizes": "any" }]
+      "icons": [{ "src": "/icon", "sizes": "512x512", "type": "image/png" }]
     },
     {
       "name": "ZK proofs",
       "short_name": "ZK",
       "description": "Verify a proof or read the STARK explainer",
       "url": "/zk",
-      "icons": [{ "src": "/logo-official.svg", "sizes": "any" }]
+      "icons": [{ "src": "/icon", "sizes": "512x512", "type": "image/png" }]
+    },
+    {
+      "name": "Our story",
+      "short_name": "Story",
+      "description": "How ZKward started, in plain English",
+      "url": "/story",
+      "icons": [{ "src": "/icon", "sizes": "512x512", "type": "image/png" }]
     }
   ],
   "prefer_related_applications": false

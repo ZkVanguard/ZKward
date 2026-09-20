@@ -25,6 +25,29 @@ const slug = (text: string): string =>
     .replace(/\s+/g, '-');
 
 export function WhitepaperClient({ frontmatter, body }: Props) {
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://zkward.com';
+  // JSON-LD TechArticle for the whitepaper. Constants + validated
+  // frontmatter fields only; no user input.
+  const articleLd = {
+    '@context': 'https://schema.org',
+    '@type': 'TechArticle',
+    headline: frontmatter.title || 'ZKward Whitepaper',
+    description:
+      frontmatter.subtitle ||
+      'AI-managed USDC vault on SUI with STARK-attested hedge decisions.',
+    inLanguage: 'en',
+    url: `${baseUrl}/whitepaper`,
+    isPartOf: { '@id': `${baseUrl}/#website` },
+    author: { '@id': `${baseUrl}/#org` },
+    publisher: { '@id': `${baseUrl}/#org` },
+    datePublished: frontmatter.date || undefined,
+    dateModified: frontmatter.date || undefined,
+    keywords: [
+      'ZKward', 'ZK-STARK', 'zero knowledge proof', 'SUI', 'DeFi',
+      'autonomous vault', 'AI agents', 'prediction markets', 'BlueFin',
+    ],
+  };
+
   const handleDownload = useCallback(() => {
     if (typeof window !== 'undefined') window.print();
   }, []);
@@ -42,6 +65,14 @@ export function WhitepaperClient({ frontmatter, body }: Props) {
 
   return (
     <div className="min-h-screen bg-white light-theme" style={{ colorScheme: 'light' }}>
+      {/* JSON-LD structured data. `articleLd` is composed of build-time
+          constants and frontmatter fields validated by the parent
+          server component. No user input reaches this string. Canonical
+          Next.js JSON-LD pattern. */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(articleLd) }}
+      />
       <style jsx global>{`
         .light-theme, .light-theme * {
           --label-primary: #1D1D1F !important;

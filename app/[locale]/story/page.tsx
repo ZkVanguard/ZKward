@@ -22,8 +22,31 @@ export async function generateMetadata(
 }
 
 export default function StoryPage() {
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://zkward.com';
+  const articleLd = {
+    '@context': 'https://schema.org',
+    '@type': 'AboutPage',
+    name: 'How we got here — ZKward',
+    url: `${baseUrl}/story`,
+    inLanguage: 'en',
+    isPartOf: { '@id': `${baseUrl}/#website` },
+    about: { '@id': `${baseUrl}/#org` },
+    mainEntity: {
+      '@type': 'Organization',
+      '@id': `${baseUrl}/#org`,
+    },
+  };
   return (
     <main className="min-h-screen bg-system-bg-primary pt-24 pb-24">
+      {/* JSON-LD structured data. `articleLd` is a hardcoded object
+          composed of build-time constants; JSON.stringify escapes
+          HTML-significant chars in any string values. No user-controlled
+          input reaches this string. Canonical Next.js JSON-LD pattern —
+          matches the one in app/[locale]/layout.tsx. */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(articleLd) }}
+      />
       <article className="max-w-[680px] mx-auto px-4 sm:px-6">
         <header className="mb-10">
           <p className="text-caption-1 uppercase tracking-widest text-ios-blue font-semibold mb-3">
