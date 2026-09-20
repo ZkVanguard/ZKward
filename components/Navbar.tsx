@@ -74,6 +74,7 @@ export const Navbar = memo(function Navbar() {
     { href: '/rwa', label: t('rwa') },
     { href: '/whitepaper', label: t('whitepaper') },
     { href: '/story', label: t('story') },
+    { href: '/faq', label: 'FAQ' },
   ];
 
   return (

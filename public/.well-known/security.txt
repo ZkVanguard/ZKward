@@ -1,20 +1,6 @@
-# Security Policy for ZkWard
-# https://zkward.com
-# (Formerly zkvanguard.xyz — old domain retires soon; use the new one.)
-
-Contact: mailto:security@zkward.com
-Expires: 2027-03-20T00:00:00.000Z
+Contact: mailto:ashish.regmi@zkward.com
 Preferred-Languages: en
-Canonical: https://zkward.com/.well-known/security.txt
-
-# About This Project
-# ZkWard is a legitimate DeFi project — an AI-managed USDC vault on SUI mainnet.
-#
-# This site does NOT:
-# - Collect seed phrases or private keys
-# - Create wallets in the browser
-# - Store any sensitive wallet credentials
-#
-# Users connect their OWN wallets via WDK self-custodial wallet.
-#
-# Source Code: https://github.com/ZkVanguard/ZkVanguard
+Canonical: https://www.zkward.com/.well-known/security.txt
+Policy: https://www.zkward.com/terms
+Acknowledgments: https://github.com/ZkVanguard
+Expires: 2027-09-19T00:00:00.000Z
