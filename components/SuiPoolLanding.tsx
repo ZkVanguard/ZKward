@@ -53,7 +53,7 @@ function useCursorSpotlight<T extends HTMLElement>(ref: React.RefObject<T | null
   }, [ref, reduce]);
 }
 
-// VaultTiltScene — encapsulates the perspective wrapper + the cursor-
+// VaultTiltScene. Encapsulates the perspective wrapper + the cursor-
 // spotlight hook attached to the card container. Pulling this into its
 // own component lets us mount useCursorSpotlight in one place, scoped
 // to the card only (not the whole hero).
@@ -73,16 +73,16 @@ function VaultTiltScene({ children }: { children: React.ReactNode }) {
 
 // TVL cap enforced by the Move contract. Surfacing "room remaining" on the
 // landing gives visitors a scale anchor without leading with the current
-// (small) NAV. If the on-chain cap changes, bump this constant — the display
+// (small) NAV. If the on-chain cap changes, bump this constant. The display
 // is intentionally not fetched (it's a marketing rail, not a live gate).
 // Hedera testnet vault has no on-chain TVL cap (uncapped demo vault).
 // The bar just shows how full the demo is vs a soft target we've picked
-// for the visual — 100k is a reasonable "next milestone" that leaves room
+// for the visual. 100k is a reasonable "next milestone" that leaves room
 // to grow from the current 60k without pinning at 100%.
 const TVL_CAP_USD = 100_000;
 
 // ───────────────────────────────────────────────────────────────────────────
-// Live SUI Community Pool landing page — Apple-themed, single focus.
+// Live SUI Community Pool landing page. Apple-themed, single focus.
 //
 // Pulls real-time numbers from /api/sui/community-pool?network=mainnet
 // (cached 30s server-side), so a fresh visitor sees actual NAV / share price /
@@ -145,20 +145,20 @@ function toPoolSummary(res: HederaPoolResponse | undefined): PoolSummary | null 
     totalNAV: Number(p.totalValueUSD ?? 0),
     sharePrice: Number(p.sharePrice ?? 1),
     // Simple vault has no ATH concept (share price is pinned to $1.00 by
-    // design). Use current NAV as ATH — no phantom peak to worry about.
+    // design). Use current NAV as ATH. No phantom peak to worry about.
     allTimeHighNav: Number(p.sharePrice ?? 1),
     totalDeposited: Number(p.totalDeposited ?? p.totalValueUSD ?? 0),
     totalWithdrawn: Number(p.totalWithdrawn ?? 0),
     memberCount: Number(p.memberCount ?? 0),
     totalShares: Number(p.totalShares ?? 0),
-    // Hedera vault holds USDC only — no cross-asset allocation until
+    // Hedera vault holds USDC only. No cross-asset allocation until
     // AI-executed swaps land on-chain (currently projected in dashboard).
     allocation: p.allocation ?? { USDC: 100 },
     paused: !!p.paused,
   };
 }
 
-// HeroGraphBg — three parallax layers behind the hero (CSS dot-grid +
+// HeroGraphBg. Three parallax layers behind the hero (CSS dot-grid +
 // SVG chart curves + SVG node network). Reads --sx/--sy already
 // published by useCursorSpotlight, translates each layer by a different
 // factor (calc((--sx - 50%) * k)) so back layers drift slowly and the
@@ -171,11 +171,11 @@ function toPoolSummary(res: HederaPoolResponse | undefined): PoolSummary | null 
 // reduced-motion). Not useReducedMotion() — that returns null on server
 // and a real value on client's first render, which caused a hydration
 // mismatch on the earlier revision.
-// Front layer geometry — replaced the previous 7-node polygon graph
+// Front layer geometry. Replaced the previous 7-node polygon graph
 // with Vogel's phyllotaxis (sunflower seed spiral). Each dot sits at
 // angle i × golden-angle from the center and radius √i × scale. The
 // resulting pattern shows both clockwise and counter-clockwise
-// Fibonacci-numbered spiral arms — the exact math nature uses for
+// Fibonacci-numbered spiral arms. The exact math nature uses for
 // sunflower disks, pinecone scales, and galaxy arms. Universe math
 // that reads as intentional rather than decorative.
 const GOLDEN_ANGLE_RAD = Math.PI * (3 - Math.sqrt(5)); // ~137.508°
@@ -205,7 +205,7 @@ const HERO_PHYLLOTAXIS: Array<[number, number, number]> = (() => {
 })();
 
 // Golden logarithmic spiral: r = a·e^(bθ) with b = ln(φ)/(π/2).
-// One continuous smooth curve winding out from the center — the
+// One continuous smooth curve winding out from the center. The
 // signature "shell/galaxy" shape. Traced as a polyline for SVG.
 const HERO_GOLDEN_SPIRAL_PATH: string = (() => {
   const PHI = (1 + Math.sqrt(5)) / 2;
@@ -223,15 +223,15 @@ const HERO_GOLDEN_SPIRAL_PATH: string = (() => {
   return 'M' + points.join(' L');
 })();
 
-// Precomputed parallax styles — hoisting kills the per-render allocation
+// Precomputed parallax styles. Hoisting kills the per-render allocation
 // that would happen if we built these objects inside the component.
 // The factor triplet (-0.03, -0.07, -0.13) drives the differential
 // translate; the Z-offset triplet (-40, 0, +30) drives real perspective
 // depth (parent has perspective: 1400px). Combined, layers sit at
 // physically different distances AND drift at different apparent
-// speeds — the "3D" cue is both.
+// speeds. The "3D" cue is both.
 //
-// Transition tightened 700ms → 250ms with a faster ease-out — previous
+// Transition tightened 700ms → 250ms with a faster ease-out. Previous
 // value felt sticky on rapid cursor movement (layers lagged the cursor
 // by nearly a full second). New value tracks close enough to feel
 // responsive without losing the "premium smoothness" character.
@@ -262,7 +262,7 @@ function HeroGraphBg() {
   // `perspective` on the wrapper + `translateZ` per layer gives real
   // spatial depth (back layer literally further from the viewer, front
   // literally closer). Combined with the cursor-driven parallax, that's
-  // the "3D" cue — not just 2D differential translate. transform-style:
+  // the "3D" cue. Not just 2D differential translate. transform-style:
   // preserve-3d on the wrapper is required so the child transforms
   // compose in the same 3D space instead of flattening.
   //
@@ -464,7 +464,7 @@ function HeroGraphBg() {
 }
 
 export const SuiPoolLanding = memo(function SuiPoolLanding() {
-  // Read the shared Hedera pool query — same cache key as HederaVaultCallout
+  // Read the shared Hedera pool query. Same cache key as HederaVaultCallout
   // above + the dashboard's useCommunityPool. Three consumers, one fetch.
   const { data: rawPool, isPending: loading } = useHederaPool('testnet');
   const pool = toPoolSummary(rawPool);
@@ -699,14 +699,14 @@ export const SuiPoolLanding = memo(function SuiPoolLanding() {
               icon={<Sparkles className="w-5 h-5" />}
               accent="from-ios-blue to-[#5AC8FA]"
               title="The AI reads the room"
-              body="Ten signal sources — Polymarket, Kalshi, Deribit vol, funding rates from four venues, price momentum — fuse into a single allocation target. Seven agents have to agree before capital moves."
+              body="Ten signal sources. Polymarket, Kalshi, Deribit vol, funding rates from four venues, price momentum. Fuse into a single allocation target. Seven agents have to agree before capital moves."
             />
             <TimelineStep
               step={2}
               icon={<Zap className="w-5 h-5" />}
               accent="from-[#34C759] to-[#30D158]"
               title="The pool rebalances"
-              body="Your USDC is swapped across BTC, ETH, and SUI on-chain. Drift-based — the pool only trades when the allocation actually shifts. Nothing wasted on churn."
+              body="Your USDC is swapped across BTC, ETH, and SUI on-chain. Drift-based. The pool only trades when the allocation actually shifts. Nothing wasted on churn."
             />
             <TimelineStep
               step={3}
@@ -876,10 +876,10 @@ export const SuiPoolLanding = memo(function SuiPoolLanding() {
 });
 
 // ───────────────────────────────────────────────────────────────────────────
-// Subcomponents (page-specific — shared primitives live in ./ui/landing)
+// Subcomponents (page-specific. Shared primitives live in ./ui/landing)
 // ───────────────────────────────────────────────────────────────────────────
 
-// VaultMeter — the hero's signature element. A single card that IS the
+// VaultMeter. The hero's signature element. A single card that IS the
 // vault's live state: NAV, allocation, capacity. Replaces the generic
 // text-hero + 4-stat-card pattern. Every landing sells; this one shows.
 function VaultMeter({
@@ -986,7 +986,7 @@ function VaultMeter({
   );
 }
 
-// TimelineStep — vertical connected step. Replaces the banned "3 equal
+// TimelineStep. Vertical connected step. Replaces the banned "3 equal
 // feature cards" pattern. Content genuinely is a sequence, so numbers help.
 function TimelineStep({
   step, icon, accent, title, body, last = false,

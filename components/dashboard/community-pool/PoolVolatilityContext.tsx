@@ -58,7 +58,7 @@ export const PoolVolatilityContext = memo(function PoolVolatilityContext({
   const since30d = data.since30d;
   const latest = data.latest;
 
-  // Compute deltas only when the source values are truthy — otherwise
+  // Compute deltas only when the source values are truthy. Otherwise
   // suppress the display cell for that half rather than showing "NaN".
   const referenceSp = currentSharePrice ?? latest?.sharePrice ?? 0;
   const delta30d = since30d && since30d.sharePrice > 0 && referenceSp > 0

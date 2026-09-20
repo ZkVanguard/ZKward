@@ -30,7 +30,7 @@ const SCENARIOS: Scenario[] = [
   {
     id: 'hedge',
     label: 'Hedge attestation',
-    description: 'Prove a hedge fired at a specific price, size, and confidence — without revealing the private strategy inputs.',
+    description: 'Prove a hedge fired at a specific price, size, and confidence. Without revealing the private strategy inputs.',
     scenario: 'hedge-attest',
     statement: {
       asset: 'BTC',
@@ -64,7 +64,7 @@ const SCENARIOS: Scenario[] = [
   {
     id: 'risk',
     label: 'Risk score attestation',
-    description: 'Prove the composite risk score was computed correctly from live venue + market inputs — without exposing the exact weights.',
+    description: 'Prove the composite risk score was computed correctly from live venue + market inputs. Without exposing the exact weights.',
     scenario: 'risk-score',
     statement: {
       portfolioId: -2,
@@ -162,7 +162,7 @@ export function ZkLiveProofDemo() {
           <div className="text-headline font-semibold text-label-primary">Generate a live proof</div>
           <div className="text-caption-1 text-label-secondary mt-1 leading-relaxed">
             Pick a real vault decision shape, click generate. The prover runs the same code path
-            it uses on-chain — output is a full STARK artifact you can verify below.
+            it uses on-chain. Output is a full STARK artifact you can verify below.
           </div>
         </div>
       </div>
@@ -199,7 +199,7 @@ export function ZkLiveProofDemo() {
         </div>
         <div className="rounded-lg bg-system-bg-secondary p-3">
           <div className="text-[10px] font-semibold uppercase tracking-wide text-label-tertiary mb-1.5">
-            Witness (private — not revealed)
+            Witness (private. Not revealed)
           </div>
           <pre className="text-[10px] font-mono text-label-secondary overflow-x-auto whitespace-pre-wrap break-all">
 {JSON.stringify(selected.witness, null, 2)}

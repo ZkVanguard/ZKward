@@ -41,11 +41,11 @@ const AgentActivity = nextDynamic(
   }
 );
 
-// LiveAutonomyPanel — wallet-agnostic proof-of-life. Reads
+// LiveAutonomyPanel. Wallet-agnostic proof-of-life. Reads
 // /api/dashboard/autonomy-status and renders cron heartbeats, trader
 // stats, signals, alarms. Shown ABOVE the per-wallet AgentActivity on
 // the AI Agents tab so anonymous visitors immediately see the
-// autonomy machinery is alive — the visible-track-record lever the
+// autonomy machinery is alive. The visible-track-record lever the
 // pool needs to attract deposits.
 const LiveAutonomyPanel = nextDynamic(
   () =>
@@ -134,7 +134,7 @@ const CommunityPool = nextDynamic(
   }
 );
 
-// PortfolioOverview — only used in the Overview tab (~220 LOC + wallet
+// PortfolioOverview. Only used in the Overview tab (~220 LOC + wallet
 // context deps). Lazy so it doesn't ship in the initial dashboard chunk
 // when users land on the default Pool tab.
 const PortfolioOverview = nextDynamic(
@@ -143,7 +143,7 @@ const PortfolioOverview = nextDynamic(
   { loading: () => <LoadingSkeleton />, ssr: false },
 );
 
-// Platform sub-tabs — extracted from former /dashboard/{portfolio,risk,custody}
+// Platform sub-tabs. Extracted from former /dashboard/{portfolio,risk,custody}
 // pages so they render as tabs inside this dashboard instead of separate routes.
 const PortfolioTab = nextDynamic(
   () =>
@@ -163,7 +163,7 @@ const CustodyTab = nextDynamic(
   { loading: () => <LoadingSkeleton />, ssr: false },
 );
 
-// B2B admin panel — Privy quorum voting UI. Lazy so the Privy hooks
+// B2B admin panel. Privy quorum voting UI. Lazy so the Privy hooks
 // (usePrivy, useLogin, getAccessToken) only ship when the tab is opened,
 // not when landing on the default Pool tab.
 const B2bAdminPanel = nextDynamic(
@@ -172,14 +172,14 @@ const B2bAdminPanel = nextDynamic(
   { loading: () => <LoadingSkeleton />, ssr: false },
 );
 
-// Hedera x402 agent payments demo — pay-per-call inference with HCS audit trail.
+// Hedera x402 agent payments demo. Pay-per-call inference with HCS audit trail.
 const HederaAgentPayments = nextDynamic(
   () =>
     import('@/components/dashboard/HederaAgentPayments').then((mod) => ({ default: mod.HederaAgentPayments })),
   { loading: () => <LoadingSkeleton />, ssr: false },
 );
 
-// User profile + settings — replaces the old `onboard` and `perps` tabs.
+// User profile + settings. Replaces the old `onboard` and `perps` tabs.
 // Sign-in is handled by the navbar; this tab shows identity + preferences.
 const ProfileTab = nextDynamic(
   () =>
@@ -200,7 +200,7 @@ interface NavItem {
   badge?: string;
 }
 
-// Primary nav — surfaces the daily user actions (deposit + monitor).
+// Primary nav. Surfaces the daily user actions (deposit + monitor).
 // "Pool" first (was "Vault" — collided with the top-navbar entry link).
 // Top navbar's "Vault" is the product entry; sidebar tab is the specific
 // deposit/withdraw section, so keep the labels distinct.
@@ -213,7 +213,7 @@ const navItems: NavItem[] = [
   { id: 'insights', label: 'Insights', icon: TrendingUp },
 ];
 
-// Platform nav — sub-tabs consolidated from former /dashboard/{portfolio,risk,
+// Platform nav. Sub-tabs consolidated from former /dashboard/{portfolio,risk,
 // custody} sub-routes. Rendered in a secondary sidebar section so they stay
 // visually separated from the daily-use tabs above.
 const platformItems: NavItem[] = [
@@ -228,7 +228,7 @@ const platformItems: NavItem[] = [
 type NavId = (typeof navItems)[number]['id'] | (typeof platformItems)[number]['id'];
 
 export default function DashboardPage() {
-  // Unified session — Privy embedded wallet first, then anything wagmi
+  // Unified session. Privy embedded wallet first, then anything wagmi
   // reports as a fallback. Guarantees the sidebar avatar/address/balance
   // matches the Profile tab AND the community leaderboard (all read from
   // useUserSession + useWalletProfile). Fixes the bug where wagmi's
@@ -236,7 +236,7 @@ export default function DashboardPage() {
   // from the Privy embedded wallet the user actually signed in with.
   const session = useUserSession();
 
-  // Wagmi injected fallback — kept for downstream code that needs raw
+  // Wagmi injected fallback. Kept for downstream code that needs raw
   // wagmi address (e.g. useWriteContract in HederaVaultActions). NOT
   // used for the sidebar display; that's session.address.
   const { address: evmAddress } = useAccount();
@@ -248,7 +248,7 @@ export default function DashboardPage() {
   const suiConnected = sui.isConnected;
   const suiBalance = sui.balance;
 
-  // Primary display address — SUI wins if connected (SUI-native pages),
+  // Primary display address. SUI wins if connected (SUI-native pages),
   // otherwise the unified Privy session. Deliberately does NOT fall back
   // to wagmi's evmAddress: injected wallets (MetaMask, OKX, Rabby via
   // EIP-6963) auto-connect on page load even when the user hasn't
@@ -270,7 +270,7 @@ export default function DashboardPage() {
   const { requestCustomAction } = usePortfolioAction();
   // Portfolio count available via derived?.portfolioCount if needed
 
-  // Default to the Pool tab — clicking "Vault" in the top nav should land the
+  // Default to the Pool tab. Clicking "Vault" in the top nav should land the
   // user on the actual deposit/withdraw surface, not a generic dashboard view.
   const [activeNav, setActiveNav] = useState<NavId>('community');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -488,7 +488,7 @@ export default function DashboardPage() {
         />
       )}
 
-      {/* Mobile Sidebar — capped at 84vw so it can't bleed on 320px viewports */}
+      {/* Mobile Sidebar. Capped at 84vw so it can't bleed on 320px viewports */}
       <aside
         className={`
         lg:hidden fixed top-0 left-0 bottom-0 w-[min(84vw,300px)] z-50 bg-white pt-safe pb-safe
@@ -718,7 +718,7 @@ export default function DashboardPage() {
         moreIcon={MoreHorizontal}
       />
 
-      {/* Notification Toast — token-based, no raw Tailwind grays */}
+      {/* Notification Toast. Token-based, no raw Tailwind grays */}
       {notification && (
         <div className="fixed top-20 lg:top-[68px] left-1/2 -translate-x-1/2 z-50 animate-in fade-in slide-in-from-top-2 duration-300 max-w-md px-4">
           <div className="flex items-start gap-3 px-5 py-4 bg-label-primary text-white rounded-2xl shadow-ios-3">
@@ -790,7 +790,7 @@ export default function DashboardPage() {
         </>
       )}
 
-      {/* Chat FAB — hidden when chat is open. Positioned above mobile tab
+      {/* Chat FAB. Hidden when chat is open. Positioned above mobile tab
           bar on small screens, bottom-right on desktop. */}
       {!showChat && (
         <button
@@ -935,7 +935,7 @@ export default function DashboardPage() {
           </Card>
         );
 
-      // Platform tabs — extracted from former /dashboard/{portfolio,risk,custody}
+      // Platform tabs. Extracted from former /dashboard/{portfolio,risk,custody}
       // sub-routes. Self-contained (own header + spacing), so no Card wrapper.
       case 'portfolio':
         return <PortfolioTab />;
@@ -979,7 +979,7 @@ export default function DashboardPage() {
   }
 }
 
-// Reusable Card component — unified radius (2xl mobile, 3xl desktop),
+// Reusable Card component. Unified radius (2xl mobile, 3xl desktop),
 // softer border + shadow so panels feel like paper on a light background,
 // not stamped-out modal boxes. Uses design tokens throughout.
 function Card({ children, className = '' }: { children: React.ReactNode; className?: string }) {
@@ -992,7 +992,7 @@ function Card({ children, className = '' }: { children: React.ReactNode; classNa
   );
 }
 
-// Card Header — tightened padding scale, consistent title size that scales
+// Card Header. Tightened padding scale, consistent title size that scales
 // on desktop, subtitle uses text-tertiary (readable) not text-quaternary.
 function CardHeader({
   title,
@@ -1025,7 +1025,7 @@ function CardHeader({
   );
 }
 
-// AgentAlert — shared for Overview + AI Agents tabs. Dismissable so users
+// AgentAlert. Shared for Overview + AI Agents tabs. Dismissable so users
 // can clear it manually instead of waiting for the auto-timeout. Uses
 // design tokens throughout (was raw ios-blue/5, ios-blue/20 with
 // hardcoded pixel radii and mixed icon sizes).
@@ -1067,7 +1067,7 @@ function AgentAlert({
   );
 }
 
-// Badge component — token-based colors, soft-tint variant available.
+// Badge component. Token-based colors, soft-tint variant available.
 // WCAG-safe: on colored bg, text-white; on white bg, tint + colored text.
 function Badge({
   children,
@@ -1102,10 +1102,10 @@ function Badge({
 }
 
 /**
- * SidebarWalletCard — avatar + display name (or truncated address) + sub-label.
+ * SidebarWalletCard. Avatar + display name (or truncated address) + sub-label.
  * Used by both mobile and desktop sidebars to render consistent identity.
  * Same avatar seed / same name source as the community leaderboard and
- * Profile tab — edit once, updates everywhere.
+ * Profile tab. Edit once, updates everywhere.
  */
 function SidebarWalletCard({
   address,

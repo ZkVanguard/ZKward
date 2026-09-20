@@ -240,7 +240,7 @@ export function ConnectButton() {
     setShowSelector(false);
   }, [connectSui]);
 
-  // Called from the anchor's onClick — we don't preventDefault, we
+  // Called from the anchor's onClick. We don't preventDefault, we
   // just track pending state so the sheet can show "Opening Slush…".
   // The <a> element's `href` does the actual navigation, which is the
   // path iOS honors for universal-link → installed-app deep linking.
@@ -259,7 +259,7 @@ export function ConnectButton() {
   const pathname = usePathname() ?? '';
   const canShowEvm = mounted && pathname.includes('/dashboard');
   // Privy layer (hackathon Priority 3). When configured, show the email/social
-  // "Sign in" CTA as the primary path — that's the whole point of the
+  // "Sign in" CTA as the primary path. That's the whole point of the
   // Privy Financial Flow track (hide onchain complexity from users).
   const privyOn = canShowEvm && isPrivyEnabled();
 
@@ -327,7 +327,7 @@ export function ConnectButton() {
                 when navigation originates from a real anchor click.
                 window.location.assign() from a button onClick just opens
                 my.slush.app in Safari and never launches the installed
-                app — that was the "even with Slush installed nothing
+                app. That was the "even with Slush installed nothing
                 opens" report from 2026-07-12.
               */}
               <a
@@ -374,7 +374,7 @@ export function ConnectButton() {
                 </p>
               )}
 
-              {/* Small trust row — three cues that this is safe */}
+              {/* Small trust row. Three cues that this is safe */}
               <div className="mt-5 grid grid-cols-3 gap-1.5 sm:gap-3 text-[10px] sm:text-[11px] text-label-tertiary">
                 <div className="flex flex-col items-center gap-1 text-center">
                   <span className="w-7 h-7 rounded-full bg-[#4DA2FF]/10 text-[#4DA2FF] flex items-center justify-center font-bold text-xs">
@@ -422,7 +422,7 @@ export function ConnectButton() {
         </div>
       )}
 
-      {/* Not connected — Hedera-primary pivot (2026-09-04). On /dashboard
+      {/* Not connected. Hedera-primary pivot (2026-09-04). On /dashboard
           the EVM section (Hedera default) is the primary CTA; SUI is
           available as a smaller secondary link. When Privy is configured
           (Priority 3), the "Sign in with email" flow leads and the wallet

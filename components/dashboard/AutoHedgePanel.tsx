@@ -263,7 +263,7 @@ export function AutoHedgePanel({ chain }: AutoHedgePanelProps = {}) {
             <AlertTriangle className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
             <div className="text-sm text-amber-100">
               <div className="font-semibold text-amber-300">
-                Rebalancing paused — operator wallet low on SUI gas
+                Rebalancing paused. Operator wallet low on SUI gas
               </div>
               <div className="mt-1 text-amber-100/80">
                 Operator has <span className="font-mono">{gasStatus.suiBalance ?? '0'} SUI</span>
@@ -463,7 +463,7 @@ export function AutoHedgePanel({ chain }: AutoHedgePanelProps = {}) {
                 </div>
               )}
 
-              {/* Active Hedges — row layout collapses so long PnL values don't burst */}
+              {/* Active Hedges. Row layout collapses so long PnL values don't burst */}
               {data.activeHedges.length > 0 && (
                 <div className="bg-slate-900/50 rounded-xl sm:rounded-lg p-3 sm:p-4 min-w-0">
                   <h4 className="text-xs sm:text-sm font-medium text-slate-300 flex items-center gap-2 mb-3 flex-wrap">

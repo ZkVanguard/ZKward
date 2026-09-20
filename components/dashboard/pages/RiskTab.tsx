@@ -154,7 +154,7 @@ function StatCard({ label, value, sub, icon: Icon, tone = 'neutral' }: {
 }
 
 function DefenseGateBadge({ label, on, danger }: { label: string; on: boolean; danger?: boolean }) {
-  // `danger` inverts the color meaning — e.g. PROFIT_LOCK_DISABLE=on is BAD (safety off).
+  // `danger` inverts the color meaning. E.g. PROFIT_LOCK_DISABLE=on is BAD (safety off).
   const isGood = danger ? !on : on;
   const bg = isGood ? 'bg-green-50 text-green-700' : 'bg-amber-50 text-amber-700';
   const dot = isGood ? 'bg-green-500' : 'bg-amber-500';
@@ -360,7 +360,7 @@ function HedgeHistoryPanel({ h }: { h: HedgeHistoryState }) {
       )}
       <p className="text-[11px] text-[#86868b] mt-3 leading-relaxed">
         Settled = closed hedges with non-zero realised PnL. Rows with $0 PnL (reconciler-adopted
-        orphans and phantom closes) are excluded — they're bookkeeping entries, not real trades.
+        orphans and phantom closes) are excluded. They're bookkeeping entries, not real trades.
       </p>
     </section>
   );
@@ -413,7 +413,7 @@ export function RiskTab() {
         <div className="min-w-0">
           <div className="text-[11px] sm:text-[12px] text-[#86868b] uppercase tracking-wide font-medium mb-1">Platform risk overview</div>
           <h1 className="text-2xl sm:text-3xl md:text-[32px] font-semibold text-[#1d1d1f] tracking-[-0.02em] break-words">
-            ZKward — live institutional view
+            ZKward. Live institutional view
           </h1>
           <p className="text-xs sm:text-[13px] text-[#86868b] mt-1 leading-relaxed">
             Real-time aggregate metrics for every shipped fund and the operational layer behind them.
@@ -539,7 +539,7 @@ export function RiskTab() {
           {/* Settled hedge track record — actual trading PnL */}
           {data.hedgeHistory && <HedgeHistoryPanel h={data.hedgeHistory} />}
 
-          {/* v0.3.0 defense stack — gate footprint + drift counters + incident summary */}
+          {/* v0.3.0 defense stack. Gate footprint + drift counters + incident summary */}
           {data.defense && <DefenseStatusPanel d={data.defense} i={data.incidents} />}
 
           {/* Two-column: reconciliation + ZK attestations */}

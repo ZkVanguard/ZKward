@@ -118,21 +118,21 @@ export const PoolStats = memo(function PoolStats({ poolData, selectedChain }: Po
   // Softer than red-600/green-600 (the pre-refactor default), still WCAG
   // AA-compliant at every size the Metric component renders (12px mobile-
   // strip up to 24px desktop). Cannot use text-ios-red / text-ios-green
-  // here: ios-red is #FF3B30 (3.76:1 on white — fails AA for small text),
-  // ios-green is #34C759 (1.85:1 — fails everywhere). red-700 / green-700
+  // here: ios-red is #FF3B30 (3.76:1 on white. Fails AA for small text),
+  // ios-green is #34C759 (1.85:1. Fails everywhere). red-700 / green-700
   // are darker and more "serious", which also matches the user's request
   // to de-shout the loss indicators without erasing them.
   const pnlColor = (v: number) =>
     v >= 0 ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400';
 
-  // Single stale chip used on both breakpoints — one wording ("snapshot · Xh
+  // Single stale chip used on both breakpoints. One wording ("snapshot · Xh
   // old"), one tooltip. Was two different phrasings pre-2026-07-31 refactor.
   const staleChip = useMemo(() => {
     if (!isStale) return null;
     return (
       <span
         className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 text-[10px] font-medium"
-        title="Live SUI RPC unavailable — showing last recorded on-chain snapshot from DB. Pool is unaffected; RPC-level issue."
+        title="Live SUI RPC unavailable. Showing last recorded on-chain snapshot from DB. Pool is unaffected; RPC-level issue."
       >
         <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
         {staleAgeLabel ? `snapshot · ${staleAgeLabel} old` : 'snapshot'}
@@ -146,7 +146,7 @@ export const PoolStats = memo(function PoolStats({ poolData, selectedChain }: Po
     // Soft tint background + dark WCAG-safe text. Was red-100 / amber-100
     // Tailwind saturated tints reading as alarm chips; new bg-ios-red/10
     // etc. give the same softer feel but text must stay a dark tailwind
-    // red-800 / orange-800 — text-ios-red on bg-ios-red/10 is 3.5:1 which
+    // red-800 / orange-800. Text-ios-red on bg-ios-red/10 is 3.5:1 which
     // fails AA for the 10px chip text.
     const tone =
       dd <= -15

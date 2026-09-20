@@ -31,15 +31,15 @@ const FAQS: Array<{ q: string; a: string }> = [
   },
   {
     q: 'Is ZKward a hedge fund?',
-    a: 'No. A hedge fund is a specific regulated legal structure. ZKward is an on-chain vault — non-custodial, permissionless, no accreditation required, on-chain fee accounting, open-source strategy. It runs similar directional strategies but with public proofs instead of quarterly letters.',
+    a: 'No. A hedge fund is a specific regulated legal structure. ZKward is an on-chain vault. Non-custodial, permissionless, no accreditation required, on-chain fee accounting, open-source strategy. It runs similar directional strategies but with public proofs instead of quarterly letters.',
   },
   {
     q: 'How much can I deposit?',
-    a: 'The pool is capped at $10,000 total by the Move contract during the operational-proof phase. This is enforced on-chain — nobody, including us, can raise it without a governance action. Cap-lifting happens step by step after each stage survives a real drawdown test.',
+    a: 'The pool is capped at $10,000 total by the Move contract during the operational-proof phase. This is enforced on-chain. Nobody, including us, can raise it without a governance action. Cap-lifting happens step by step after each stage survives a real drawdown test.',
   },
   {
     q: 'Where are my funds held?',
-    a: 'In a SUI Move object controlled by the pool contract. Your keys stay with you — this is non-custodial. Withdrawals are permissionless and available anytime, with a 25% per-day account throttle enforced on-chain to prevent draining attacks.',
+    a: 'In a SUI Move object controlled by the pool contract. Your keys stay with you. This is non-custodial. Withdrawals are permissionless and available anytime, with a 25% per-day account throttle enforced on-chain to prevent draining attacks.',
   },
   {
     q: 'What is a STARK proof and why do I care?',
@@ -55,7 +55,7 @@ const FAQS: Array<{ q: string; a: string }> = [
   },
   {
     q: 'Why is the paper trader losing money right now?',
-    a: 'Public transparency. We run a paper trader against real signals and publish every trade — wins and losses. Current cumulative paper PnL is around -$68,000 while we tune the new gate system (volatility filter, streak guard, trend alignment, signal-quality). If we hid the losses, the wins would not mean anything.',
+    a: 'Public transparency. We run a paper trader against real signals and publish every trade. Wins and losses. Current cumulative paper PnL is around -$68,000 while we tune the new gate system (volatility filter, streak guard, trend alignment, signal-quality). If we hid the losses, the wins would not mean anything.',
   },
   {
     q: 'How do I know the AI is not just making it up?',
@@ -63,11 +63,11 @@ const FAQS: Array<{ q: string; a: string }> = [
   },
   {
     q: 'Is ZKward safe against quantum computers?',
-    a: 'The STARK proof system is transparent (no trusted setup) and uses only SHA-256 Merkle trees and the Goldilocks prime field. No elliptic curves, no discrete-log, no pairings. Shor\'s algorithm — the quantum attack that breaks RSA and ECDSA — is a non-threat here. Effective soundness is 180 bits, 52 bits above NIST post-quantum Level 1.',
+    a: 'The STARK proof system is transparent (no trusted setup) and uses only SHA-256 Merkle trees and the Goldilocks prime field. No elliptic curves, no discrete-log, no pairings. Shor\'s algorithm. The quantum attack that breaks RSA and ECDSA. Is a non-threat here. Effective soundness is 180 bits, 52 bits above NIST post-quantum Level 1.',
   },
   {
     q: 'Can I withdraw at any time?',
-    a: 'Yes. Withdrawal is permissionless — you sign a transaction, the contract calculates your share of the pool NAV, funds return to your wallet. A 25% per-day throttle per account is enforced by the contract to prevent draining under stress. There is no lockup, no notice period, no manager approval.',
+    a: 'Yes. Withdrawal is permissionless. You sign a transaction, the contract calculates your share of the pool NAV, funds return to your wallet. A 25% per-day throttle per account is enforced by the contract to prevent draining under stress. There is no lockup, no notice period, no manager approval.',
   },
   {
     q: 'How do I contact the team?',

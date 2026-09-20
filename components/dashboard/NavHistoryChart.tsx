@@ -55,7 +55,7 @@ interface NavHistoryChartProps {
 }
 
 /** Query the @zkward/hedera-graphql-adapter navHistory resolver.
- *  Each row is an HCS-anchored NavSnapshot — every data point has an
+ *  Each row is an HCS-anchored NavSnapshot. Every data point has an
  *  hcsSeq that HashScan can verify independently. */
 async function fetchHederaHistoryViaAdapter(): Promise<NavHistoryResponse | null> {
   const r = await fetch('/api/subgraph/hedera', {
@@ -84,7 +84,7 @@ async function fetchHederaHistoryViaAdapter(): Promise<NavHistoryResponse | null
   // accrual on-chain). Dividing historical navUsd by CURRENT share count
   // produced misleading "prices" that looked like a share-price dip
   // when it was just historical NAV growth. Since the true share price
-  // never leaves $1.00 for this vault, render it as a flat line — this
+  // never leaves $1.00 for this vault, render it as a flat line. This
   // matches the actual on-chain invariant.
   const points = j.data.navHistory
     .slice()
@@ -124,7 +124,7 @@ export function NavHistoryChart({ chain = 'sui' }: NavHistoryChartProps = {}) {
   const { data, isPending: loading, error } = useQuery({
     queryKey: ['nav-history', chain, window.value, window.bucket],
     queryFn: async (): Promise<NavHistoryResponse & { fallbackFrom?: 'sui'; sourcedFrom?: 'adapter' }> => {
-      // Hedera chain: try the adapter's navHistory GraphQL first — that's
+      // Hedera chain: try the adapter's navHistory GraphQL first. That's
       // the HCS-anchored time-series where every point has an hcsSeq. Fall
       // back to /api/hedera/nav-history (Mirror Node event replay) if the
       // adapter has no data, then finally to SUI history for empty-state UX.
@@ -163,7 +163,7 @@ export function NavHistoryChart({ chain = 'sui' }: NavHistoryChartProps = {}) {
   const usedFallback = (data as { fallbackFrom?: 'sui' } | undefined)?.fallbackFrom === 'sui';
 
   // Hedera SimpleUsdcVaultV2 uses ERC-4626-lite math with zero on-chain
-  // yield accrual — share price is mathematically pinned to $1.00 forever
+  // yield accrual. Share price is mathematically pinned to $1.00 forever
   // (every $1 deposit = 1 share). Plotting share price for Hedera is a
   // trivially flat line. Plot total NAV instead: deposits/withdrawals show
   // as real steps, which is the metric that actually changes.
@@ -210,7 +210,7 @@ export function NavHistoryChart({ chain = 'sui' }: NavHistoryChartProps = {}) {
     scales: {
       x: {
         grid: { display: false },
-        // Fewer x ticks on narrow charts — chart.js exposes chart.width via
+        // Fewer x ticks on narrow charts. Chart.js exposes chart.width via
         // scale.chart in the ticks callback context but not the config.
         // Use maxTicksLimit: 4 (was 6) which auto-shrinks on narrow, keeps
         // desktop readable via the same limit acting as a soft cap.
@@ -270,7 +270,7 @@ export function NavHistoryChart({ chain = 'sui' }: NavHistoryChartProps = {}) {
               </strong>
             </span>
           )}
-          {/* Hide % change in NAV mode — NAV grows with deposits AND yield, so
+          {/* Hide % change in NAV mode. NAV grows with deposits AND yield, so
               % is misleading (a big deposit shows +8000% but that's capital
               inflow, not return). Show the first→last dollar delta instead. */}
           {isNavMode && data?.first && data?.last ? (
@@ -337,7 +337,7 @@ export function NavHistoryChart({ chain = 'sui' }: NavHistoryChartProps = {}) {
           <>
             Every point is a snapshot from{' '}
             <code className="bg-[#f5f5f7] px-1.5 py-0.5 rounded">community_pool_nav_history</code>,
-            {' '}bucket-averaged. Share price is NAV / total shares — pool inception at $1.00.
+            {' '}bucket-averaged. Share price is NAV / total shares. Pool inception at $1.00.
           </>
         )}
       </p>

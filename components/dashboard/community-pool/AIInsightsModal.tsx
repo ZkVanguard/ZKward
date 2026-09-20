@@ -18,7 +18,7 @@ export const AIInsightsModal = memo(function AIInsightsModal({
   onClose,
   recommendation,
 }: AIInsightsModalProps) {
-  // Portal target — the parent tree wraps in framer-motion's <motion.div>
+  // Portal target. The parent tree wraps in framer-motion's <motion.div>
   // which applies `transform`, breaking `position: fixed` for descendants
   // (they'd anchor to the transformed ancestor, not the viewport). Portal
   // to document.body so the modal always covers the viewport.
@@ -43,7 +43,7 @@ export const AIInsightsModal = memo(function AIInsightsModal({
             className="relative bg-white dark:bg-gray-800 shadow-2xl w-full max-w-2xl rounded-t-[24px] sm:rounded-2xl max-h-[92vh] sm:max-h-[80vh] overflow-auto pb-safe sm:pb-0"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Sheet-handle indicator on mobile — sits on the gradient header */}
+            {/* Sheet-handle indicator on mobile. Sits on the gradient header */}
             <div className="sm:hidden absolute left-0 right-0 top-0 z-10 flex justify-center pt-2">
               <div className="w-9 h-1 rounded-full bg-white/60" />
             </div>

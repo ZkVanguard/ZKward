@@ -135,7 +135,7 @@ function AllocationBar({ allocation }: { allocation: Record<string, { valueUsd: 
     .map(([k, v]) => ({ k, ...v }))
     .sort((a, b) => b.pct - a.pct);
   if (items.length === 0) {
-    return <div className="text-[13px] text-[#86868b]">No allocation data yet — make a deposit to see your exposure.</div>;
+    return <div className="text-[13px] text-[#86868b]">No allocation data yet. Make a deposit to see your exposure.</div>;
   }
   return (
     <div>

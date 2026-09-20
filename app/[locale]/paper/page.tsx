@@ -265,7 +265,7 @@ export default function PaperTraderPage() {
           </div>
         )}
 
-        {/* Active positions — concurrent mode may hold up to
+        {/* Active positions. Concurrent mode may hold up to
              PAPER_MAX_CONCURRENT (default 3). Falls back to the
              singular activePosition when the API is on an older
              deploy that doesn't yet return the array (PR #129). */}

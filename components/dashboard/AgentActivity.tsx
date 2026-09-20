@@ -163,7 +163,7 @@ export const AgentActivity = memo(function AgentActivity({ address, onTaskComple
     queryKey: activityKey,
     queryFn: () => getAgentActivity(address || '0x0000000000000000000000000000000000000000'),
     // 15s poll (was 5s): the underlying activity feed changes every few
-    // minutes at most, and 5s meant 12 req/min per parked session — real
+    // minutes at most, and 5s meant 12 req/min per parked session. Real
     // cost at scale for a UX benefit no user can perceive. refetchInterval
     // pauses automatically when the tab is hidden (react-query default).
     refetchInterval: autoRefresh ? 15_000 : false,
@@ -179,7 +179,7 @@ export const AgentActivity = memo(function AgentActivity({ address, onTaskComple
     [trimmedActivity]
   );
 
-  // Per-task proof cache — a completed task's proof is immutable, so
+  // Per-task proof cache. A completed task's proof is immutable, so
   // staleTime: Infinity means every completed task generates its proof
   // exactly ONCE per tab session. Prior code regenerated every 5s.
   const proofQueries = useQueries({

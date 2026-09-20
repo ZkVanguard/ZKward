@@ -75,7 +75,7 @@ export function poolReducer(state: CommunityPoolState, action: PoolAction): Comm
       return { ...state, poolData: action.payload };
     case 'PATCH_POOL_DATA':
       // Merge partial fields into the existing poolData without wiping
-      // it — used to overlay the DB-verified ATH on top of the on-chain
+      // it. Used to overlay the DB-verified ATH on top of the on-chain
       // phantom without racing the initial pool fetch.
       return state.poolData
         ? { ...state, poolData: { ...state.poolData, ...action.payload } }

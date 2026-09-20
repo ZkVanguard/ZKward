@@ -167,7 +167,7 @@ export function useCommunityPool(propAddress?: string) {
     args: address ? [address as `0x${string}`] : undefined,
     query: {
       // Skip when the token contract isn't deployed on this chain
-      // (Hedera testnet USDT is 0x0000... today — a balanceOf call
+      // (Hedera testnet USDT is 0x0000... today. A balanceOf call
       // there is a wasted network round-trip that also spams the
       // console with revert errors from wagmi's ReadContractError).
       enabled: !!address
@@ -183,7 +183,7 @@ export function useCommunityPool(propAddress?: string) {
   // Account Abstraction (Gasless) support
   const { depositWithGasless } = useSmartAccount();
 
-  // First-deposit gate: assumed false — API enforces the $100 inflation-attack
+  // First-deposit gate: assumed false. API enforces the $100 inflation-attack
   // minimum server-side, so the client can render without an extra RPC round-trip.
   const isFirstDeposit = false;
 
@@ -284,7 +284,7 @@ export function useCommunityPool(propAddress?: string) {
       }
       // Don't auto-switch away from Sepolia if user is on another chain
     } else if (suiWalletConnected && evmWalletConnected) {
-      // Both wallets connected — prefer Sepolia (official WDK USDT)
+      // Both wallets connected. Prefer Sepolia (official WDK USDT)
       if (selectedChain !== 'sepolia') {
         dispatchPool({ type: 'SET_CHAIN', payload: 'sepolia' });
       }
@@ -521,7 +521,7 @@ export function useCommunityPool(propAddress?: string) {
     fetchPoolData(true);
   }, [fetchPoolData]);
 
-  // Polling — 15s so deposit stats + share price feel alive on the demo.
+  // Polling. 15s so deposit stats + share price feel alive on the demo.
   // Every hit is a same-origin cached API call; Vercel edge cache absorbs
   // the extra load. If it turns out to be too aggressive at scale, bump
   // to 30-45s.
@@ -1178,7 +1178,7 @@ export function useCommunityPool(propAddress?: string) {
         fetchPoolData(true);
         return; // Done with permit flow
       } catch (permitError: any) {
-        // If it's an insufficient funds error, don't bother falling back — the wallet has no gas
+        // If it's an insufficient funds error, don't bother falling back. The wallet has no gas
         const code = permitError?.code || permitError?.info?.error?.code;
         const msg = permitError?.shortMessage || permitError?.message || '';
         if (code === 'INSUFFICIENT_FUNDS' || msg.includes('insufficient funds')) {
@@ -1811,7 +1811,7 @@ export function useCommunityPool(propAddress?: string) {
       });
 
       // Step 3: Execute transaction. Prefer sponsored execution so users don't
-      // need to hold SUI just to redeem shares — the withdraw payload IS USDC,
+      // need to hold SUI just to redeem shares. The withdraw payload IS USDC,
       // so it's weird UX to require a separate token for gas. Fall back to
       // wallet-paid gas if sponsorship fails (server unreachable, admin low
       // on SUI, etc.).
@@ -1839,7 +1839,7 @@ export function useCommunityPool(propAddress?: string) {
         // Persist the withdrawal to community_pool_transactions so
         // lifetime analytics stay accurate. Prior code never called
         // record-withdraw after a successful on-chain tx, so every
-        // mainnet withdrawal was invisible to the DB — total withdrawn
+        // mainnet withdrawal was invisible to the DB. Total withdrawn
         // read as \$0 in analyze-pool-pnl and the dashboard forever.
         // Non-critical: DB write failure doesn't undo the on-chain
         // withdraw; the reconciler will pick it up later. Fire-and-forget.

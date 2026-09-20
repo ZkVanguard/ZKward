@@ -77,7 +77,7 @@
     "rights": "All rights reserved.",
     "testnet": "SUI Mainnet",
     "stage": "Mainnet Live",
-    "migrationNotice": "Formerly zkvanguard.xyz — zkward.com is our new home.",
+    "migrationNotice": "Formerly zkvanguard.xyz. Zkward.com is our new home.",
     "builtWith": "Built with ZK-STARK",
     "story": "Our story"
   },
@@ -177,7 +177,7 @@
     "subtitle": "Three steps. No paperwork.",
     "step1": {
       "title": "You deposit",
-      "description": "Send USDC to the pool. Your keys, your funds — always.",
+      "description": "Send USDC to the pool. Your keys, your funds. Always.",
       "detail": "Non-custodial from minute one."
     },
     "step2": {
@@ -253,13 +253,13 @@
   "roadmap": {
     "title": "What we're working on",
     "subtitle": "Where we came from, and where the next six months go.",
-    "q1Title": "Q1 2026 — First bricks",
+    "q1Title": "Q1 2026. First bricks",
     "q1Description": "Core contracts, five-agent prototype, and the ZK pipeline we ended up rebuilding twice.",
-    "q2Title": "Q2 2026 — Mainnet",
+    "q2Title": "Q2 2026. Mainnet",
     "q2Description": "Pool + seven agents live on SUI mainnet. A withdrawal bug got caught the hard way. We shipped v0.2.0 to fix it.",
-    "q3Title": "Q3 2026 — Discipline",
+    "q3Title": "Q3 2026. Discipline",
     "q3Description": "Autonomy defense (eight gates). Rebuilt the trader's sizing after a rough drawdown. Aiven → self-hosted Bakchodi database.",
-    "q4Title": "Q4 2026 — Audit + scale",
+    "q4Title": "Q4 2026. Audit + scale",
     "q4Description": "External audit through the SUI Foundation grant. Move the AdminCap to a multisig. Raise the deposit cap only after each step survives a real drawdown test."
   },
   "cookies": {

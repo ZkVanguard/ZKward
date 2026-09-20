@@ -101,7 +101,7 @@ export function EvmConnectSection() {
     setTimeout(() => setCopied(false), 1500);
   }, [address]);
 
-  // Filter connectors — dedupe by name; wagmi surfaces multiple entries
+  // Filter connectors. Dedupe by name; wagmi surfaces multiple entries
   // when the browser has both MetaMask + a wagmi-defined injected.
   const usableConnectors = useMemo(() => {
     const seen = new Set<string>();
@@ -113,7 +113,7 @@ export function EvmConnectSection() {
     });
   }, [connectors]);
 
-  // ─── Not connected — show Hedera-first connect CTA ─────────────────────
+  // ─── Not connected. Show Hedera-first connect CTA ─────────────────────
   if (!isConnected) {
     return (
       <div className="relative">
@@ -146,7 +146,7 @@ export function EvmConnectSection() {
                       Connect to Hedera
                     </div>
                     <div className="text-[11px] text-label-tertiary">
-                      Pick a wallet — testnet by default
+                      Pick a wallet. Testnet by default
                     </div>
                   </div>
                 </div>
@@ -231,7 +231,7 @@ export function EvmConnectSection() {
     );
   }
 
-  // ─── Connected but wrong chain — nudge to Hedera ────────────────────────
+  // ─── Connected but wrong chain. Nudge to Hedera ────────────────────────
   if (!onHedera) {
     return (
       <div className="relative">

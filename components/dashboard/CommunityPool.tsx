@@ -71,7 +71,7 @@ function CommunityPoolSkeletonWithTimeout({ onRetry }: { onRetry: () => void }) 
       <CommunityPoolSkeleton />
       {slow && (
         <div className="mt-3 flex items-center justify-center gap-3 text-caption-1 text-label-tertiary">
-          <span>Pool data slower than usual — SUI RPC may be busy.</span>
+          <span>Pool data slower than usual. SUI RPC may be busy.</span>
           <button
             type="button"
             onClick={onRetry}
@@ -97,7 +97,7 @@ export const CommunityPool = memo(function CommunityPool({
   const [showAI, setShowAI] = useState(false);
 
   // Privy embedded-wallet fallback. When users sign in with Google/email
-  // via Privy, an EVM self-custodial wallet is created — but Privy's
+  // via Privy, an EVM self-custodial wallet is created. But Privy's
   // WagmiProvider doesn't always surface it via useAccount() immediately.
   // Reading useWallets() directly gives us the address as soon as login
   // completes so the deposit UI unlocks without a manual reconnect.
@@ -109,7 +109,7 @@ export const CommunityPool = memo(function CommunityPool({
   // Privy wallets live on Hedera Testnet by default (privy-client-config
   // defaultChain: hederaTestnet) so switching the pool picker keeps the
   // user's on-chain context aligned with what they can actually deposit
-  // into. Runs exactly once per session — after that the user's manual
+  // into. Runs exactly once per session. After that the user's manual
   // chain switch wins.
   const autoSelectedRef = useRef(false);
   useEffect(() => {
@@ -349,7 +349,7 @@ export const CommunityPool = memo(function CommunityPool({
         poolDeployed={pool.poolDeployed}
       />
 
-      {/* Share-price history chart owns the hero slot — Total Value and
+      {/* Share-price history chart owns the hero slot. Total Value and
           Total Shares tiles that used to sit atop PoolStats were removed
           in favour of showing the story rather than the point-in-time
           number. Current NAV surfaces as the last tooltip on the chart. */}
@@ -375,7 +375,7 @@ export const CommunityPool = memo(function CommunityPool({
         />
       )}
 
-      {/* Allocation chart — collapsed on mobile, expanded on desktop */}
+      {/* Allocation chart. Collapsed on mobile, expanded on desktop */}
       <CollapsibleSection
         title="Allocation"
         icon={<PieChart className="w-4 h-4 text-indigo-500" />}
@@ -471,7 +471,7 @@ export const CommunityPool = memo(function CommunityPool({
           "insufficient data" empty state that SUI panels show on Hedera. */}
       {!compact && pool.selectedChain === 'hedera' && <HederaRecentActivity />}
 
-      {/* One GraphQL query, two indexing backends — proves the AI-vault
+      {/* One GraphQL query, two indexing backends. Proves the AI-vault
           schema abstracts over indexing infrastructure, not just chains.
           Studio subgraph indexes Sepolia; adapter projects Hedera Mirror
           Node into the same shape. Hedera-only surface for now. */}
@@ -481,7 +481,7 @@ export const CommunityPool = memo(function CommunityPool({
         </div>
       )}
 
-      {/* Risk Metrics — SUI/Cronos only; needs BlueFin history */}
+      {/* Risk Metrics. SUI/Cronos only; needs BlueFin history */}
       {!compact && pool.selectedChain !== 'hedera' && (
         <div
           ref={riskMetricsRef}
@@ -497,7 +497,7 @@ export const CommunityPool = memo(function CommunityPool({
         </div>
       )}
 
-      {/* Auto Hedge Panel — SUI-only feature (BlueFin auto-hedging) */}
+      {/* Auto Hedge Panel. SUI-only feature (BlueFin auto-hedging) */}
       {!compact && pool.selectedChain !== 'hedera' && (
         <div
           ref={autoHedgeRef}

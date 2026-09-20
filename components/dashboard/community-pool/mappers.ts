@@ -13,7 +13,7 @@ const num = (v: unknown): number => parseFloat(String(v)) || 0;
 
 /**
  * Live 4-asset composition (market-value % + USDC bucket). Returns all-zeros
- * when the server didn't compute one — was silently defaulting to "SUI 100%"
+ * when the server didn't compute one. Was silently defaulting to "SUI 100%"
  * regardless of actual holdings (audit 2026-07-31). Consumers can detect
  * `sum(allocations) === 0` and render an "allocation unavailable" state.
  */

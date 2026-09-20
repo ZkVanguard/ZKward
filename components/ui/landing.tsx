@@ -44,7 +44,7 @@ export function Section({
 // <div data-reveal=""> — CSS defines the "0 opacity / +20px" resting
 // state. Post-mount an IntersectionObserver flips data-reveal="in" the
 // first time the element crosses the 15%-visible threshold, and CSS
-// transitions to the final state. No framer-motion here — the previous
+// transitions to the final state. No framer-motion here. The previous
 // motion.div implementation produced SSR/CSR attribute deltas that React
 // reports as hydration mismatches (motion writes initial styles into SSR
 // HTML but applies them post-mount on the client via a ref).

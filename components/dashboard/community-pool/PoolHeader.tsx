@@ -31,7 +31,7 @@ export const PoolHeader = memo(function PoolHeader({
 }: PoolHeaderProps) {
   // Removed the purple→pink gradient banner (a-cross-with-homepage
   // aesthetic). The parent Card already displays "Community Pool" as
-  // its title, so this header is now an action row only — chain
+  // its title, so this header is now an action row only. Chain
   // selector + refresh + AI insights, sitting on the same white
   // canvas as the rest of the dashboard. Network + chain info moves
   // into a subtle status pill below.

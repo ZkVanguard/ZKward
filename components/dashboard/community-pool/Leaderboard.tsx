@@ -108,7 +108,7 @@ const EXPLORER_URLS: Record<number, string> = {
   296: 'https://hashscan.io/testnet',
 };
 
-// Deterministic treasury proxy — kept as an exported utility but no
+// Deterministic treasury proxy. Kept as an exported utility but no
 // longer used to display the "vault address" on the leaderboard card.
 // Would confuse users into thinking the vault lived at a hashed 0x...
 // address (0x18fbc0…ad99ec) that isn't actually on-chain anywhere.
@@ -122,7 +122,7 @@ export const Leaderboard = memo(function Leaderboard({
   selectedChain,
   chainConfig,
 }: LeaderboardProps) {
-  // Effective total — prop wins, but fall back to entries.length so the
+  // Effective total. Prop wins, but fall back to entries.length so the
   // "top N of M" chip is always sane even if the caller didn't wire it.
   const memberTotal = Math.max(totalMembers ?? 0, entries.length);
   const showingCount = entries.length;
