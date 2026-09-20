@@ -66,3 +66,28 @@ Every gate is currently red or unmeasurable — that's the whole point of writin
 | 9 no halts 14d | ✅ (haltedUntilMs = 0) | ✅ | ✅ |
 
 Realistic path: the just-shipped price-anchored stop + 45m max-hold fix should move gates 7, 8, and materially help 1, 3, 4, 5 within 2-4 weeks of continued paper trading. Gate 10 (source calibration) is a longer research arc — needs `source_outcomes` accumulation and possibly a source-weight refit.
+
+## RESEARCH MODE — enabled 2026-09-20
+
+To generate more sample trades faster (the trader had gone idle for 20+ hours pre-loosening), the following defaults changed. These are trade-frequency knobs; the safety layers (stop-loss, trailing, max-hold, streak-guard, skip-STRONG) are untouched.
+
+| Knob | Before | After (RESEARCH) | Effect |
+|---|---|---|---|
+| `PAPER_TRADER_STAKE_PCT` | 5% | **2%** | Smaller size protects during the noise phase |
+| `PAPER_TRADER_MIN_MAJORITY_PCT` | 0.60 | **0.55** | Trader was idle at 50% agreement; 55% lets clean-ish signals through |
+| `PAPER_TRADER_MIN_STABLE_TICKS` | 2 | **1** | Faster time-to-first-trade after a signal appears |
+| `PAPER_TRADER_MIN_ANNUAL_VOL_PCT` | 40 | **25** | BTC vol was 32% today; 40% was blocking every entry |
+| `PAPER_TRADER_MAX_CONCURRENT` | 1 | **3** | Parallelize across assets, correlation-cluster cap still holds |
+
+**Revert path.** When the mainnet-readiness gates all go green (target: 2-4 weeks), tighten every knob back by setting the old values as env overrides in prod. No code change needed — the defaults are the RESEARCH values; env overrides win.
+
+Concrete revert command (Vercel env):
+```
+PAPER_TRADER_STAKE_PCT=0.05
+PAPER_TRADER_MIN_MAJORITY_PCT=0.6
+PAPER_TRADER_MIN_STABLE_TICKS=2
+PAPER_TRADER_MIN_ANNUAL_VOL_PCT=40
+PAPER_TRADER_MAX_CONCURRENT=1
+```
+
+**Why halve stake but loosen everything else?** More trades × smaller size = more data with the same total risk budget. If the signal is broken, the drawdown per unit time is roughly the same as before (fewer big trades → many small ones); if the signal has edge, we surface it 3-5× faster.
