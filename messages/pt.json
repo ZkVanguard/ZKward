@@ -242,23 +242,7 @@
     "targetMarket": "Mercado-Alvo",
     "targetDescription": "Retail cripto-nativo · usuários DeFi · titulares de carteiras individuais",
     "potentialUsers": "Usuários Potenciais",
-    "usersDescription": "Apostadores do Polymarket, entusiastas de agentes de IA, usuários de cofres DeFi",
-    "competitiveEdge": "Nosso Diferencial Competitivo",
-    "traditionalTools": "Ferramentas de Risco Tradicionais",
-    "noAiAutomation": "Sem automação de IA",
-    "defiProtocols": "Protocolos DeFi",
-    "noPredictionSignals": "Sem sinais de mercados de previsão",
-    "centralizedServices": "Serviços Centralizados",
-    "custodialRisk": "Risco custodial",
-    "whyWins": "Por que ZkWard Vence",
-    "aiPowered": "Automação com IA",
-    "aiDescription": "7 agentes especializados operando 24/7",
-    "zkVerificationFeature": "Verificação ZK-STARK",
-    "zkDescription": "Privacidade + auditabilidade garantidas",
-    "nonCustodial": "Não-Custodial",
-    "nonCustodialDescription": "Suas chaves, suas criptomoedas",
-    "gasOptimization": "Otimização de Gás",
-    "gasDescription": "Transações patrocinadas na SUI Mainnet"
+    "usersDescription": "Apostadores do Polymarket, entusiastas de agentes de IA, usuários de cofres DeFi"
   },
   "liveMetrics": {
     "title": "Métricas da Plataforma em Tempo Real",
@@ -278,12 +262,7 @@
     "q3Title": "Q3 2026: Crescimento",
     "q3Description": "Lançamento em produção com parcerias institucionais",
     "q4Title": "Q4 2026: Escalabilidade",
-    "q4Description": "$500M+ TVL em múltiplas chains",
-    "inProgress": "Em Andamento",
-    "upcoming": "Em Breve",
-    "planned": "Planejado",
-    "completed": "Concluído",
-    "live": "Ao Vivo"
+    "q4Description": "$500M+ TVL em múltiplas chains"
   },
   "cookies": {
     "title": "Preferências de Cookies",
@@ -636,5 +615,9 @@
   "whitepaperMeta": {
     "title": "Whitepaper",
     "description": "A tese completa do ZKward: alpha dos prediction markets, arquitetura de 7 agentes, execução atestada por STARK, tokenomics, roadmap."
+  },
+  "legacyBanner": {
+    "message": "<strong>zkvanguard.xyz será desativado em breve.</strong> Mudámos para <link>zkward.com</link>. Por favor, atualize os favoritos.",
+    "dismiss": "Fechar"
   }
 }

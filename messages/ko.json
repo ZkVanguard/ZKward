@@ -242,23 +242,7 @@
     "targetMarket": "타겟 시장",
     "targetDescription": "크립토 네이티브 리테일 · DeFi 사용자 · 개인 포트폴리오 보유자",
     "potentialUsers": "잠재 사용자",
-    "usersDescription": "Polymarket 베터, AI 에이전트 애호가, DeFi 볼트 사용자, 토큰화 포트폴리오 보유자",
-    "competitiveEdge": "우리의 경쟁 우위",
-    "traditionalTools": "전통적 리스크 도구",
-    "noAiAutomation": "AI 자동화 없음",
-    "defiProtocols": "DeFi 프로토콜",
-    "noPredictionSignals": "예측 시장 시그널 없음",
-    "centralizedServices": "중앙화 서비스",
-    "custodialRisk": "커스터디 리스크",
-    "whyWins": "ZkWard가 승리하는 이유",
-    "aiPowered": "AI 기반 자동화",
-    "aiDescription": "5개의 전문 에이전트가 24/7 작동",
-    "zkVerificationFeature": "ZK-STARK 검증",
-    "zkDescription": "프라이버시 + 감사 가능성 보장",
-    "nonCustodial": "비수탁형",
-    "nonCustodialDescription": "귀하의 키, 귀하의 암호화폐",
-    "gasOptimization": "가스 최적화",
-    "gasDescription": "SUI Mainnet에서 후원 트랜잭션"
+    "usersDescription": "Polymarket 베터, AI 에이전트 애호가, DeFi 볼트 사용자, 토큰화 포트폴리오 보유자"
   },
   "liveMetrics": {
     "title": "실시간 플랫폼 메트릭",
@@ -278,12 +262,7 @@
     "q3Title": "2026년 3분기: 성장",
     "q3Description": "기관 파트너십과 함께 프로덕션 출시",
     "q4Title": "2026년 4분기: 확장",
-    "q4Description": "여러 체인에서 $500M+ TVL",
-    "inProgress": "진행 중",
-    "upcoming": "예정",
-    "planned": "계획됨",
-    "completed": "완료",
-    "live": "라이브"
+    "q4Description": "여러 체인에서 $500M+ TVL"
   },
   "cookies": {
     "title": "쿠키 설정",
@@ -636,5 +615,9 @@
   "whitepaperMeta": {
     "title": "백서",
     "description": "ZKward 완전 논고: 예측 시장 alpha, 7 에이전트 아키텍처, STARK 인증 실행, 토크노믹스, 로드맵."
+  },
+  "legacyBanner": {
+    "message": "<strong>zkvanguard.xyz는 곧 종료됩니다.</strong> <link>zkward.com</link>으로 이동했습니다. 북마크를 업데이트해 주세요.",
+    "dismiss": "닫기"
   }
 }

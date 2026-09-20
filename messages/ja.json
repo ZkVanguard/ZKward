@@ -242,23 +242,7 @@
     "targetMarket": "ターゲット市場",
     "targetDescription": "クリプトネイティブのリテール・DeFiユーザー・個人ポートフォリオ保有者",
     "potentialUsers": "潜在ユーザー",
-    "usersDescription": "Polymarketのベッター、AIエージェント愛好者、DeFiヴォルトユーザー、トークン化ポートフォリオ保有者",
-    "competitiveEdge": "当社の競争優位性",
-    "traditionalTools": "従来のリスクツール",
-    "noAiAutomation": "AI自動化なし",
-    "defiProtocols": "DeFiプロトコル",
-    "noPredictionSignals": "予測市場シグナルなし",
-    "centralizedServices": "中央集権サービス",
-    "custodialRisk": "カストディリスク",
-    "whyWins": "ZkWardが選ばれる理由",
-    "aiPowered": "AI駆動型自動化",
-    "aiDescription": "5つの専門エージェントが24時間365日稼働",
-    "zkVerificationFeature": "ZK-STARK検証",
-    "zkDescription": "プライバシー + 監査可能性を保証",
-    "nonCustodial": "ノンカストディアル",
-    "nonCustodialDescription": "お客様の鍵、お客様の暗号資産",
-    "gasOptimization": "ガス最適化",
-    "gasDescription": "SUI Mainnetでスポンサー付きトランザクション"
+    "usersDescription": "Polymarketのベッター、AIエージェント愛好者、DeFiヴォルトユーザー、トークン化ポートフォリオ保有者"
   },
   "liveMetrics": {
     "title": "リアルタイムプラットフォームメトリクス",
@@ -278,12 +262,7 @@
     "q3Title": "2026年Q3: 成長",
     "q3Description": "機関投資家パートナーシップによる本番稼働",
     "q4Title": "2026年Q4: スケール",
-    "q4Description": "複数チェーンで$500M以上のTVL",
-    "inProgress": "進行中",
-    "upcoming": "近日公開",
-    "planned": "計画中",
-    "completed": "完了",
-    "live": "ライブ"
+    "q4Description": "複数チェーンで$500M以上のTVL"
   },
   "cookies": {
     "title": "Cookie設定",
@@ -636,5 +615,9 @@
   "whitepaperMeta": {
     "title": "ホワイトペーパー",
     "description": "ZKward の完全な論考：予測市場 alpha、7 エージェント・アーキテクチャ、STARK 認証付き実行、トークノミクス、ロードマップ。"
+  },
+  "legacyBanner": {
+    "message": "<strong>zkvanguard.xyz は間もなく終了します。</strong> 移転先は <link>zkward.com</link> です。ブックマークを更新してください。",
+    "dismiss": "閉じる"
   }
 }

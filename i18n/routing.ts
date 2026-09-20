@@ -31,3 +31,10 @@ export const localeNames: Record<Locale, string> = {
   it: 'Italiano',
   ne: 'नेपाली',
 };
+
+// Locales that need right-to-left rendering. Devanagari-based locales (hi,
+// ne) are LTR despite the different script — only true RTL scripts belong
+// here. Consumed by app/[locale]/layout.tsx for the <html dir> attribute.
+const RTL_LOCALES = new Set<Locale>(['ar']);
+export const localeDir = (locale: string): 'rtl' | 'ltr' =>
+  RTL_LOCALES.has(locale as Locale) ? 'rtl' : 'ltr';

@@ -242,23 +242,7 @@
     "targetMarket": "Mercado objetivo",
     "targetDescription": "Retail cripto-nativo · usuarios DeFi · titulares de carteras individuales",
     "potentialUsers": "Usuarios potenciales",
-    "usersDescription": "Apostadores de Polymarket, entusiastas de agentes IA, usuarios de bóvedas DeFi",
-    "competitiveEdge": "Nuestra ventaja competitiva",
-    "traditionalTools": "Herramientas de riesgo tradicionales",
-    "noAiAutomation": "Sin automatización IA",
-    "defiProtocols": "Protocolos DeFi",
-    "noPredictionSignals": "Sin señales de mercados de predicción",
-    "centralizedServices": "Servicios centralizados",
-    "custodialRisk": "Riesgo de custodia",
-    "whyWins": "Por qué gana ZkWard",
-    "aiPowered": "Automatización impulsada por IA",
-    "aiDescription": "7 agentes especializados trabajando 24/7",
-    "zkVerificationFeature": "Verificación ZK-STARK",
-    "zkDescription": "Privacidad + Auditabilidad garantizadas",
-    "nonCustodial": "No custodial",
-    "nonCustodialDescription": "Tus llaves, tus criptos",
-    "gasOptimization": "Optimización de gas",
-    "gasDescription": "Transacciones patrocinadas en SUI Mainnet"
+    "usersDescription": "Apostadores de Polymarket, entusiastas de agentes IA, usuarios de bóvedas DeFi"
   },
   "liveMetrics": {
     "title": "Métricas en tiempo real",
@@ -278,12 +262,7 @@
     "q3Title": "T3 2026: Crecimiento",
     "q3Description": "Lanzamiento en producción con alianzas institucionales",
     "q4Title": "T4 2026: Escalar",
-    "q4Description": "+$500M TVL en múltiples cadenas",
-    "inProgress": "En progreso",
-    "upcoming": "Próximamente",
-    "planned": "Planificado",
-    "completed": "Completado",
-    "live": "En Vivo"
+    "q4Description": "+$500M TVL en múltiples cadenas"
   },
   "cookies": {
     "title": "Preferencias de cookies",
@@ -636,5 +615,9 @@
   "whitepaperMeta": {
     "title": "Whitepaper",
     "description": "La tesis completa de ZKward: alpha de mercados de predicción, arquitectura de 7 agentes, ejecución con atestación STARK, tokenomics, hoja de ruta."
+  },
+  "legacyBanner": {
+    "message": "<strong>zkvanguard.xyz se retirará pronto.</strong> Nos hemos mudado a <link>zkward.com</link>. Por favor, actualiza tus marcadores.",
+    "dismiss": "Cerrar"
   }
 }

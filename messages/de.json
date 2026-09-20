@@ -242,23 +242,7 @@
     "targetMarket": "Zielmarkt",
     "targetDescription": "Krypto-native Retail · DeFi-Nutzer · individuelle Portfolio-Halter",
     "potentialUsers": "Potenzielle Nutzer",
-    "usersDescription": "Polymarket-Trader, KI-Agenten-Enthusiasten, DeFi-Vault-Nutzer",
-    "competitiveEdge": "Unser Wettbewerbsvorteil",
-    "traditionalTools": "Traditionelle Risiko-Tools",
-    "noAiAutomation": "Keine KI-Automatisierung",
-    "defiProtocols": "DeFi-Protokolle",
-    "noPredictionSignals": "Keine Prognosemarkt-Signale",
-    "centralizedServices": "Zentralisierte Dienste",
-    "custodialRisk": "Verwahrungsrisiko",
-    "whyWins": "Warum ZkWard gewinnt",
-    "aiPowered": "KI-gestützte Automatisierung",
-    "aiDescription": "5 spezialisierte Agenten arbeiten 24/7",
-    "zkVerificationFeature": "ZK-STARK Verifizierung",
-    "zkDescription": "Privatsphäre + Prüfbarkeit garantiert",
-    "nonCustodial": "Non-Custodial",
-    "nonCustodialDescription": "Ihre Schlüssel, Ihre Kryptos",
-    "gasOptimization": "Gas-Optimierung",
-    "gasDescription": "Gesponserte Transaktionen auf SUI Mainnet"
+    "usersDescription": "Polymarket-Trader, KI-Agenten-Enthusiasten, DeFi-Vault-Nutzer"
   },
   "liveMetrics": {
     "title": "Echtzeit-Plattform-Metriken",
@@ -278,12 +262,7 @@
     "q3Title": "Q3 2026: Wachstum",
     "q3Description": "Produktionsstart mit institutionellen Partnerschaften",
     "q4Title": "Q4 2026: Skalierung",
-    "q4Description": "$500M+ TVL über mehrere Chains",
-    "inProgress": "In Bearbeitung",
-    "upcoming": "Kommend",
-    "planned": "Geplant",
-    "completed": "Abgeschlossen",
-    "live": "Live"
+    "q4Description": "$500M+ TVL über mehrere Chains"
   },
   "cookies": {
     "title": "Cookie-Einstellungen",
@@ -636,5 +615,9 @@
   "whitepaperMeta": {
     "title": "Whitepaper",
     "description": "Die vollständige ZKward-These: Prediction-Market-Alpha, 7-Agenten-Architektur, STARK-attestierte Ausführung, Tokenomics, Roadmap."
+  },
+  "legacyBanner": {
+    "message": "<strong>zkvanguard.xyz wird bald abgeschaltet.</strong> Wir sind umgezogen auf <link>zkward.com</link>. Bitte aktualisiere deine Lesezeichen.",
+    "dismiss": "Schließen"
   }
 }

@@ -14,11 +14,13 @@
  */
 
 import { useEffect, useState } from 'react';
+import { useTranslations } from 'next-intl';
 
 const LEGACY_HOSTS = new Set(['zkvanguard.xyz', 'www.zkvanguard.xyz']);
 const DISMISS_KEY = 'legacy-domain-banner-dismissed';
 
 export function LegacyDomainBanner() {
+  const t = useTranslations('legacyBanner');
   const [show, setShow] = useState(false);
 
   useEffect(() => {
@@ -52,15 +54,17 @@ export function LegacyDomainBanner() {
       }}
     >
       <span>
-        <strong>zkvanguard.xyz will retire soon.</strong>{' '}
-        We&apos;ve moved to{' '}
-        <a
-          href={newUrl}
-          style={{ color: '#60a5fa', textDecoration: 'underline', fontWeight: 600 }}
-        >
-          zkward.com
-        </a>
-        . Please update your bookmarks.
+        {t.rich('message', {
+          strong: (chunks) => <strong>{chunks}</strong>,
+          link: (chunks) => (
+            <a
+              href={newUrl}
+              style={{ color: '#60a5fa', textDecoration: 'underline', fontWeight: 600 }}
+            >
+              {chunks}
+            </a>
+          ),
+        })}
       </span>
       <button
         type="button"
@@ -68,7 +72,7 @@ export function LegacyDomainBanner() {
           sessionStorage.setItem(DISMISS_KEY, '1');
           setShow(false);
         }}
-        aria-label="Dismiss"
+        aria-label={t('dismiss')}
         style={{
           background: 'transparent',
           color: '#9ca3af',
@@ -79,7 +83,7 @@ export function LegacyDomainBanner() {
           fontSize: 13,
         }}
       >
-        Dismiss
+        {t('dismiss')}
       </button>
     </div>
   );

@@ -615,5 +615,9 @@
     "preferencesDescription": "आफ्ना सेटिङहरू र प्राथमिकताहरू सम्झनुहोस्",
     "rejectOptional": "वैकल्पिक अस्वीकार गर्नुहोस्",
     "savePreferences": "प्राथमिकताहरू सेभ गर्नुहोस्"
+  },
+  "legacyBanner": {
+    "message": "<strong>zkvanguard.xyz चाँडै बन्द हुनेछ।</strong> हामी <link>zkward.com</link> मा सर्‍यौं। कृपया आफ्नो बुकमार्क अद्यावधिक गर्नुहोस्।",
+    "dismiss": "बन्द गर्नुहोस्"
   }
 }

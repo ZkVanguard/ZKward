@@ -242,23 +242,7 @@
     "targetMarket": "लक्ष्य बाज़ार",
     "targetDescription": "क्रिप्टो-नेटिव रिटेल · DeFi उपयोगकर्ता · व्यक्तिगत पोर्टफोलियो धारक",
     "potentialUsers": "संभावित उपयोगकर्ता",
-    "usersDescription": "Polymarket बेटर्स, AI एजेंट प्रशंसक, DeFi वॉल्ट उपयोगकर्ता, टोकनाइज्ड पोर्टफोलियो धारक",
-    "competitiveEdge": "हमारा प्रतिस्पर्धात्मक लाभ",
-    "traditionalTools": "पारंपरिक जोखिम उपकरण",
-    "noAiAutomation": "कोई AI ऑटोमेशन नहीं",
-    "defiProtocols": "DeFi प्रोटोकॉल",
-    "noPredictionSignals": "भविष्यवाणी बाज़ार के संकेत नहीं",
-    "centralizedServices": "केंद्रीकृत सेवाएं",
-    "custodialRisk": "कस्टोडियल जोखिम",
-    "whyWins": "ZkWard क्यों जीतता है",
-    "aiPowered": "AI-संचालित ऑटोमेशन",
-    "aiDescription": "5 विशेष एजेंट 24/7 काम करते हैं",
-    "zkVerificationFeature": "ZK-STARK सत्यापन",
-    "zkDescription": "गोपनीयता + ऑडिटेबिलिटी गारंटीड",
-    "nonCustodial": "नॉन-कस्टोडियल",
-    "nonCustodialDescription": "आपकी चाबियां, आपकी क्रिप्टो",
-    "gasOptimization": "गैस ऑप्टिमाइज़ेशन",
-    "gasDescription": "SUI Mainnet पर प्रायोजित लेनदेन"
+    "usersDescription": "Polymarket बेटर्स, AI एजेंट प्रशंसक, DeFi वॉल्ट उपयोगकर्ता, टोकनाइज्ड पोर्टफोलियो धारक"
   },
   "liveMetrics": {
     "title": "लाइव प्लेटफॉर्म मेट्रिक्स",
@@ -278,12 +262,7 @@
     "q3Title": "Q3 2026: विकास",
     "q3Description": "संस्थागत साझेदारियों के साथ प्रोडक्शन लॉन्च",
     "q4Title": "Q4 2026: स्केलिंग",
-    "q4Description": "मल्टी-चेन में $500M+ TVL",
-    "inProgress": "प्रगति में",
-    "upcoming": "आगामी",
-    "planned": "योजनाबद्ध",
-    "completed": "पूर्ण",
-    "live": "लाइव"
+    "q4Description": "मल्टी-चेन में $500M+ TVL"
   },
   "cookies": {
     "title": "कुकी प्राथमिकताएं",
@@ -636,5 +615,9 @@
   "whitepaperMeta": {
     "title": "Whitepaper",
     "description": "पूर्ण ZKward thesis: prediction-market alpha, 7-एजेंट आर्किटेक्चर, STARK-प्रमाणित निष्पादन, tokenomics, roadmap।"
+  },
+  "legacyBanner": {
+    "message": "<strong>zkvanguard.xyz जल्द ही बंद हो जाएगा।</strong> हम <link>zkward.com</link> पर आ गए हैं। कृपया अपने बुकमार्क अपडेट करें।",
+    "dismiss": "बंद करें"
   }
 }

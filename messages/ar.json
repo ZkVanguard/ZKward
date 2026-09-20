@@ -242,23 +242,7 @@
     "targetMarket": "السوق المستهدف",
     "targetDescription": "البيع بالتجزئة الأصلي للعملات الرقمية · مستخدمو DeFi · حاملو المحافظ الفردية",
     "potentialUsers": "المستخدمون المحتملون",
-    "usersDescription": "متداولو Polymarket، عشاق وكلاء الذكاء الاصطناعي، مستخدمو خزائن DeFi، حاملو المحافظ المرمزة",
-    "competitiveEdge": "ميزتنا التنافسية",
-    "traditionalTools": "أدوات المخاطر التقليدية",
-    "noAiAutomation": "لا أتمتة ذكاء اصطناعي",
-    "defiProtocols": "بروتوكولات DeFi",
-    "noPredictionSignals": "لا توجد إشارات أسواق التنبؤ",
-    "centralizedServices": "خدمات مركزية",
-    "custodialRisk": "مخاطر الحفظ",
-    "whyWins": "لماذا يفوز ZkWard",
-    "aiPowered": "أتمتة مدعومة بالذكاء الاصطناعي",
-    "aiDescription": "7 وكلاء متخصصين يعملون على مدار الساعة",
-    "zkVerificationFeature": "التحقق ZK-STARK",
-    "zkDescription": "الخصوصية + قابلية التدقيق مضمونة",
-    "nonCustodial": "غير احتجازي",
-    "nonCustodialDescription": "مفاتيحك، عملاتك المشفرة",
-    "gasOptimization": "تحسين الغاز",
-    "gasDescription": "معاملات مدعومة على SUI Mainnet"
+    "usersDescription": "متداولو Polymarket، عشاق وكلاء الذكاء الاصطناعي، مستخدمو خزائن DeFi، حاملو المحافظ المرمزة"
   },
   "liveMetrics": {
     "title": "مقاييس المنصة في الوقت الفعلي",
@@ -278,12 +262,7 @@
     "q3Title": "الربع الثالث 2026: النمو",
     "q3Description": "إطلاق الإنتاج مع شراكات مؤسسية",
     "q4Title": "الربع الرابع 2026: التوسع",
-    "q4Description": "+500 مليون دولار TVL عبر سلاسل متعددة",
-    "inProgress": "قيد التنفيذ",
-    "upcoming": "قادم",
-    "planned": "مخطط",
-    "completed": "مكتمل",
-    "live": "مباشر"
+    "q4Description": "+500 مليون دولار TVL عبر سلاسل متعددة"
   },
   "cookies": {
     "title": "تفضيلات ملفات تعريف الارتباط",
@@ -636,5 +615,9 @@
   "whitepaperMeta": {
     "title": "الورقة البيضاء",
     "description": "أطروحة ZKward الكاملة: ألفا أسواق التنبؤ، معمارية 7 وكلاء، تنفيذ مصادَق بـ STARK، اقتصاديات الرمز، خريطة الطريق."
+  },
+  "legacyBanner": {
+    "message": "<strong>سيتم إغلاق zkvanguard.xyz قريباً.</strong> انتقلنا إلى <link>zkward.com</link>. يرجى تحديث الإشارات المرجعية.",
+    "dismiss": "إغلاق"
   }
 }
