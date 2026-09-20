@@ -243,6 +243,20 @@ export class PaperTrader {
       // PAPER_TRADER_DISCORD_DIGEST=1). No-op when digest disabled.
       await flushPaperDigestIfDue(now);
 
+      // L13 — rolling-drawdown kill switch. If the last 7-day PnL is
+      // more than 2× worse than the previous 7-day period, halt for
+      // 24h. Prevents another -$68K accumulation like the one that
+      // triggered this whole learning-loop project.
+      //
+      // Cheap: one aggregate query, gated to run at most every hour
+      // via a cron_state key. Failure is non-fatal — trader keeps
+      // running if the check errors.
+      const rollingHalt = await PaperTrader.rollingDrawdownCheck(now);
+      if (rollingHalt) {
+        result = { action: 'skipped', reason: rollingHalt };
+        return result;
+      }
+
       const nav = (await getCronState<number>(KEY_NAV)) ?? PAPER_STARTING_NAV;
 
       // Concurrent-mode branch: PAPER_MAX_CONCURRENT > 1 unlocks the
@@ -402,7 +416,9 @@ export class PaperTrader {
     //    of that peak. Locks in half the winner instead of letting max-hold
     //    return the full move to zero.
     const priorPeak = pos.peakUnrealizedPnl ?? 0;
+    const priorTrough = pos.troughUnrealizedPnl ?? 0;
     const currentPeak = Math.max(priorPeak, mtm.unrealizedPnlUsd);
+    const currentTrough = Math.min(priorTrough, mtm.unrealizedPnlUsd);
     const trailingArmed = currentPeak >= nav * PAPER_TRAILING_STOP_ARM_PCT;
     if (
       trailingArmed &&
@@ -417,10 +433,15 @@ export class PaperTrader {
         orderId,
       );
     }
-    // Persist the updated peak so cross-tick reads see the ratchet.
-    // positionUpdate handles the legacy vs concurrent branch internally.
-    if (currentPeak > priorPeak && orderId) {
-      await positionUpdate(orderId, (p) => ({ ...p, peakUnrealizedPnl: currentPeak }));
+    // Persist the updated peak/trough so cross-tick reads see the ratchet.
+    // Trough (MAE) travels only in the losing direction; peak (MFE) only in
+    // the winning direction. Both persisted for post-hoc stop tuning.
+    if (orderId && (currentPeak > priorPeak || currentTrough < priorTrough)) {
+      await positionUpdate(orderId, (p) => ({
+        ...p,
+        peakUnrealizedPnl: currentPeak,
+        troughUnrealizedPnl: currentTrough,
+      }));
     }
 
     // 3. Max-hold expiry → close. Uses per-position maxHoldMin (scaled by
@@ -708,6 +729,63 @@ export class PaperTrader {
     };
   }
 
+  /**
+   * L13 — rolling-drawdown kill switch.
+   *
+   * Compares the last 7-day realized PnL to the previous 7-day period.
+   * If the recent period is more than 2× more negative than the prior
+   * one AND both are negative, halt the trader for 24 hours. This
+   * catches the "getting worse fast" pattern without punishing a merely
+   * quiet week.
+   *
+   * Gated by cron_state key so the check runs at most every 60 minutes.
+   * Failure is non-fatal — check errors leave the trader running.
+   *
+   * Returns a halt-reason string if the trader should skip, or null.
+   */
+  private static async rollingDrawdownCheck(now: number): Promise<string | null> {
+    const CHECK_KEY = 'paper-trader:rolling-dd-last-check';
+    const HALT_KEY = 'paper-trader:rolling-dd-halt-until';
+    try {
+      const haltUntil = (await getCronState<number>(HALT_KEY)) ?? 0;
+      if (haltUntil > now) {
+        const minsLeft = Math.round((haltUntil - now) / 60_000);
+        return `rolling-drawdown halt (${minsLeft}min remaining)`;
+      }
+      const lastCheck = (await getCronState<number>(CHECK_KEY)) ?? 0;
+      if (now - lastCheck < 60 * 60_000) return null; // check once per hour
+      await setCronState(CHECK_KEY, now);
+
+      // Aggregate 7-day PnL windows. Same-portfolio, same-chain paper only.
+      const rows = await query<{ recent: string; prior: string }>(
+        `SELECT
+           COALESCE(SUM(realized_pnl) FILTER (WHERE closed_at > NOW() - INTERVAL '7 days'), 0) AS recent,
+           COALESCE(SUM(realized_pnl) FILTER (WHERE closed_at BETWEEN NOW() - INTERVAL '14 days' AND NOW() - INTERVAL '7 days'), 0) AS prior
+         FROM hedges
+         WHERE order_id LIKE 'paper_%' AND status = 'closed'`,
+      );
+      const recent = Number(rows[0]?.recent ?? 0);
+      const prior = Number(rows[0]?.prior ?? 0);
+      // Trigger only when: both periods lost money AND the recent loss
+      // is at least 2× the prior loss. Bumps up sensitivity without
+      // firing on a single bad day inside an otherwise steady curve.
+      if (recent < 0 && prior < 0 && recent < prior * 2) {
+        const haltMs = 24 * 60 * 60_000;
+        await setCronState(HALT_KEY, now + haltMs);
+        const msg = `rolling-drawdown: 7d PnL $${recent.toFixed(0)} vs prior 7d $${prior.toFixed(0)} — halted 24h`;
+        try {
+          const { notifyDiscord } = await import('@/lib/utils/discord-notify');
+          await notifyDiscord(msg, 'KILL', { component: 'paper-trader' });
+        } catch { /* discord failure non-fatal */ }
+        return msg;
+      }
+      return null;
+    } catch (e) {
+      logger.debug('[PaperTrader] rolling-dd check failed (non-fatal)', { error: errMsg(e) });
+      return null;
+    }
+  }
+
   private static async closeAtMark(
     pos: SimulatedPosition,
     exitPrice: number,
@@ -763,14 +841,38 @@ export class PaperTrader {
     if ((stats.dailyPeakNavUsd ?? 0) < newNav) stats.dailyPeakNavUsd = newNav;
     await setCronState(KEY_STATS, stats);
 
-    // Close DB row + persist funding + close reason
+    // Close DB row + persist funding + close reason + MFE/MAE/attribution
     if (orderId) {
       try {
-        // Single atomic UPDATE — status + pnl + funding + close-reason together.
+        // Build metadata blob with post-hoc trade analytics. Two purposes:
+        //   1. MFE/MAE — did the trade travel far in our direction (mfe)
+        //      before reversing (mae)? Direct evidence for stop-loss /
+        //      trailing-stop tuning. Task L2 in the learning-loop plan.
+        //   2. Per-source attribution — which of the 10 signal sources
+        //      called the direction correctly on THIS trade? Feeds the
+        //      Bayesian source weight updater (L5) + decay detector (L4).
+        const actualDir: 'UP' | 'DOWN' | 'NEUTRAL' =
+          exitPrice > pos.entryPrice ? 'UP' : exitPrice < pos.entryPrice ? 'DOWN' : 'NEUTRAL';
+        const attribution = (pos.sourceSnapshot ?? []).map((s) => ({
+          key: s.key,
+          dir: s.direction,
+          wasCorrect: s.direction !== 'NEUTRAL' && s.direction === actualDir,
+        }));
+        const meta = {
+          mfeUsd: pos.peakUnrealizedPnl ?? 0,
+          maeUsd: pos.troughUnrealizedPnl ?? 0,
+          mfePctOfNav: nav > 0 ? (pos.peakUnrealizedPnl ?? 0) / nav : 0,
+          maePctOfNav: nav > 0 ? (pos.troughUnrealizedPnl ?? 0) / nav : 0,
+          actualDir,
+          attribution,
+          exitReason: reason.slice(0, 100),
+        };
+
+        // Single atomic UPDATE — status + pnl + funding + close-reason + metadata.
         // Prior code did closeHedge() then a separate UPDATE for funding + reason;
         // if the 2nd write failed, the row landed in a "closed but no close-reason"
-        // state that matched the phantom-close pattern from the reconciler bug
-        // and confused monitoring (observed 2026-09-17).
+        // state that confused monitoring (observed 2026-09-17). Merging metadata
+        // via jsonb concat preserves any earlier writes to the same column.
         await query(
           `UPDATE hedges
            SET status = 'closed',
@@ -779,9 +881,10 @@ export class PaperTrader {
                funding_paid = $2,
                closed_at = CURRENT_TIMESTAMP,
                updated_at = CURRENT_TIMESTAMP,
-               reason = COALESCE(reason,'') || ' | close: ' || $3
+               reason = COALESCE(reason,'') || ' | close: ' || $3,
+               metadata = COALESCE(metadata, '{}'::jsonb) || $5::jsonb
            WHERE order_id = $4`,
-          [result.realizedPnlUsd, result.fundingUsd, reason.slice(0, 100), orderId],
+          [result.realizedPnlUsd, result.fundingUsd, reason.slice(0, 100), orderId, JSON.stringify(meta)],
         );
         // Paper trades MUST NOT credit the real treasury. Diagnosed
         // 2026-09-18: 126 paper closes polluted treasury_ledger with
