@@ -1,12 +1,25 @@
 import { ImageResponse } from 'next/og';
 import { NextResponse } from 'next/server';
+import { readFile } from 'node:fs/promises';
+import path from 'node:path';
 
-// 180×180 apple-touch-icon at /api/apple-icon. iOS home-screen icon.
-// Solid background (no radius) — iOS applies its own rounded-square
-// mask.
+// 180x180 apple-touch-icon at /api/apple-icon. iOS home-screen icon.
+// Same brand logo as /api/icon, sized for iOS. Solid white background
+// because iOS applies its own rounded-square mask on the home screen.
 export const runtime = 'nodejs';
 
+let cachedSvgDataUri: string | null = null;
+
+async function loadLogoDataUri(): Promise<string> {
+  if (cachedSvgDataUri) return cachedSvgDataUri;
+  const svg = await readFile(path.join(process.cwd(), 'public', 'logo-official.svg'), 'utf-8');
+  cachedSvgDataUri = 'data:image/svg+xml;base64,' + Buffer.from(svg).toString('base64');
+  return cachedSvgDataUri;
+}
+
 export async function GET() {
+  const logoDataUri = await loadLogoDataUri();
+
   const image = new ImageResponse(
     (
       <div
@@ -16,21 +29,17 @@ export async function GET() {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          background: '#5372FF',
+          background: '#FFFFFF',
         }}
       >
-        <div
-          style={{
-            fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
-            fontWeight: 900,
-            fontSize: 92,
-            color: '#FFFFFF',
-            letterSpacing: '-0.06em',
-            lineHeight: 1,
-          }}
-        >
-          ZK
-        </div>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={logoDataUri}
+          alt="ZKward"
+          width={150}
+          height={150}
+          style={{ objectFit: 'contain' }}
+        />
       </div>
     ),
     { width: 180, height: 180 },
