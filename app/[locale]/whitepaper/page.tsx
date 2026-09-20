@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import type { Metadata } from 'next';
+import { getTranslations } from 'next-intl/server';
 import { locales, defaultLocale } from '@/i18n/routing';
 import { WhitepaperClient } from './WhitepaperClient';
 
@@ -8,11 +9,12 @@ export async function generateMetadata(
   { params }: { params: Promise<{ locale: string }> },
 ): Promise<Metadata> {
   const { locale } = await params;
+  const t = await getTranslations({ locale, namespace: 'whitepaperMeta' });
   const route = '/whitepaper';
   const canonical = locale === defaultLocale ? route : `/${locale}${route}`;
   return {
-    title: 'Whitepaper',
-    description: 'The full ZKward thesis: prediction-market alpha, 7-agent architecture, STARK-attested execution, tokenomics, roadmap.',
+    title: t('title'),
+    description: t('description'),
     alternates: {
       canonical,
       languages: Object.fromEntries(

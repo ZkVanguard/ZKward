@@ -22,13 +22,13 @@ function ConnectButtonSkeleton() {
   return <div className="h-11 w-32 rounded-[12px] bg-system-bg-secondary animate-pulse" />;
 }
 
-function ConnectButtonStub() {
+function ConnectButtonStub({ label }: { label: string }) {
   return (
     <Link
       href="/dashboard"
       className="group inline-flex items-center gap-2 px-4 h-11 bg-ios-blue text-white rounded-[12px] text-[14px] font-semibold hover:bg-ios-blueHover active:scale-[0.97] transition-all duration-200 shadow-ios-1"
     >
-      Enter app
+      {label}
       <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" strokeWidth={2.5} />
     </Link>
   );
@@ -124,7 +124,7 @@ export const Navbar = memo(function Navbar() {
           {/* Desktop - Language Selector + Connect Button (Right side) */}
           <div className="hidden lg:flex items-center gap-3">
             <LanguageSelector />
-            {isDashboard ? <ConnectButton /> : <ConnectButtonStub />}
+            {isDashboard ? <ConnectButton /> : <ConnectButtonStub label={t('enterApp')} />}
           </div>
 
           {/* Mobile Menu Button - Proper 44pt touch target */}
@@ -158,7 +158,7 @@ export const Navbar = memo(function Navbar() {
             </div>
             <div className="mt-3 pt-3 px-3 border-t border-black/10 space-y-3">
               <LanguageSelector />
-              {isDashboard ? <ConnectButton /> : <ConnectButtonStub />}
+              {isDashboard ? <ConnectButton /> : <ConnectButtonStub label={t('enterApp')} />}
             </div>
           </div>
         )}

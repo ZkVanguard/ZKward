@@ -3,7 +3,7 @@ import { createNavigation } from 'next-intl/navigation';
 
 // Define routing configuration - shared between middleware and navigation
 export const routing = defineRouting({
-  locales: ['en', 'es', 'fr', 'de', 'zh', 'ja', 'ko', 'pt', 'ru', 'ar', 'hi', 'it'],
+  locales: ['en', 'es', 'fr', 'de', 'zh', 'ja', 'ko', 'pt', 'ru', 'ar', 'hi', 'it', 'ne'],
   defaultLocale: 'en',
   localePrefix: 'as-needed'
 });
@@ -29,4 +29,5 @@ export const localeNames: Record<Locale, string> = {
   ar: 'العربية',
   hi: 'हिन्दी',
   it: 'Italiano',
+  ne: 'नेपाली',
 };

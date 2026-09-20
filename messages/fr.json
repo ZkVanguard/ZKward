@@ -9,7 +9,9 @@
     "zk": "ZK",
     "whitepaper": "Livre blanc",
     "rwa": "RWA",
-    "story": "Histoire"
+    "story": "Histoire",
+    "enterApp": "Ouvrir l'app",
+    "faq": "FAQ"
   },
   "hero": {
     "eyebrow": "SUI Mainnet",
@@ -300,5 +302,339 @@
     "preferencesDescription": "Mémoriser vos paramètres et préférences",
     "rejectOptional": "Refuser les optionnels",
     "savePreferences": "Enregistrer les préférences"
+  },
+  "landing": {
+    "status": {
+      "liveOn": "En direct sur",
+      "hederaTestnet": "Hedera Testnet",
+      "suiMainnet": "SUI Mainnet",
+      "member": "membre",
+      "members": "membres"
+    },
+    "hero": {
+      "headline1": "Un coffre qui",
+      "headline2": "montre son travail.",
+      "subtitle": "ZKward est un coffre crypto autonome. Sept agents IA effectuent les trades. Chaque couverture se ferme avec un reçu cryptographique que vous pouvez vérifier vous-même. Pool volontairement petit. Argent réel."
+    },
+    "vault": {
+      "poolNav": "NAV du pool",
+      "sharePrice": "Prix de part",
+      "capacity": "Capacité",
+      "capacityOf": "{current} sur {cap}"
+    },
+    "cta": {
+      "depositUsdc": "Déposer des USDC",
+      "howItWorks": "Comment ça marche",
+      "viewSource": "Voir le code source",
+      "installApp": "Installer l'app",
+      "installIosHint": "Pour installer : touchez l'icône Partager dans Safari, faites défiler et touchez « Sur l'écran d'accueil »."
+    },
+    "composition": {
+      "eyebrow": "Composition en direct",
+      "title": "Où sont vos USDC en ce moment.",
+      "body": "L'IA rééquilibre toutes les 30 minutes entre BTC, ETH et SUI selon les signaux de marché en direct. Les USDC inactifs comptent comme réserve défensive. Rafraîchi toutes les 30 s."
+    },
+    "howItWorks": {
+      "eyebrow": "Comment ça marche",
+      "title": "Trois pièces en mouvement. Une seule boucle.",
+      "body": "Ça tourne toutes les cinq minutes, toute la journée, sans vous. Vous déposez une fois et regardez.",
+      "step1": {
+        "title": "L'IA lit la salle",
+        "body": "Dix sources de signal : Polymarket, Kalshi, volatilité Deribit, funding rates de quatre venues, momentum des prix. Fusionnées en une seule cible d'allocation. Sept agents doivent être d'accord avant tout mouvement de capital."
+      },
+      "step2": {
+        "title": "Le pool se rééquilibre",
+        "body": "Vos USDC sont échangés entre BTC, ETH et SUI on-chain. Basé sur le drift. Le pool ne trade que quand l'allocation change vraiment. Rien de gaspillé en churn."
+      },
+      "step3": {
+        "title": "Une couverture arrive avec sa preuve",
+        "body": "Une position perpétuelle BlueFin correspondante équilibre le risque. Chaque ouverture et fermeture écrit une preuve STARK de la décision sur la chaîne. N'importe qui peut la vérifier. Personne ne peut la falsifier."
+      }
+    },
+    "trust": {
+      "title": "Les garde-fous sont écrits dans le contrat.",
+      "body": "Pas une politique sur notre site. Des règles que la chaîne applique, qu'on soit attentifs ou non.",
+      "poolCap": {
+        "title": "Plafond du pool",
+        "value": "10 000 $",
+        "hint": "Appliqué par le contrat Move. Pas un chiffre marketing."
+      },
+      "freshOracle": {
+        "title": "Oracle frais",
+        "value": "Mode strict",
+        "hint": "Les dépôts sont annulés si l'attestation NAV a plus de deux heures."
+      },
+      "withdrawThrottle": {
+        "title": "Limite de retrait",
+        "value": "25 % / jour",
+        "hint": "Un seul compte ne peut pas vider le pool. Rate limit on-chain."
+      },
+      "proofs": {
+        "title": "Des preuves, pas des promesses",
+        "value": "Post-quantique",
+        "hint": "Preuves STARK sur le corps Goldilocks. Sécurisées post-quantique par conception."
+      },
+      "twoChains": {
+        "title": "Deux chaînes, un code",
+        "value": "Hedera + SUI",
+        "hint": "En direct sur les deux. SUI est la principale. Hedera est la roue de secours."
+      }
+    },
+    "surfaces": {
+      "eyebrow": "Faites le tour",
+      "title": "Chaque recoin de ZKward est public.",
+      "body": "Le tableau de bord, les agents, les preuves, le whitepaper, l'histoire. Rien caché derrière un login sauf votre propre wallet.",
+      "dashboard": {
+        "eyebrow": "Tableau de bord",
+        "title": "Votre pool, sur un seul écran.",
+        "body": "Solde, couvertures, drawdown et le flux de preuves. Rafraîchi chaque minute. Ce que vous voyez, c'est ce que la chaîne dit."
+      },
+      "rwa": {
+        "eyebrow": "Actifs du monde réel",
+        "title": "Actifs off-chain, preuve on-chain.",
+        "body": "Les signatures de dépositaire lient les portefeuilles à des actifs réels tout en gardant les positions privées. Pensé pour émetteurs et institutions."
+      },
+      "agents": {
+        "eyebrow": "Les sept agents",
+        "title": "Rencontrez les spécialistes.",
+        "body": "Lead, Risk, Hedging, Settlement, Reporting, Price Monitor, SUI Pool. Chacun son rôle. Les gros trades exigent un 2 sur 3."
+      },
+      "zk": {
+        "eyebrow": "Preuves à divulgation nulle",
+        "title": "Pas des captures. Des maths.",
+        "body": "Preuves STARK post-quantiques, vérifiables dans votre navigateur. Solidité 180 bits. Pas de trusted setup, pas de courbes elliptiques."
+      },
+      "story": {
+        "eyebrow": "Notre histoire",
+        "title": "Comment on est arrivés là.",
+        "body": "Cinq minutes de lecture. Chaleureuse, honnête et oui, on vous dit quand on perd de l'argent. C'est tout l'intérêt."
+      },
+      "whitepaper": {
+        "eyebrow": "Whitepaper",
+        "title": "La version technique.",
+        "body": "Alpha des marchés de prédiction, architecture à 7 agents, exécution attestée par STARK, roadmap, références. Pour les ingénieurs de la salle."
+      }
+    },
+    "finalCta": {
+      "title": "Venez le voir tourner.",
+      "body": "Connectez un wallet, déposez des USDC, fermez l'onglet. L'IA prend le relais.",
+      "alreadyIn": "{count} déjà dedans.",
+      "paused": "Dépôts en pause pour maintenance."
+    }
+  },
+  "agentsPage": {
+    "meta": {
+      "title": "Les sept agents — ZKward",
+      "description": "Sept spécialistes qui débattent entre eux avant qu'un euro ne bouge. Chat en direct, lecture seule."
+    },
+    "header": {
+      "badge": "Sept agents, en direct, lecture seule",
+      "title": "Demandez à ZKward.",
+      "subtitle": "Parlez au coffre. Chaque réponse lit l'état en direct depuis les mêmes outils que les agents. Rien de répété."
+    },
+    "meetTheCrew": "Rencontrez l'équipe",
+    "architecture": "Architecture",
+    "architectureBody": "Tous les agents communiquent via un <bus>MessageBus</bus> central et étendent un <base>BaseAgent</base> commun. Chaque responsabilité vit dans un fichier. Rien ne partage d'état via des globales.",
+    "agents": {
+      "lead": {
+        "name": "Lead",
+        "role": "Le répartiteur",
+        "description": "Lit votre demande, décide qui devrait la gérer, et recoud les morceaux en une seule réponse.",
+        "capabilities": {
+          "c1": "Analyse d'intention en langage naturel",
+          "c2": "Route vers le bon spécialiste",
+          "c3": "Fusionne les résultats en une réponse",
+          "c4": "Coordonne les appels multi-agents"
+        }
+      },
+      "risk": {
+        "name": "Risk",
+        "role": "L'inquiet",
+        "description": "Surveille la part du pool exposée, marque les positions proches de la liquidation, et note la santé globale du portefeuille.",
+        "capabilities": {
+          "c1": "Calcul de la Value at Risk (VaR)",
+          "c2": "Volatilité et ratio de Sharpe",
+          "c3": "Distance de liquidation par position",
+          "c4": "Score de santé du portefeuille, 0 à 100"
+        }
+      },
+      "hedging": {
+        "name": "Hedging",
+        "role": "Le courtier en assurance",
+        "description": "Quand Risk signale quelque chose, Hedging choisit la contre-opération qui compense. Taille du short, levier et actif : tout est noté en confiance avant ouverture.",
+        "capabilities": {
+          "c1": "Dimensionnement des positions courtes",
+          "c2": "Génération de stratégies options",
+          "c3": "Analyse de corrélation cross-asset",
+          "c4": "Chaque stratégie étiquetée d'un score de confiance"
+        }
+      },
+      "settlement": {
+        "name": "Settlement",
+        "role": "Le signataire",
+        "description": "Transforme une décision en transaction on-chain. Groupe quand il peut pour économiser le gas, produit la preuve ZK, et sait comment revenir en arrière en cas d'échec.",
+        "capabilities": {
+          "c1": "Traitement de transactions par lots",
+          "c2": "Optimisation du gas, typiquement 20 à 40 pour cent",
+          "c3": "Coordination des preuves ZK-STARK",
+          "c4": "Rollback et retry sur échec"
+        }
+      },
+      "reporting": {
+        "name": "Reporting",
+        "role": "Le comptable",
+        "description": "Compile le résumé en clair de ce qui s'est passé. Quotidien, hebdomadaire, mensuel et à la demande pour la piste d'audit.",
+        "capabilities": {
+          "c1": "Rapports quotidiens, hebdomadaires et mensuels",
+          "c2": "Suivi performance et P&L",
+          "c3": "Analyse des positions principales",
+          "c4": "Détection de tendances historiques"
+        }
+      },
+      "priceMonitor": {
+        "name": "Price Monitor",
+        "role": "La vigie",
+        "description": "Surveille le ticker des marchés de prédiction toutes les 5 minutes sur BTC, ETH, SUI et CRO. Quand un signal s'inverse, il diffuse en secondes pour que les autres réagissent.",
+        "capabilities": {
+          "c1": "Surveillance de seuils BTC, ETH, SUI, CRO",
+          "c2": "Flux d'événements Polymarket 5 min",
+          "c3": "Se déclenche à l'inversion de signal",
+          "c4": "Routage d'alerte par actif"
+        }
+      },
+      "suiPool": {
+        "name": "SUI Pool",
+        "role": "L'opérateur du pool",
+        "description": "Fait tourner le pool communautaire USDC de SUI. Lit le signal fusionné, choisit l'allocation entre quatre actifs, rééquilibre via BlueFin, et n'autorise personne à contourner les garde-fous on-chain.",
+        "capabilities": {
+          "c1": "Allocation quatre-actifs : BTC, ETH, SUI, CRO",
+          "c2": "Rééquilibrage via agrégateur BlueFin",
+          "c3": "Application du SafeExecutionGuard",
+          "c4": "Rééquilibre uniquement quand la confiance IA dépasse 65 pour cent"
+        }
+      }
+    }
+  },
+  "story": {
+    "meta": {
+      "title": "Notre histoire — ZKward",
+      "description": "Comment ZKward a commencé, ce qu'il fait, et pourquoi on vous dit quand il perd de l'argent."
+    },
+    "header": {
+      "eyebrow": "Notre histoire",
+      "title": "Comment on est arrivés là",
+      "subtitle": "Cinq minutes. Pas de jargon. Prenez un café."
+    },
+    "intro": "Le projet s'appelait <em>ZkVanguard</em>. Les gens n'arrêtaient pas de demander si on était un fonds obligataire. Ça sonnait comme le plan retraite de votre père. Alors on l'a renommé <strong>ZKward</strong>. Même idée, un peu bizarre à dire. Vous vous y ferez.",
+    "whatItIs": {
+      "heading": "Ce que c'est, en une phrase",
+      "body": "Un pool d'épargne qui trade pour vous et montre ses maths, pour que vous n'ayez pas à nous croire sur parole."
+    },
+    "howItWorks": {
+      "heading": "Comment ça marche, simplement",
+      "body1": "Vous mettez des USDC. Une petite équipe de programmes lit sur quoi les gens parient sur les marchés de prédiction (comme Polymarket) et enchaîne des trades crypto en fonction. Quand il trade, il produit aussi un petit reçu cryptographique que n'importe qui peut vérifier. Le reçu prouve que le trade a suivi les règles. Sans révéler votre position.",
+      "body2": "Voyez ça comme un pilote automatique avec boîte noire. Sauf que la boîte est publique, et le pilote ne décolle pas par mauvais temps."
+    },
+    "whereStarted": {
+      "heading": "Comment ça a commencé",
+      "body1": "Un week-end de hackathon. Trop de café. Une question : <em>si des ordinateurs bougent de l'argent réel, pourquoi quelqu'un ferait confiance à leur raisonnement ?</em> On pensait répondre en deux jours. Ça a pris dix-huit mois.",
+      "body2": "En chemin, on a gagné cinq hackathons, contribué au toolkit wallet de Tether, et livré sur une poignée de blockchains. La plupart des déploiements de test ont tenu une après-midi. <strong>SUI</strong> a tenu. C'est rapide, pas cher, et ça ne casse pas quand on le regarde de travers. C'est là que vit l'argent maintenant."
+    },
+    "shipToday": {
+      "heading": "Ce qu'on livre aujourd'hui",
+      "item1": "Un vrai pool sur SUI mainnet. Petit exprès. Le contrat lui-même plafonne les dépôts à 10 000 $. On voulait prouver que ça marche avant de scaler. La lenteur est le point.",
+      "item2": "Huit interrupteurs de sécurité qui peuvent tout mettre en pause si quelque chose paraît louche. L'un s'est déclenché hier, après une journée dure de tests (plus bas là-dessus).",
+      "item3": "Une boucle d'apprentissage : l'IA note ses propres trades, se réentraîne la nuit et réessaie. Parfois elle s'améliore. Parfois elle trouve de nouvelles façons d'échouer. On publie les deux.",
+      "item4": "Un reçu cryptographique pour chaque trade. Pas une capture. Une preuve."
+    },
+    "whyWeTell": {
+      "heading": "Pourquoi on vous dit quand ça perd",
+      "body1": "La plupart des projets ne parlent que de leurs gains. En ce moment, notre trader de test est à environ -68 000 $ sur le papier. On vous le dit parce que c'est tout l'intérêt. Si vous ne pouvez pas voir les pertes, les gains ne veulent pas dire grand-chose.",
+      "body2": "En plus, cacher une perte, c'est comme ça qu'une petite perte devient une bien plus grosse trois mois plus tard. On a essayé une fois. On ne recommande pas."
+    },
+    "whoBuilds": {
+      "heading": "Qui le fait",
+      "body1": "Surtout une personne, à neuf fuseaux horaires de la plupart d'entre vous. Diplôme d'informatique, quelques années dans de grandes boîtes, un nombre déraisonnable de projets parallèles. Financé par des économies et de petites bourses qui tombent à peu près quand le fondateur commence à sauter le déjeuner.",
+      "body2": "Le trader de test a occasionnellement coûté plus par mois que ce que mange le fondateur. On considère ça on-brand."
+    },
+    "next": {
+      "heading": "Où ça va ensuite",
+      "body": "Deux choses doivent se passer. D'abord, prouver que le trader arrête de perdre dans le pool de test. Ensuite relever le plafond de dépôt, une étape prudente à la fois, avec un vrai test de drawdown à chaque étape. Si on saute une étape, engueulez-nous sur <telegram>Telegram</telegram>."
+    },
+    "footer": {
+      "technical": "Vous voulez la version technique ? {link}",
+      "readWhitepaper": "Lire le whitepaper",
+      "orJust": "Ou juste {link}.",
+      "openApp": "ouvrir l'app"
+    }
+  },
+  "faq": {
+    "meta": {
+      "title": "Questions fréquentes — ZKward",
+      "description": "Ce qu'est ZKward, comment ça marche, ce qui se passe avec votre argent, et pourquoi le trader de test est en négatif."
+    },
+    "header": {
+      "eyebrow": "FAQ",
+      "title": "Questions courantes",
+      "subtitle": "Réponses courtes. Si la vôtre manque, écrivez à {email} et on l'ajoute."
+    },
+    "q1": {
+      "q": "Qu'est-ce que ZKward ?",
+      "a": "ZKward est un coffre crypto autonome. Vous déposez des USDC. Sept agents IA lisent les marchés de prédiction, les funding rates et le momentum des prix, puis tradent sur BTC, ETH et SUI. Chaque décision de couverture se ferme avec une preuve cryptographique que n'importe qui peut vérifier on-chain."
+    },
+    "q2": {
+      "q": "ZKward est-il un hedge fund ?",
+      "a": "Non. Un hedge fund est une structure juridique régulée spécifique. ZKward est un coffre on-chain. Non-custodial, sans permission, sans accréditation, comptabilité de frais on-chain, stratégie open-source. Il exécute des stratégies directionnelles similaires mais avec des preuves publiques au lieu de lettres trimestrielles."
+    },
+    "q3": {
+      "q": "Combien puis-je déposer ?",
+      "a": "Le pool est plafonné à 10 000 $ au total par le contrat Move pendant la phase de preuve opérationnelle. C'est appliqué on-chain. Personne, nous compris, ne peut le relever sans action de gouvernance. La levée du plafond se fait étape par étape après que chaque étape ait survécu à un vrai test de drawdown."
+    },
+    "q4": {
+      "q": "Où sont conservés mes fonds ?",
+      "a": "Dans un objet SUI Move contrôlé par le contrat du pool. Vos clés restent chez vous. C'est non-custodial. Les retraits sont sans permission et disponibles à tout moment, avec un throttle de 25 % par jour par compte appliqué on-chain pour empêcher les attaques de drainage."
+    },
+    "q5": {
+      "q": "Qu'est-ce qu'une preuve STARK et pourquoi ça m'importe ?",
+      "a": "Une preuve STARK est un reçu mathématique qui permet à n'importe qui de vérifier qu'un calcul s'est déroulé correctement, sans voir les entrées privées. Quand ZKward ouvre ou ferme une couverture, il écrit une preuve STARK sur la chaîne prouvant que le trade a suivi les règles du coffre (plafonds d'actif, de levier, de taille). Pas de boîte noire. Pas de « faites-nous confiance »."
+    },
+    "q6": {
+      "q": "Sur quelles chaînes ZKward tourne-t-il ?",
+      "a": "SUI mainnet est la chaîne principale (pool en direct au package 0x107292…7b726). Des déploiements de référence existent sur Hedera Testnet, Sepolia, Cronos EVM, Oasis Sapphire et Arbitrum Sepolia. La portabilité est prouvée ; la production s'étend là où la demande le justifie."
+    },
+    "q7": {
+      "q": "Quels sont les frais ?",
+      "a": "50 points de base annuels de gestion et 10 % de performance sur les profits réalisés. Les frais transitent par un FeeManagerCap détenu par un multisig MSafe, distinct de l'AdminCap opérationnel. La route des frais ne peut pas être saisie par une compromission de la clé admin."
+    },
+    "q8": {
+      "q": "Pourquoi le trader de test perd-il de l'argent en ce moment ?",
+      "a": "Transparence publique. On fait tourner un trader de test contre de vrais signaux et on publie chaque trade. Gains et pertes. Le PnL papier cumulé actuel est autour de -68 000 $ pendant qu'on affine le nouveau système de gates (filtre de volatilité, garde-fou de série, alignement de tendance, qualité de signal). Si on cachait les pertes, les gains ne voudraient rien dire."
+    },
+    "q9": {
+      "q": "Comment je sais que l'IA n'invente pas ?",
+      "a": "Chaque décision qui bouge du capital émet une preuve STARK ancrée sur la chaîne SUI. La preuve lie la décision aux invariants on-chain (plafonds d'actif, de levier, de taille). N'importe qui peut vérifier avec le vérificateur on-chain. Les trades sous 100 K $ passent aussi un cooldown de 5 secondes, un plafond de slippage de 30 bps et un breaker à 3 concurrents max. Les trades au-dessus de 100 K $ requièrent un vote 2 sur 3 du quorum d'agents."
+    },
+    "q10": {
+      "q": "ZKward est-il sûr face aux ordinateurs quantiques ?",
+      "a": "Le système de preuves STARK est transparent (pas de trusted setup) et n'utilise que des arbres de Merkle SHA-256 et le corps premier Goldilocks. Pas de courbes elliptiques, pas de discrete-log, pas de pairings. L'algorithme de Shor, qui casse RSA et ECDSA, n'est pas une menace ici. La solidité effective est de 180 bits, 52 bits au-dessus du Niveau 1 post-quantique du NIST."
+    },
+    "q11": {
+      "q": "Puis-je retirer à tout moment ?",
+      "a": "Oui. Le retrait est sans permission. Vous signez une transaction, le contrat calcule votre part du NAV du pool, les fonds retournent dans votre wallet. Un throttle de 25 % par jour par compte est appliqué par le contrat pour prévenir le drainage sous stress. Pas de lockup, pas de préavis, pas d'approbation de gestionnaire."
+    },
+    "q12": {
+      "q": "Comment contacter l'équipe ?",
+      "a": "Envoyez un email à ashish.regmi@zkward.com ou rejoignez notre Telegram (lien en pied de page). Les issues GitHub marchent aussi pour les questions techniques."
+    },
+    "footer": {
+      "technical": "Vous voulez la version technique complète ? {link}",
+      "readWhitepaper": "Lire le whitepaper",
+      "orRead": "Ou lisez {link}.",
+      "ourStory": "notre histoire"
+    }
+  },
+  "whitepaperMeta": {
+    "title": "Whitepaper",
+    "description": "La thèse complète de ZKward : alpha des marchés de prédiction, architecture à 7 agents, exécution attestée par STARK, tokenomics, roadmap."
   }
 }

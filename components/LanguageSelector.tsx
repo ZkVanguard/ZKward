@@ -23,10 +23,10 @@ export function LanguageSelector() {
   }, []);
 
   const handleLocaleChange = (locale: Locale) => {
-    localStorage.setItem('locale', locale);
+    // next-intl writes its own NEXT_LOCALE cookie on router.replace so the
+    // choice survives across sessions. No need for a parallel localStorage
+    // entry that no code reads.
     setIsOpen(false);
-    
-    // Use next-intl router to switch locale while preserving path
     router.replace(pathname, { locale });
   };
 
