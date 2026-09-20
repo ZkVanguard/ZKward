@@ -50,6 +50,11 @@ export interface SimulatedPosition {
   // trailing-stop: once armed, close if unrealized drops back below a
   // configurable fraction of this peak. Optional for backward-compat.
   peakUnrealizedPnl?: number;
+  // Trough unrealized PnL (USD) — the worst dip during the position's life.
+  // MFE/MAE pair with `peakUnrealizedPnl`. Persisted to hedges.metadata at
+  // close to enable stop-loss tuning: "trade would have won +$120 but
+  // reversed to -$40 exit" is a direct signal that trailing was too loose.
+  troughUnrealizedPnl?: number;
   // Signal metadata used at open. Kept in position state so trailing-stop
   // and notify layer can reference it without re-scanning the aggregator.
   entryConfidence?: number;
