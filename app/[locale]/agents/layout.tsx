@@ -9,7 +9,7 @@ export async function generateMetadata(
   const canonical = locale === defaultLocale ? path : `/${locale}${path}`;
   return {
     title: 'AI agents',
-    description: 'Seven specialised AI agents run the ZkWard vault: Lead, Risk, Hedging, Settlement, Reporting, PriceMonitor, SuiPool. 2-of-3 consensus on trades over $100k.',
+    description: 'Seven specialised AI agents run the ZKward vault: Lead, Risk, Hedging, Settlement, Reporting, PriceMonitor, SuiPool. 2-of-3 consensus on trades over $100k.',
     alternates: {
       canonical,
       languages: Object.fromEntries(
@@ -20,7 +20,7 @@ export async function generateMetadata(
     // (not merges) these objects when a child sets them, which would
     // wipe the parent's auto-generated OG image from
     // [locale]/opengraph-image.tsx. Composed page title falls out of
-    // title.template in the parent layout: 'AI agents · ZkWard'.
+    // title.template in the parent layout: 'AI agents · ZKward'.
   };
 }
 

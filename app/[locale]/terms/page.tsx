@@ -8,7 +8,7 @@ export default function TermsPage() {
           <section>
             <h2 className="text-2xl font-semibold mb-4 text-[#1D1D1F]">1. Acceptance of Terms</h2>
             <p>
-              By accessing and using ZkVanguard, you agree to be bound by these Terms of Service. If you do not
+              By accessing and using ZKward, you agree to be bound by these Terms of Service. If you do not
               agree to these terms, please do not use our platform.
             </p>
           </section>
@@ -16,7 +16,7 @@ export default function TermsPage() {
           <section>
             <h2 className="text-2xl font-semibold mb-4 text-[#1D1D1F]">2. Description of Service</h2>
             <p>
-              ZkWard is a multi-chain AI-managed vault platform that uses seven autonomous agents and
+              ZKward is a multi-chain AI-managed vault platform that uses seven autonomous agents and
               zero-knowledge proofs to provide privacy-preserving financial services on Hedera
               (primary) and SUI (secondary) networks.
             </p>
@@ -64,7 +64,7 @@ export default function TermsPage() {
           <section>
             <h2 className="text-2xl font-semibold mb-4 text-[#1D1D1F]">6. Smart Contract Risks</h2>
             <p>
-              ZkWard operates through smart contracts on Hedera and SUI networks. While our contracts have been
+              ZKward operates through smart contracts on Hedera and SUI networks. While our contracts have been
               tested, users acknowledge that:
             </p>
             <ul className="list-disc pl-6 space-y-2 mt-2">
@@ -78,7 +78,7 @@ export default function TermsPage() {
           <section>
             <h2 className="text-2xl font-semibold mb-4 text-[#1D1D1F]">7. Intellectual Property</h2>
             <p>
-              ZkVanguard is open-source software licensed under Apache 2.0. You may use, modify, and distribute
+              ZKward is open-source software licensed under Apache 2.0. You may use, modify, and distribute
               the code subject to the license terms.
             </p>
           </section>
@@ -86,7 +86,7 @@ export default function TermsPage() {
           <section>
             <h2 className="text-2xl font-semibold mb-4 text-[#1D1D1F]">8. Limitation of Liability</h2>
             <p>
-              To the maximum extent permitted by law, ZkVanguard and its contributors shall not be liable for any
+              To the maximum extent permitted by law, ZKward and its contributors shall not be liable for any
               indirect, incidental, special, consequential, or punitive damages, including loss of profits, data,
               or other intangible losses resulting from your use of the platform.
             </p>
@@ -129,7 +129,7 @@ export default function TermsPage() {
 
           <div className="bg-[#007AFF]/10 border border-[#007AFF]/30 rounded-lg p-4 mt-8">
             <p className="text-sm text-[#1D1D1F]">
-              <strong>By connecting your wallet and using ZkVanguard, you acknowledge that you have read,
+              <strong>By connecting your wallet and using ZKward, you acknowledge that you have read,
               understood, and agree to be bound by these Terms of Service.</strong>
             </p>
           </div>

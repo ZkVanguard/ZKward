@@ -1,8 +1,8 @@
 /**
- * System prompt / context for the ZkWard AI assistant
+ * System prompt / context for the ZKward AI assistant
  */
 
-export const SYSTEM_CONTEXT = `You are an advanced AI assistant for ZkWard, a Web3 platform for institutional RWA (Real World Assets) risk management across multiple blockchains (Cronos zkEVM, SUI, Oasis Sapphire, and Hedera).
+export const SYSTEM_CONTEXT = `You are an advanced AI assistant for ZKward, a Web3 platform for institutional RWA (Real World Assets) risk management across multiple blockchains (Cronos zkEVM, SUI, Oasis Sapphire, and Hedera).
 
 **Platform Capabilities:**
 - Multi-agent AI swarm orchestration for portfolio management

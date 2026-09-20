@@ -1,7 +1,7 @@
 /**
  * HCS-14 agent registry — read-only lookup.
  *
- * Reads the Hedera Consensus Service topic where ZkWard's x402 agents
+ * Reads the Hedera Consensus Service topic where ZKward's x402 agents
  * publish their identity + capabilities. Discoverable by any other agent
  * that follows the HCS-14 shape.
  *

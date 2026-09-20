@@ -107,7 +107,7 @@ export function AdvancedPortfolioCreator({ isOpen, onOpenChange, hideTrigger = f
         const proofHash = data.proof?.merkle_root || `0x${Date.now().toString(16).padEnd(64, '0')}`;
         setZkProofHash(proofHash);
         
-        const message = `ZkWard Portfolio Strategy\n\nName: ${strategy.name}\nTarget Yield: ${strategy.targetYield / 100}%\nRisk: ${strategy.riskTolerance}\nZK Proof: ${proofHash}\nTimestamp: ${Date.now()}`;
+        const message = `ZKward Portfolio Strategy\n\nName: ${strategy.name}\nTarget Yield: ${strategy.targetYield / 100}%\nRisk: ${strategy.riskTolerance}\nZK Proof: ${proofHash}\nTimestamp: ${Date.now()}`;
         
         try {
           if (isSUI) {

@@ -8,7 +8,7 @@ export default function PrivacyPage() {
           <section>
             <h2 className="text-2xl font-semibold mb-4 text-[#1D1D1F]">1. Introduction</h2>
             <p>
-              ZkVanguard is committed to protecting your privacy. This policy explains how we handle your data
+              ZKward is committed to protecting your privacy. This policy explains how we handle your data
               when you use our decentralized portfolio management platform. We comply with GDPR, CCPA, and other
               applicable privacy regulations.
             </p>
@@ -37,7 +37,7 @@ export default function PrivacyPage() {
           <section>
             <h2 className="text-2xl font-semibold mb-4 text-[#1D1D1F]">3. Zero-Knowledge Privacy</h2>
             <p>
-              ZkVanguard uses ZK-STARK technology to ensure:
+              ZKward uses ZK-STARK technology to ensure:
             </p>
             <ul className="list-disc pl-6 space-y-2 mt-2">
               <li>Your portfolio positions remain private</li>

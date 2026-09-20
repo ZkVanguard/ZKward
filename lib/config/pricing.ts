@@ -1,5 +1,5 @@
 /**
- * ZkWard Pricing Model
+ * ZKward Pricing Model
  *
  * Three revenue streams, each tied to actually-shipped code:
  *
@@ -337,7 +337,7 @@ export const PRICING_TIERS: Record<SubscriptionTier, TierPricing> = {
       'Optional on-prem deployment of the ZK-STARK prover',
       'Revenue-share + custom SLA terms',
     ],
-    targetAudience: 'Funds, treasuries, and platforms running ZkWard infrastructure as their own',
+    targetAudience: 'Funds, treasuries, and platforms running ZKward infrastructure as their own',
     portfolioRange: 'Custom',
     poolFeesApply: true,
   },

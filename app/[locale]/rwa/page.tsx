@@ -77,7 +77,7 @@ export default function RwaPage() {
               <ArrowRight className="w-4 h-4" strokeWidth={2.5} />
             </Link>
             <a
-              href="mailto:ashishregmi2017@gmail.com?subject=ZkWard%20RWA%20custody%20onboarding"
+              href="mailto:ashishregmi2017@gmail.com?subject=ZKward%20RWA%20custody%20onboarding"
               className="inline-flex items-center justify-center gap-2 px-8 h-[52px] sm:h-[56px] bg-system-bg-primary border border-separator-opaque text-label-primary text-headline font-medium rounded-ios-xl hover:bg-system-bg-secondary active:scale-[0.97] transition-all"
             >
               Request custodian onboarding
@@ -180,7 +180,7 @@ export default function RwaPage() {
             Enrol your ed25519 signing key, run through hash-assets with a test payload, then start issuing attestations. 30-minute onboarding call.
           </p>
           <a
-            href="mailto:ashishregmi2017@gmail.com?subject=ZkWard%20RWA%20custody%20onboarding"
+            href="mailto:ashishregmi2017@gmail.com?subject=ZKward%20RWA%20custody%20onboarding"
             className="inline-flex items-center justify-center gap-2 px-8 h-[52px] sm:h-[56px] bg-label-primary text-white text-headline font-semibold rounded-ios-xl hover:bg-black active:scale-[0.97] transition-all shadow-ios-2"
           >
             Book onboarding call

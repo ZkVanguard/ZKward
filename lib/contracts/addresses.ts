@@ -59,7 +59,7 @@ export const CRONOS_CONTRACT_ADDRESSES = {
 
 export const SUI_CONTRACT_ADDRESSES = {
   testnet: {
-    // ZkWard Package ID (includes all modules: community_pool, zk_proxy_vault, etc.)
+    // ZKward Package ID (includes all modules: community_pool, zk_proxy_vault, etc.)
     packageId: ((process.env.NEXT_PUBLIC_SUI_PACKAGE_ID || '0xcb37e4ea0109e5c91096c0733821e4b603a5ef8faa995cfcf6c47aa2e325b70c').trim()) as string,
     // Shared object IDs
     rwaManagerState: ((process.env.NEXT_PUBLIC_SUI_RWA_MANAGER_STATE || '0x84925d623a658bc40a5821ef74458e7f8e8f5a2971c58ec9df6fb59277a8951d').trim()) as string,

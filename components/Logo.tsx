@@ -3,7 +3,7 @@
 import React from 'react';
 import Image from 'next/image';
 
-export function Logo({ className = '', alt = 'ZkWard' }: { className?: string; alt?: string }) {
+export function Logo({ className = '', alt = 'ZKward' }: { className?: string; alt?: string }) {
   return (
     <div className={`flex items-center gap-3 ${className}`}>
       {/* No `priority` — Next 16 injects <link rel="preload"> for it, then
@@ -18,7 +18,7 @@ export function Logo({ className = '', alt = 'ZkWard' }: { className?: string; a
         className="h-9 w-9 rounded-lg"
       />
       <span className="text-title-3 font-semibold text-label-primary tracking-tight hidden sm:inline">
-        ZkWard
+        ZKward
       </span>
     </div>
   );

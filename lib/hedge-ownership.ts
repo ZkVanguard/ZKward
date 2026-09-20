@@ -269,7 +269,7 @@ export async function getHedgesByWallet(walletAddress: string): Promise<Record<s
  * Exported so the dashboard can construct the same typed data for signing.
  */
 export const CLOSE_HEDGE_DOMAIN = {
-  name: 'ZkVanguard',
+  name: 'ZKward',
   version: '1',
   chainId: 338, // Cronos testnet
   verifyingContract: '0x090b6221137690EbB37667E4644287487CE462B9' as `0x${string}`,

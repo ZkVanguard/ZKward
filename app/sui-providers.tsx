@@ -517,7 +517,7 @@ export function SuiWalletProviders({
   // extension IS installed, dapp-kit prefers it over the web flow.
   const stashedWallet = useMemo(
     () => ({
-      name: 'ZkWard',
+      name: 'ZKward',
       network: (suiNetwork === 'testnet' ? 'testnet' : 'mainnet') as 'mainnet' | 'testnet',
     }),
     [suiNetwork],

@@ -55,7 +55,7 @@ export async function generateMetadata(
   const t = await getTranslations({ locale, namespace: 'hero' });
 
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://zkward.com';
-  const title = 'ZkWard — Multi-chain autonomous vault, ZK-STARK attested';
+  const title = 'ZKward — Multi-chain autonomous vault, ZK-STARK attested';
   const description = t('subtitle');
 
   return {
@@ -63,12 +63,12 @@ export async function generateMetadata(
     title: {
       default: title,
       // Per-page `title.template` — child pages can set `title: 'Vault'`
-      // and this composes it as "Vault · ZkWard" for SERP snippets.
-      template: '%s · ZkWard',
+      // and this composes it as "Vault · ZKward" for SERP snippets.
+      template: '%s · ZKward',
     },
     description,
     keywords: ['Hedera', 'SUI', 'DeFi', 'ZK-STARK', 'AI agents', 'autonomous vault', 'The Graph', 'x402', 'prediction markets', 'RWA', 'BlueFin'],
-    authors: [{ name: 'ZkWard Team' }],
+    authors: [{ name: 'ZKward Team' }],
     icons: {
       icon: '/logo-official.svg',
       shortcut: '/logo-official.svg',
@@ -78,7 +78,7 @@ export async function generateMetadata(
     appleWebApp: {
       capable: true,
       statusBarStyle: 'default',
-      title: 'ZkWard',
+      title: 'ZKward',
     },
     // OG + Twitter images intentionally omitted — Next's file convention
     // at app/opengraph-image.tsx auto-populates a proper 1200x630 card.
@@ -87,7 +87,7 @@ export async function generateMetadata(
       description,
       type: 'website',
       url: baseUrl,
-      siteName: 'ZkWard',
+      siteName: 'ZKward',
       locale,
     },
     twitter: {
@@ -137,7 +137,7 @@ export default async function LocaleLayout(
       {
         '@type': 'Organization',
         '@id': `${baseUrl}/#org`,
-        name: 'ZkWard',
+        name: 'ZKward',
         url: baseUrl,
         logo: `${baseUrl}/logo-official.svg`,
         sameAs: [
@@ -149,7 +149,7 @@ export default async function LocaleLayout(
         '@type': 'WebSite',
         '@id': `${baseUrl}/#website`,
         url: baseUrl,
-        name: 'ZkWard',
+        name: 'ZKward',
         publisher: { '@id': `${baseUrl}/#org` },
         inLanguage: locale,
       },

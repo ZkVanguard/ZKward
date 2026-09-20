@@ -413,7 +413,7 @@ export function RiskTab() {
         <div className="min-w-0">
           <div className="text-[11px] sm:text-[12px] text-[#86868b] uppercase tracking-wide font-medium mb-1">Platform risk overview</div>
           <h1 className="text-2xl sm:text-3xl md:text-[32px] font-semibold text-[#1d1d1f] tracking-[-0.02em] break-words">
-            ZkWard — live institutional view
+            ZKward — live institutional view
           </h1>
           <p className="text-xs sm:text-[13px] text-[#86868b] mt-1 leading-relaxed">
             Real-time aggregate metrics for every shipped fund and the operational layer behind them.

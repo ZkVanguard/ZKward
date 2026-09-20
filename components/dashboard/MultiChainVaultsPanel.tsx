@@ -27,7 +27,7 @@ const STUDIO_URL = 'https://api.studio.thegraph.com/query/1758819/zkward/v0.2.0'
 // having to type anything. Empty ?query= drops them into an empty playground
 // (bad first impression); this shows _meta health + pools + derived txs.
 const STUDIO_PLAYGROUND_URL = `${STUDIO_URL}/graphql?query=${encodeURIComponent(
-`# ZkWard AI-Vault subgraph on Sepolia — Studio deployment 1758819/zkward/v0.2.0
+`# ZKward AI-Vault subgraph on Sepolia — Studio deployment 1758819/zkward/v0.2.0
 # Same schema is also served by @zkward/hedera-graphql-adapter (npm) for Hedera.
 {
   _meta {

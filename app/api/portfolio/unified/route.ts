@@ -1,7 +1,7 @@
 /**
  * Unified Portfolio API
  *
- * Aggregates a single wallet's positions across every ZkWard product surface
+ * Aggregates a single wallet's positions across every ZKward product surface
  * into one read-only response. This is the back-end for /dashboard/portfolio —
  * the "BlackRock for Web3" client portal that shows total platform exposure
  * (SUI USDC pool share + private hedges + EVM portfolios) in one view.

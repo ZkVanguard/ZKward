@@ -175,7 +175,7 @@ export function PricingSection() {
       // No /contact route exists; matches the mailto: pattern used elsewhere
       // (see dashboard/custody/page.tsx enterprise CTA).
       window.location.href =
-        'mailto:ashishregmi2017@gmail.com?subject=ZkWard%20Enterprise%20plan%20inquiry';
+        'mailto:ashishregmi2017@gmail.com?subject=ZKward%20Enterprise%20plan%20inquiry';
     } else {
       router.push(`/subscribe?tier=${tier}&billing=${isAnnual ? 'annual' : 'monthly'}`);
     }

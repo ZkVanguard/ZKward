@@ -12,7 +12,7 @@ export async function generateMetadata(
   const canonical = locale === defaultLocale ? route : `/${locale}${route}`;
   return {
     title: 'Whitepaper',
-    description: 'The full ZkWard thesis: prediction-market alpha, 7-agent architecture, STARK-attested execution, tokenomics, roadmap.',
+    description: 'The full ZKward thesis: prediction-market alpha, 7-agent architecture, STARK-attested execution, tokenomics, roadmap.',
     alternates: {
       canonical,
       languages: Object.fromEntries(
