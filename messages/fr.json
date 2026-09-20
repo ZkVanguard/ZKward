@@ -255,7 +255,7 @@
   },
   "cookies": {
     "title": "Préférences de cookies",
-    "description": "Nous utilisons des cookies pour améliorer votre expérience et analyser l'utilisation de la plateforme. Votre adresse de wallet est une donnée publique de la blockchain - nous ne collectons pas d'informations personnelles.",
+    "description": "Les cookies améliorent votre expérience. Votre adresse wallet est une donnée publique de blockchain — nous ne collectons pas d'informations personnelles.",
     "privacyPolicy": "Politique de confidentialité",
     "customize": "Personnaliser",
     "necessaryOnly": "Nécessaires uniquement",
@@ -538,7 +538,7 @@
   },
   "faq": {
     "meta": {
-      "title": "Questions fréquentes — ZKward",
+      "title": "FAQ — ZKward",
       "description": "Ce qu'est ZKward, comment ça marche, ce qui se passe avec votre argent, et pourquoi le trader de test est en négatif."
     },
     "header": {
@@ -552,15 +552,15 @@
     },
     "q2": {
       "q": "ZKward est-il un hedge fund ?",
-      "a": "Non. Un hedge fund est une structure juridique régulée spécifique. ZKward est un coffre on-chain. Non-custodial, sans permission, sans accréditation, comptabilité de frais on-chain, stratégie open-source. Il exécute des stratégies directionnelles similaires mais avec des preuves publiques au lieu de lettres trimestrielles."
+      "a": "Non. Un hedge fund est une structure juridique régulée. ZKward est un coffre on-chain — non-custodial, sans permission, sans accréditation, comptabilité des fees on-chain, stratégie open-source. Des plays directionnels similaires, mais avec des preuves publiques au lieu de lettres trimestrielles."
     },
     "q3": {
       "q": "Combien puis-je déposer ?",
-      "a": "Le pool est plafonné à 10 000 $ au total par le contrat Move pendant la phase de preuve opérationnelle. C'est appliqué on-chain. Personne, nous compris, ne peut le relever sans action de gouvernance. La levée du plafond se fait étape par étape après que chaque étape ait survécu à un vrai test de drawdown."
+      "a": "10 000 $ au total, plafonnés par le contrat Move pendant la phase de preuve opérationnelle. Appliqué on-chain — personne, nous compris, ne peut le relever sans action de gouvernance. Le plafond monte étape par étape à mesure que chaque étape survit à un vrai test de drawdown."
     },
     "q4": {
       "q": "Où sont conservés mes fonds ?",
-      "a": "Dans un objet SUI Move contrôlé par le contrat du pool. Vos clés restent chez vous. C'est non-custodial. Les retraits sont sans permission et disponibles à tout moment, avec un throttle de 25 % par jour par compte appliqué on-chain pour empêcher les attaques de drainage."
+      "a": "Dans un objet SUI Move contrôlé par le contrat du pool. Non-custodial — vos clés restent chez vous. Les retraits sont sans permission et disponibles à tout moment, avec un throttle de 25 % par jour par compte appliqué on-chain pour empêcher les attaques de drainage."
     },
     "q5": {
       "q": "Qu'est-ce qu'une preuve STARK et pourquoi ça m'importe ?",
@@ -576,7 +576,7 @@
     },
     "q8": {
       "q": "Pourquoi le trader de test perd-il de l'argent en ce moment ?",
-      "a": "Transparence publique. On fait tourner un trader de test contre de vrais signaux et on publie chaque trade. Gains et pertes. Le PnL papier cumulé actuel est autour de -68 000 $ pendant qu'on affine le nouveau système de gates (filtre de volatilité, garde-fou de série, alignement de tendance, qualité de signal). Si on cachait les pertes, les gains ne voudraient rien dire."
+      "a": "Transparence publique. On fait tourner un paper trader contre de vrais signaux et on publie chaque trade — victoires et pertes. Le PnL papier cumulé tourne autour de -68 000 $ pendant qu'on affine le nouveau système de gates (filtre de volatilité, garde de série, alignement de tendance, qualité de signal). Si on cachait les pertes, les gains ne voudraient rien dire."
     },
     "q9": {
       "q": "Comment je sais que l'IA n'invente pas ?",
@@ -606,7 +606,7 @@
     "description": "La thèse complète de ZKward : alpha des marchés de prédiction, architecture à 7 agents, exécution attestée par STARK, tokenomics, roadmap."
   },
   "legacyBanner": {
-    "message": "<strong>zkvanguard.xyz sera bientôt retiré.</strong> Nous avons déménagé sur <link>zkward.com</link>. Merci de mettre à jour vos favoris.",
+    "message": "<strong>zkvanguard.xyz se retire</strong> — nous sommes maintenant sur <link>zkward.com</link>.",
     "dismiss": "Fermer"
   }
 }
