@@ -128,9 +128,42 @@ const nextConfig = {
     deviceSizes: [640, 750, 828, 1080, 1200], // Fewer sizes = fewer variants to cache
   },
   
-  // Security headers
+  // Security + caching headers
   async headers() {
     return [
+      {
+        // Static build assets — hashed URLs, safe to cache forever.
+        // Chrome DevTools flagged repeat visits paying full download
+        // cost because the default Cache-Control was too short.
+        source: '/_next/static/:path*',
+        headers: [
+          { key: 'Cache-Control', value: 'public, max-age=31536000, immutable' },
+        ],
+      },
+      {
+        // Generated icons served from ImageResponse — content is a
+        // build-time constant, safe to cache aggressively at the edge.
+        source: '/api/(icon|apple-icon)',
+        headers: [
+          { key: 'Cache-Control', value: 'public, max-age=31536000, immutable' },
+        ],
+      },
+      {
+        // Public static images (favicon.svg, logo-official.svg, grid.svg,
+        // whitepaper.pdf, chain logos). Long cache with revalidation.
+        source: '/:path(.*\\.(svg|png|jpg|jpeg|webp|avif|pdf|ico|woff|woff2))',
+        headers: [
+          { key: 'Cache-Control', value: 'public, max-age=2592000, s-maxage=31536000' },
+        ],
+      },
+      {
+        // llms.txt / rss.xml / sitemap regenerate cheaply — 1h browser,
+        // 1d CDN.
+        source: '/(llms.txt|llms-full.txt|rss.xml|sitemap.xml|robots.txt)',
+        headers: [
+          { key: 'Cache-Control', value: 'public, max-age=3600, s-maxage=86400' },
+        ],
+      },
       {
         source: '/:path*',
         headers: [
