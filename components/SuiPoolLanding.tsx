@@ -507,7 +507,7 @@ export const SuiPoolLanding = memo(function SuiPoolLanding() {
                     <span className="relative inline-flex rounded-full h-2 w-2" style={{ backgroundColor: '#00A79F' }} />
                   </span>
                   <span className="text-footnote font-medium text-label-secondary">
-                    <span style={{ color: '#00A79F' }} className="font-semibold">Hedera Testnet</span> · Multichain (SUI Mainnet also)
+                    Live on <span style={{ color: '#00A79F' }} className="font-semibold">Hedera Testnet</span> · <span style={{ color: '#4DA2FF' }} className="font-semibold">SUI Mainnet</span>
                   </span>
                 </span>
               }
@@ -526,16 +526,16 @@ export const SuiPoolLanding = memo(function SuiPoolLanding() {
             className="font-display text-center text-[38px] xs:text-[44px] sm:text-[54px] md:text-[62px] lg:text-[68px] xl:text-[80px] font-semibold tracking-[-0.04em] leading-[0.96] text-label-primary mb-4 sm:mb-6"
             style={{ textWrap: 'balance', hyphens: 'none', overflowWrap: 'normal' }}
           >
-            Your USDC.
+            A vault that
             <br />
-            Actively managed{' '}
-            <span className="whitespace-nowrap">on-chain.</span>
+            <span className="whitespace-nowrap">shows its work.</span>
           </h1>
 
-          {/* Subtitle — 15 words, one line's worth on desktop */}
-          <p className="text-center text-base sm:text-[19px] text-label-secondary max-w-[580px] mx-auto leading-relaxed mb-10 sm:mb-14 px-1">
-            AI-managed vault on Hedera Testnet. EVM contracts · x402 agent
-            payments · HCS audit trail · The Graph indexed. Also live on SUI Mainnet.
+          {/* Subtitle — plain-English promise; brand-forward for search. */}
+          <p className="text-center text-base sm:text-[19px] text-label-secondary max-w-[600px] mx-auto leading-relaxed mb-10 sm:mb-14 px-1">
+            ZKward is an autonomous crypto vault. Seven AI agents make the trades.
+            Every hedge closes with a cryptographic receipt you can verify yourself.
+            Small pool on purpose. Real money.
           </p>
 
           {/* ─── VAULT METER (signature element) ─── */}
@@ -686,10 +686,10 @@ export const SuiPoolLanding = memo(function SuiPoolLanding() {
               How it works
             </p>
             <h2 className="text-[26px] sm:text-[34px] md:text-[44px] lg:text-[52px] font-display font-semibold tracking-[-0.03em] leading-[1.05] text-label-primary mb-3 sm:mb-4 break-words">
-              Three things working together.
+              Three moving parts. One loop.
             </h2>
             <p className="text-sm sm:text-callout text-label-secondary max-w-[560px] mx-auto leading-relaxed sm:leading-[1.55] px-1">
-              A continuous loop runs every 30 minutes. You just deposit and watch.
+              It runs every five minutes, all day, without you. You deposit once and watch.
             </p>
           </div>
 
@@ -698,22 +698,22 @@ export const SuiPoolLanding = memo(function SuiPoolLanding() {
               step={1}
               icon={<Sparkles className="w-5 h-5" />}
               accent="from-ios-blue to-[#5AC8FA]"
-              title="AI decides"
-              body="Seven specialised agents fuse Polymarket prediction signals, Crypto.com price feeds and funding rates into one allocation target."
+              title="The AI reads the room"
+              body="Ten signal sources — Polymarket, Kalshi, Deribit vol, funding rates from four venues, price momentum — fuse into a single allocation target. Seven agents have to agree before capital moves."
             />
             <TimelineStep
               step={2}
               icon={<Zap className="w-5 h-5" />}
               accent="from-[#34C759] to-[#30D158]"
-              title="Pool rebalances"
-              body="USDC is swapped on-chain across BTC, ETH and SUI via the 7k aggregator. Drift-based: only trades when allocation actually shifts."
+              title="The pool rebalances"
+              body="Your USDC is swapped across BTC, ETH, and SUI on-chain. Drift-based — the pool only trades when the allocation actually shifts. Nothing wasted on churn."
             />
             <TimelineStep
               step={3}
               icon={<ShieldCheck className="w-5 h-5" />}
               accent="from-[#AF52DE] to-[#BF5AF2]"
-              title="Hedges open"
-              body="A matching BlueFin perp position is opened or adjusted to delta-neutralise downside while keeping upside exposure."
+              title="A hedge lands with a proof"
+              body="A matching BlueFin perpetual position balances the risk. Every open and close writes a STARK proof of the decision to the chain. Anyone can verify it. Nobody can fake it."
               last
             />
           </div>
@@ -727,40 +727,43 @@ export const SuiPoolLanding = memo(function SuiPoolLanding() {
         <Reveal className="max-w-[1100px] mx-auto">
           <div className="text-center mb-8 sm:mb-12">
             <h2 className="text-[24px] sm:text-[28px] md:text-[36px] lg:text-[42px] font-display font-semibold tracking-[-0.03em] leading-[1.05] text-label-primary mb-3 break-words">
-              Every safety guard is on chain.
+              The rails are written into the contract.
             </h2>
+            <p className="text-sm sm:text-callout text-label-secondary max-w-[560px] mx-auto leading-relaxed mb-2">
+              Not a policy on our website. Rules the chain enforces, whether we&rsquo;re paying attention or not.
+            </p>
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-2.5 sm:gap-4 min-w-0">
             <TrustBadge
               icon={<Lock className="w-5 h-5" />}
-              title="TVL cap"
+              title="Pool cap"
               value="$10,000"
-              hint="Hard ceiling enforced in Move"
+              hint="Enforced by the Move contract. Not a marketing number."
             />
             <TrustBadge
               icon={<Layers className="w-5 h-5" />}
-              title="NAV oracle"
+              title="Fresh oracle"
               value="Strict mode"
-              hint="Deposits revert if attestation is > 2 h stale"
+              hint="Deposits revert if the NAV attestation is older than two hours."
             />
             <TrustBadge
               icon={<ShieldCheck className="w-5 h-5" />}
-              title="Withdraw cap"
+              title="Withdraw throttle"
               value="25% / day"
-              hint="Per-tx safety throttle"
+              hint="A single account cannot drain the pool. Rate limit on-chain."
             />
             <TrustBadge
               icon={<BarChart3 className="w-5 h-5" />}
-              title="ZK-STARK proofs"
+              title="Proofs, not promises"
               value="Post-quantum"
-              hint="Risk attestations published"
+              hint="STARK proofs on the Goldilocks field. Quantum-safe by design."
             />
             <TrustBadge
               icon={<Layers className="w-5 h-5" />}
-              title="Multichain"
+              title="Two chains, one code"
               value="Hedera + SUI"
-              hint="Pool on Hedera Testnet (EVM), also live on SUI Mainnet"
+              hint="Live on both. SUI is the flagship. Hedera is the fallback."
             />
           </div>
         </Reveal>
@@ -772,48 +775,53 @@ export const SuiPoolLanding = memo(function SuiPoolLanding() {
         <Reveal className="max-w-[1100px] mx-auto">
           <div className="text-center mb-8 sm:mb-10 md:mb-12">
             <div className="inline-block text-[11px] sm:text-caption-1 font-semibold uppercase tracking-wide text-label-tertiary mb-2 sm:mb-3">
-              Explore the platform
+              Have a look around
             </div>
             <h2 className="text-[24px] sm:text-[28px] md:text-[36px] lg:text-[44px] font-display font-semibold tracking-[-0.03em] leading-[1.05] text-label-primary mb-3 sm:mb-4 break-words">
-              An asset manager you can audit line by line.
+              Every corner of ZKward is public.
             </h2>
             <p className="text-sm sm:text-callout md:text-[18px] text-label-secondary max-w-[640px] mx-auto leading-relaxed sm:leading-[1.5] px-1">
-              A 7-agent orchestration fuses prediction-market signals, executes
-              hedges on BlueFin, and ZK-attests every meaningful decision. All
-              live on Sui mainnet.
+              The dashboard, the agents, the proofs, the whitepaper, the story.
+              Nothing hidden behind a login except your own wallet.
             </p>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 min-w-0">
             <SurfaceCard
               href="/dashboard"
-              eyebrow="Your dashboard"
-              title="Position, risk, and hedges in one place."
-              body="Pool shares, attributed hedges, live TVL, drawdown, cron health, and the ZK attestation feed. Auto-refresh 60s."
+              eyebrow="Dashboard"
+              title="Your pool, in one screen."
+              body="Balance, hedges, drawdown, and the proof feed. Refreshes every minute. What you see is what the chain says."
             />
             <SurfaceCard
               href="/rwa"
-              eyebrow="RWA custody"
-              title="Real-world assets, provably backed."
-              body="Custodian-signed attestations bind portfolios to off-chain assets. The list itself stays private. For issuers, custodians, institutions."
+              eyebrow="Real-world assets"
+              title="Off-chain assets, on-chain proof."
+              body="Custodian signatures bind portfolios to real assets while keeping the holdings private. Built for issuers and institutions."
             />
             <SurfaceCard
               href="/agents"
-              eyebrow="7-agent system"
-              title="Autonomous orchestration."
-              body="Lead, Risk, Hedging, Settlement, Reporting, PriceMonitor, SuiPool. Running 24/7 with 2-of-3 consensus on trades over $100k."
+              eyebrow="The seven agents"
+              title="Meet the specialists."
+              body="Lead, Risk, Hedging, Settlement, Reporting, Price Monitor, SUI Pool. Each has a job. Big trades need 2-of-3 to agree."
             />
             <SurfaceCard
               href="/zk"
-              eyebrow="ZK-STARK system"
-              title="Post-quantum verifiable AI."
-              body="CUDA-accelerated STARK prover. ~180-bit soundness, no trusted setup, verifiable in the browser."
+              eyebrow="Zero-knowledge proofs"
+              title="Not screenshots. Math."
+              body="Post-quantum STARK proofs, verifiable in your browser. 180-bit soundness. No trusted setup, no elliptic curves."
+            />
+            <SurfaceCard
+              href="/story"
+              eyebrow="Our story"
+              title="How we got here."
+              body="A five-minute read. Warm, honest, and yes, we tell you when we lose money. That is the whole point."
             />
             <SurfaceCard
               href="/whitepaper"
               eyebrow="Whitepaper"
-              title="Read the full thesis."
-              body="Prediction-market alpha, 7-agent architecture, STARK-attested execution, tokenomics, roadmap."
+              title="The technical version."
+              body="Prediction-market alpha, 7-agent architecture, STARK-attested execution, roadmap, references. For the engineers in the room."
             />
           </div>
         </Reveal>
@@ -825,11 +833,11 @@ export const SuiPoolLanding = memo(function SuiPoolLanding() {
       <section className="py-14 sm:py-20 md:py-24 px-4 sm:px-5 lg:px-8 bg-system-bg-primary min-w-0">
         <div className="max-w-[720px] mx-auto text-center min-w-0">
           <h2 className="text-[24px] sm:text-[32px] md:text-[40px] font-display font-semibold tracking-[-0.03em] leading-[1.05] text-label-primary mb-3 break-words">
-            Join in seconds.
+            Come see it running.
           </h2>
           <p className="text-sm sm:text-callout text-label-secondary mb-6 leading-relaxed px-1">
-            Connect a wallet, deposit USDC, let the AI work.
-            {pool && <> {formatCount(pool.memberCount, 'member', 'members')} onboard.</>}
+            Connect a wallet, deposit USDC, close the tab. The AI takes it from there.
+            {pool && <> {formatCount(pool.memberCount, 'member', 'members')} already in.</>}
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
             <Link

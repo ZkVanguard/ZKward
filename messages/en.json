@@ -1,304 +1,283 @@
 {
- "nav": {
- "home": "Home",
- "vault": "Vault",
- "agents": "Agents",
- "zk": "ZK",
- "whitepaper": "Whitepaper",
- "dashboard": "Dashboard",
- "simulator": "Simulator",
- "docs": "Docs",
- "rwa": "RWA",
- "story": "Story"
- },
- "hero": {
- "eyebrow": "SUI Mainnet",
- "quantumProof": "Quantum-Proof",
- "headline1": "Your portfolio.",
- "headline2": "Protected.",
- "subtitle": "AI agents manage risk. Zero-knowledge proofs protect privacy.",
- "ctaDashboard": "Launch Dashboard",
- "ctaLearnMore": "Learn More",
- "ctaArrow": "→"
- },
- "features": {
- "title": "Core Features",
- "subtitle": "Enterprise-grade infrastructure for secure, autonomous trading",
- "zkProofs": {
- "title": "ZK Proofs",
- "description": "Zero-knowledge verification for privacy & security."
- },
- "aiAgents": {
- "title": "AI Agents",
- "description": "24/7 automated portfolio optimization."
- },
- "liveAnalytics": {
- "title": "Live Analytics",
- "description": "Real-time risk metrics & insights."
- },
- "quantumProof": {
- "title": "Quantum-Proof ZK-STARK",
- "description": "Post-quantum cryptography for future security."
- }
- },
- "stats": {
- "aiAgents": "AI Agents",
- "gasSavings": "Gas Savings",
- "zkProofs": "ZK Proofs",
- "responseTime": "Response Time",
- "batchingNote": "AI trading agents on SUI Mainnet",
- "chainsSupported": "Chains Supported"
- },
- "cta": {
- "title": "Ready to Start?",
- "subtitle": "Quantum-proof ZK-STARK verification meets autonomous AI agents",
- "button": "Launch Dashboard",
- "learnMore": "Learn more about security"
- },
- "footer": {
- "product": "PRODUCT",
- "platform": "PLATFORM",
- "resources": "RESOURCES",
- "legal": "LEGAL",
- "dashboard": "Dashboard",
- "agents": "Agents",
- "simulator": "Simulator",
- "documentation": "Documentation",
- "zkVerification": "ZK Verification",
- "authenticity": "Authenticity",
- "whitepaper": "Whitepaper",
- "api": "API",
- "contact": "Contact",
- "community": "Community",
- "github": "GitHub",
- "twitter": "Twitter",
- "privacy": "Privacy Policy",
- "terms": "Terms of Service",
- "rights": "All rights reserved.",
- "testnet": "SUI Mainnet",
- "stage": "Mainnet Live",
- "migrationNotice": "Formerly zkvanguard.xyz — zkward.com is our new home.",
- "builtWith": "Built with ZK-STARK",
- "story": "Our story"
- },
- "connect": {
- "button": "Connect Wallet",
- "disconnect": "Disconnect",
- "connecting": "Connecting...",
- "wrongNetwork": "Wrong Network",
- "switchNetwork": "Switch to {network}"
- },
- "dashboard": {
- "title": "Risk Dashboard",
- "overview": "Overview",
- "positions": "Positions",
- "analytics": "Analytics",
- "settings": "Settings",
- "totalValue": "Total Portfolio Value",
- "riskScore": "Risk Score",
- "activePositions": "Active Positions",
- "monthlyReturn": "Monthly Return",
- "settingsModal": {
- "title": "Settings",
- "subtitle": "Configure your dashboard preferences",
- "close": "Close",
- "saving": "Saving…",
- "save": "Save Changes",
- "cancel": "Cancel",
- "tabs": {
- "general": "General",
- "hedging": "Hedging",
- "alerts": "Alerts",
- "privacy": "Privacy"
- },
- "general": {
- "display": "Display",
- "darkMode": "Dark Mode",
- "darkModeDesc": "Switch between light and dark themes",
- "compactView": "Compact View",
- "compactViewDesc": "Show more data in less space",
- "wallet": "Wallet",
- "walletDesc": "Wallet settings are managed through your connected wallet provider (MetaMask, WalletConnect, etc.)"
- },
- "hedging": {
- "autoApproval": "Auto-Approval",
- "autoApprovalDesc": "Automatically approve hedges below threshold",
- "threshold": "Threshold: ${amount}",
- "riskLimits": "Risk Limits",
- "maxLeverage": "Max Leverage: {n}x",
- "stopLoss": "Default Stop Loss: {n}%",
- "takeProfit": "Default Take Profit: {n}%"
- },
- "alerts": {
- "title": "Alert Preferences",
- "price": "Price Alerts",
- "priceDesc": "Get notified on significant price movements",
- "hedge": "Hedge Alerts",
- "hedgeDesc": "Notifications for hedge execution & liquidations",
- "agent": "AI Agent Alerts",
- "agentDesc": "Updates from AI agents and recommendations"
- },
- "privacy": {
- "title": "Privacy Features",
- "private": "Private Mode",
- "privateDesc": "Hide transaction details with stealth addresses",
- "zk": "ZK-STARK Proofs",
- "zkDesc": "Generate zero-knowledge proofs for settlements",
- "protected": "Your Privacy is Protected",
- "protectedDesc": "All sensitive data is encrypted. ZK proofs ensure your positions remain private while still being verifiable on-chain."
- }
- }
- },
- "agents": {
- "title": "AI Agent Network",
- "subtitle": "24/7 autonomous portfolio management with multi-agent consensus",
- "active": "Active",
- "idle": "Idle",
- "monitoring": "Monitoring",
- "leadAgent": "Lead Risk Orchestrator",
- "marketAgent": "Market Intelligence Agent",
- "complianceAgent": "Compliance Agent",
- "executionAgent": "Execution Agent"
- },
- "common": {
- "loading": "Loading...",
- "error": "Error",
- "success": "Success",
- "confirm": "Confirm",
- "cancel": "Cancel",
- "save": "Save",
- "close": "Close",
- "back": "Back",
- "next": "Next",
- "language": "Language"
- },
- "howItWorks": {
- "title": "How It Works",
- "subtitle": "Get started in three simple steps",
- "step1": {
- "title": "Connect",
- "description": "Link your wallet & set preferences",
- "detail": "Web3 wallet integration"
- },
- "step2": {
- "title": "Monitor",
- "description": "AI agents analyze portfolio risk 24/7",
- "detail": "Real-time risk analysis"
- },
- "step3": {
- "title": "Execute",
- "description": "Auto-hedge & settle transactions",
- "detail": "Automated protection"
- }
- },
- "zkProof": {
- "title": "ZK Proof Generator",
- "subtitle": "Generate and verify zero-knowledge proofs for portfolio privacy",
- "selectScenario": "Select Scenario",
- "generateProof": "Generate Proof",
- "verifyProof": "Verify Proof",
- "proofGenerated": "Proof Generated",
- "proofVerified": "Proof Verified",
- "proofFailed": "Verification Failed",
- "showSecrets": "Show Secrets",
- "hideSecrets": "Hide Secrets",
- "scenarios": {
- "portfolioRisk": "Portfolio Risk Assessment",
- "portfolioRiskDesc": "Prove portfolio risk is below threshold without revealing positions",
- "settlementBatch": "Settlement Batch Validation",
- "settlementBatchDesc": "Prove settlement batch is valid without revealing transaction details",
- "compliance": "Regulatory Compliance",
- "complianceDesc": "Prove compliance with regulations without exposing sensitive data"
- }
- },
- "zkAuthenticity": {
- "title": "ZK-STARK Authenticity Verification",
- "subtitle": "Verify the authenticity of our zero-knowledge proof implementation",
- "systemStatus": "System Status",
- "operational": "Operational",
- "verifyProof": "Verify a Proof",
- "pasteProof": "Paste your proof JSON here",
- "implementation": "Implementation Details",
- "cryptoParams": "Cryptographic Parameters",
- "sourceCode": "Source Code"
- },
- "zkVerification": {
- "title": "ZK-STARK Mathematical Proof",
- "subtitle": "Formal verification that ZKward implements a TRUE ZK-STARK according to Ben-Sasson et al. academic specifications",
- "auditorSummary": "Auditor Quick Summary",
- "implementation": "Implementation",
- "securityLevel": "Security Level",
- "academicFoundation": "Academic Foundation"
- },
- "marketOpportunity": {
- "title": "Massive Market Opportunity",
- "subtitle": "Polymarket alpha + AI agents + consumer crypto — all happening at once",
- "polymarketVolume": "Polymarket Volume",
- "polymarketDescription": "Monthly run-rate (TRM Labs, 2026)",
- "growthRate": "Sector Growth",
- "growthDescription": "Prediction markets 2024–2025",
- "targetMarket": "Target Market",
- "targetDescription": "Crypto-native retail · DeFi users · individual portfolio holders",
- "potentialUsers": "Potential Users",
- "usersDescription": "Polymarket bettors, AI-agent enthusiasts, DeFi vault users",
- "competitiveEdge": "Our Competitive Edge",
- "traditionalTools": "Traditional Risk Tools",
- "noAiAutomation": "No AI automation",
- "defiProtocols": "DeFi Protocols",
- "noPredictionSignals": "No prediction-market signals",
- "centralizedServices": "Centralized Services",
- "custodialRisk": "Custodial risk",
- "whyWins": "Why ZKward Wins",
- "aiPowered": "AI Automation",
- "aiDescription": "7 specialized agents working 24/7",
- "zkVerificationFeature": "ZK-STARK Verification",
- "zkDescription": "Verifiable autonomy — trust the math, not the team",
- "nonCustodial": "Non-Custodial",
- "nonCustodialDescription": "Your keys, your crypto",
- "gasOptimization": "Gas Optimization",
- "gasDescription": "Sponsored transactions on SUI Mainnet"
- },
- "liveMetrics": {
- "title": "Real-Time Platform Metrics",
- "subtitle": "Live performance data from SUI Mainnet",
- "tvl": "Total Value Locked",
- "transactions": "Transactions",
- "gasSavings": "Gas Savings",
- "aiAgentsOnline": "AI Agents Online"
- },
- "roadmap": {
- "title": "Product Roadmap",
- "subtitle": "Our path to making prediction-market alpha accessible to everyone",
- "q1Title": "Q1 2026: Foundation",
- "q1Description": "Core infrastructure built — SUI smart contracts, 5-agent prototype, ZK pipeline",
- "q2Title": "Q2 2026: Mainnet Launch",
- "q2Description": "CommunityPool & 7 AI trading agents live on SUI Mainnet (added PriceMonitor + SuiPool)",
- "q3Title": "Q3 2026: Growth",
- "q3Description": "Production launch with Founding-100 retail cohort and Sui-native partnerships",
- "q4Title": "Q4 2026: Scale",
- "q4Description": "$500M+ TVL across multiple chains",
- "completed": "Completed",
- "live": "Live",
- "inProgress": "In Progress",
- "upcoming": "Upcoming",
- "planned": "Planned"
- },
- "cookies": {
- "title": "Cookie Preferences",
- "description": "We use cookies to improve your experience and analyze platform usage. Your wallet address is public blockchain data - we don't collect personal information.",
- "privacyPolicy": "Privacy Policy",
- "customize": "Customize",
- "necessaryOnly": "Necessary Only",
- "acceptAll": "Accept All",
- "settings": "Cookie Settings",
- "necessary": "Necessary",
- "alwaysOn": "Always On",
- "necessaryDescription": "Required for wallet connection and basic platform functionality",
- "analytics": "Analytics",
- "analyticsDescription": "Anonymous usage data to improve platform performance",
- "preferences": "Preferences",
- "preferencesDescription": "Remember your settings and preferences",
- "rejectOptional": "Reject Optional",
- "savePreferences": "Save Preferences"
- }
+  "nav": {
+    "home": "Home",
+    "vault": "Vault",
+    "agents": "Agents",
+    "zk": "ZK",
+    "whitepaper": "Whitepaper",
+    "dashboard": "Dashboard",
+    "simulator": "Simulator",
+    "docs": "Docs",
+    "rwa": "RWA",
+    "story": "Story"
+  },
+  "hero": {
+    "eyebrow": "Live on SUI Mainnet",
+    "quantumProof": "Quantum-Proof",
+    "headline1": "A vault that shows",
+    "headline2": "its work.",
+    "subtitle": "AI trades your crypto. We publish the math. You never have to trust us.",
+    "ctaDashboard": "Open the app",
+    "ctaLearnMore": "Read the story",
+    "ctaArrow": "→"
+  },
+  "features": {
+    "title": "What makes it different",
+    "subtitle": "Four things you rarely find in one place.",
+    "zkProofs": {
+      "title": "Proofs, not promises",
+      "description": "Every hedge decision closes with a cryptographic receipt anyone can verify on-chain. Not a screenshot. A proof."
+    },
+    "aiAgents": {
+      "title": "Seven AI specialists",
+      "description": "Not one big model. Seven small agents that argue with each other before any real money moves. Trades above $100K need a 2-of-3 vote."
+    },
+    "liveAnalytics": {
+      "title": "Public receipts",
+      "description": "Every trade, win or loss, is on the dashboard. When we lost $68K last week, you saw it. That is the deal."
+    },
+    "quantumProof": {
+      "title": "Post-quantum by default",
+      "description": "STARK proofs on the Goldilocks field. No elliptic curves. Nothing that a future quantum computer breaks."
+    }
+  },
+  "stats": {
+    "aiAgents": "AI agents",
+    "gasSavings": "Sub-cent gas",
+    "zkProofs": "Proofs per hedge",
+    "responseTime": "Signal to execution",
+    "batchingNote": "Running today on SUI Mainnet",
+    "chainsSupported": "Chains supported"
+  },
+  "cta": {
+    "title": "Small on purpose. Real on purpose.",
+    "subtitle": "The pool is capped at $10,000 by the contract. We wanted to prove it works before scaling. Slow is the point.",
+    "button": "Open the app",
+    "learnMore": "Read the whitepaper"
+  },
+  "footer": {
+    "product": "PRODUCT",
+    "platform": "PLATFORM",
+    "resources": "RESOURCES",
+    "legal": "LEGAL",
+    "dashboard": "Dashboard",
+    "agents": "Agents",
+    "simulator": "Simulator",
+    "documentation": "Documentation",
+    "zkVerification": "ZK Verification",
+    "authenticity": "Authenticity",
+    "whitepaper": "Whitepaper",
+    "api": "API",
+    "contact": "Contact",
+    "community": "Community",
+    "github": "GitHub",
+    "twitter": "Twitter",
+    "privacy": "Privacy Policy",
+    "terms": "Terms of Service",
+    "rights": "All rights reserved.",
+    "testnet": "SUI Mainnet",
+    "stage": "Mainnet Live",
+    "migrationNotice": "Formerly zkvanguard.xyz — zkward.com is our new home.",
+    "builtWith": "Built with ZK-STARK",
+    "story": "Our story"
+  },
+  "connect": {
+    "button": "Connect Wallet",
+    "disconnect": "Disconnect",
+    "connecting": "Connecting...",
+    "wrongNetwork": "Wrong Network",
+    "switchNetwork": "Switch to {network}"
+  },
+  "dashboard": {
+    "title": "Risk Dashboard",
+    "overview": "Overview",
+    "positions": "Positions",
+    "analytics": "Analytics",
+    "settings": "Settings",
+    "totalValue": "Total Portfolio Value",
+    "riskScore": "Risk Score",
+    "activePositions": "Active Positions",
+    "monthlyReturn": "Monthly Return",
+    "settingsModal": {
+      "title": "Settings",
+      "subtitle": "Configure your dashboard preferences",
+      "close": "Close",
+      "saving": "Saving…",
+      "save": "Save Changes",
+      "cancel": "Cancel",
+      "tabs": {
+        "general": "General",
+        "hedging": "Hedging",
+        "alerts": "Alerts",
+        "privacy": "Privacy"
+      },
+      "general": {
+        "display": "Display",
+        "darkMode": "Dark Mode",
+        "darkModeDesc": "Switch between light and dark themes",
+        "compactView": "Compact View",
+        "compactViewDesc": "Show more data in less space",
+        "wallet": "Wallet",
+        "walletDesc": "Wallet settings are managed through your connected wallet provider (MetaMask, WalletConnect, etc.)"
+      },
+      "hedging": {
+        "autoApproval": "Auto-Approval",
+        "autoApprovalDesc": "Automatically approve hedges below threshold",
+        "threshold": "Threshold: ${amount}",
+        "riskLimits": "Risk Limits",
+        "maxLeverage": "Max Leverage: {n}x",
+        "stopLoss": "Default Stop Loss: {n}%",
+        "takeProfit": "Default Take Profit: {n}%"
+      },
+      "alerts": {
+        "title": "Alert Preferences",
+        "price": "Price Alerts",
+        "priceDesc": "Get notified on significant price movements",
+        "hedge": "Hedge Alerts",
+        "hedgeDesc": "Notifications for hedge execution & liquidations",
+        "agent": "AI Agent Alerts",
+        "agentDesc": "Updates from AI agents and recommendations"
+      },
+      "privacy": {
+        "title": "Privacy Features",
+        "private": "Private Mode",
+        "privateDesc": "Hide transaction details with stealth addresses",
+        "zk": "ZK-STARK Proofs",
+        "zkDesc": "Generate zero-knowledge proofs for settlements",
+        "protected": "Your Privacy is Protected",
+        "protectedDesc": "All sensitive data is encrypted. ZK proofs ensure your positions remain private while still being verifiable on-chain."
+      }
+    }
+  },
+  "agents": {
+    "title": "AI Agent Network",
+    "subtitle": "24/7 autonomous portfolio management with multi-agent consensus",
+    "active": "Active",
+    "idle": "Idle",
+    "monitoring": "Monitoring",
+    "leadAgent": "Lead Risk Orchestrator",
+    "marketAgent": "Market Intelligence Agent",
+    "complianceAgent": "Compliance Agent",
+    "executionAgent": "Execution Agent"
+  },
+  "common": {
+    "loading": "Loading...",
+    "error": "Error",
+    "success": "Success",
+    "confirm": "Confirm",
+    "cancel": "Cancel",
+    "save": "Save",
+    "close": "Close",
+    "back": "Back",
+    "next": "Next",
+    "language": "Language"
+  },
+  "howItWorks": {
+    "title": "How it works",
+    "subtitle": "Three steps. No paperwork.",
+    "step1": {
+      "title": "You deposit",
+      "description": "Send USDC to the pool. Your keys, your funds — always.",
+      "detail": "Non-custodial from minute one."
+    },
+    "step2": {
+      "title": "The AI reads the room",
+      "description": "Seven agents read prediction markets, funding rates, and price momentum. They agree on a move before capital touches an exchange.",
+      "detail": "Signals refreshed every five minutes."
+    },
+    "step3": {
+      "title": "A proof lands on-chain",
+      "description": "Every hedge closes with a STARK proof of the decision. You can verify it yourself. So can anyone.",
+      "detail": "Post-quantum. No trusted setup."
+    }
+  },
+  "zkProof": {
+    "title": "ZK Proof Generator",
+    "subtitle": "Generate and verify zero-knowledge proofs for portfolio privacy",
+    "selectScenario": "Select Scenario",
+    "generateProof": "Generate Proof",
+    "verifyProof": "Verify Proof",
+    "proofGenerated": "Proof Generated",
+    "proofVerified": "Proof Verified",
+    "proofFailed": "Verification Failed",
+    "showSecrets": "Show Secrets",
+    "hideSecrets": "Hide Secrets",
+    "scenarios": {
+      "portfolioRisk": "Portfolio Risk Assessment",
+      "portfolioRiskDesc": "Prove portfolio risk is below threshold without revealing positions",
+      "settlementBatch": "Settlement Batch Validation",
+      "settlementBatchDesc": "Prove settlement batch is valid without revealing transaction details",
+      "compliance": "Regulatory Compliance",
+      "complianceDesc": "Prove compliance with regulations without exposing sensitive data"
+    }
+  },
+  "zkAuthenticity": {
+    "title": "ZK-STARK Authenticity Verification",
+    "subtitle": "Verify the authenticity of our zero-knowledge proof implementation",
+    "systemStatus": "System Status",
+    "operational": "Operational",
+    "verifyProof": "Verify a Proof",
+    "pasteProof": "Paste your proof JSON here",
+    "implementation": "Implementation Details",
+    "cryptoParams": "Cryptographic Parameters",
+    "sourceCode": "Source Code"
+  },
+  "zkVerification": {
+    "title": "ZK-STARK Mathematical Proof",
+    "subtitle": "Formal verification that ZKward implements a TRUE ZK-STARK according to Ben-Sasson et al. academic specifications",
+    "auditorSummary": "Auditor Quick Summary",
+    "implementation": "Implementation",
+    "securityLevel": "Security Level",
+    "academicFoundation": "Academic Foundation"
+  },
+  "marketOpportunity": {
+    "title": "Why now",
+    "subtitle": "Three things happened at the same time.",
+    "polymarketVolume": "$20B/month",
+    "polymarketDescription": "Polymarket volume, early 2026. The signal is finally liquid enough to trade at retail size.",
+    "growthRate": "$63.5B",
+    "growthDescription": "Prediction-market sector, 2025. Grew from a niche into a real category.",
+    "targetMarket": "You",
+    "targetDescription": "People who own crypto and don't want to stare at charts. And who have been burned by 'trust me' AI.",
+    "potentialUsers": "One-click",
+    "usersDescription": "What it took a hedge fund a bot farm and a night shift to do, you now do with a deposit."
+  },
+  "liveMetrics": {
+    "title": "Live from the pool",
+    "subtitle": "Not screenshots. The dashboard reads on-chain state.",
+    "tvl": "Pool balance",
+    "transactions": "Trades this week",
+    "gasSavings": "Average gas",
+    "aiAgentsOnline": "Agents online"
+  },
+  "roadmap": {
+    "title": "What we're working on",
+    "subtitle": "Where we came from, and where the next six months go.",
+    "q1Title": "Q1 2026 — First bricks",
+    "q1Description": "Core contracts, five-agent prototype, and the ZK pipeline we ended up rebuilding twice.",
+    "q2Title": "Q2 2026 — Mainnet",
+    "q2Description": "Pool + seven agents live on SUI mainnet. A withdrawal bug got caught the hard way. We shipped v0.2.0 to fix it.",
+    "q3Title": "Q3 2026 — Discipline",
+    "q3Description": "Autonomy defense (eight gates). Rebuilt the trader's sizing after a rough drawdown. Aiven → self-hosted Bakchodi database.",
+    "q4Title": "Q4 2026 — Audit + scale",
+    "q4Description": "External audit through the SUI Foundation grant. Move the AdminCap to a multisig. Raise the deposit cap only after each step survives a real drawdown test."
+  },
+  "cookies": {
+    "title": "Cookie Preferences",
+    "description": "We use cookies to improve your experience and analyze platform usage. Your wallet address is public blockchain data - we don't collect personal information.",
+    "privacyPolicy": "Privacy Policy",
+    "customize": "Customize",
+    "necessaryOnly": "Necessary Only",
+    "acceptAll": "Accept All",
+    "settings": "Cookie Settings",
+    "necessary": "Necessary",
+    "alwaysOn": "Always On",
+    "necessaryDescription": "Required for wallet connection and basic platform functionality",
+    "analytics": "Analytics",
+    "analyticsDescription": "Anonymous usage data to improve platform performance",
+    "preferences": "Preferences",
+    "preferencesDescription": "Remember your settings and preferences",
+    "rejectOptional": "Reject Optional",
+    "savePreferences": "Save Preferences"
+  }
 }
