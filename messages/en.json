@@ -272,9 +272,9 @@
       "body": "Two things need to happen. First, prove the trader stops losing money in the test pool. Then raise the deposit cap, one careful step at a time, with a real drawdown test at each step. If we skip a step, please yell at us on <telegram>Telegram</telegram>."
     },
     "footer": {
-      "technical": "Want the technical version? {link}",
+      "technical": "Want the technical version? <link>Read the whitepaper</link>",
       "readWhitepaper": "Read the whitepaper",
-      "orJust": "Or just {link}.",
+      "orJust": "Or just <link>open the app</link>.",
       "openApp": "open the app"
     }
   },
@@ -286,7 +286,7 @@
     "header": {
       "eyebrow": "FAQ",
       "title": "Common questions",
-      "subtitle": "Short answers. If yours is missing, email {email} and we'll add it."
+      "subtitle": "Short answers. If yours is missing, email <email>ashish.regmi@zkward.com</email> and we'll add it."
     },
     "q1": {
       "q": "What is ZKward?",
@@ -337,9 +337,9 @@
       "a": "Email ashish.regmi@zkward.com or join our Telegram (link in the footer). GitHub issues also work for technical questions."
     },
     "footer": {
-      "technical": "Want the full technical version? {link}",
+      "technical": "Want the full technical version? <link>Read the whitepaper</link>",
       "readWhitepaper": "Read the whitepaper",
-      "orRead": "Or read {link}.",
+      "orRead": "Or read <link>our story</link>.",
       "ourStory": "our story"
     }
   },

@@ -541,9 +541,9 @@
       "body": "दो चीज़ें होनी चाहिए। पहले, यह साबित करना कि trader टेस्ट पूल में पैसे गँवाना बंद करता है। फिर deposit cap बढ़ाना, एक-एक सावधान क़दम, हर क़दम पर असली drawdown परीक्षण के साथ। अगर हम कोई क़दम छोड़ें, तो कृपया <telegram>Telegram</telegram> पर हम पर चिल्लाइए।"
     },
     "footer": {
-      "technical": "टेक्निकल संस्करण चाहिए? {link}",
+      "technical": "टेक्निकल संस्करण चाहिए? <link>Whitepaper पढ़ें</link>",
       "readWhitepaper": "Whitepaper पढ़ें",
-      "orJust": "या बस {link}।",
+      "orJust": "या बस <link>ऐप खोलें</link>।",
       "openApp": "ऐप खोलें"
     }
   },
@@ -555,7 +555,7 @@
     "header": {
       "eyebrow": "FAQ",
       "title": "सामान्य प्रश्न",
-      "subtitle": "छोटे उत्तर। अगर आपका नहीं है, तो {email} पर ईमेल करें और हम जोड़ देंगे।"
+      "subtitle": "छोटे उत्तर। अगर आपका नहीं है, तो <email>ashish.regmi@zkward.com</email> पर ईमेल करें और हम जोड़ देंगे।"
     },
     "q1": {
       "q": "ZKward क्या है?",
@@ -606,9 +606,9 @@
       "a": "ashish.regmi@zkward.com पर ईमेल करें या हमारे Telegram में शामिल हों (footer में link)। तकनीकी प्रश्नों के लिए GitHub issues भी काम करते हैं।"
     },
     "footer": {
-      "technical": "पूर्ण तकनीकी संस्करण चाहिए? {link}",
+      "technical": "पूर्ण तकनीकी संस्करण चाहिए? <link>Whitepaper पढ़ें</link>",
       "readWhitepaper": "Whitepaper पढ़ें",
-      "orRead": "या {link} पढ़ें।",
+      "orRead": "या <link>हमारी कहानी</link> पढ़ें।",
       "ourStory": "हमारी कहानी"
     }
   },

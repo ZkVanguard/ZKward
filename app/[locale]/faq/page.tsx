@@ -82,9 +82,9 @@ export default async function FaqPage({ params }: { params: Promise<{ locale: st
           </h1>
           <p className="mt-4 text-body text-label-secondary">
             {t.rich('header.subtitle', {
-              email: () => (
+              email: (chunks) => (
                 <a href="mailto:ashish.regmi@zkward.com" className="text-ios-blue hover:underline">
-                  ashish.regmi@zkward.com
+                  {chunks}
                 </a>
               ),
             })}
@@ -105,18 +105,18 @@ export default async function FaqPage({ params }: { params: Promise<{ locale: st
         <footer className="mt-12 pt-8 border-t border-separator-opaque/40 flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between text-subheadline text-label-secondary">
           <div>
             {t.rich('footer.technical', {
-              link: () => (
+              link: (chunks) => (
                 <Link href="/whitepaper" className="text-ios-blue hover:underline font-medium">
-                  {t('footer.readWhitepaper')}
+                  {chunks}
                 </Link>
               ),
             })}
           </div>
           <div>
             {t.rich('footer.orRead', {
-              link: () => (
+              link: (chunks) => (
                 <Link href="/story" className="text-ios-blue hover:underline font-medium">
-                  {t('footer.ourStory')}
+                  {chunks}
                 </Link>
               ),
             })}

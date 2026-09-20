@@ -541,9 +541,9 @@
       "body": "2 つのことが起きる必要があります。まず、テスト・プールでトレーダーが赤字を止めることを証明する。それから、各段階で本物のドローダウン・テストを伴いつつ、慎重に一歩ずつ入金上限を引き上げる。ステップを飛ばしたら、<telegram>Telegram</telegram> で叫んでください。"
     },
     "footer": {
-      "technical": "テクニカル版を見たい？ {link}",
+      "technical": "テクニカル版を見たい？ <link>ホワイトペーパーを読む</link>",
       "readWhitepaper": "ホワイトペーパーを読む",
-      "orJust": "またはただ {link}。",
+      "orJust": "またはただ <link>アプリを開く</link>。",
       "openApp": "アプリを開く"
     }
   },
@@ -555,7 +555,7 @@
     "header": {
       "eyebrow": "FAQ",
       "title": "よくある質問",
-      "subtitle": "短い答え。あなたのが無ければ、{email} にメールしてください、追加します。"
+      "subtitle": "短い答え。あなたのが無ければ、<email>ashish.regmi@zkward.com</email> にメールしてください、追加します。"
     },
     "q1": {
       "q": "ZKward とは何ですか？",
@@ -606,9 +606,9 @@
       "a": "ashish.regmi@zkward.com にメールするか、Telegram に参加してください（フッターにリンク）。技術的な質問には GitHub issue も使えます。"
     },
     "footer": {
-      "technical": "完全なテクニカル版を見たい？ {link}",
+      "technical": "完全なテクニカル版を見たい？ <link>ホワイトペーパーを読む</link>",
       "readWhitepaper": "ホワイトペーパーを読む",
-      "orRead": "または {link} を読む。",
+      "orRead": "または <link>私たちのストーリー</link> を読む。",
       "ourStory": "私たちのストーリー"
     }
   },
