@@ -541,9 +541,9 @@
       "body": "两件事需要发生。首先，证明交易员在测试池中不再赔钱。然后逐步提高存款上限，每一步都伴随真实回撤测试。如果我们跳过一步，请到 <telegram>Telegram</telegram> 上骂我们。"
     },
     "footer": {
-      "technical": "想看技术版本吗？{link}",
+      "technical": "想看技术版本吗？<link>阅读白皮书</link>",
       "readWhitepaper": "阅读白皮书",
-      "orJust": "或者干脆 {link}。",
+      "orJust": "或者干脆 <link>打开应用</link>。",
       "openApp": "打开应用"
     }
   },
@@ -555,7 +555,7 @@
     "header": {
       "eyebrow": "常见问题",
       "title": "常见问题",
-      "subtitle": "简短的回答。如果缺你的问题，发邮件到 {email}，我们会加上。"
+      "subtitle": "简短的回答。如果缺你的问题，发邮件到 <email>ashish.regmi@zkward.com</email>，我们会加上。"
     },
     "q1": {
       "q": "ZKward 是什么？",
@@ -606,9 +606,9 @@
       "a": "邮件发到 ashish.regmi@zkward.com 或加入我们的 Telegram（页脚有链接）。技术问题也可以发 GitHub issue。"
     },
     "footer": {
-      "technical": "想看完整的技术版本？{link}",
+      "technical": "想看完整的技术版本？<link>阅读白皮书</link>",
       "readWhitepaper": "阅读白皮书",
-      "orRead": "或阅读{link}。",
+      "orRead": "或阅读<link>我们的故事</link>。",
       "ourStory": "我们的故事"
     }
   },

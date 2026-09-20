@@ -541,9 +541,9 @@
       "body": "Tienen que pasar dos cosas. Primero, demostrar que el trader deja de perder dinero en el pool de prueba. Después subir el tope de depósito, un paso cuidadoso cada vez, con una prueba de drawdown real en cada paso. Si nos saltamos un paso, grítanos por <telegram>Telegram</telegram>."
     },
     "footer": {
-      "technical": "¿Quieres la versión técnica? {link}",
+      "technical": "¿Quieres la versión técnica? <link>Lee el whitepaper</link>",
       "readWhitepaper": "Lee el whitepaper",
-      "orJust": "O simplemente {link}.",
+      "orJust": "O simplemente <link>abre la app</link>.",
       "openApp": "abre la app"
     }
   },
@@ -555,7 +555,7 @@
     "header": {
       "eyebrow": "FAQ",
       "title": "Preguntas habituales",
-      "subtitle": "Respuestas cortas. Si falta la tuya, escribe a {email} y la añadimos."
+      "subtitle": "Respuestas cortas. Si falta la tuya, escribe a <email>ashish.regmi@zkward.com</email> y la añadimos."
     },
     "q1": {
       "q": "¿Qué es ZKward?",
@@ -606,9 +606,9 @@
       "a": "Escribe a ashish.regmi@zkward.com o únete a nuestro Telegram (enlace en el pie). Los issues de GitHub también valen para preguntas técnicas."
     },
     "footer": {
-      "technical": "¿Quieres la versión técnica completa? {link}",
+      "technical": "¿Quieres la versión técnica completa? <link>Lee el whitepaper</link>",
       "readWhitepaper": "Lee el whitepaper",
-      "orRead": "O lee {link}.",
+      "orRead": "O lee <link>nuestra historia</link>.",
       "ourStory": "nuestra historia"
     }
   },

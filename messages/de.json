@@ -541,9 +541,9 @@
       "body": "Zwei Dinge müssen passieren. Erstens beweisen, dass der Trader im Test-Pool aufhört, Geld zu verlieren. Dann den Einzahlungs-Cap anheben, ein vorsichtiger Schritt nach dem anderen, mit einem echten Drawdown-Test bei jedem Schritt. Wenn wir einen Schritt überspringen, bitte auf <telegram>Telegram</telegram> schreien."
     },
     "footer": {
-      "technical": "Willst du die technische Version? {link}",
+      "technical": "Willst du die technische Version? <link>Whitepaper lesen</link>",
       "readWhitepaper": "Whitepaper lesen",
-      "orJust": "Oder einfach {link}.",
+      "orJust": "Oder einfach <link>die App öffnen</link>.",
       "openApp": "die App öffnen"
     }
   },
@@ -555,7 +555,7 @@
     "header": {
       "eyebrow": "FAQ",
       "title": "Häufige Fragen",
-      "subtitle": "Kurze Antworten. Wenn deine fehlt, schreib an {email} und wir fügen sie hinzu."
+      "subtitle": "Kurze Antworten. Wenn deine fehlt, schreib an <email>ashish.regmi@zkward.com</email> und wir fügen sie hinzu."
     },
     "q1": {
       "q": "Was ist ZKward?",
@@ -606,9 +606,9 @@
       "a": "E-Mail an ashish.regmi@zkward.com oder tritt unserem Telegram bei (Link im Footer). GitHub Issues gehen auch für technische Fragen."
     },
     "footer": {
-      "technical": "Willst du die vollständige technische Version? {link}",
+      "technical": "Willst du die vollständige technische Version? <link>Whitepaper lesen</link>",
       "readWhitepaper": "Whitepaper lesen",
-      "orRead": "Oder lies {link}.",
+      "orRead": "Oder lies <link>unsere Story</link>.",
       "ourStory": "unsere Story"
     }
   },

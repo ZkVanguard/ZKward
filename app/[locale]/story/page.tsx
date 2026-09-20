@@ -129,18 +129,18 @@ export default async function StoryPage({ params }: { params: Promise<{ locale: 
         <footer className="mt-12 pt-8 border-t border-separator-opaque/40 flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between text-subheadline text-label-secondary">
           <div>
             {t.rich('footer.technical', {
-              link: () => (
+              link: (chunks) => (
                 <Link href="/whitepaper" className="text-ios-blue hover:underline font-medium">
-                  {t('footer.readWhitepaper')}
+                  {chunks}
                 </Link>
               ),
             })}
           </div>
           <div>
             {t.rich('footer.orJust', {
-              link: () => (
+              link: (chunks) => (
                 <Link href="/dashboard" className="text-ios-blue hover:underline font-medium">
-                  {t('footer.openApp')}
+                  {chunks}
                 </Link>
               ),
             })}

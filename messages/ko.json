@@ -541,9 +541,9 @@
       "body": "두 가지가 일어나야 합니다. 첫째, 테스트 풀에서 트레이더가 손실을 멈춘다는 것을 증명. 그런 다음 각 단계마다 실제 드로다운 테스트를 동반해 조심스럽게 한 단계씩 입금 상한을 올립니다. 단계를 건너뛰면 <telegram>Telegram</telegram>에서 소리쳐 주세요."
     },
     "footer": {
-      "technical": "기술 버전이 필요하신가요? {link}",
+      "technical": "기술 버전이 필요하신가요? <link>백서 읽기</link>",
       "readWhitepaper": "백서 읽기",
-      "orJust": "또는 그냥 {link}.",
+      "orJust": "또는 그냥 <link>앱 열기</link>.",
       "openApp": "앱 열기"
     }
   },
@@ -555,7 +555,7 @@
     "header": {
       "eyebrow": "FAQ",
       "title": "자주 묻는 질문",
-      "subtitle": "짧은 답변. 없는 질문은 {email}로 이메일 주시면 추가하겠습니다."
+      "subtitle": "짧은 답변. 없는 질문은 <email>ashish.regmi@zkward.com</email>로 이메일 주시면 추가하겠습니다."
     },
     "q1": {
       "q": "ZKward는 무엇인가요?",
@@ -606,9 +606,9 @@
       "a": "ashish.regmi@zkward.com으로 이메일 보내거나 Telegram에 참여하세요(푸터에 링크). 기술적 질문은 GitHub 이슈도 됩니다."
     },
     "footer": {
-      "technical": "완전한 기술 버전이 필요하신가요? {link}",
+      "technical": "완전한 기술 버전이 필요하신가요? <link>백서 읽기</link>",
       "readWhitepaper": "백서 읽기",
-      "orRead": "또는 {link} 읽기.",
+      "orRead": "또는 <link>우리 이야기</link> 읽기.",
       "ourStory": "우리 이야기"
     }
   },
