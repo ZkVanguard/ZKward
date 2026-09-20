@@ -481,6 +481,30 @@
           "c4": "只有当 AI 置信度超过 65% 才再平衡"
         }
       }
+    },
+    "chat": {
+      "title": "问问加密货币、市场，或金库",
+      "readOnly": "只读",
+      "subtitle": "实时价格。实时信号。实时金库状态。",
+      "tryOneOfThese": "试试这些：",
+      "thinking": "思考中…",
+      "placeholder": "问一个市场问题或金库问题…",
+      "send": "提问",
+      "sending": "发送中",
+      "sendAria": "发送",
+      "rateLimited": "达到速率上限。请等 ~30 秒后再问。",
+      "requestFailed": "请求失败（HTTP {status}）。",
+      "networkError": "网络错误",
+      "toolCalls": "{count, plural, other {# 次工具调用}}",
+      "notConfigured": "状态预言机未配置（生产环境等待 ASI_API_KEY）。",
+      "prompts": {
+        "p1": "BTC 现在怎么样？",
+        "p2": "市场快照 — BTC、ETH、SOL、SUI",
+        "p3": "预测市场怎么看 ETH？",
+        "p4": "两句话解释一下资金费率",
+        "p5": "过去 24 小时我们的金库做了什么？",
+        "p6": "我们的 AI 这周预测得准吗？"
+      }
     }
   },
   "story": {

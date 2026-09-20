@@ -481,6 +481,30 @@
           "c4": "AI 신뢰도가 65 퍼센트를 넘을 때만 리밸런스"
         }
       }
+    },
+    "chat": {
+      "title": "크립토, 시장, 볼트에 대해 물어보기",
+      "readOnly": "읽기 전용",
+      "subtitle": "실시간 가격. 실시간 신호. 실시간 볼트 상태.",
+      "tryOneOfThese": "이런 걸 시도해 보세요:",
+      "thinking": "생각 중…",
+      "placeholder": "시장 질문이나 볼트 질문을 하세요…",
+      "send": "질문",
+      "sending": "전송 중",
+      "sendAria": "전송",
+      "rateLimited": "속도 제한에 도달했습니다. 약 30초 후 다시 시도하세요.",
+      "requestFailed": "요청 실패 (HTTP {status}).",
+      "networkError": "네트워크 오류",
+      "toolCalls": "{count, plural, other {도구 호출 #회}}",
+      "notConfigured": "상태 오라클 미구성 (프로덕션에서 ASI_API_KEY 대기 중).",
+      "prompts": {
+        "p1": "BTC 지금 어때?",
+        "p2": "시장 스냅샷 — BTC, ETH, SOL, SUI",
+        "p3": "예측 시장은 ETH를 어떻게 보나?",
+        "p4": "펀딩 비율을 두 문장으로 설명해",
+        "p5": "지난 24시간 우리 볼트는 뭘 했나?",
+        "p6": "우리 AI가 이번 주 잘 예측하고 있나?"
+      }
     }
   },
   "story": {

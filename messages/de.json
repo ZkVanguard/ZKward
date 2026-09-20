@@ -481,6 +481,30 @@
           "c4": "Rebalanciert nur, wenn KI-Konfidenz 65 Prozent überschreitet"
         }
       }
+    },
+    "chat": {
+      "title": "Frag zu Krypto, Märkten oder dem Vault",
+      "readOnly": "Nur lesen",
+      "subtitle": "Live-Preise. Live-Signale. Live-Vault-Zustand.",
+      "tryOneOfThese": "Probier eine davon:",
+      "thinking": "denke nach…",
+      "placeholder": "Stell eine Marktfrage oder eine Vault-Frage…",
+      "send": "Fragen",
+      "sending": "Sende",
+      "sendAria": "Senden",
+      "rateLimited": "Rate-Limit erreicht. Bitte ~30 Sek. warten.",
+      "requestFailed": "Anfrage fehlgeschlagen (HTTP {status}).",
+      "networkError": "Netzwerkfehler",
+      "toolCalls": "{count, plural, =1 {# Tool-Aufruf} other {# Tool-Aufrufe}}",
+      "notConfigured": "Status-Oracle nicht konfiguriert (wartet auf ASI_API_KEY in prod).",
+      "prompts": {
+        "p1": "Wie steht BTC gerade?",
+        "p2": "Markt-Snapshot — BTC, ETH, SOL, SUI",
+        "p3": "Was denkt der Prediction Market über ETH?",
+        "p4": "Erklär Funding Rates in zwei Sätzen",
+        "p5": "Was hat unser Vault in den letzten 24 h getan?",
+        "p6": "Trifft unsere KI diese Woche richtig?"
+      }
     }
   },
   "story": {

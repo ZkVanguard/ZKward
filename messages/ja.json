@@ -481,6 +481,30 @@
           "c4": "AI 信頼度が 65 パーセントを超えたときのみリバランス"
         }
       }
+    },
+    "chat": {
+      "title": "暗号資産・市場・金庫について聞く",
+      "readOnly": "読み取り専用",
+      "subtitle": "ライブ価格。ライブシグナル。ライブ金庫状態。",
+      "tryOneOfThese": "こちらから試してみてください：",
+      "thinking": "考え中…",
+      "placeholder": "市場か金庫について質問してください…",
+      "send": "質問",
+      "sending": "送信中",
+      "sendAria": "送信",
+      "rateLimited": "レート制限。約 30 秒待ってから再度お試しください。",
+      "requestFailed": "リクエスト失敗（HTTP {status}）。",
+      "networkError": "ネットワークエラー",
+      "toolCalls": "{count, plural, other {ツール呼び出し #件}}",
+      "notConfigured": "ステータスオラクル未構成（本番で ASI_API_KEY 待ち）。",
+      "prompts": {
+        "p1": "BTC は今どう？",
+        "p2": "マーケットスナップショット — BTC、ETH、SOL、SUI",
+        "p3": "予測市場は ETH をどう見ている？",
+        "p4": "ファンディングレートを 2 文で説明して",
+        "p5": "この 24 時間で金庫は何をした？",
+        "p6": "今週 AI の予測は当たっている？"
+      }
     }
   },
   "story": {
