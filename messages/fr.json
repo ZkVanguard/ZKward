@@ -280,30 +280,30 @@
       "members": "membres"
     },
     "hero": {
-      "headline1": "Un coffre qui",
-      "headline2": "montre son travail.",
-      "subtitle": "ZKward est un coffre crypto autonome. Sept agents IA effectuent les trades. Chaque couverture se ferme avec un reçu cryptographique que vous pouvez vérifier vous-même. Pool volontairement petit. Argent réel."
+      "headline1": "Le coffre IA",
+      "headline2": "avec preuves.",
+      "subtitle": "Déposez des USDC. Sept agents débattent puis tradent. Chaque couverture se ferme avec une preuve cryptographique vérifiable on-chain."
     },
     "vault": {
-      "poolNav": "NAV du pool",
-      "sharePrice": "Prix de part",
+      "poolNav": "Valeur du pool",
+      "sharePrice": "Par part",
       "capacity": "Capacité",
       "capacityOf": "{current} sur {cap}"
     },
     "cta": {
       "depositUsdc": "Déposer des USDC",
-      "howItWorks": "Comment ça marche",
+      "howItWorks": "Voir la boucle",
       "viewSource": "Voir le code source",
       "installApp": "Installer l'app",
       "installIosHint": "Pour installer : touchez l'icône Partager dans Safari, faites défiler et touchez « Sur l'écran d'accueil »."
     },
     "composition": {
-      "eyebrow": "Composition en direct",
-      "title": "Où sont vos USDC en ce moment.",
+      "eyebrow": "En ce moment",
+      "title": "Où vivent vos USDC.",
       "body": "L'IA rééquilibre toutes les 30 minutes entre BTC, ETH et SUI selon les signaux de marché en direct. Les USDC inactifs comptent comme réserve défensive. Rafraîchi toutes les 30 s."
     },
     "howItWorks": {
-      "eyebrow": "Comment ça marche",
+      "eyebrow": "La boucle",
       "title": "Trois pièces en mouvement. Une seule boucle.",
       "body": "Ça tourne toutes les cinq minutes, toute la journée, sans vous. Vous déposez une fois et regardez.",
       "step1": {
@@ -328,8 +328,8 @@
         "hint": "Appliqué par le contrat Move. Pas un chiffre marketing."
       },
       "freshOracle": {
-        "title": "Oracle frais",
-        "value": "Mode strict",
+        "title": "Prix frais",
+        "value": "Max 2 h",
         "hint": "Les dépôts sont annulés si l'attestation NAV a plus de deux heures."
       },
       "withdrawThrottle": {
@@ -349,22 +349,22 @@
       }
     },
     "surfaces": {
-      "eyebrow": "Faites le tour",
+      "eyebrow": "Jetez un œil",
       "title": "Chaque recoin de ZKward est public.",
       "body": "Le tableau de bord, les agents, les preuves, le whitepaper, l'histoire. Rien caché derrière un login sauf votre propre wallet.",
       "dashboard": {
         "eyebrow": "Tableau de bord",
-        "title": "Votre pool, sur un seul écran.",
+        "title": "Votre pool, un écran.",
         "body": "Solde, couvertures, drawdown et le flux de preuves. Rafraîchi chaque minute. Ce que vous voyez, c'est ce que la chaîne dit."
       },
       "rwa": {
         "eyebrow": "Actifs du monde réel",
-        "title": "Actifs off-chain, preuve on-chain.",
+        "title": "Actifs off-chain. Preuve on-chain.",
         "body": "Les signatures de dépositaire lient les portefeuilles à des actifs réels tout en gardant les positions privées. Pensé pour émetteurs et institutions."
       },
       "agents": {
         "eyebrow": "Les sept agents",
-        "title": "Rencontrez les spécialistes.",
+        "title": "Sept spécialistes. Une boucle.",
         "body": "Lead, Risk, Hedging, Settlement, Reporting, Price Monitor, SUI Pool. Chacun son rôle. Les gros trades exigent un 2 sur 3."
       },
       "zk": {

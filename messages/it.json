@@ -280,30 +280,30 @@
       "members": "membri"
     },
     "hero": {
-      "headline1": "Un vault che",
-      "headline2": "mostra il suo lavoro.",
-      "subtitle": "ZKward è un vault crypto autonomo. Sette agenti AI eseguono le operazioni. Ogni copertura chiude con una ricevuta crittografica che puoi verificare da solo. Pool piccolo di proposito. Soldi veri."
+      "headline1": "Il vault IA",
+      "headline2": "con ricevute.",
+      "subtitle": "Deposita USDC. Sette agenti discutono, poi operano. Ogni copertura chiude con una prova crittografica verificabile on-chain."
     },
     "vault": {
-      "poolNav": "NAV del pool",
-      "sharePrice": "Prezzo per quota",
+      "poolNav": "Valore del pool",
+      "sharePrice": "Per quota",
       "capacity": "Capacità",
       "capacityOf": "{current} di {cap}"
     },
     "cta": {
       "depositUsdc": "Deposita USDC",
-      "howItWorks": "Come funziona",
+      "howItWorks": "Vedi il loop",
       "viewSource": "Vedi il sorgente",
       "installApp": "Installa l'app",
       "installIosHint": "Per installare: tocca l'icona Condividi in Safari, scorri e tocca «Aggiungi a Home»."
     },
     "composition": {
-      "eyebrow": "Composizione live",
-      "title": "Dov'è il tuo USDC adesso.",
+      "eyebrow": "Adesso",
+      "title": "Dove vive il tuo USDC.",
       "body": "L'AI ribilancia ogni 30 minuti tra BTC, ETH e SUI in base a segnali di mercato live. Gli USDC inattivi contano come riserva difensiva. Aggiornato ogni 30 s."
     },
     "howItWorks": {
-      "eyebrow": "Come funziona",
+      "eyebrow": "Il loop",
       "title": "Tre parti in movimento. Un solo loop.",
       "body": "Gira ogni cinque minuti, tutto il giorno, senza di te. Depositi una volta e guardi.",
       "step1": {
@@ -328,8 +328,8 @@
         "hint": "Imposto dal contratto Move. Non è un numero di marketing."
       },
       "freshOracle": {
-        "title": "Oracle fresco",
-        "value": "Modalità strict",
+        "title": "Prezzo fresco",
+        "value": "Max 2 ore",
         "hint": "I depositi vengono annullati se l'attestazione NAV è più vecchia di due ore."
       },
       "withdrawThrottle": {
@@ -349,22 +349,22 @@
       }
     },
     "surfaces": {
-      "eyebrow": "Fai un giro",
+      "eyebrow": "Dai un'occhiata",
       "title": "Ogni angolo di ZKward è pubblico.",
       "body": "La dashboard, gli agenti, le prove, il whitepaper, la storia. Niente nascosto dietro un login tranne il tuo wallet.",
       "dashboard": {
         "eyebrow": "Dashboard",
-        "title": "Il tuo pool, in una schermata.",
+        "title": "Il tuo pool, uno schermo.",
         "body": "Saldo, coperture, drawdown e il feed di prove. Aggiornato ogni minuto. Quello che vedi è ciò che dice la catena."
       },
       "rwa": {
         "eyebrow": "Real-world asset",
-        "title": "Asset off-chain, prova on-chain.",
+        "title": "Asset off-chain. Prova on-chain.",
         "body": "Le firme del custode legano i portafogli ad asset reali mantenendo private le posizioni. Pensato per emittenti e istituzioni."
       },
       "agents": {
         "eyebrow": "I sette agenti",
-        "title": "Conosci gli specialisti.",
+        "title": "Sette specialisti. Un loop.",
         "body": "Lead, Risk, Hedging, Settlement, Reporting, Price Monitor, SUI Pool. Ognuno ha un ruolo. Le operazioni grandi richiedono un 2-di-3."
       },
       "zk": {

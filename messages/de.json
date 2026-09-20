@@ -280,30 +280,30 @@
       "members": "Mitglieder"
     },
     "hero": {
-      "headline1": "Ein Vault, der",
-      "headline2": "seine Arbeit zeigt.",
-      "subtitle": "ZKward ist ein autonomer Krypto-Vault. Sieben KI-Agenten führen die Trades aus. Jede Absicherung schließt mit einer kryptografischen Quittung, die Sie selbst prüfen können. Bewusst kleiner Pool. Echtes Geld."
+      "headline1": "Der KI-Vault",
+      "headline2": "mit Beweisen.",
+      "subtitle": "USDC einzahlen. Sieben Agenten diskutieren, dann handeln. Jeder Hedge schließt mit einem kryptografischen Beweis, on-chain verifizierbar."
     },
     "vault": {
-      "poolNav": "Pool-NAV",
-      "sharePrice": "Anteilspreis",
+      "poolNav": "Pool-Wert",
+      "sharePrice": "Pro Anteil",
       "capacity": "Kapazität",
       "capacityOf": "{current} von {cap}"
     },
     "cta": {
       "depositUsdc": "USDC einzahlen",
-      "howItWorks": "So funktioniert es",
+      "howItWorks": "Die Schleife ansehen",
       "viewSource": "Quellcode ansehen",
       "installApp": "App installieren",
       "installIosHint": "Zum Installieren: Tippen Sie in Safari auf das Teilen-Symbol, scrollen Sie nach unten und tippen Sie auf „Zum Home-Bildschirm hinzufügen“."
     },
     "composition": {
-      "eyebrow": "Live-Zusammensetzung",
-      "title": "Wo Ihr USDC gerade ist.",
+      "eyebrow": "Gerade jetzt",
+      "title": "Wo dein USDC lebt.",
       "body": "Die KI balanciert alle 30 Minuten zwischen BTC, ETH und SUI auf Basis aktueller Marktsignale. Ungenutztes USDC gilt als defensive Reserve. Aktualisiert alle 30 s."
     },
     "howItWorks": {
-      "eyebrow": "So funktioniert es",
+      "eyebrow": "Die Schleife",
       "title": "Drei bewegliche Teile. Eine Schleife.",
       "body": "Läuft alle fünf Minuten, den ganzen Tag, ohne Sie. Einmal einzahlen und zusehen.",
       "step1": {
@@ -328,8 +328,8 @@
         "hint": "Erzwungen vom Move-Vertrag. Keine Marketing-Zahl."
       },
       "freshOracle": {
-        "title": "Frischer Oracle",
-        "value": "Strict-Modus",
+        "title": "Frischer Preis",
+        "value": "Max 2 Std.",
         "hint": "Einzahlungen werden abgelehnt, wenn die NAV-Attestierung älter als zwei Stunden ist."
       },
       "withdrawThrottle": {
@@ -349,22 +349,22 @@
       }
     },
     "surfaces": {
-      "eyebrow": "Schauen Sie sich um",
+      "eyebrow": "Sieh dich um",
       "title": "Jede Ecke von ZKward ist öffentlich.",
       "body": "Das Dashboard, die Agenten, die Beweise, das Whitepaper, die Story. Nichts hinter einem Login außer Ihrer eigenen Wallet.",
       "dashboard": {
         "eyebrow": "Dashboard",
-        "title": "Ihr Pool, auf einem Bildschirm.",
+        "title": "Dein Pool, ein Bildschirm.",
         "body": "Saldo, Hedges, Drawdown und der Beweis-Feed. Alle Minute aktualisiert. Was Sie sehen, ist was die Chain sagt."
       },
       "rwa": {
         "eyebrow": "Real-World Assets",
-        "title": "Off-chain-Werte, On-chain-Beweis.",
+        "title": "Off-chain-Werte. On-chain-Beweis.",
         "body": "Verwahrer-Signaturen binden Portfolios an reale Werte, während Bestände privat bleiben. Für Emittenten und Institutionen gebaut."
       },
       "agents": {
         "eyebrow": "Die sieben Agenten",
-        "title": "Lernen Sie die Spezialisten kennen.",
+        "title": "Sieben Spezialisten. Eine Schleife.",
         "body": "Lead, Risk, Hedging, Settlement, Reporting, Price Monitor, SUI Pool. Jeder hat einen Job. Große Trades brauchen 2-von-3."
       },
       "zk": {
