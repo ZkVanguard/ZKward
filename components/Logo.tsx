@@ -18,8 +18,11 @@ export function Logo({ className = '', alt = 'ZKward' }: { className?: string; a
       <span className="relative inline-flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-[10px] border border-white/50 bg-gradient-to-b from-white/60 to-white/25 backdrop-blur-md shadow-[inset_0_1px_0_rgba(255,255,255,0.7),0_1px_2px_rgba(0,0,0,0.08),0_4px_12px_-4px_rgba(83,114,255,0.25)]">
         {/* No `priority` — Next 16 injects <link rel="preload"> for it, then
             renders the <img> after hydration, so the browser flags the
-            preload as unused. The SVG is ~2 KB and lives in the navbar
-            (top of every page); it loads instantly regardless.
+            preload as unused. `loading="eager"` gets the same
+            above-the-fold behavior without the preload tag, silencing the
+            "Images loaded lazily and replaced with placeholders" browser
+            intervention that fires when default lazy loading is above
+            the fold. The SVG is ~2 KB and loads instantly regardless.
 
             32px mark in a 36px tile. Measured SVG bbox uses only 82% of its
             500x500 viewBox, so the visible mark lands at ~26px inside the
@@ -31,6 +34,7 @@ export function Logo({ className = '', alt = 'ZKward' }: { className?: string; a
           alt={alt}
           width={32}
           height={32}
+          loading="eager"
           className="h-8 w-8 shrink-0"
         />
       </span>
