@@ -84,8 +84,6 @@
     "archive",
     "subgraph",
     "packages/hedera-graphql-adapter/examples",
-    "mcp",
-    "test-e2e-ai-pipeline.ts",
-    "test-ai-intelligence.ts"
+    "mcp"
   ]
 }
