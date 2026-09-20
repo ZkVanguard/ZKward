@@ -836,6 +836,18 @@ export class PaperTrader {
       );
     }
 
+    // L6 — record arm outcome for the multi-armed bandit. Reward is the
+    // realized PnL as a fraction of the notional traded, so arms of
+    // different sizes are comparable. The bandit will use this to bias
+    // future entry selection toward historically-profitable (asset, side)
+    // combos.
+    if (pos.notionalUsd > 0) {
+      try {
+        const { recordArmOutcome } = await import('./bandit');
+        await recordArmOutcome(pos.asset, pos.side, result.realizedPnlUsd / pos.notionalUsd, now);
+      } catch { /* non-fatal */ }
+    }
+
     // Passed-in orderId is the source of truth. In legacy mode it may
     // be undefined (older call sites); fall back to KEY_ORDER_ID for
     // back-compat. Concurrent mode always provides the arg.
