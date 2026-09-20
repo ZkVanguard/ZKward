@@ -398,7 +398,7 @@
     "header": {
       "badge": "Sete agentes, ao vivo, apenas leitura",
       "title": "Pergunte ao ZKward.",
-      "subtitle": "Fale com o cofre. Cada resposta lê estado ao vivo das mesmas ferramentas que os agentes usam. Nada ensaiado."
+      "subtitle": "Cripto, mercados, o cofre. Cada resposta corre sobre dados ao vivo — preços, sinais de previsão, estado on-chain. Nada ensaiado."
     },
     "meetTheCrew": "Conheça a equipa",
     "architecture": "Arquitetura",
@@ -407,7 +407,7 @@
       "lead": {
         "name": "Lead",
         "role": "O despachante",
-        "description": "Lê o que perguntou, decide quem deve tratar e cose as peças numa única resposta.",
+        "description": "Lê o que perguntou, escolhe o especialista, costura a resposta numa peça só.",
         "capabilities": {
           "c1": "Análise de intenção em linguagem natural",
           "c2": "Encaminha para o especialista certo",
@@ -418,7 +418,7 @@
       "risk": {
         "name": "Risk",
         "role": "O preocupado",
-        "description": "Observa quanto do pool está em risco, marca posições próximas de liquidação e pontua a saúde geral da carteira.",
+        "description": "Segue a exposição do pool. Marca posições perto de liquidação. Pontua a saúde da carteira.",
         "capabilities": {
           "c1": "Cálculo de Value at Risk (VaR)",
           "c2": "Volatilidade e rácio de Sharpe",
@@ -429,7 +429,7 @@
       "hedging": {
         "name": "Hedging",
         "role": "O corretor de seguros",
-        "description": "Quando o Risk marca algo, o Hedging escolhe a operação contrária que compensa. Tamanho short, alavancagem e ativo com confidence score antes de abrir.",
+        "description": "Escolhe a operação contrária quando o Risk marca algo. Tamanho, alavancagem e ativo recebem cada um um score de confiança antes de abrir.",
         "capabilities": {
           "c1": "Dimensionamento de posições short",
           "c2": "Geração de estratégias de opções",
@@ -439,8 +439,8 @@
       },
       "settlement": {
         "name": "Settlement",
-        "role": "O assinante",
-        "description": "Transforma uma decisão em transação on-chain. Faz batch quando pode para poupar gas, produz a prova ZK e sabe fazer rollback em falha.",
+        "role": "O notário",
+        "description": "Transforma decisões em transações on-chain. Faz batch para poupar gas, produz a prova ZK, reverte em caso de falha.",
         "capabilities": {
           "c1": "Processamento em batch de transações",
           "c2": "Otimização de gas, tipicamente 20 a 40 por cento",
@@ -451,7 +451,7 @@
       "reporting": {
         "name": "Reporting",
         "role": "O contabilista",
-        "description": "Compila o resumo em linguagem clara do que aconteceu. Diário, semanal, mensal e on-demand para o audit trail.",
+        "description": "Escreve o registo em linguagem clara de cada dia, semana e mês. Rasto de auditoria a pedido.",
         "capabilities": {
           "c1": "Relatórios diários, semanais e mensais",
           "c2": "Tracking de performance e P&L",
@@ -462,7 +462,7 @@
       "priceMonitor": {
         "name": "Price Monitor",
         "role": "A vigia",
-        "description": "Observa o ticker de prediction markets a cada 5 minutos em BTC, ETH, SUI e CRO. Quando um sinal inverte, transmite em segundos para os outros reagirem.",
+        "description": "Observa o ticker de previsão a cada 5 min em BTC, ETH, SUI, CRO. Difunde inversões em segundos.",
         "capabilities": {
           "c1": "Vigilância de limiares BTC, ETH, SUI, CRO",
           "c2": "Stream de eventos Polymarket 5 min",
@@ -472,8 +472,8 @@
       },
       "suiPool": {
         "name": "SUI Pool",
-        "role": "O operador do pool",
-        "description": "Opera o pool comunitário USDC de SUI. Lê o sinal fundido, escolhe a alocação entre quatro ativos, rebalanceia via BlueFin e não deixa ninguém contornar os guarda-corpos on-chain.",
+        "role": "O operador",
+        "description": "Opera o pool USDC de SUI. Lê o sinal fundido, escolhe a alocação entre quatro ativos, rebalanceia via BlueFin. Nunca contorna as proteções on-chain.",
         "capabilities": {
           "c1": "Alocação quatro-ativos: BTC, ETH, SUI, CRO",
           "c2": "Rebalanceamento via agregador BlueFin",

@@ -140,7 +140,7 @@
     "header": {
       "badge": "Seven agents, live, read-only",
       "title": "Ask ZKward.",
-      "subtitle": "Talk to the vault. Every answer reads live state from the same tools the agents use. Nothing rehearsed."
+      "subtitle": "Crypto, markets, the vault. Every answer runs on live data — prices, prediction signals, on-chain state. Nothing rehearsed."
     },
     "meetTheCrew": "Meet the crew",
     "architecture": "Architecture",
@@ -149,7 +149,7 @@
       "lead": {
         "name": "Lead",
         "role": "The dispatcher",
-        "description": "Reads what you asked, figures out who should handle it, and stitches the pieces back into one answer.",
+        "description": "Reads what you asked, picks the specialist, stitches the answer back into one reply.",
         "capabilities": {
           "c1": "Natural language intent parsing",
           "c2": "Routes to the right specialist",
@@ -160,7 +160,7 @@
       "risk": {
         "name": "Risk",
         "role": "The worrier",
-        "description": "Watches how much of the pool is at risk, flags positions that are getting close to liquidation, and scores overall portfolio health.",
+        "description": "Tracks pool exposure. Flags positions near liquidation. Scores portfolio health.",
         "capabilities": {
           "c1": "Value at Risk (VaR) calculation",
           "c2": "Volatility and Sharpe ratio",
@@ -171,7 +171,7 @@
       "hedging": {
         "name": "Hedging",
         "role": "The insurance broker",
-        "description": "When Risk flags something, Hedging picks the counter-trade that offsets it. Short size, leverage, and asset all confidence-scored before anything opens.",
+        "description": "Picks the counter-trade when Risk flags something. Size, leverage, and asset each get a confidence score before opening.",
         "capabilities": {
           "c1": "Short position sizing",
           "c2": "Options strategy generation",
@@ -181,8 +181,8 @@
       },
       "settlement": {
         "name": "Settlement",
-        "role": "The signer",
-        "description": "Turns a decision into an on-chain transaction. Batches where it can to save gas, produces the ZK proof, and knows how to unwind if something fails.",
+        "role": "The notary",
+        "description": "Turns decisions into on-chain transactions. Batches to save gas, produces the ZK proof, rolls back on failure.",
         "capabilities": {
           "c1": "Batch transaction processing",
           "c2": "Gas optimization, typically 20 to 40 percent",
@@ -193,7 +193,7 @@
       "reporting": {
         "name": "Reporting",
         "role": "The bookkeeper",
-        "description": "Compiles the plain-English summary of what happened. Runs daily, weekly, monthly, and on-demand for the audit trail.",
+        "description": "Writes the plain-English record of every day, week, and month. On-demand audit trail too.",
         "capabilities": {
           "c1": "Daily, weekly, and monthly reports",
           "c2": "Performance and P&L tracking",
@@ -204,7 +204,7 @@
       "priceMonitor": {
         "name": "Price Monitor",
         "role": "The lookout",
-        "description": "Watches the 5-minute prediction-market ticker across BTC, ETH, SUI, and CRO. When a signal flips, it broadcasts inside seconds so the others can react.",
+        "description": "Watches the 5-minute prediction ticker across BTC, ETH, SUI, and CRO. Broadcasts flips in seconds.",
         "capabilities": {
           "c1": "BTC, ETH, SUI, CRO threshold watch",
           "c2": "Polymarket 5-min event stream",
@@ -214,8 +214,8 @@
       },
       "suiPool": {
         "name": "SUI Pool",
-        "role": "The pool operator",
-        "description": "Runs the SUI USDC community pool. Reads the fused signal, picks the allocation across four assets, rebalances via BlueFin, and never lets anyone bypass the on-chain safety guards.",
+        "role": "The operator",
+        "description": "Runs the SUI USDC pool. Reads the fused signal, picks the four-asset allocation, rebalances via BlueFin. Never bypasses the on-chain guards.",
         "capabilities": {
           "c1": "Four-asset allocation across BTC, ETH, SUI, CRO",
           "c2": "BlueFin aggregator rebalance",

@@ -398,7 +398,7 @@
     "header": {
       "badge": "일곱 에이전트, 라이브, 읽기 전용",
       "title": "ZKward에게 물어보세요.",
-      "subtitle": "볼트와 대화하세요. 모든 답변은 에이전트가 사용하는 동일한 도구에서 라이브 상태를 읽습니다. 미리 짜여진 것은 없습니다."
+      "subtitle": "크립토, 시장, 볼트. 모든 답변은 실시간 데이터로 실행됩니다 — 가격, 예측 신호, 온체인 상태. 리허설 없음."
     },
     "meetTheCrew": "팀 만나기",
     "architecture": "아키텍처",
@@ -407,7 +407,7 @@
       "lead": {
         "name": "Lead",
         "role": "디스패처",
-        "description": "무엇을 요청했는지 읽고, 누가 처리해야 하는지 판단하며, 조각들을 하나의 답으로 꿰맵니다.",
+        "description": "당신의 질문을 읽고, 전문가를 고르고, 답을 한 조각으로 꿰맵니다.",
         "capabilities": {
           "c1": "자연어 의도 파싱",
           "c2": "적절한 전문가로 라우팅",
@@ -418,7 +418,7 @@
       "risk": {
         "name": "Risk",
         "role": "걱정꾼",
-        "description": "풀의 얼마만큼이 위험에 있는지 관찰하고, 청산에 가까워지는 포지션을 표시하며, 포트폴리오 전체 건강도를 채점합니다.",
+        "description": "풀 익스포저를 추적합니다. 청산 근처 포지션을 표시합니다. 포트폴리오 건강도를 채점합니다.",
         "capabilities": {
           "c1": "Value at Risk (VaR) 계산",
           "c2": "변동성과 샤프 비율",
@@ -429,7 +429,7 @@
       "hedging": {
         "name": "Hedging",
         "role": "보험 브로커",
-        "description": "Risk가 무언가를 표시하면 Hedging이 상쇄할 반대 거래를 고릅니다. 숏 규모, 레버리지, 자산 모두 개시 전에 신뢰도 점수화됩니다.",
+        "description": "Risk가 표시하면 상쇄할 반대 거래를 고릅니다. 크기, 레버리지, 자산 모두 개시 전에 신뢰도 점수를 받습니다.",
         "capabilities": {
           "c1": "숏 포지션 사이징",
           "c2": "옵션 전략 생성",
@@ -439,8 +439,8 @@
       },
       "settlement": {
         "name": "Settlement",
-        "role": "서명자",
-        "description": "결정을 온체인 트랜잭션으로 바꿉니다. 가능한 경우 gas를 아끼기 위해 배치화하고, ZK 증명을 생성하며, 실패 시 되돌리는 방법을 압니다.",
+        "role": "공증인",
+        "description": "결정을 온체인 거래로 바꿉니다. gas를 아끼려 배치하고, ZK 증명을 생성하며, 실패 시 롤백합니다.",
         "capabilities": {
           "c1": "배치 트랜잭션 처리",
           "c2": "Gas 최적화, 일반적으로 20에서 40 퍼센트",
@@ -451,7 +451,7 @@
       "reporting": {
         "name": "Reporting",
         "role": "장부 담당",
-        "description": "무슨 일이 있었는지 평이한 문장으로 요약을 만듭니다. 감사 추적을 위해 매일, 매주, 매월, 그리고 요청 시 실행합니다.",
+        "description": "매일, 매주, 매월의 평이한 기록을 작성합니다. 감사 추적은 요청 시에도.",
         "capabilities": {
           "c1": "일간, 주간, 월간 보고서",
           "c2": "성과 및 P&L 추적",
@@ -462,7 +462,7 @@
       "priceMonitor": {
         "name": "Price Monitor",
         "role": "감시자",
-        "description": "BTC, ETH, SUI, CRO의 5분 예측 시장 티커를 관찰합니다. 신호가 뒤집히면 다른 에이전트가 반응할 수 있도록 몇 초 안에 방송합니다.",
+        "description": "BTC, ETH, SUI, CRO의 5분 예측 티커를 감시. 신호가 뒤집히면 초 단위로 방송합니다.",
         "capabilities": {
           "c1": "BTC, ETH, SUI, CRO 임계값 감시",
           "c2": "Polymarket 5분 이벤트 스트림",
@@ -472,8 +472,8 @@
       },
       "suiPool": {
         "name": "SUI Pool",
-        "role": "풀 운영자",
-        "description": "SUI USDC 커뮤니티 풀을 운영합니다. 융합 신호를 읽고 4개 자산 간 배분을 선택하며 BlueFin을 통해 리밸런싱하고, 온체인 안전 장치를 우회하도록 두지 않습니다.",
+        "role": "운영자",
+        "description": "SUI USDC 풀을 운영합니다. 융합 신호를 읽고, 네 자산 배분을 선택하고, BlueFin을 통해 리밸런싱합니다. 온체인 가드는 절대 우회하지 않습니다.",
         "capabilities": {
           "c1": "BTC, ETH, SUI, CRO 4자산 배분",
           "c2": "BlueFin 애그리게이터 리밸런스",
