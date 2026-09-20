@@ -114,6 +114,12 @@ export async function selectCandidate(
     return { ok: false, reason: 'no edge above gates' };
   }
 
+  // L6 — Multi-armed bandit multiplier on the candidate score. Historically
+  // profitable (asset, side) arms get their score boosted, chronic losers
+  // suppressed. Cold-start arms (<3 trades) return neutral 1.0 so the
+  // regular signal picker still gets to explore.
+  const { getArmMultiplier } = await import('./bandit');
+
   // In concurrent mode: rank every candidate by score, iterate.
   // In legacy mode: just try scan.best.
   const rankedCandidates: Array<{ asset: string; prediction: AggregatedPrediction; score: number }> = [];
@@ -122,13 +128,18 @@ export async function selectCandidate(
       if (pred.confidence < PAPER_MIN_CONFIDENCE) continue;
       if (pred.consensus < PAPER_MIN_CONSENSUS) continue;
       if (pred.sources.length < PAPER_MIN_SOURCES) continue;
-      const s = PredictionAggregatorService.scoreOpportunity(pred);
-      if (s <= 0) continue;
-      rankedCandidates.push({ asset: candidateAsset, prediction: pred, score: s });
+      const rawScore = PredictionAggregatorService.scoreOpportunity(pred);
+      if (rawScore <= 0) continue;
+      const side = recommendationToSide(pred.recommendation);
+      const armMult = side ? await getArmMultiplier(candidateAsset, side).catch(() => 1) : 1;
+      rankedCandidates.push({ asset: candidateAsset, prediction: pred, score: rawScore * armMult });
     }
     rankedCandidates.sort((a, b) => b.score - a.score);
   } else {
-    rankedCandidates.push(scan.best);
+    // Legacy path: apply bandit boost to scan.best too so both paths agree.
+    const side = recommendationToSide(scan.best.prediction.recommendation);
+    const armMult = side ? await getArmMultiplier(scan.best.asset, side).catch(() => 1) : 1;
+    rankedCandidates.push({ ...scan.best, score: scan.best.score * armMult });
   }
 
   let lastSkipReason = 'no edge above gates';
