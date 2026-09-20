@@ -362,7 +362,7 @@ export function HederaPoolHedgesProjection({ poolNavUsd }: Props) {
                   <div className="text-right flex-shrink-0">
                     {isHold ? (
                       <>
-                        <div className="text-[11px] text-label-tertiary" title="Signal below min conviction — capital sits in USDC">
+                        <div className="text-[11px] text-label-tertiary" title="Signal below min conviction. Capital sits in USDC">
                           in USDC
                         </div>
                         <div className="text-[10px] text-label-tertiary tabular-nums">
@@ -392,7 +392,7 @@ export function HederaPoolHedgesProjection({ poolNavUsd }: Props) {
             <Info className="w-3 h-3 flex-shrink-0 mt-0.5" />
             <span className="min-w-0 break-words">
               Signal-driven backtest against live oracle marks. Entry price
-              snapshot is anchored to HCS — returns can be independently
+              snapshot is anchored to HCS. Returns can be independently
               verified and are tamper-evident.
             </span>
           </div>

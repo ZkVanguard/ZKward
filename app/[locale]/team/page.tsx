@@ -172,7 +172,7 @@ export default function TeamPage() {
 
           <h3 className="text-title-3 font-semibold pt-4">The rest of the crew</h3>
           <p>
-            Contributors come and go — most are open-source PRs from people who tried
+            Contributors come and go. Most are open-source PRs from people who tried
             the pool, spotted a bug, and sent a fix. Every merged PR is credited in
             the commit history. If you want to help, the codebase is public and the
             issues list is honest.

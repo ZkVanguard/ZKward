@@ -134,7 +134,7 @@ interface GraphResponse {
 }
 
 /**
- * Canonical JSON stringifier — must byte-match the adapter's server-side
+ * Canonical JSON stringifier. Must byte-match the adapter's server-side
  * implementation in packages/hedera-graphql-adapter/src/attestation.ts.
  * Sorts object keys ascending; arrays preserve order; leaves are JSON.stringify.
  */
@@ -237,7 +237,7 @@ export function MultiChainVaultsPanel() {
         </span>
         <label
           className="ml-auto inline-flex items-center gap-1.5 text-[10px] cursor-pointer select-none"
-          title="Optional add-on — anchors this specific response on Hedera Consensus Service (~$0.0001, ~2s finality). Useful for AI agents that need a receipt of what they queried; unnecessary for browsing."
+          title="Optional add-on. Anchors this specific response on Hedera Consensus Service (~$0.0001, ~2s finality). Useful for AI agents that need a receipt of what they queried; unnecessary for browsing."
         >
           <input
             type="checkbox"
@@ -251,7 +251,7 @@ export function MultiChainVaultsPanel() {
         <button
           onClick={onCopyQuery}
           className="inline-flex items-center gap-1 text-[10px] px-2 py-1 rounded-md border border-gray-200 dark:border-gray-700 hover:bg-fill-quaternary transition"
-          title="Copy the GraphQL query — paste into either playground"
+          title="Copy the GraphQL query. Paste into either playground"
         >
           {copied ? <Check className="w-3 h-3 text-[#34C759]" /> : <Copy className="w-3 h-3" />}
           <span>{copied ? 'Copied' : 'Copy query'}</span>
@@ -280,7 +280,7 @@ export function MultiChainVaultsPanel() {
           endpointHref={STUDIO_PLAYGROUND_URL}
           badge="Sepolia · The Graph"
           badgeColor="#00A79F"
-          winTag="Standardized subgraph — one query, portable to any Graph-indexed chain"
+          winTag="Standardized subgraph. One query, portable to any Graph-indexed chain"
           data={studioQ.data}
           isLoading={studioQ.isLoading}
           isError={studioQ.isError}
@@ -290,7 +290,7 @@ export function MultiChainVaultsPanel() {
           endpoint={HEDERA_URL}
           badge="Hedera · Mirror Node"
           badgeColor="#6F4CFF"
-          winTag="Any Hedera dApp serves this schema from Mirror Node — no graph-node needed"
+          winTag="Any Hedera dApp serves this schema from Mirror Node. No graph-node needed"
           data={hederaQ.data}
           isLoading={hederaQ.isLoading}
           isError={hederaQ.isError}
@@ -306,7 +306,7 @@ export function MultiChainVaultsPanel() {
   );
 }
 
-// ─── Signals strip — v0.3 adapter signals resolver in a user-visible flow ─
+// ─── Signals strip. V0.3 adapter signals resolver in a user-visible flow ─
 
 interface SignalRow {
   id: string;
@@ -355,7 +355,7 @@ function SignalsStrip() {
         <Activity className="w-3 h-3 text-[#6F4CFF]" />
         <span className="text-[11px] font-semibold text-label-primary">Recent AI signals</span>
         <span className="text-[10px] text-label-tertiary">
-          reconstructed from HCS via <span className="font-mono">signals()</span> GraphQL — every row anchored on-chain
+          reconstructed from HCS via <span className="font-mono">signals()</span> GraphQL. Every row anchored on-chain
         </span>
       </div>
       <div className="flex flex-wrap gap-1.5 pb-1">
@@ -373,7 +373,7 @@ function SignalsStrip() {
               <span className="font-semibold" style={{ color: c }}>{s.direction}</span>
               <span className="tabular-nums text-label-secondary">{s.confidence}%</span>
               {s.hcsSeq && (
-                <span className="text-label-tertiary tabular-nums" title="HCS sequence number — verifiable on HashScan">
+                <span className="text-label-tertiary tabular-nums" title="HCS sequence number. Verifiable on HashScan">
                   #{s.hcsSeq}
                 </span>
               )}
@@ -502,7 +502,7 @@ function BackendCard({ label, endpoint, endpointHref, badge, badgeColor, winTag,
                       )}
                       {/* Client-side verification: recompute sha256(data) in the
                           browser, cross-check against the anchored hash. The
-                          dashboard doesn't take the server's word — it checks. */}
+                          dashboard doesn't take the server's word. It checks. */}
                       {hashMatch !== undefined && (
                         <div className="mt-1 flex items-center gap-1 text-[10px] font-semibold">
                           {hashMatch ? (
@@ -511,7 +511,7 @@ function BackendCard({ label, endpoint, endpointHref, badge, badgeColor, winTag,
                               <span className="text-green-700 dark:text-green-500">Hash verified byte-match on this browser</span>
                             </>
                           ) : (
-                            <span className="text-red-700 dark:text-red-500">✗ Local hash mismatch — response was mutated in flight</span>
+                            <span className="text-red-700 dark:text-red-500">✗ Local hash mismatch. Response was mutated in flight</span>
                           )}
                         </div>
                       )}
@@ -527,7 +527,7 @@ function BackendCard({ label, endpoint, endpointHref, badge, badgeColor, winTag,
             </div>
           )}
 
-          {/* Pool row — empty state on Studio reads as positive proof
+          {/* Pool row. Empty state on Studio reads as positive proof
               (schema deployed, indexer healthy, awaiting first deposit)
               rather than "broken". Hedera side always has data. */}
           {pools.length === 0 ? (

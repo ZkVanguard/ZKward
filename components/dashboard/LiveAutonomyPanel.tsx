@@ -73,8 +73,8 @@ function SignalPill({
   asset, side, confidence,
 }: { asset: string; side: 'LONG' | 'SHORT' | null; confidence: number }) {
   const Icon = side === 'LONG' ? TrendingUp : side === 'SHORT' ? TrendingDown : Minus;
-  // Icon uses ios-* (3:1 minimum for non-text — passes); text uses darker
-  // green-700 / red-700 (4.5:1 required for 12px small caption — ios-green
+  // Icon uses ios-* (3:1 minimum for non-text. Passes); text uses darker
+  // green-700 / red-700 (4.5:1 required for 12px small caption. Ios-green
   // is 1.85:1 and ios-red is 3.76:1, both fail).
   const iconTone =
     side === 'LONG' ? 'text-ios-green' :
@@ -116,7 +116,7 @@ export const LiveAutonomyPanel = memo(function LiveAutonomyPanel() {
       <div className="p-6 sm:p-8 text-center">
         <AlertCircle className="w-6 h-6 text-label-tertiary mx-auto mb-2" />
         <p className="text-caption-1 text-label-tertiary">
-          Autonomy status unavailable — check again in a moment.
+          Autonomy status unavailable. Check again in a moment.
         </p>
       </div>
     );
@@ -186,7 +186,7 @@ export const LiveAutonomyPanel = memo(function LiveAutonomyPanel() {
             ))}
             {Object.keys(signals).length === 0 && (
               <p className="p-4 text-caption-1 text-label-tertiary">
-                No live signals — aggregator is warming up.
+                No live signals. Aggregator is warming up.
               </p>
             )}
           </div>
@@ -259,7 +259,7 @@ function KpiTile({
   hint?: string;
 }) {
   // 11px uppercase caption label: 4.5:1 required. ios-blue (#0069D9,
-  // 5.22:1) is safe; the others aren't at small size — swap for darker
+  // 5.22:1) is safe; the others aren't at small size. Swap for darker
   // Tailwind tones. Actual big-value number renders text-label-primary
   // (17.4:1 on white), so tone only styles the tiny caption chip.
   const toneClass =
@@ -282,7 +282,7 @@ function AlarmChip({ tone, text }: { tone: 'info' | 'warn' | 'bad'; text: string
   // Chip text is 12px caption (small text → 4.5:1). Keep the softer
   // ios-*/10 backgrounds but pair with dark Tailwind orange/red so text
   // is readable. The pill dot uses bg-current, so it inherits the same
-  // dark tone — still visually red-on-red-tint, just accessible.
+  // dark tone. Still visually red-on-red-tint, just accessible.
   const cls =
     tone === 'warn' ? 'bg-ios-orange/10 text-orange-800 dark:text-orange-300 border-ios-orange/20' :
     tone === 'bad' ? 'bg-ios-red/10 text-red-800 dark:text-red-300 border-ios-red/20' :

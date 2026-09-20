@@ -252,21 +252,29 @@ export function AgentLiveChat() {
   }
 
   return (
-    <div className="bg-system-bg-primary rounded-ios-xl border border-separator-opaque/40 shadow-ios-1 overflow-hidden flex flex-col h-[min(80vh,720px)] min-h-[420px]">
-      <div className="border-b border-separator-opaque/40 px-4 sm:px-5 py-3 sm:py-4 flex-shrink-0">
+    // Responsive height: 65vh on phones (leaves room for on-screen
+    // keyboard + navbar), scales up to 720px on desktop. Also honors
+    // the small-viewport-height (svh) unit where supported so mobile
+    // browsers with URL bar collapse behavior don't cause layout jump.
+    <div
+      className="bg-system-bg-primary rounded-ios-xl border border-separator-opaque/40 shadow-ios-1 overflow-hidden flex flex-col
+                 h-[min(65svh,560px)] sm:h-[min(75vh,680px)] lg:h-[min(80vh,720px)]
+                 min-h-[360px] w-full max-w-full"
+    >
+      <div className="border-b border-separator-opaque/40 px-3 sm:px-5 py-2.5 sm:py-3.5 flex-shrink-0">
         <div className="flex items-center gap-2">
-          <Bot className="w-4 h-4 text-ios-blue" />
-          <h3 className="text-headline font-semibold text-label-primary">Ask the status oracle</h3>
-          <span className="ml-auto text-caption-2 text-label-tertiary hidden sm:inline">
-            read-only · 6 tools
+          <Bot className="w-4 h-4 text-ios-blue flex-shrink-0" />
+          <h3 className="text-callout sm:text-headline font-semibold text-label-primary truncate">Ask the vault</h3>
+          <span className="ml-auto text-caption-2 text-label-tertiary hidden sm:inline flex-shrink-0">
+            Read-only, six tools
           </span>
         </div>
-        <p className="text-footnote text-label-tertiary mt-1">
-          Grounds every answer in live DB state.
+        <p className="text-caption-1 sm:text-footnote text-label-tertiary mt-1">
+          Every answer reads live state.
         </p>
       </div>
 
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-3 sm:px-5 py-4 space-y-4">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto overflow-x-hidden px-3 sm:px-5 py-3 sm:py-4 space-y-3 sm:space-y-4">
         {messages.length === 0 && (
           <div className="space-y-3">
             <p className="text-callout text-label-tertiary">Try one of these:</p>
@@ -361,7 +369,7 @@ export function AgentLiveChat() {
           e.preventDefault();
           send(input);
         }}
-        className="border-t border-separator-opaque/40 px-3 sm:px-5 py-3 flex gap-2 items-end flex-shrink-0 bg-system-bg-primary"
+        className="border-t border-separator-opaque/40 px-2.5 sm:px-5 py-2.5 sm:py-3 flex gap-2 items-end flex-shrink-0 bg-system-bg-primary pb-safe"
       >
         <textarea
           ref={textareaRef}
@@ -374,14 +382,18 @@ export function AgentLiveChat() {
             }
           }}
           rows={1}
-          placeholder="Ask about hedges, treasury, signals... (Enter to send, Shift+Enter for newline)"
+          placeholder="Ask about hedges, signals, PnL..."
           disabled={pending || ready !== true}
-          className="flex-1 px-3 py-2 rounded-ios bg-system-bg-secondary text-label-primary placeholder-label-tertiary border border-separator-opaque/40 focus:border-ios-blue focus:outline-none text-body disabled:opacity-50 resize-none max-h-[180px] min-h-[38px] leading-snug"
+          // Use 16px base font-size on mobile so iOS Safari doesn't
+          // auto-zoom the viewport when the textarea focuses. Anything
+          // below 16px triggers the zoom, breaking layout on the
+          // return-to-normal.
+          className="flex-1 min-w-0 px-3 py-2 rounded-ios bg-system-bg-secondary text-label-primary placeholder-label-tertiary border border-separator-opaque/40 focus:border-ios-blue focus:outline-none text-[16px] sm:text-body disabled:opacity-50 resize-none max-h-[140px] sm:max-h-[180px] min-h-[42px] leading-snug"
         />
         <button
           type="submit"
           disabled={pending || !input.trim() || ready !== true}
-          className="px-3 sm:px-4 py-2 rounded-ios bg-ios-blue text-white font-medium text-callout disabled:opacity-40 disabled:cursor-not-allowed hover:bg-ios-blue/90 transition-colors flex items-center gap-2 flex-shrink-0 min-h-[38px]"
+          className="px-3 sm:px-4 py-2 rounded-ios bg-ios-blue text-white font-medium text-callout disabled:opacity-40 disabled:cursor-not-allowed hover:bg-ios-blue/90 transition-colors flex items-center gap-1.5 sm:gap-2 flex-shrink-0 min-h-[42px]"
           aria-label="Send"
         >
           {pending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}

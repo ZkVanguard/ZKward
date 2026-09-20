@@ -80,7 +80,7 @@ export default function StoryPage() {
             betting on in prediction markets (like Polymarket) and lines up trades on
             crypto based on that. When it makes a trade, it also produces a little
             cryptographic receipt that anyone can check. The receipt proves the trade
-            followed the rules — without revealing your position.
+            followed the rules. Without revealing your position.
           </p>
           <p>
             Think of it as an autopilot with a black box flight recorder. Except the
@@ -96,7 +96,7 @@ export default function StoryPage() {
           <p>
             Along the way we won five hackathons, contributed to Tether&rsquo;s wallet
             toolkit, and shipped on a handful of blockchains. Most of the test
-            deployments lasted about an afternoon. <strong>SUI</strong> stuck — it&rsquo;s
+            deployments lasted about an afternoon. <strong>SUI</strong> stuck. It&rsquo;s
             fast, cheap, and doesn&rsquo;t break when you look at it wrong. That&rsquo;s
             where the money lives now.
           </p>
@@ -104,7 +104,7 @@ export default function StoryPage() {
           <h2 className="text-title-2 font-semibold pt-3">What we ship today</h2>
           <ul className="list-disc list-outside pl-5 space-y-2">
             <li>
-              A real pool on SUI mainnet. Small on purpose — the contract itself caps
+              A real pool on SUI mainnet. Small on purpose. The contract itself caps
               deposits at $10,000. We wanted to prove it works before scaling. Slow is
               the point.
             </li>

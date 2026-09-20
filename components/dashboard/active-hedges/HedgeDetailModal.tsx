@@ -141,7 +141,7 @@ export const HedgeDetailModal = memo(function HedgeDetailModal({
                     </div>
                     <div className="flex items-center gap-1.5 text-[10px] text-[#86868b]">
                       <Lock className="w-3 h-3 text-[#5856D6]" />
-                      <span>Funds held in HedgeExecutor contract — returned to your wallet on close</span>
+                      <span>Funds held in HedgeExecutor contract. Returned to your wallet on close</span>
                     </div>
                   </div>
                 </div>

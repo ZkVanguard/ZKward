@@ -304,9 +304,9 @@ export function EnhancedChat({ address, onActionTrigger, hideHeader = false }: E
       const msg = error instanceof Error ? error.message : '';
       let content = 'Sorry, I encountered an error. Please try again.';
       if (msg.includes('User rejected') || msg.includes('rejected the request')) {
-        content = 'Sign-in declined. I need a wallet signature to talk to the AI backend — try again and approve when prompted.';
+        content = 'Sign-in declined. I need a wallet signature to talk to the AI backend. Try again and approve when prompted.';
       } else if (msg.includes('Wallet not connected')) {
-        content = 'Please connect your wallet — the AI backend needs it to authenticate your session.';
+        content = 'Please connect your wallet. The AI backend needs it to authenticate your session.';
       }
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),

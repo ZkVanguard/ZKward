@@ -33,7 +33,7 @@ export const AllocationChart = memo(function AllocationChart({ allocations, asse
         </span>
       </div>
       <p className="pool-inner-subheading text-[11px] sm:text-xs text-gray-500 dark:text-gray-400 mb-3 leading-relaxed">
-        Live on-chain composition. AI target allocation may differ — see AI Insights.
+        Live on-chain composition. AI target allocation may differ. See AI Insights.
       </p>
 
       {activeAllocations.length > 0 ? (

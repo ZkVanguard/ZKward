@@ -95,7 +95,7 @@ export const ActiveHedges = memo(function ActiveHedges({ address, compact = fals
     }
   }, [walletClient, getEIP712Domain]);
 
-  // EIP-712 signature helper for OPENING hedges — proves user authorized this hedge
+  // EIP-712 signature helper for OPENING hedges. Proves user authorized this hedge
   const signOpenHedge = useCallback(async (asset: string, side: string, collateral: number, leverage: number): Promise<{ signature: string; timestamp: number } | null> => {
     try {
       if (!walletClient) {
@@ -327,7 +327,7 @@ export const ActiveHedges = memo(function ActiveHedges({ address, compact = fals
     // action.size is in ASSET units (e.g. 0.125 BTC), but the gasless endpoint
     // expects collateralAmount in USDC. Convert: collateral = size * price / leverage.
     //
-    // Try the shared useLivePrices React Query cache first — Pool tab
+    // Try the shared useLivePrices React Query cache first. Pool tab
     // pre-warms it with BTC/ETH/SUI on mount, so we usually hit for free.
     // Falls back to a fresh imperative fetch if the asset isn't in cache.
     let currentPrice = 1000;
@@ -1084,7 +1084,7 @@ export const ActiveHedges = memo(function ActiveHedges({ address, compact = fals
                                   target="_blank"
                                   rel="noopener noreferrer"
                                   className="flex items-center gap-0.5 text-[#007AFF] hover:underline"
-                                  title="ZK Privacy Address — identity obfuscation via PDA derivation"
+                                  title="ZK Privacy Address. Identity obfuscation via PDA derivation"
                                 >
                                   <span className="font-mono">{hedge.proxyWallet.slice(0, 10)}...{hedge.proxyWallet.slice(-6)}</span>
                                   <ExternalLink className="w-2.5 h-2.5" />
@@ -1166,7 +1166,7 @@ export const ActiveHedges = memo(function ActiveHedges({ address, compact = fals
                             ) : (
                               <span className="font-mono text-[11px] text-[#86868b]">Deriving...</span>
                             )}
-                            <div className="text-[9px] text-[#86868b] mt-0.5">Privacy ID — not a fund holder</div>
+                            <div className="text-[9px] text-[#86868b] mt-0.5">Privacy ID. Not a fund holder</div>
                           </div>
                           <div className="p-2.5 bg-[#5856D6]/5 rounded-lg border border-[#5856D6]/10">
                             <div className="text-[9px] font-bold text-[#5856D6] uppercase tracking-wider mb-1">ZK Verification</div>

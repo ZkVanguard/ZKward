@@ -152,7 +152,7 @@ export function HederaRecentActivity() {
 
       {rows.length === 0 ? (
         <div className="text-[12px] text-label-tertiary py-6 text-center">
-          No activity yet — first deposit will appear here in seconds.
+          No activity yet. First deposit will appear here in seconds.
         </div>
       ) : (
         <div className="space-y-1.5">

@@ -52,7 +52,7 @@ export function WhitepaperClient({ frontmatter, body }: Props) {
     if (typeof window !== 'undefined') window.print();
   }, []);
 
-  // TOC: pull every H2 out of the body. No third-party plugin needed — the
+  // TOC: pull every H2 out of the body. No third-party plugin needed. The
   // markdown structure is stable enough that a one-line regex is enough.
   const toc = useMemo(() => {
     const headings: { text: string; id: string }[] = [];

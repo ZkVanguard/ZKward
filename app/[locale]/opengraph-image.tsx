@@ -6,7 +6,7 @@ import { ImageResponse } from 'next/og';
 // runtime — no size cap, and OG images cache aggressively so first-hit
 // latency is amortised.
 export const runtime = 'nodejs';
-export const alt = 'ZKward — Autonomous SUI vault, ZK-STARK attested';
+export const alt = 'ZKward. Autonomous SUI vault, ZK-STARK attested';
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
 

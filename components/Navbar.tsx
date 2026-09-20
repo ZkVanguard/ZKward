@@ -64,14 +64,14 @@ export const Navbar = memo(function Navbar() {
     };
   }, []);
 
-  // Focused nav — one product (SUI vault), one narrative (agents + ZK + RWA), one document (whitepaper).
-  // Pricing/Developers/Simulator/Docs are still reachable by direct URL but not linked from the top nav.
+  // Five links, no more. Home is implicit via the logo, so it earns no
+  // slot. ZK / RWA / Simulator stay reachable by URL and from footer,
+  // but they compete with the primary five and lose. Vault is the
+  // money page, Agents is the tech, Whitepaper is the receipt,
+  // Story is the human hook, FAQ closes the loop.
   const navLinks = [
-    { href: '/', label: t('home') },
     { href: '/dashboard', label: t('vault') },
     { href: '/agents', label: t('agents') },
-    { href: '/zk', label: t('zk') },
-    { href: '/rwa', label: t('rwa') },
     { href: '/whitepaper', label: t('whitepaper') },
     { href: '/story', label: t('story') },
     { href: '/faq', label: 'FAQ' },

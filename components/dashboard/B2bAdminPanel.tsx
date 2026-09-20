@@ -73,7 +73,7 @@ export function B2bAdminPanel() {
     fetchPolicy().then(setPolicy).catch(() => {});
   }, []);
 
-  // Poll snapshot every 3s while an actionId is active — shows the
+  // Poll snapshot every 3s while an actionId is active. Shows the
   // second-approver click in near-realtime.
   useEffect(() => {
     if (!actionId) return;
@@ -193,7 +193,7 @@ export function B2bAdminPanel() {
         </div>
         <div className="mt-3 text-[11px] text-label-tertiary leading-relaxed">
           Signed in as <span className="font-medium text-label-secondary">{currentUserEmail ?? user?.id.slice(0, 24)}</span>.
-          Only allowlisted addresses can approve — non-admins get 403 from the API.
+          Only allowlisted addresses can approve. Non-admins get 403 from the API.
         </div>
       </div>
 

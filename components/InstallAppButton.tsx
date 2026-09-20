@@ -17,7 +17,7 @@ interface BeforeInstallPromptEvent extends Event {
  * nothing when running in standalone mode (already installed). Tapping the
  * button surfaces the OS install dialog.
  *
- * iOS Safari does NOT fire beforeinstallprompt — we show a hint there instead
+ * iOS Safari does NOT fire beforeinstallprompt. We show a hint there instead
  * telling the user to use the share-sheet "Add to Home Screen" flow.
  */
 export function InstallAppButton({ className = '' }: { className?: string }) {

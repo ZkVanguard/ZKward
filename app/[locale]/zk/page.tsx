@@ -257,9 +257,9 @@ export default function ZkPage() {
                 <ComparisonRow
                   label="Proof size"
                   values={[
-                    { text: '10–50 KB', good: null },
+                    { text: '10 to 50 KB', good: null },
                     { text: '~200 B', good: true },
-                    { text: '1–2 KB', good: null },
+                    { text: '1 to 2 KB', good: null },
                   ]}
                 />
                 <ComparisonRow

@@ -25,7 +25,7 @@ function getService() {
 
 // ─── Memoized sub-components ─────────────────────────────────────────
 
-/** Static confidence bar — only re-renders when level or color changes */
+/** Static confidence bar. Only re-renders when level or color changes */
 const ConfidenceMeter = memo(function ConfidenceMeter({
   level, isUp,
 }: { level: number; isUp: boolean }) {
@@ -45,7 +45,7 @@ const ConfidenceMeter = memo(function ConfidenceMeter({
   );
 });
 
-/** Probability bar — amplified visual so 49-51% shifts are clearly visible.
+/** Probability bar. Amplified visual so 49-51% shifts are clearly visible.
  *  The bar "zooms" the 40-60% range to fill the full width,
  *  so a real 51% vs 49% renders as 55% vs 45% visually.
  *  Delta arrows show change since previous fetch. */
@@ -85,7 +85,7 @@ const ProbabilityBar = memo(function ProbabilityBar({
   );
 });
 
-/** Expandable details panel — conditionally rendered, isolated rendering */
+/** Expandable details panel. Conditionally rendered, isolated rendering */
 const SignalDetails = memo(function SignalDetails({
   signal, history, isUp, onQuickHedge: _onQuickHedge,
 }: {
@@ -428,7 +428,7 @@ function FiveMinSignalWidgetInner({ onQuickHedge }: FiveMinSignalWidgetProps) {
         </div>
       )}
 
-      {/* Expandable toggle — enlarged tap area on mobile */}
+      {/* Expandable toggle. Enlarged tap area on mobile */}
       <button
         onClick={() => setExpanded(prev => !prev)}
         className="w-full h-11 sm:h-auto px-4 py-2 flex items-center justify-center text-[11px] sm:text-xs text-gray-400 hover:text-gray-600 active:bg-gray-50 transition-colors border-t border-gray-100"

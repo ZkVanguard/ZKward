@@ -152,11 +152,11 @@ export default async function LocaleLayout(
     notFound();
   }
 
-  // JSON-LD structured data — Organization + WebSite. Emitted on every
+  // JSON-LD structured data. Organization + WebSite. Emitted on every
   // page so Google can build a knowledge-panel + sitelinks searchbox.
   //
   // Logo is a 512×512 PNG served by app/api/icon.tsx. Google Search Console
-  // requires raster (PNG/JPG/WebP) for the Organization logo — SVG is
+  // requires raster (PNG/JPG/WebP) for the Organization logo. SVG is
   // accepted by some crawlers but not shown in the knowledge panel.
   //
   // `alternateName` covers legacy casings the domain has been mentioned

@@ -89,7 +89,7 @@ export const RiskMetrics = memo(function RiskMetrics({ address }: { address?: st
     }
   };
 
-  // Empty state — replaces the 4 tinted "--" placeholder cards that
+  // Empty state. Replaces the 4 tinted "--" placeholder cards that
   // read as broken widgets. Single clean message instead. Same
   // pattern the homepage uses for empty data (skeleton or absence,
   // never fake numbers).

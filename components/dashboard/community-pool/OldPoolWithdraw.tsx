@@ -52,7 +52,7 @@ export function OldPoolWithdraw() {
 
       const balance = Number(fields.balance || 0) / 1e6;
       // Note: total_hedged_value is stale (UpgradeCap lost, can't reset on-chain).
-      // It does NOT affect withdrawals — calculate_assets_for_shares uses balance only.
+      // It does NOT affect withdrawals. Calculate_assets_for_shares uses balance only.
       const hedged = 0;
       const totalShares = Number(fields.total_shares || 0) / 1e6;
 

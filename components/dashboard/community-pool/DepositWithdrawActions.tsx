@@ -201,7 +201,7 @@ export const DepositWithdrawActions = memo(function DepositWithdrawActions({
             </div>
           )}
 
-          {/* SUI Deposit/Withdraw Buttons — 44px tap targets on mobile */}
+          {/* SUI Deposit/Withdraw Buttons. 44px tap targets on mobile */}
           <div className="flex gap-2 sm:gap-3">
             <button
               onClick={() => { onShowDeposit(!showDeposit); }}

@@ -30,7 +30,7 @@ const TERMS: Array<{ term: string; slug: string; definition: string }> = [
     term: 'ZK-STARK',
     slug: 'zk-stark',
     definition:
-      'A zero-knowledge proof system that lets one party prove a computation was performed correctly without revealing the private inputs. "Scalable Transparent ARgument of Knowledge." ZKward uses STARKs to attest every hedge decision on-chain — the proof is public, the position details are private.',
+      'A zero-knowledge proof system that lets one party prove a computation was performed correctly without revealing the private inputs. "Scalable Transparent ARgument of Knowledge." ZKward uses STARKs to attest every hedge decision on-chain. The proof is public, the position details are private.',
   },
   {
     term: 'Goldilocks field',
@@ -42,19 +42,19 @@ const TERMS: Array<{ term: string; slug: string; definition: string }> = [
     term: 'FRI (Fast Reed-Solomon IOP of Proximity)',
     slug: 'fri',
     definition:
-      "The polynomial commitment scheme inside a STARK. Given a claim that a polynomial has low degree, FRI produces a short proof that anyone can verify in O(log n) time. ZKward uses 80 FRI queries plus 20 bits of proof-of-work grinding, giving 180-bit soundness. Cited: Ben-Sasson–Bentov–Horesh–Riabzev, ePrint 2018/828.",
+      "The polynomial commitment scheme inside a STARK. Given a claim that a polynomial has low degree, FRI produces a short proof that anyone can verify in O(log n) time. ZKward uses 80 FRI queries plus 20 bits of proof-of-work grinding, giving 180-bit soundness. Cited: Ben-Sasson, Bentov, Horesh, Riabzev, ePrint 2018/828.",
   },
   {
     term: 'Prediction market',
     slug: 'prediction-market',
     definition:
-      'A market where people bet on the outcome of a future event. The market price reflects the crowd\'s probability estimate. Polymarket, Kalshi, and Manifold are the main crypto-adjacent venues. Polymarket processed $20B/month in early 2026 — the signal is finally liquid enough to trade at retail size.',
+      'A market where people bet on the outcome of a future event. The market price reflects the crowd\'s probability estimate. Polymarket, Kalshi, and Manifold are the main crypto-adjacent venues. Polymarket processed $20B/month in early 2026. The signal is finally liquid enough to trade at retail size.',
   },
   {
     term: 'Hedge',
     slug: 'hedge',
     definition:
-      'A trade designed to offset the risk of another position. If ZKward holds $10K of BTC spot and a signal says "BTC drops soon," the hedge opens a SHORT BTC perpetual — losses on spot are cancelled by gains on the short. ZKward\'s hedge ratio is 50% base, scaled up to 100% for very small pools where the perp minimums matter more.',
+      'A trade designed to offset the risk of another position. If ZKward holds $10K of BTC spot and a signal says "BTC drops soon," the hedge opens a SHORT BTC perpetual. Losses on spot are cancelled by gains on the short. ZKward\'s hedge ratio is 50% base, scaled up to 100% for very small pools where the perp minimums matter more.',
   },
   {
     term: 'Perpetual (perp)',
@@ -78,13 +78,13 @@ const TERMS: Array<{ term: string; slug: string; definition: string }> = [
     term: 'Post-quantum',
     slug: 'post-quantum',
     definition:
-      'A cryptographic system that a large quantum computer cannot break. RSA and ECDSA are NOT post-quantum — Shor\'s algorithm breaks both in polynomial time on a sufficiently large quantum machine. STARKs are post-quantum because they use only hash functions (SHA-256) and prime-field arithmetic, both quantum-resistant.',
+      'A cryptographic system that a large quantum computer cannot break. RSA and ECDSA are NOT post-quantum. Shor\'s algorithm breaks both in polynomial time on a sufficiently large quantum machine. STARKs are post-quantum because they use only hash functions (SHA-256) and prime-field arithmetic, both quantum-resistant.',
   },
   {
     term: 'Non-custodial',
     slug: 'non-custodial',
     definition:
-      'A design where the user, not the protocol operator, controls the private keys that authorize withdrawals. In ZKward, the pool is a Move object owned by the contract; withdrawal is permissionless — you sign a transaction and the funds return to your wallet without operator approval.',
+      'A design where the user, not the protocol operator, controls the private keys that authorize withdrawals. In ZKward, the pool is a Move object owned by the contract; withdrawal is permissionless. You sign a transaction and the funds return to your wallet without operator approval.',
   },
   {
     term: 'AdminCap / FeeManagerCap / OracleCap',
@@ -96,13 +96,13 @@ const TERMS: Array<{ term: string; slug: string; definition: string }> = [
     term: 'TVL (Total Value Locked)',
     slug: 'tvl',
     definition:
-      'The total value of assets deposited in a DeFi protocol. ZKward\'s TVL is capped at $10,000 by the Move contract during the operational-proof phase. Cap-lifting requires a governance action — code cannot bypass the on-chain limit.',
+      'The total value of assets deposited in a DeFi protocol. ZKward\'s TVL is capped at $10,000 by the Move contract during the operational-proof phase. Cap-lifting requires a governance action. Code cannot bypass the on-chain limit.',
   },
   {
     term: 'Drawdown',
     slug: 'drawdown',
     definition:
-      "The peak-to-trough decline of a portfolio's value. If the pool hit $9,000 and fell to $7,650, drawdown is 15%. ZKward's autonomy defense system triggers at specific drawdown thresholds — profit-lock clamping starts at 5%, zero-risk mode at 20%.",
+      "The peak-to-trough decline of a portfolio's value. If the pool hit $9,000 and fell to $7,650, drawdown is 15%. ZKward's autonomy defense system triggers at specific drawdown thresholds. Profit-lock clamping starts at 5%, zero-risk mode at 20%.",
   },
   {
     term: 'MSafe multisig',
@@ -114,7 +114,7 @@ const TERMS: Array<{ term: string; slug: string; definition: string }> = [
     term: 'Cron (scheduled job)',
     slug: 'cron',
     definition:
-      'A scheduled task that runs at fixed intervals. ZKward runs 14 crons — most every 5 minutes — for signal aggregation, hedge execution, reconciliation, and health checks. Every cron uses claim-based idempotency: two invocations at the same time cannot double-execute.',
+      'A scheduled task that runs at fixed intervals. ZKward runs 14 crons. Most every 5 minutes. For signal aggregation, hedge execution, reconciliation, and health checks. Every cron uses claim-based idempotency: two invocations at the same time cannot double-execute.',
   },
   {
     term: 'Signal fusion',
@@ -127,7 +127,7 @@ const TERMS: Array<{ term: string; slug: string; definition: string }> = [
 export default function GlossaryPage() {
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://www.zkward.com';
 
-  // DefinedTermSet — Schema.org's structured type for glossaries. Google
+  // DefinedTermSet. Schema.org's structured type for glossaries. Google
   // uses this to eligible the page for the "definition" rich result and
   // to bind each term to a concept it can surface elsewhere.
   const glossaryLd = {

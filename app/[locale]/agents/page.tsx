@@ -21,88 +21,88 @@ interface AgentSpec {
 const AGENTS: AgentSpec[] = [
   {
     id: 'lead',
-    name: 'Lead Agent',
+    name: 'Lead',
     icon: Brain,
-    role: 'Orchestrator',
-    description: 'Central coordinator that parses user intent, delegates tasks to specialized agents, and aggregates results.',
+    role: 'The dispatcher',
+    description: 'Reads what you asked, figures out who should handle it, and stitches the pieces back into one answer.',
     capabilities: [
       'Natural language intent parsing',
-      'Task delegation and routing',
-      'Result aggregation',
-      'Inter-agent coordination',
+      'Routes to the right specialist',
+      'Merges results into one reply',
+      'Coordinates multi-agent calls',
     ],
     implementation: 'agents/core/LeadAgent.ts',
   },
   {
     id: 'risk',
-    name: 'Risk Agent',
+    name: 'Risk',
     icon: TrendingUp,
-    role: 'Risk Analyzer',
-    description: 'Portfolio risk analysis: VaR, volatility, exposure, health scoring.',
+    role: 'The worrier',
+    description: 'Watches how much of the pool is at risk, flags positions that are getting close to liquidation, and scores overall portfolio health.',
     capabilities: [
       'Value at Risk (VaR) calculation',
-      'Volatility + Sharpe',
-      'Liquidation-risk assessment',
-      'Portfolio health scoring (0-100)',
+      'Volatility and Sharpe ratio',
+      'Liquidation distance per position',
+      'Portfolio health score, 0 to 100',
     ],
     implementation: 'agents/specialized/RiskAgent.ts',
     api: 'POST /api/agents/risk/assess',
   },
   {
     id: 'hedging',
-    name: 'Hedging Agent',
+    name: 'Hedging',
     icon: Shield,
-    role: 'Strategy Generator',
-    description: 'Generates optimal hedging strategies based on risk, market, and portfolio composition.',
+    role: 'The insurance broker',
+    description: 'When Risk flags something, Hedging picks the counter-trade that offsets it. Short size, leverage, and asset all confidence-scored before anything opens.',
     capabilities: [
-      'Short position recommendations',
+      'Short position sizing',
       'Options strategy generation',
       'Cross-asset correlation analysis',
-      'Confidence-scored strategies',
+      'Every strategy tagged with a confidence score',
     ],
     implementation: 'agents/specialized/HedgingAgent.ts',
     api: 'POST /api/agents/hedging/recommend',
   },
   {
     id: 'settlement',
-    name: 'Settlement Agent',
+    name: 'Settlement',
     icon: Zap,
-    role: 'Transaction Executor',
-    description: 'Batch settlements with ZK proof generation for gas + privacy.',
+    role: 'The signer',
+    description: 'Turns a decision into an on-chain transaction. Batches where it can to save gas, produces the ZK proof, and knows how to unwind if something fails.',
     capabilities: [
       'Batch transaction processing',
-      'Gas optimization (20-40%)',
+      'Gas optimization, typically 20 to 40 percent',
       'ZK-STARK proof coordination',
-      'Rollback and retry',
+      'Rollback and retry on failure',
     ],
     implementation: 'agents/specialized/SettlementAgent.ts',
     api: 'POST /api/agents/settlement/execute',
   },
   {
     id: 'reporting',
-    name: 'Reporting Agent',
+    name: 'Reporting',
     icon: FileText,
-    role: 'Analytics Generator',
-    description: 'Comprehensive performance reports + compliance metrics.',
+    role: 'The bookkeeper',
+    description: 'Compiles the plain-English summary of what happened. Runs daily, weekly, monthly, and on-demand for the audit trail.',
     capabilities: [
-      'Daily / weekly / monthly reports',
-      'Performance + P&L tracking',
+      'Daily, weekly, and monthly reports',
+      'Performance and P&L tracking',
       'Top positions analysis',
-      'Historical trend analysis',
+      'Historical trend detection',
     ],
     implementation: 'agents/specialized/ReportingAgent.ts',
     api: 'POST /api/agents/reporting/generate',
   },
   {
     id: 'priceMonitor',
-    name: 'Price Monitor Agent',
+    name: 'Price Monitor',
     icon: Eye,
-    role: 'Threshold Watcher',
-    description: 'Subscribes to the 5-min Polymarket signal ticker and broadcasts flip alerts.',
+    role: 'The lookout',
+    description: 'Watches the 5-minute prediction-market ticker across BTC, ETH, SUI, and CRO. When a signal flips, it broadcasts inside seconds so the others can react.',
     capabilities: [
-      'BTC / ETH / SUI / CRO threshold watch',
-      'Polymarket5MinService event stream',
-      'Trigger on signal-flip',
+      'BTC, ETH, SUI, CRO threshold watch',
+      'Polymarket 5-min event stream',
+      'Fires on signal flip',
       'Per-asset alert routing',
     ],
     implementation: 'agents/specialized/PriceMonitorAgent.ts',
@@ -110,15 +110,15 @@ const AGENTS: AgentSpec[] = [
   },
   {
     id: 'suiPool',
-    name: 'SUI Pool Agent',
+    name: 'SUI Pool',
     icon: Layers,
-    role: 'On-chain Pool Manager',
-    description: 'Drives the SUI USDC community pool: allocation, rebalance, hedge sizing, guard enforcement.',
+    role: 'The pool operator',
+    description: 'Runs the SUI USDC community pool. Reads the fused signal, picks the allocation across four assets, rebalances via BlueFin, and never lets anyone bypass the on-chain safety guards.',
     capabilities: [
-      '4-asset allocation (BTC / ETH / SUI / CRO)',
-      'BlueFin Aggregator rebalance',
+      'Four-asset allocation across BTC, ETH, SUI, CRO',
+      'BlueFin aggregator rebalance',
       'SafeExecutionGuard enforcement',
-      'AI-confidence-gated rebalance (≥65%)',
+      'Rebalances only when AI confidence clears 65 percent',
     ],
     implementation: 'agents/specialized/SuiPoolAgent.ts',
     api: 'GET /api/sui/community-pool',
@@ -135,13 +135,13 @@ export default function AgentsPage() {
         <header className="text-center">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-ios-green/10 text-[#0F5132] text-caption-1 font-medium mb-4">
             <span className="w-1.5 h-1.5 rounded-full bg-ios-green" />
-            7 agents live · read-only
+            Seven agents, live, read-only
           </div>
           <h1 className="font-display font-semibold text-title-1 sm:text-[44px] tracking-[-0.03em] leading-tight text-label-primary mb-2">
-            Ask ZkWard
+            Ask ZKward.
           </h1>
           <p className="text-callout text-label-secondary max-w-[560px] mx-auto leading-relaxed">
-            Talk to the status oracle. Every answer is grounded in live DB state via the same tools the Layer 3 agents use.
+            Talk to the vault. Every answer reads live state from the same tools the agents use. Nothing rehearsed.
           </p>
         </header>
 
@@ -151,7 +151,7 @@ export default function AgentsPage() {
         {/* Compact agent list — expandable rows */}
         <section className="pt-4">
           <h2 className="text-caption-1 uppercase tracking-wide font-semibold text-label-tertiary mb-3">
-            The 7 agents
+            Meet the crew
           </h2>
           <div className="space-y-2">
             {AGENTS.map((agent) => {
@@ -225,7 +225,7 @@ export default function AgentsPage() {
           </summary>
           <div className="px-3 pb-3 pt-1 border-t border-separator-opaque/20 space-y-3">
             <p className="text-footnote text-label-secondary leading-relaxed">
-              All agents communicate through a central <span className="font-mono text-label-primary">MessageBus</span> and extend a common <span className="font-mono text-label-primary">BaseAgent</span>. Each concern owns one file.
+              All agents talk through a central <span className="font-mono text-label-primary">MessageBus</span> and extend a common <span className="font-mono text-label-primary">BaseAgent</span>. Each concern owns one file. Nothing shares state through globals.
             </p>
             <pre className="text-caption-1 bg-label-primary text-white p-3 rounded-ios overflow-x-auto font-mono leading-relaxed">
 {`User Input → Lead Agent (parse intent)

@@ -141,7 +141,7 @@ export function HederaVaultActions({ address: propAddress, onRefresh }: Props) {
   const { switchChainAsync } = useSwitchChain();
   const address = (propAddress ?? wagmiAddress) as `0x${string}` | undefined;
 
-  // Privy path — when the "from" address IS the user's Privy embedded
+  // Privy path. When the "from" address IS the user's Privy embedded
   // wallet, sign via Privy's useSendTransaction so wagmi's active
   // connector (which is MetaMask when both are connected) doesn't hijack
   // the prompt. Falls back to wagmi writeContract when the address is
@@ -166,7 +166,7 @@ export function HederaVaultActions({ address: propAddress, onRefresh }: Props) {
   // still click through to HashScan. pendingHash is nulled on confirm; this
   // survives the reset and clears when a new tx starts or after 30s.
   const [lastSuccessTx, setLastSuccessTx] = useState<`0x${string}` | null>(null);
-  // Amount + action kind for the success card — surfaces "Deposited 100 USDC"
+  // Amount + action kind for the success card. Surfaces "Deposited 100 USDC"
   // instead of "Complete" so the user has explicit dollar/action context.
   const [lastSuccessAmount, setLastSuccessAmount] = useState<string | null>(null);
   const [lastSuccessKind, setLastSuccessKind] = useState<'approve' | 'deposit' | 'withdraw' | null>(null);
@@ -213,7 +213,7 @@ export function HederaVaultActions({ address: propAddress, onRefresh }: Props) {
     query: { enabled: !!address },
   });
 
-  // Native HBAR balance — used to detect fresh Privy embedded wallets that
+  // Native HBAR balance. Used to detect fresh Privy embedded wallets that
   // ship with 0 HBAR. Without HBAR, gas estimation at Hashio returns 400
   // and Privy surfaces the opaque 'Missing or invalid parameters' error.
   // onDeposit auto-drips the faucet when this reads below the threshold.
@@ -223,7 +223,7 @@ export function HederaVaultActions({ address: propAddress, onRefresh }: Props) {
     query: { enabled: !!address },
   });
 
-  // EIP-2612 permit nonce — Privy-signer path needs this to build the
+  // EIP-2612 permit nonce. Privy-signer path needs this to build the
   // typed message. Non-Privy users don't sign permits, so we only read
   // when the Privy path is active.
   const { data: permitNonce, refetch: refetchPermitNonce } = useReadContract({
@@ -311,14 +311,14 @@ export function HederaVaultActions({ address: propAddress, onRefresh }: Props) {
         if (!r.ok || !j.ok) {
           setError(
             j.error?.includes('throttled')
-              ? 'HBAR needed for gas. Faucet is throttled — try again in a few minutes, or fund manually.'
+              ? 'HBAR needed for gas. Faucet is throttled. Try again in a few minutes, or fund manually.'
               : `Couldn't auto-fund HBAR for gas: ${j.error ?? `HTTP ${r.status}`}. Click Faucet to retry.`,
           );
           setStatus('error');
           return;
         }
         // Poll until Hashio's read layer sees the funded account. Faucet
-        // already awaited wait(1), so consensus has the account — but
+        // already awaited wait(1), so consensus has the account. But
         // Mirror Node (which backs Hashio reads) lags 3-8s after finality.
         // Without polling here, the next tx signs against an address the
         // RPC still 404s on: "Requested resource not found. address '0x...'".
@@ -347,14 +347,14 @@ export function HederaVaultActions({ address: propAddress, onRefresh }: Props) {
     const amountWei = parseUnits(amount, USDC_DECIMALS);
     const need = amountWei;
     const have = (allowance as bigint | undefined) ?? 0n;
-    // Max uint256 — approve once, deposit forever after. Trade-off:
+    // Max uint256. Approve once, deposit forever after. Trade-off:
     // gives the vault unlimited USDC allowance. Acceptable because the
     // vault is our own audited SimpleUsdcVault; the alternative (exact
     // per-deposit approve) forces users to sign 2 prompts EVERY deposit.
     const APPROVE_AMOUNT = (2n ** 256n) - 1n;
 
     try {
-      // Approve step — first time only, unlimited allowance so future
+      // Approve step. First time only, unlimited allowance so future
       // deposits skip this leg.
       if (have < need) {
         setStatus('approving');
@@ -731,7 +731,7 @@ export function HederaVaultActions({ address: propAddress, onRefresh }: Props) {
             {disabledReason && (
               <div className="text-[11px] text-label-tertiary">{disabledReason}</div>
             )}
-            {/* Post-confirm success card — surfaces amount + tx hash + HashScan
+            {/* Post-confirm success card. Surfaces amount + tx hash + HashScan
                 link prominently so users see WHAT they did AND on-chain proof. */}
             {status === 'complete' && lastSuccessTx && (
               <div className="mt-2 p-3 rounded-[10px] bg-[#34C759]/10 border border-[#34C759]/30">
@@ -825,7 +825,7 @@ async function waitForTx(hash: `0x${string}`, maxWaitMs = 30_000): Promise<void>
 }
 
 /**
- * NameAndAvatarRow — shows the user's avatar + current display name (or
+ * NameAndAvatarRow. Shows the user's avatar + current display name (or
  * "Set your name" prompt) inside the wallet card. Click Pencil to edit
  * inline. Uses the shared useWalletProfile hook so editing here OR in
  * ProfileTab keeps every mounted surface in sync via React Query cache
