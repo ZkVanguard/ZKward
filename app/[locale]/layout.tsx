@@ -55,7 +55,10 @@ export async function generateMetadata(
   const t = await getTranslations({ locale, namespace: 'hero' });
 
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://zkward.com';
-  const title = 'ZKward — Multi-chain autonomous vault, ZK-STARK attested';
+  // Homepage title puts the brand FIRST so branded searches (zkward,
+  // ZKward, "zkward vault") get a strong exact-match signal. Descriptive
+  // tail explains what the product does in a single line.
+  const title = 'ZKward — AI-managed USDC vault on SUI, ZK-STARK attested';
   const description = t('subtitle');
 
   return {
@@ -67,18 +70,45 @@ export async function generateMetadata(
       template: '%s · ZKward',
     },
     description,
-    keywords: ['Hedera', 'SUI', 'DeFi', 'ZK-STARK', 'AI agents', 'autonomous vault', 'The Graph', 'x402', 'prediction markets', 'RWA', 'BlueFin'],
-    authors: [{ name: 'ZKward Team' }],
+    // Keep the keyword list short and brand-forward. Google ignores the
+    // `keywords` meta for ranking, but Bing and DuckDuckGo still weight
+    // it lightly, and it costs nothing.
+    keywords: [
+      'ZKward', 'zkward', 'zkward vault', 'zkward.com',
+      'SUI', 'ZK-STARK', 'zero knowledge proof',
+      'autonomous vault', 'AI agents', 'prediction markets',
+      'DeFi', 'BlueFin', 'Polymarket',
+    ],
+    authors: [{ name: 'ZKward', url: baseUrl }],
+    creator: 'ZKward',
+    publisher: 'ZKward',
+    applicationName: 'ZKward',
+    // Icons are also emitted by the file-based conventions at
+    // app/icon.tsx (32×32-ish favicon) and app/apple-icon.tsx (180×180).
+    // Keeping the SVG here as the shortcut lets desktop browsers use a
+    // crisp vector when they support it.
     icons: {
-      icon: '/logo-official.svg',
-      shortcut: '/logo-official.svg',
-      apple: '/logo-official.svg',
+      icon: [
+        { url: '/icon', type: 'image/png', sizes: '512x512' },
+        { url: '/favicon.svg', type: 'image/svg+xml' },
+      ],
+      shortcut: '/favicon.svg',
+      apple: [{ url: '/apple-icon', sizes: '180x180', type: 'image/png' }],
     },
     manifest: '/manifest.json',
     appleWebApp: {
       capable: true,
       statusBarStyle: 'default',
       title: 'ZKward',
+    },
+    // Google Search Console + Bing Webmaster verification. Values are
+    // set at deploy time via env — no secret, but they only work when
+    // the domain is claimed. See docs/SEO_RUNBOOK.md.
+    verification: {
+      google: process.env.GOOGLE_SITE_VERIFICATION,
+      other: process.env.BING_SITE_VERIFICATION
+        ? { 'msvalidate.01': process.env.BING_SITE_VERIFICATION }
+        : undefined,
     },
     // OG + Twitter images intentionally omitted — Next's file convention
     // at app/opengraph-image.tsx auto-populates a proper 1200x630 card.
@@ -94,6 +124,8 @@ export async function generateMetadata(
       card: 'summary_large_image',
       title,
       description,
+      creator: '@HarveReg',
+      site: '@HarveReg',
     },
     alternates: {
       canonical: '/',
@@ -130,6 +162,14 @@ export default async function LocaleLayout(
 
   // JSON-LD structured data — Organization + WebSite. Emitted on every
   // page so Google can build a knowledge-panel + sitelinks searchbox.
+  //
+  // Logo is a 512×512 PNG served by app/icon.tsx. Google Search Console
+  // requires raster (PNG/JPG/WebP) for the Organization logo — SVG is
+  // accepted by some crawlers but not shown in the knowledge panel.
+  //
+  // `alternateName` covers legacy casings the domain has been mentioned
+  // under (ZkVanguard, ZkWard). Brand-query searches for any variant
+  // should route back to this Organization entity.
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://zkward.com';
   const ldJson = {
     '@context': 'https://schema.org',
@@ -138,20 +178,50 @@ export default async function LocaleLayout(
         '@type': 'Organization',
         '@id': `${baseUrl}/#org`,
         name: 'ZKward',
+        alternateName: ['ZkWard', 'zkward', 'ZkVanguard'],
         url: baseUrl,
-        logo: `${baseUrl}/logo-official.svg`,
+        logo: {
+          '@type': 'ImageObject',
+          url: `${baseUrl}/icon`,
+          contentUrl: `${baseUrl}/icon`,
+          width: 512,
+          height: 512,
+          caption: 'ZKward',
+        },
         sameAs: [
           'https://github.com/ZkVanguard/zkward-ethglobal',
           'https://twitter.com/HarveReg',
+          'https://t.me/+QoAodv90iWExZmVh',
         ],
+        founder: {
+          '@type': 'Person',
+          name: 'Ashish Regmi',
+          email: 'ashish.regmi@zkward.com',
+        },
+        contactPoint: {
+          '@type': 'ContactPoint',
+          contactType: 'customer support',
+          email: 'ashish.regmi@zkward.com',
+          availableLanguage: ['en'],
+        },
+        email: 'ashish.regmi@zkward.com',
       },
       {
         '@type': 'WebSite',
         '@id': `${baseUrl}/#website`,
         url: baseUrl,
         name: 'ZKward',
+        alternateName: 'zkward.com',
         publisher: { '@id': `${baseUrl}/#org` },
         inLanguage: locale,
+        potentialAction: {
+          '@type': 'SearchAction',
+          target: {
+            '@type': 'EntryPoint',
+            urlTemplate: `${baseUrl}/?q={search_term_string}`,
+          },
+          'query-input': 'required name=search_term_string',
+        },
       },
     ],
   };
