@@ -477,3 +477,5 @@ data/signal-interpreter/
 training/*/output/
 training/*/output-v*/
 training/*/*.jsonl.v*
+.vercel
+.env*

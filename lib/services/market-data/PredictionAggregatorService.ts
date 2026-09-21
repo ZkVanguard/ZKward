@@ -779,12 +779,20 @@ export class PredictionAggregatorService {
         novelty: string;
         interpreted_at: Date;
       }>(
+        // Horizon filter is deliberately permissive: the interpreter tags
+        // most markets as 'unknown' because the title alone often doesn't
+        // carry the resolution window. Live prod (2026-09-21): 31 BTC UP
+        // interpretations at horizon='unknown' vs 3 at 'daily' + 0 at
+        // 'hourly'. Filtering to the two known-good horizons discarded 91%
+        // of the highest-accuracy signal source we have (82.8% resolved).
+        // Skip 'weekly' + 'monthly' — those DO extract reliably and are
+        // too slow for a 45min-hold trader.
         `SELECT asset, slug, title, direction, confidence, horizon, novelty, interpreted_at
          FROM signal_interpretations
          WHERE asset = ANY($1::text[])
            AND direction IN ('UP', 'DOWN')
            AND confidence >= 0.7
-           AND horizon IN ('hourly', 'daily')
+           AND horizon NOT IN ('weekly', 'monthly')
            AND interpreted_at > NOW() - INTERVAL '24 hours'
            AND (horizon_end IS NULL OR horizon_end > NOW())
          ORDER BY (confidence * COALESCE(novelty, 0.5)) DESC
@@ -1005,7 +1013,7 @@ export class PredictionAggregatorService {
         const w = 0.05 * interp.confidence * (0.5 + interp.novelty * 0.5);
         sources.push({
           name: `AI: ${interp.title.substring(0, 45)}…`,
-          type: interp.horizon === 'hourly' ? 'short_term' : 'medium_term',
+          type: interp.horizon === 'hourly' || interp.horizon === 'unknown' ? 'short_term' : 'medium_term',
           direction: interp.direction,
           confidence: interp.confidence * 100,
           probability: interp.direction === 'UP'
