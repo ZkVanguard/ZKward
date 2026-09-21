@@ -64,6 +64,22 @@ export function installMockLLM(initial?: Responder): MockLLMHandle {
     LLMProvider: class {},
   }));
 
+  // 2026-09-21: LeadAgent's parseNaturalLanguage was refactored to route
+  // through `reason()` in lib/services/ai/reasoner (which uses runWithTools
+  // + a provider-abstract ChatClient). Without mocking that path, tests
+  // that drive LeadAgent hit "no ASI_API_KEY" and get an empty response,
+  // forcing keyword-fallback and defeating the mock's purpose. Record the
+  // reason() invocation as 'generateDirectResponse' so existing tests that
+  // assert on that method name keep passing.
+  jest.doMock('@/lib/services/ai/reasoner', () => ({
+    reason: async (opts: { userPrompt: string; systemPrompt?: string }) => {
+      calls.push({ method: 'generateDirectResponse', prompt: opts.userPrompt });
+      const out = responder(opts.userPrompt);
+      const text = typeof out === 'string' ? out : ((out as Partial<LLMResponse>).content ?? '');
+      return { ok: true, text, elapsedMs: 0 };
+    },
+  }));
+
   return handle;
 }
 
@@ -73,5 +89,6 @@ export function installMockLLM(initial?: Responder): MockLLMHandle {
  */
 export function restoreAgentMocks(): void {
   jest.dontMock('@/lib/ai/llm-provider');
+  jest.dontMock('@/lib/services/ai/reasoner');
   jest.resetModules();
 }

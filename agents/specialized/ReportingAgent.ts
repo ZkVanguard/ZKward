@@ -433,18 +433,29 @@ export class ReportingAgent extends BaseAgent {
             totalRisk: Math.round(totalRisk),
             threshold: 100,
           };
-          const proof = await proofGenerator.generateRiskProof(
-            {
-              portfolioId: periodPortfolioId,
-              timestamp: new Date(nowMs),
-              totalRisk,
-              volatility: avgVolatility,
-              exposures: assetRisks.map(r => ({ asset: r.asset, exposure: r.allocation, contribution: r.contribution })),
-              recommendations: [],
-              marketSentiment: 'neutral',
-            },
-            canonical,
-          );
+          // 2026-09-21: bound ZK proof with a 5s timeout. Previously an
+          // unreachable Python prover (unset ZK_PYTHON_API_URL, dead
+          // tunnel, or test env) would hang this call for Jest's default
+          // 30s. Test env now proceeds without the proof; prod logs a
+          // warning and continues (best-effort attestation).
+          const PROOF_TIMEOUT_MS = Number(process.env.REPORTING_ZK_TIMEOUT_MS) || 5000;
+          const proof = await Promise.race([
+            proofGenerator.generateRiskProof(
+              {
+                portfolioId: periodPortfolioId,
+                timestamp: new Date(nowMs),
+                totalRisk,
+                volatility: avgVolatility,
+                exposures: assetRisks.map(r => ({ asset: r.asset, exposure: r.allocation, contribution: r.contribution })),
+                recommendations: [],
+                marketSentiment: 'neutral',
+              },
+              canonical,
+            ),
+            new Promise<never>((_, reject) =>
+              setTimeout(() => reject(new Error(`ZK prover timeout after ${PROOF_TIMEOUT_MS}ms`)), PROOF_TIMEOUT_MS),
+            ),
+          ]);
           zkProofs = [proof.proofHash];
         } catch (error) {
           logger.warn('Failed to generate ZK proof for risk report', { error });
