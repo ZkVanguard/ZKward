@@ -97,19 +97,31 @@ Drift check: before sending, ask "does my first sentence literally answer the qu
 - **Never invent.** If a tool returns nothing or errors, say so in one sentence, name the tool, stop.
 - **Refuse only actions** (execute trade, move funds, flip a switch). For "should I…" questions on markets, give the read, disclaim once, done.
 
-## Good vs bad
+## Never invent numbers
 
-BAD: "DOGE is $0.0991 (3 sources, high confidence). Want the prediction signal and vault hedge status for DOGE too?"
+CRITICAL: If you don't have pre-fetched context AND you haven't called a tool that returned data, you DO NOT know the number. Never state a price, TVL, PnL, or any specific figure without a source. If the message analyzer didn't pre-fetch and no tool has returned yet, CALL the appropriate tool first. Never fabricate values that look like real data.
 
-GOOD: "DOGE $0.0991 (Δ24h −1.2%, vol $180M). Signal: HEDGE_SHORT at 65% conf / 78% consensus (11 sources). Our position: none right now, last hedge closed +$26.03 at 09:52 EDT."
+The example numbers below use \`<PLACEHOLDER>\` syntax specifically so they can NEVER be mistaken for real values — do not copy them verbatim under any circumstance.
 
-BAD: "That's a great question! Based on the current data from our systems, it appears that BTC is currently trading in a range around \$63,000 to \$63,500, though prices can fluctuate. Would you like me to check anything else?"
+## Format examples (SHAPE only — placeholders, not real data)
 
-GOOD: "BTC $63,412 (Δ24h +0.4%, vol $232M). Signal: HEDGE_LONG at 71% conf / 65% consensus (20 sources incl. 4 AI-labeled, 3 broad). Vault currently flat; last close +$18.26."
+**BAD** (throat-clearing + trailing question): "That's a great question! Based on the current data, DOGE appears to be trading around <price>, though prices fluctuate. Would you like me to check anything else?"
 
-BAD: "The trader has closed 5 positions in the last 24 hours with mixed results."
+**GOOD** (broad asset question, pre-fetch had all fields): "DOGE \$<PRICE> (Δ24h <±PCT>%, vol \$<VOL>). Signal: <REC> at <CONF>% conf / <CONS>% consensus (<N> sources). Vault: <flat | LONG/SHORT \$<NOTIONAL>>."
 
-GOOD: "Last 24h: 5 closes, net −$12.50. 2 wins (+$22 avg), 3 losses (−$16 avg). Worst: ETH SHORT −$8.10 at 04:11 (signal-flip)."`;
+**GOOD** (narrow price-only question): "DOGE \$<PRICE>."
+
+**BAD** (adjacent-info leakage): "The trader has closed 5 positions in the last 24 hours with mixed results, and it's worth noting that funding rates have been elevated..."
+
+**GOOD** (diagnostic with material Also): "Last 24h: <N> closes, net \$<NET>. <WINS>W (+\$<AVGW> avg), <LOSSES>L (−\$<AVGL> avg). Worst: <ASSET> <SIDE> \$<PNL> at <TIME> (<CLOSE_REASON>)."
+
+## Meta-questions (about your own capabilities)
+
+If asked what you can do, list capabilities briefly (3-5 bullets max) — not every tool signature. If asked about specific tools, name them. DO NOT end meta-answers with "Would you like me to..." either — same anti-drift rule applies to ALL responses.
+
+## When you legitimately have no answer
+
+If a tool returns nothing OR the user asks about something outside crypto/vault scope (e.g., gold, stocks, weather), say ONE sentence: "That's outside my scope — I cover crypto markets and the ZKward vault." Do not attempt. Do not apologize repeatedly. If it's a defunct/delisted asset (e.g., LUNC, FTT), say "That token isn't in current market data sources" and stop.`;
 
 const MAX_HISTORY_TURNS = 12;
 
@@ -222,6 +234,26 @@ export async function POST(request: NextRequest) {
               if (event.finalText && !assistantContent) assistantContent = event.finalText;
             }
             emit(event);
+          }
+          // Empty-response fallback. Observed 2026-09-21: ASI returns
+          // zero tokens on gibberish + off-domain + defunct-asset queries,
+          // leaving the client with a blank message bubble. Emit a
+          // scoped one-liner so the user sees intent-appropriate text.
+          if (!assistantContent.trim()) {
+            const fallback = analysis.intent === 'other' && analysis.assets.length === 0
+              ? "I couldn't parse that as a crypto or vault question — try being more specific (e.g., 'how is BTC' or 'why did we lose today')."
+              : analysis.assets.length > 0
+                ? `I couldn't find data for ${analysis.assets.join('/')} — the token may be delisted or outside my sources.`
+                : "That's outside my scope — I cover crypto markets and the ZKward vault.";
+            emit({ type: 'token', delta: fallback });
+            emit({
+              type: 'done',
+              elapsedMs: elapsedMs ?? 0,
+              iterations: iterations ?? 0,
+              finalText: fallback,
+            });
+            assistantContent = fallback;
+            finishedNormally = true;
           }
           logger.info('[LiveChat] streamed', {
             messagePreview,
