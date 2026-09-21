@@ -26,6 +26,10 @@ import {
 } from '@integrations/hedge-executor/HedgeExecutorClient';
 import { DelphiMarketService } from '../../lib/services/market-data/DelphiMarketService';
 import {
+  PredictionAggregatorService,
+  type AggregatedPrediction,
+} from '../../lib/services/market-data/PredictionAggregatorService';
+import {
   AIMarketIntelligence,
   type AIMarketContext,
 } from '../../lib/services/AIMarketIntelligence';
@@ -278,6 +282,26 @@ export class HedgingAgent extends BaseAgent {
   }
 
   /**
+   * Fetch the full aggregated prediction for an asset (Polymarket 5-min +
+   * broad + Kalshi + Manifold + Delphi + AI interpretations + themes +
+   * funding + alignment — all fused via PredictionAggregatorService).
+   * Cached for 20s inside the aggregator, so per-call cost is a memory
+   * lookup on hot paths. Returns null on any failure so callers can fall
+   * back to legacy Delphi/5-min paths (fail-open).
+   */
+  private async getAggregatorSignal(asset: string): Promise<AggregatedPrediction | null> {
+    try {
+      const preds = await PredictionAggregatorService.getPerAssetPredictions([asset]);
+      return preds[asset.toUpperCase()] ?? null;
+    } catch (e) {
+      logger.debug('HedgingAgent: aggregator fetch failed (fall-back to Delphi)', {
+        asset, error: e instanceof Error ? e.message.slice(0, 80) : String(e).slice(0, 80),
+      });
+      return null;
+    }
+  }
+
+  /**
    * Analyze hedging opportunity with Delphi prediction markets
    */
   private async analyzeHedgeOpportunity(task: AgentTask): Promise<TaskResult> {
@@ -300,7 +324,17 @@ export class HedgingAgent extends BaseAgent {
       }
       const volatility = await this.calculateVolatility(assetSymbol);
 
-      // 🔮 NEW: Get Delphi prediction market insights
+      // 🎯 Consult the full prediction aggregator (Polymarket 5-min +
+      //    broad + Kalshi + Manifold + Delphi + AI interpretations +
+      //    themes + Bluefin funding + cross-asset alignment — 12-20
+      //    sources per asset). Was previously only reading Delphi +
+      //    Polymarket 5-min directly, so HedgingAgent's LLM-reasoned
+      //    recommendation overrode the aggregator-seeded directive with
+      //    a partial-data opinion. Aggregator has a 20s cache so this
+      //    is cheap even on hot paths (agent cycle + SUI cron tick).
+      const aggPred = await this.getAggregatorSignal(assetSymbol);
+
+      // 🔮 Delphi kept as fallback + AI-context input (reason string).
       const delphiInsights = await DelphiMarketService.getAssetInsights(assetSymbol);
       const highRiskPredictions = delphiInsights.predictions.filter(
         (p) => p.impact === 'HIGH' && p.probability > 60 && p.recommendation === 'HEDGE'
@@ -346,12 +380,34 @@ export class HedgingAgent extends BaseAgent {
         volatility
       );
 
-      // Increase hedge ratio if Delphi predicts high-probability risk events
-      if (highRiskPredictions.length > 0) {
+      // 🎯 Boost hedge ratio when the AGGREGATOR emits a STRONG_HEDGE_*
+      //    or HEDGE_* recommendation. Confidence × consensus scales the
+      //    boost so a 80%-conf 80%-cons signal moves the ratio more
+      //    than a 55/55 marginal one. Falls back to Delphi-only path
+      //    when aggregator is unavailable (preserves prior behavior).
+      let ratioBoosted = false;
+      if (aggPred && (aggPred.recommendation.includes('STRONG_HEDGE') || aggPred.recommendation.startsWith('HEDGE_'))) {
+        const strength = (aggPred.confidence / 100) * (aggPred.consensus / 100);
+        const aggMultiplier = 1 + strength * (aggPred.recommendation.startsWith('STRONG_') ? 0.5 : 0.3);
+        const original = hedgeRatio;
+        hedgeRatio = Math.min(hedgeRatio * aggMultiplier, 1.0);
+        ratioBoosted = true;
+        logger.info('Hedge ratio adjusted from aggregator', {
+          asset: assetSymbol,
+          original, adjusted: hedgeRatio, aggMultiplier,
+          rec: aggPred.recommendation,
+          confidence: Math.round(aggPred.confidence),
+          consensus: Math.round(aggPred.consensus),
+          sources: aggPred.sources.length,
+        });
+      }
+
+      // Delphi fallback — only applied when aggregator didn't already lift.
+      if (!ratioBoosted && highRiskPredictions.length > 0) {
         const maxPredictionProb = Math.max(...highRiskPredictions.map((p) => p.probability));
         const delphiMultiplier = 1 + (maxPredictionProb - 50) / 100; // 60% prob -> 1.1x, 80% prob -> 1.3x
         hedgeRatio = Math.min(hedgeRatio * delphiMultiplier, 1.0); // Cap at 100% hedge
-        logger.info('Hedge ratio adjusted based on Delphi predictions', {
+        logger.info('Hedge ratio adjusted based on Delphi predictions (aggregator-unavailable fallback)', {
           original: hedgeRatio / delphiMultiplier,
           adjusted: hedgeRatio,
           delphiMultiplier,
@@ -407,14 +463,18 @@ export class HedgingAgent extends BaseAgent {
       const hedgeEffectiveness = Math.pow(spotFutureCorrelation, 2) * 100;
 
       // Determine recommendation
-      // 🔮 NEW: Factor in Delphi predictions + 5-min signals
+      // Aggregator STRONG signal is a first-class hedge trigger.
+      const aggregatorRecommendHedge =
+        aggPred !== null &&
+        (aggPred.recommendation.startsWith('STRONG_HEDGE') ||
+          (aggPred.recommendation.startsWith('HEDGE_') && aggPred.confidence >= 60 && aggPred.consensus >= 55));
       const delphiRecommendHedge =
         delphiInsights.overallRisk === 'HIGH' || highRiskPredictions.length >= 2;
       const fiveMinRecommendHedge =
         fiveMinSignal?.recommendation === 'HEDGE_SHORT' &&
         fiveMinSignal.signalStrength === 'STRONG';
       const shouldHedge =
-        (volatility > 0.3 || delphiRecommendHedge || fiveMinRecommendHedge) &&
+        (volatility > 0.3 || aggregatorRecommendHedge || delphiRecommendHedge || fiveMinRecommendHedge) &&
         hedgeEffectiveness > 70 &&
         Math.abs(avgFundingRate) < 0.01;
 
@@ -1408,24 +1468,61 @@ Be concise and actionable.`;
     executionId: string;
     action: string;
     estimatedPositionSize: number;
+    // Optional context (LeadAgent doesn't currently pass these; when it does
+    // we get asset-specific voting instead of BTC-default).
+    asset?: string;
+    proposedSide?: 'LONG' | 'SHORT';
     riskAnalysis?: { totalRisk: number; volatility: number };
     predictionContext?: string;
   }): Promise<{ approved: boolean; reason: string }> {
     try {
+      const asset = (proposal.asset ?? 'BTC').toUpperCase();
       // Fetch current volatility from real market data
       let volatility = proposal.riskAnalysis?.volatility ?? -1;
       if (volatility < 0) {
         try {
-          volatility = await this.calculateVolatility('BTC');
+          volatility = await this.calculateVolatility(asset);
         } catch {
           volatility = 0.5; // Conservative fallback
         }
       }
 
-      // Factor in 5-min Polymarket BTC signal
+      // 🎯 Aggregator-derived penalty is the primary signal input. Fused
+      //    across all 12-20 sources for the asset. If aggregator can't
+      //    be reached the code falls through to the legacy Delphi +
+      //    Polymarket-5min penalties below (fail-open behavior preserved).
+      let aggregatorPenalty = 0;
+      const aggPred = await this.getAggregatorSignal(asset);
+      if (aggPred) {
+        // Direction opposition: aggregator says one way, proposed side goes
+        // the other. Penalty scales with confidence × consensus so a
+        // marginal 55/55 disagreement barely nudges but a 85/75 outright
+        // conflict strongly opposes.
+        if (proposal.proposedSide) {
+          const proposedDir: 'UP' | 'DOWN' = proposal.proposedSide === 'LONG' ? 'UP' : 'DOWN';
+          if (aggPred.direction !== 'NEUTRAL' && aggPred.direction !== proposedDir) {
+            const strength = (aggPred.confidence / 100) * (aggPred.consensus / 100);
+            aggregatorPenalty += Math.min(30, 10 + strength * 25);
+          }
+        }
+        // Low-confidence / low-consensus signal → smaller nudge for uncertainty.
+        if (aggPred.confidence < 55 || aggPred.consensus < 55) {
+          aggregatorPenalty += 5;
+        }
+        // STRONG_HEDGE_* recommendations bring their own weight regardless
+        // of the proposed side — the aggregator is telling us the market
+        // is at risk.
+        if (aggPred.recommendation.startsWith('STRONG_HEDGE')) {
+          aggregatorPenalty += 10;
+        }
+      }
+
+      // Factor in 5-min Polymarket BTC signal (legacy, still used as
+      // fallback when aggregator missed — cheap since it's just a cached
+      // read).
       let signalPenalty = 0;
       const signal = this.cachedFiveMinSignal;
-      if (signal && Date.now() - signal.fetchedAt < 20_000) {
+      if (!aggPred && signal && Date.now() - signal.fetchedAt < 20_000) {
         if (signal.direction === 'DOWN' && signal.signalStrength === 'STRONG') {
           signalPenalty = 15; // Strong bearish → increase risk concern
         } else if (signal.direction === 'DOWN' && signal.signalStrength === 'MODERATE') {
@@ -1433,31 +1530,35 @@ Be concise and actionable.`;
         }
       }
 
-      // Factor in Delphi prediction insights
+      // Legacy Delphi penalty — used only when aggregator is unavailable.
+      // When aggregator IS available, Delphi is already one of its inputs
+      // (weighted 5-15%) so double-counting here would over-penalize.
       let delphiPenalty = 0;
-      try {
-        const { DelphiMarketService } =
-          await import('../../lib/services/market-data/DelphiMarketService');
-        const btcInsights = await DelphiMarketService.getAssetInsights('BTC');
-        const highRiskHedge = btcInsights.predictions.filter(
-          (p) => p.impact === 'HIGH' && p.probability > 60 && p.recommendation === 'HEDGE'
-        );
-        if (highRiskHedge.length >= 2) {
-          delphiPenalty = 10;
-        } else if (highRiskHedge.length >= 1) {
-          delphiPenalty = 5;
+      if (!aggPred) {
+        try {
+          const { DelphiMarketService } =
+            await import('../../lib/services/market-data/DelphiMarketService');
+          const btcInsights = await DelphiMarketService.getAssetInsights(asset);
+          const highRiskHedge = btcInsights.predictions.filter(
+            (p) => p.impact === 'HIGH' && p.probability > 60 && p.recommendation === 'HEDGE'
+          );
+          if (highRiskHedge.length >= 2) {
+            delphiPenalty = 10;
+          } else if (highRiskHedge.length >= 1) {
+            delphiPenalty = 5;
+          }
+        } catch {
+          // Delphi unavailable — no adjustment
         }
-      } catch {
-        // Delphi unavailable — no adjustment
       }
 
       // Decision logic:
       //  - Annualized volatility ≥ 150% → reject (extreme market)
       //  - Position > $10M → reject (automated-only safeguard)
-      //  - Effective risk (volatility-based + signal/Delphi) ≥ 80 → reject
+      //  - Effective risk (volatility-based + signal/Delphi/aggregator) ≥ 80 → reject
       //  - Analysis-only actions → always approve
       const isAnalysisOnly = proposal.action === 'analyze' || proposal.action === 'analysis';
-      const effectiveRisk = Math.min(100, volatility * 50 + signalPenalty + delphiPenalty);
+      const effectiveRisk = Math.min(100, volatility * 50 + signalPenalty + delphiPenalty + aggregatorPenalty);
       const volatilityAcceptable = volatility < 1.5;
       const positionSizeAcceptable = proposal.estimatedPositionSize <= 10_000_000;
       const riskAcceptable = effectiveRisk < 80;
@@ -1471,11 +1572,15 @@ Be concise and actionable.`;
 
       logger.info('🗳️ HedgingAgent independent vote', {
         executionId: proposal.executionId,
+        asset,
         approved,
         volatility,
         effectiveRisk,
         signalPenalty,
         delphiPenalty,
+        aggregatorPenalty,
+        aggSources: aggPred ? aggPred.sources.length : 0,
+        aggDir: aggPred?.direction ?? null,
         reason,
         agentId: this.agentId,
       });
