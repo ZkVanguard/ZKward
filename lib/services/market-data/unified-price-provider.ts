@@ -82,8 +82,14 @@ const CONFIG = {
   MAX_SPREAD_PERCENT: 1.0,    // Warn if spread > 1%
   MAX_SLIPPAGE_PERCENT: 0.5,  // Expected slippage for orders
   
-  // Tracked symbols
-  DEFAULT_SYMBOLS: ['BTC', 'ETH', 'CRO', 'SUI', 'SOL', 'DOGE', 'ATOM'],
+  // Tracked symbols. XRP added 2026-09-21 after discovering paper-gated-
+  // trader XRP SHORT stuck open 2h+ because getLivePrice('XRP') returned 0
+  // → handleActive returned "stale mark price (held)" every tick → stop-loss
+  // + max-hold + trailing-stop never fired. The trader universe is
+  // ['BTC','ETH','SOL','XRP','DOGE'] (agent-universe), so every entry-eligible
+  // asset MUST be in this list or its positions become un-closeable. Keep
+  // in sync with resolveAgentUniverse() output.
+  DEFAULT_SYMBOLS: ['BTC', 'ETH', 'CRO', 'SUI', 'SOL', 'XRP', 'DOGE', 'ATOM'],
   
   // Polling fallback interval (only if WebSocket fails)
   FALLBACK_POLL_INTERVAL: 3000,
