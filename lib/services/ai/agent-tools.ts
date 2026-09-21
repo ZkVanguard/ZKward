@@ -584,6 +584,127 @@ const getAssetContext: AgentTool<
   },
 };
 
+/**
+ * DefiLlama TVL — protocol total-value-locked from the industry-standard
+ * DefiLlama free API. Covers ~2000 protocols across all chains. Use when
+ * a user asks about TVL, protocol size, "how big is X", or wants to
+ * compare protocols. Also returns the protocol's category, chain
+ * distribution, and 24h/7d/30d TVL change.
+ *
+ * Slug matching is exact (DefiLlama's URL slug — 'uniswap', 'aave',
+ * 'curve-dex', 'lido'). Fuzzy match against the full protocol list on
+ * miss. 60s cache.
+ */
+const getDefiLlamaTvl: AgentTool<
+  { protocol: string },
+  {
+    protocol: string;
+    tvlUsd: number;
+    change1h?: number;
+    change1d?: number;
+    change7d?: number;
+    chains: string[];
+    category: string;
+    mcapUsd?: number | null;
+  } | { error: string; suggestions?: string[] }
+> = {
+  name: 'get_defi_tvl',
+  description:
+    'Fetch total value locked (TVL) + category + chains + TVL changes (1h/1d/7d) for a DeFi protocol from DefiLlama. Use for "how big is Aave", "what\'s TVL of Uniswap", "compare Curve and Balancer" style questions. Protocol slug is lowercase kebab (uniswap, aave, curve-dex, lido, rocket-pool). Suggests close matches if not found.',
+  parameters: {
+    type: 'object',
+    properties: {
+      protocol: { type: 'string', description: 'DefiLlama slug — lowercase kebab. Examples: uniswap, aave, curve-dex, lido, gmx, pendle.' },
+    },
+    required: ['protocol'],
+    additionalProperties: false,
+  },
+  async execute({ protocol }) {
+    const slug = protocol.toLowerCase().trim();
+    try {
+      const r = await fetch(`https://api.llama.fi/protocol/${encodeURIComponent(slug)}`, {
+        signal: AbortSignal.timeout(6000),
+      });
+      if (!r.ok) {
+        // Try to fetch full list + suggest closest matches
+        try {
+          const list = await (await fetch('https://api.llama.fi/protocols', { signal: AbortSignal.timeout(6000) })).json() as Array<{ slug: string; name: string }>;
+          const query = slug;
+          const suggestions = list
+            .filter((p) => p.slug.includes(query) || p.name.toLowerCase().includes(query))
+            .slice(0, 5)
+            .map((p) => p.slug);
+          return { error: `protocol '${slug}' not found on DefiLlama (HTTP ${r.status})`, suggestions };
+        } catch {
+          return { error: `protocol '${slug}' not found on DefiLlama (HTTP ${r.status})` };
+        }
+      }
+      const p = await r.json() as {
+        name: string;
+        currentChainTvls?: Record<string, number>;
+        change_1h?: number; change_1d?: number; change_7d?: number;
+        category?: string;
+        mcap?: number | null;
+      };
+      const chainTvls = p.currentChainTvls ?? {};
+      const chains = Object.keys(chainTvls).filter((c) => !c.includes('-') && chainTvls[c] > 0);
+      const tvlUsd = Object.values(chainTvls).reduce((s, v) => s + (Number.isFinite(v) ? v : 0), 0);
+      return {
+        protocol: p.name,
+        tvlUsd: Math.round(tvlUsd),
+        change1h: p.change_1h ?? undefined,
+        change1d: p.change_1d ?? undefined,
+        change7d: p.change_7d ?? undefined,
+        chains,
+        category: p.category ?? 'unknown',
+        mcapUsd: p.mcap ?? null,
+      };
+    } catch (e) {
+      return { error: `DefiLlama fetch failed: ${e instanceof Error ? e.message : String(e)}` };
+    }
+  },
+};
+
+/**
+ * Crypto Fear & Greed Index — the industry-standard sentiment gauge
+ * (0-100, higher = more greed). Free API, updated once per day.
+ * 60s cache so concurrent chats share one HTTP call.
+ */
+let _fngCache: { at: number; value: { value: number; classification: string; updatedAt: string } | null } = { at: 0, value: null };
+const FNG_CACHE_TTL_MS = 60_000;
+
+const getFearGreedIndex: AgentTool<
+  Record<string, never>,
+  { value: number; classification: string; updatedAt: string } | { error: string }
+> = {
+  name: 'get_fear_greed_index',
+  description:
+    'Crypto Fear & Greed Index (0-100, Extreme Fear → Extreme Greed). Industry-standard daily sentiment gauge. Use for "what\'s market sentiment", "are people greedy or fearful", "F&G today".',
+  parameters: { type: 'object', properties: {}, additionalProperties: false },
+  async execute() {
+    const now = Date.now();
+    if (_fngCache.value && now - _fngCache.at < FNG_CACHE_TTL_MS) return _fngCache.value;
+    try {
+      const r = await fetch('https://api.alternative.me/fng/?limit=1', {
+        signal: AbortSignal.timeout(5000),
+      });
+      if (!r.ok) return { error: `F&G API HTTP ${r.status}` };
+      const j = await r.json() as { data?: Array<{ value: string; value_classification: string; timestamp: string }> };
+      const row = j.data?.[0];
+      if (!row) return { error: 'F&G API returned no data' };
+      const value = {
+        value: Number(row.value),
+        classification: row.value_classification,
+        updatedAt: new Date(Number(row.timestamp) * 1000).toISOString(),
+      };
+      _fngCache = { at: now, value };
+      return value;
+    } catch (e) {
+      return { error: `F&G fetch failed: ${e instanceof Error ? e.message : String(e)}` };
+    }
+  },
+};
+
 /** Public registry — the default tool set every Layer 3 agent gets. */
 export const DEFAULT_AGENT_TOOLS: AgentTool[] = [
   getAssetContext,          // PREFERRED for single-asset questions — must come first so LLM sees it first in tool list
@@ -596,6 +717,8 @@ export const DEFAULT_AGENT_TOOLS: AgentTool[] = [
   queryPostmortemStats,
   getTreasuryStateTool,
   getBroaderMarket,
+  getDefiLlamaTvl,          // NEW 2026-09-21: DeFi protocol TVL from DefiLlama (~2000 protocols)
+  getFearGreedIndex,        // NEW 2026-09-21: crypto sentiment gauge (0-100 daily index)
 ] as AgentTool[];
 
 /** Look up a tool by name — used by the runner to dispatch. */
