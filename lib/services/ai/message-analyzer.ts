@@ -1,0 +1,221 @@
+/**
+ * Regex-only message analyzer for the AI chat. Fast, deterministic,
+ * no LLM call. Extracts entities + intent + complexity from a user
+ * message so the route can pre-fetch relevant context and shape the
+ * LLM prompt dynamically.
+ *
+ * Design: bias toward FALSE-POSITIVES over FALSE-NEGATIVES. Better to
+ * pre-fetch data the LLM doesn't need than miss data it does. Extra
+ * context costs ~200 tokens; missed context costs a shallow answer.
+ */
+
+export type ChatIntent =
+  | 'lookup'      // "how is BTC" / "what's XRP at"
+  | 'compare'     // "BTC vs ETH" / "which is stronger"
+  | 'diagnose'    // "why did we lose" / "what went wrong"
+  | 'advise'      // "should I buy" / "is now a good time"
+  | 'explain'     // "what is a perp" / "how does funding work"
+  | 'market_wide' // "top movers" / "market state" / "market update"
+  | 'vault_state' // "how is our vault" / "our positions" / "our pnl"
+  | 'sentiment'   // "fear and greed" / "market sentiment" / "sentiment"
+  | 'defi'        // "TVL" / "aave" / "uniswap" / "curve" / "defi"
+  | 'other';
+
+export interface MessageAnalysis {
+  /** Uppercase asset tickers detected in the message. Deduped. */
+  assets: string[];
+  /** Whether any detected asset is one of the vault's tracked assets. */
+  hasTrackedAsset: boolean;
+  /** Whether any detected asset is a broader crypto (not tracked). */
+  hasBroaderAsset: boolean;
+  /** Best-guess intent from the language shape. */
+  intent: ChatIntent;
+  /** Time window hint in hours if the user referenced one, else null. */
+  timeframeHours: number | null;
+  /** Detected protocol name(s) (uniswap/aave/curve/etc). Lowercase. */
+  protocols: string[];
+  /** Complexity → drives maxIterations + tool subset. */
+  complexity: 'simple' | 'medium' | 'complex';
+  /** Suggested `maxIterations` for the LLM tool loop. */
+  suggestedMaxIterations: number;
+  /** The subset of tool names most relevant. Empty = expose all. */
+  suggestedTools: string[];
+}
+
+// ─── Constants ────────────────────────────────────────────────────────
+
+const TRACKED = new Set(['BTC', 'ETH', 'SOL', 'XRP', 'DOGE', 'CRO', 'SUI', 'ATOM']);
+
+// Common non-tracked crypto tickers we should recognize. Keep short — this
+// isn't an exhaustive registry, just a hit-list so the broader-market tool
+// gets pre-fetched on obvious mentions.
+const BROADER = new Set([
+  'ADA', 'LINK', 'AVAX', 'MATIC', 'DOT', 'BNB', 'TON', 'TRX', 'LTC', 'BCH',
+  'UNI', 'AAVE', 'CRV', 'MKR', 'COMP', 'SNX', 'YFI', 'GRT', 'FIL', 'NEAR',
+  'ARB', 'OP', 'APT', 'INJ', 'RUNE', 'RNDR', 'FTM', 'ALGO', 'ICP', 'HBAR',
+  'VET', 'EGLD', 'SAND', 'MANA', 'AXS', 'PEPE', 'SHIB', 'WIF', 'FLOKI',
+  'ONDO', 'JUP', 'JTO', 'PYTH', 'W', 'TIA',
+]);
+
+// Full-word aliases → ticker
+const ALIASES: Record<string, string> = {
+  bitcoin: 'BTC', ethereum: 'ETH', solana: 'SOL', ripple: 'XRP',
+  dogecoin: 'DOGE', cardano: 'ADA', chainlink: 'LINK', avalanche: 'AVAX',
+  polkadot: 'DOT', polygon: 'MATIC', binance: 'BNB', litecoin: 'LTC',
+  toncoin: 'TON', tron: 'TRX', arbitrum: 'ARB', optimism: 'OP',
+  cosmos: 'ATOM', filecoin: 'FIL', 'near protocol': 'NEAR',
+  aptos: 'APT', injective: 'INJ', thorchain: 'RUNE',
+};
+
+// DeFi protocols recognized by DefiLlama slugs (partial list; DefiLlama
+// itself handles thousands, this is just for smart pre-fetch triggering).
+const PROTOCOLS = new Set([
+  'uniswap', 'aave', 'curve', 'compound', 'makerdao', 'lido', 'rocket-pool',
+  'gmx', 'dydx', 'pendle', 'ethena', 'eigenlayer', 'maverick', 'radiant',
+  'jupiter', 'raydium', 'marinade', 'kamino', 'jito', 'drift',
+  'suilend', 'navi', 'cetus', 'scallop', 'suistake',
+]);
+
+// Intent keyword clusters — regex-hit order matters, earlier wins.
+const INTENT_PATTERNS: Array<{ intent: ChatIntent; re: RegExp }> = [
+  { intent: 'advise', re: /\b(should\s+(i|we)|worth\s+(buying|selling)|good\s+(time|move)|time\s+to\s+(buy|sell|enter|exit))\b/i },
+  { intent: 'diagnose', re: /\b(why\s+(did|is|are|has|does)|what\s+went\s+wrong|what\s+happened|explain\s+the\s+(loss|drop|dip|crash|move))\b/i },
+  { intent: 'compare', re: /\b(compare|vs\.?|versus|better|stronger|weaker|between\s+\w+\s+and)\b/i },
+  { intent: 'defi', re: /\b(tvl|total\s+value\s+locked|defi|protocol|yield|apy|apr)\b/i },
+  { intent: 'sentiment', re: /\b(fear|greed|sentiment|f&g|fng|feeling|mood)\b/i },
+  { intent: 'vault_state', re: /\b(our\s+(vault|position|hedge|pnl|treasury|trader)|zkward|the\s+vault)\b/i },
+  { intent: 'market_wide', re: /\b(top\s+(mover|gainer|loser)|market\s+(update|state|today|now)|what.s\s+hot|movers)\b/i },
+  { intent: 'lookup', re: /\b(how\s+is|what.s|whats|price\s+of|update\s+on)\b/i },
+  { intent: 'explain', re: /\b(what\s+is|what.s\s+a|explain|how\s+does|how\s+do|meaning\s+of)\b/i },
+];
+
+// Timeframe patterns → hours
+const TIMEFRAME_PATTERNS: Array<{ re: RegExp; hours: number }> = [
+  { re: /\b(?:last|past|in the)\s*(\d+)\s*hour/i, hours: 0 }, // filled dynamically
+  { re: /\bhour(?:ly)?\b/i, hours: 1 },
+  { re: /\b(?:last|past)\s+24\s*h(?:ours)?\b/i, hours: 24 },
+  { re: /\b(?:today|24h|last\s+day|past\s+day)\b/i, hours: 24 },
+  { re: /\byesterday\b/i, hours: 48 },
+  { re: /\b(?:this|past|last)\s+week\b/i, hours: 24 * 7 },
+  { re: /\b(?:this|past|last)\s+month\b/i, hours: 24 * 30 },
+  { re: /\b30\s*day/i, hours: 24 * 30 },
+];
+
+// ─── Analyzer ─────────────────────────────────────────────────────────
+
+export function analyzeMessage(text: string): MessageAnalysis {
+  const raw = text.trim();
+  const lower = raw.toLowerCase();
+
+  // Extract assets: full-word aliases first (so "bitcoin" doesn't miss BTC),
+  // then bare tickers.
+  const foundAssets = new Set<string>();
+
+  for (const [alias, ticker] of Object.entries(ALIASES)) {
+    if (lower.includes(alias)) foundAssets.add(ticker);
+  }
+  // Bare tickers — word-boundary, uppercase check to reduce false positives.
+  // Skip common English words that happen to be 3-4 letters.
+  const SKIP_WORDS = new Set(['THE', 'AND', 'FOR', 'YOU', 'ARE', 'CAN', 'OUR', 'HAS', 'HOW', 'WHY', 'WHO', 'ANY', 'ALL', 'NOT', 'BUT', 'DID', 'DOG', 'DO', 'IS', 'IT', 'ON', 'IN', 'AT', 'AS', 'OF', 'TO', 'A', 'I']);
+  const tickerMatches = raw.match(/\b[A-Z]{2,5}\b/g) || [];
+  for (const t of tickerMatches) {
+    if (SKIP_WORDS.has(t)) continue;
+    if (TRACKED.has(t) || BROADER.has(t)) foundAssets.add(t);
+  }
+
+  const assets = Array.from(foundAssets);
+  const hasTrackedAsset = assets.some((a) => TRACKED.has(a));
+  const hasBroaderAsset = assets.some((a) => BROADER.has(a) && !TRACKED.has(a));
+
+  // Extract protocols
+  const foundProtocols = new Set<string>();
+  for (const p of PROTOCOLS) {
+    if (lower.includes(p)) foundProtocols.add(p);
+  }
+
+  // Intent classification — first match wins
+  let intent: ChatIntent = 'other';
+  for (const p of INTENT_PATTERNS) {
+    if (p.re.test(raw)) {
+      intent = p.intent;
+      break;
+    }
+  }
+  // If no intent but assets present → treat as lookup
+  if (intent === 'other' && assets.length > 0) intent = 'lookup';
+  // If protocol present, override to defi
+  if (foundProtocols.size > 0) intent = 'defi';
+
+  // Timeframe extraction
+  let timeframeHours: number | null = null;
+  const numericHours = raw.match(/\b(?:last|past|in the)\s*(\d+)\s*hour/i);
+  if (numericHours) {
+    timeframeHours = Number(numericHours[1]);
+  } else {
+    for (const p of TIMEFRAME_PATTERNS) {
+      if (p.hours > 0 && p.re.test(raw)) {
+        timeframeHours = p.hours;
+        break;
+      }
+    }
+  }
+
+  // Complexity heuristic: intent + entity count + question length
+  let complexity: 'simple' | 'medium' | 'complex' = 'simple';
+  const wordCount = raw.split(/\s+/).length;
+  const isDiagnostic = intent === 'diagnose' || intent === 'advise';
+  const isMultiEntity = assets.length + foundProtocols.size >= 2;
+  if (isDiagnostic || (isMultiEntity && wordCount > 8)) complexity = 'complex';
+  else if (isMultiEntity || wordCount > 15 || intent === 'compare') complexity = 'medium';
+
+  // Suggested iteration budget
+  const suggestedMaxIterations = complexity === 'complex' ? 6 : complexity === 'medium' ? 4 : 2;
+
+  // Suggested tool subset — narrow to what the intent needs.
+  // Empty list means "expose all tools" (default fall-through in caller).
+  const suggestedTools: string[] = [];
+  switch (intent) {
+    case 'lookup':
+      suggestedTools.push('get_asset_context', 'get_broader_market');
+      break;
+    case 'compare':
+      suggestedTools.push('get_asset_context', 'get_prediction_signal', 'get_market_snapshot');
+      break;
+    case 'diagnose':
+      suggestedTools.push('query_hedge_history', 'get_asset_context', 'query_recent_interpretations', 'get_cron_state');
+      break;
+    case 'advise':
+      suggestedTools.push('get_asset_context', 'get_prediction_signal', 'query_postmortem_stats');
+      break;
+    case 'explain':
+      // Concept questions rarely need tools; leave empty so LLM leans on knowledge
+      break;
+    case 'market_wide':
+      suggestedTools.push('get_broader_market', 'get_fear_greed_index', 'get_market_snapshot');
+      break;
+    case 'vault_state':
+      suggestedTools.push('query_hedge_history', 'get_treasury_state', 'query_postmortem_stats', 'get_asset_context');
+      break;
+    case 'sentiment':
+      suggestedTools.push('get_fear_greed_index', 'get_prediction_signal', 'get_broader_market');
+      break;
+    case 'defi':
+      suggestedTools.push('get_defi_tvl', 'get_broader_market', 'get_asset_context');
+      break;
+    default:
+      // 'other' → expose all
+      break;
+  }
+
+  return {
+    assets,
+    hasTrackedAsset,
+    hasBroaderAsset,
+    intent,
+    timeframeHours,
+    protocols: Array.from(foundProtocols),
+    complexity,
+    suggestedMaxIterations,
+    suggestedTools,
+  };
+}

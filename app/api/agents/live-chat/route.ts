@@ -21,6 +21,8 @@ import { heavyLimiter } from '@/lib/security/rate-limiter';
 import { safeErrorResponse } from '@/lib/security/safe-error';
 import { runWithToolsStream, type HistoryTurn, type StreamEvent } from '@/lib/services/ai/tool-runner';
 import { logChatTurn, isValidSessionId } from '@/lib/db/ai-chat-logs';
+import { analyzeMessage } from '@/lib/services/ai/message-analyzer';
+import { DEFAULT_AGENT_TOOLS, toolByName, type AgentTool } from '@/lib/services/ai/agent-tools';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -29,9 +31,15 @@ export const maxDuration = 60;
 // Chat prompt — introduces the agent's identity + goal. The constitution
 // preamble is auto-prepended by runWithTools, so this focuses on the
 // helpfulness bias and boundaries.
-const SYSTEM_PROMPT = `You are ZKward — a crypto and market intelligence assistant with live access to prices, prediction-market signals, and the ZKward vault's own state. Read-only.
+const SYSTEM_PROMPT = `You are ZKward — a crypto strategist with live access to prices, prediction-market signals, DeFi TVL, sentiment gauges, and the ZKward vault's own state. Read-only.
 
-## Answer patterns — MATCH the pattern to the query type
+**Persona.** You know crypto deeply: DeFi mechanics (AMMs, lending, perps, funding, staking, restaking), on-chain metrics (TVL, active addresses, gas), major protocols across every chain, market cycles, and the tradeoffs of different strategies. When a user asks anything crypto-adjacent, you engage as a peer — not a hedged customer-service bot.
+
+**Reasoning discipline.** Before calling tools, silently ask: what's the LITERAL question, what's the IMPLICIT question, what one tool call would cover both? Pick that tool. If the runtime pre-fetched context already covers your answer, DON'T waste a tool call — just answer.
+
+**Runtime pre-fetch.** The server analyzes each message and injects live context for detected assets, protocols, or sentiment questions BEFORE you get called. If you see a "**Live context**" section below the persona, that's ground truth — use it directly, don't re-fetch the same data.
+
+## Answer patterns (examples, not exhaustive — use judgment)
 
 **"how is X doing" / "what's happening with X" / "X update" / bare asset name**
 → ONE tool call: \`get_asset_context(X)\` (returns price + 24h + signal + our hedges).
@@ -128,6 +136,29 @@ export async function POST(request: NextRequest) {
     const messagePreview = message.slice(0, 60);
     const collectedTools: Array<{ tool: string; ok: boolean; latencyMs: number }> = [];
 
+    // ─── DYNAMIC RUNTIME: message analysis + context pre-fetch ────
+    // Server does the shape-of-question work BEFORE the LLM runs.
+    // Extract entities, classify intent, pre-fetch relevant context,
+    // narrow the tool subset, size the iteration budget. This is the
+    // difference between a generic assistant and a crypto-native one:
+    // by the time the LLM starts, half the work is done.
+    const analysis = analyzeMessage(message);
+    const preFetchedContext = await buildRuntimeContext(analysis);
+    const activeTools = pickToolSubset(DEFAULT_AGENT_TOOLS, analysis.suggestedTools);
+    const runtimeSystemPrompt = preFetchedContext
+      ? `${SYSTEM_PROMPT}\n\n## Live context (pre-fetched, use directly, don't re-fetch)\n\n${preFetchedContext}`
+      : SYSTEM_PROMPT;
+    logger.info('[LiveChat] runtime analysis', {
+      messagePreview,
+      intent: analysis.intent,
+      assets: analysis.assets,
+      protocols: analysis.protocols,
+      complexity: analysis.complexity,
+      maxIterations: analysis.suggestedMaxIterations,
+      toolSubset: analysis.suggestedTools.length,
+      contextChars: preFetchedContext.length,
+    });
+
     // Log the user turn via `after()` — Vercel Fluid Compute keeps the
     // function alive post-response to run these deferred writes. Was
     // `void logChatTurn(...)` originally — that silently dropped writes
@@ -153,15 +184,13 @@ export async function POST(request: NextRequest) {
           let iterations: number | undefined;
           let finishedNormally: boolean | undefined;
           for await (const event of runWithToolsStream({
-            systemPrompt: SYSTEM_PROMPT,
+            systemPrompt: runtimeSystemPrompt,
             userPrompt: message,
             priorMessages,
-            // Was 6 — but each iteration is one full LLM call, and every
-            // failed tool costs ~3s in the tool timeout window. A chat
-            // answer rarely needs more than 2-3 tool-use rounds; capping
-            // at 3 bounds worst-case latency to ~15s (3 iterations × ~5s
-            // each) and keeps failure blast radius small.
-            maxIterations: 3,
+            tools: activeTools,
+            // Adaptive: simple lookups get 2, medium get 4, complex
+            // (diagnose/advise/multi-entity) get 6. Sized by analyzer.
+            maxIterations: analysis.suggestedMaxIterations,
           })) {
             if (event.type === 'token' && event.delta) assistantContent += event.delta;
             if (event.type === 'tool_end') {
@@ -226,4 +255,119 @@ export async function POST(request: NextRequest) {
 export async function GET() {
   const hasAsi = (process.env.ASI_API_KEY || '').trim().length > 0;
   return NextResponse.json({ ready: hasAsi });
+}
+
+// ─── Runtime helpers ──────────────────────────────────────────────────
+
+/**
+ * Narrow the tool list to what the message analyzer suggests. Empty
+ * suggestion → expose all tools (fall-through).
+ */
+function pickToolSubset(all: AgentTool[], names: string[]): AgentTool[] {
+  if (!names || names.length === 0) return all;
+  const set = new Set(names);
+  const picked = all.filter((t) => set.has(t.name));
+  // Safety: if the picked subset is empty (analyzer names don't match),
+  // fall back to all tools rather than starve the LLM
+  return picked.length > 0 ? picked : all;
+}
+
+/**
+ * Pre-fetch live context based on message analysis. Returns a formatted
+ * string ready to append to the system prompt. Fires all sub-fetches in
+ * parallel with tight timeouts — individual failures degrade gracefully
+ * (skip the missing section, don't fail the whole request).
+ *
+ * This is the "server does the thinking about what to fetch" layer.
+ * The LLM sees actual data, not just tool descriptions, so simple
+ * questions may need zero tool calls.
+ */
+async function buildRuntimeContext(analysis: ReturnType<typeof analyzeMessage>): Promise<string> {
+  const sections: string[] = [];
+
+  // Assets → pre-fetch get_asset_context for each (capped at 3 to bound cost)
+  if (analysis.assets.length > 0) {
+    const assetsToFetch = analysis.assets.slice(0, 3);
+    const results = await Promise.allSettled(
+      assetsToFetch.map(async (asset) => {
+        const tool = toolByName(DEFAULT_AGENT_TOOLS, 'get_asset_context');
+        if (!tool) return null;
+        return { asset, data: await tool.execute({ asset }) };
+      }),
+    );
+    const assetLines: string[] = [];
+    for (const r of results) {
+      if (r.status !== 'fulfilled' || !r.value) continue;
+      const { asset, data } = r.value;
+      const d = data as {
+        price: number | null;
+        change24hPct: number | null;
+        volume24hUsd: number | null;
+        signal?: { direction: string; confidence: number; consensus: number; recommendation: string } | null;
+        recentHedges: Array<{ side: string; notionalUsd: number; status: string; realizedPnlUsd: number | null }>;
+      };
+      const priceStr = d.price !== null ? `$${d.price < 1 ? d.price.toFixed(4) : d.price < 100 ? d.price.toFixed(2) : d.price.toFixed(0)}` : 'n/a';
+      const changeStr = d.change24hPct !== null ? `${d.change24hPct >= 0 ? '+' : ''}${d.change24hPct.toFixed(2)}%` : 'n/a';
+      const volStr = d.volume24hUsd !== null
+        ? d.volume24hUsd > 1e9 ? `$${(d.volume24hUsd / 1e9).toFixed(1)}B` : `$${(d.volume24hUsd / 1e6).toFixed(0)}M`
+        : 'n/a';
+      const sigStr = d.signal
+        ? `${d.signal.recommendation} @${d.signal.confidence}%conf/${d.signal.consensus}%cons`
+        : 'no signal (untracked)';
+      const activeHedges = d.recentHedges.filter((h) => h.status === 'active');
+      const lastClosed = d.recentHedges.find((h) => h.status === 'closed');
+      const posStr = activeHedges.length > 0
+        ? `HAS ACTIVE: ${activeHedges.map((h) => `${h.side} $${h.notionalUsd.toFixed(0)}`).join(', ')}`
+        : lastClosed
+          ? `flat (last: ${lastClosed.side} ${lastClosed.realizedPnlUsd !== null ? (lastClosed.realizedPnlUsd >= 0 ? '+' : '') + '$' + lastClosed.realizedPnlUsd.toFixed(2) : 'unknown pnl'})`
+          : 'flat, no recent history';
+      assetLines.push(`- **${asset}**: ${priceStr} (Δ24h ${changeStr}, vol ${volStr}) · Signal: ${sigStr} · Vault: ${posStr}`);
+    }
+    if (assetLines.length > 0) {
+      sections.push(`**Assets you asked about:**\n${assetLines.join('\n')}`);
+    }
+  }
+
+  // Protocols → pre-fetch TVL for each detected protocol (cap 2)
+  if (analysis.protocols.length > 0) {
+    const protoToFetch = analysis.protocols.slice(0, 2);
+    const tvlTool = toolByName(DEFAULT_AGENT_TOOLS, 'get_defi_tvl');
+    if (tvlTool) {
+      const results = await Promise.allSettled(
+        protoToFetch.map((protocol) => tvlTool.execute({ protocol })),
+      );
+      const lines: string[] = [];
+      for (let i = 0; i < results.length; i++) {
+        const r = results[i];
+        if (r.status !== 'fulfilled') continue;
+        const d = r.value as {
+          protocol?: string; tvlUsd?: number; change1d?: number; change7d?: number;
+          chains?: string[]; category?: string;
+        };
+        if (!d.tvlUsd) continue;
+        const tvl = d.tvlUsd > 1e9 ? `$${(d.tvlUsd / 1e9).toFixed(2)}B` : `$${(d.tvlUsd / 1e6).toFixed(0)}M`;
+        const chg1d = d.change1d !== undefined ? `${d.change1d >= 0 ? '+' : ''}${d.change1d.toFixed(1)}%` : 'n/a';
+        const chg7d = d.change7d !== undefined ? `${d.change7d >= 0 ? '+' : ''}${d.change7d.toFixed(1)}%` : 'n/a';
+        lines.push(`- **${d.protocol}** (${d.category}): TVL ${tvl} · Δ1d ${chg1d} · Δ7d ${chg7d} · Chains: ${(d.chains || []).slice(0, 5).join(', ')}`);
+      }
+      if (lines.length > 0) {
+        sections.push(`**Protocols you mentioned:**\n${lines.join('\n')}`);
+      }
+    }
+  }
+
+  // Sentiment intent → pre-fetch F&G
+  if (analysis.intent === 'sentiment' || analysis.intent === 'market_wide') {
+    const fngTool = toolByName(DEFAULT_AGENT_TOOLS, 'get_fear_greed_index');
+    if (fngTool) {
+      try {
+        const d = await fngTool.execute({}) as { value: number; classification: string; updatedAt?: string };
+        if (d.value !== undefined) {
+          sections.push(`**Sentiment:** Fear & Greed Index ${d.value}/100 — **${d.classification}**`);
+        }
+      } catch { /* skip */ }
+    }
+  }
+
+  return sections.join('\n\n');
 }
