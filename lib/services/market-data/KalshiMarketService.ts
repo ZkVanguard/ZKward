@@ -99,6 +99,19 @@ export async function getKalshiSignal(
     // between yes_bid and yes_ask. Find the strike whose yes-price is
     // closest to 0.5 — that's the ATM strike where the market is
     // roughly indifferent about above/below.
+    //
+    // 2026-09-21: filter effectively-resolved markets before ATM search.
+    // Kalshi returns hourly brackets as `status='active'` for a short
+    // window after resolution, with yes_bid=0 / yes_ask=$0.01 (below the
+    // minimum tick). Direct API check at 12:57 UTC-4 for KXBTCD returned
+    // 5 markets all at 0.00/0.01 — no live pricing, they'd resolved 3
+    // min prior. Trusting these produced spurious `direction=DOWN` on
+    // BTC because 89K strikes were far below $113K spot. Skip anything
+    // with yes-price outside [0.02, 0.98] — that's "market has decided".
+    // If the next hourly bracket is also in the payload (typical),
+    // filtering leaves ~10-20 fresh markets for the ATM search.
+    const RESOLVED_LO = 0.02;
+    const RESOLVED_HI = 0.98;
     const sorted = markets
       .map((m) => {
         const bid = parseFloat(m.yes_bid_dollars ?? '0');
@@ -107,6 +120,7 @@ export async function getKalshiSignal(
         return { strike: Number(m.floor_strike), yesPrice: mid };
       })
       .filter((m) => Number.isFinite(m.strike) && Number.isFinite(m.yesPrice))
+      .filter((m) => m.yesPrice > RESOLVED_LO && m.yesPrice < RESOLVED_HI)
       .sort((a, b) => a.strike - b.strike);
 
     if (sorted.length < 3) {

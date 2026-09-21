@@ -241,11 +241,17 @@ export async function runPolyDiscoverTick(): Promise<PolyDiscoverTickResult> {
       summary: broadSummary,
     }).catch(() => {});
 
-    // Momentum
+    // Momentum. Slice from 75 → 200 (2026-09-21): audit found 3,920 of
+    // 6,551 tracked slugs had exactly 1 sample because they'd rotated
+    // out of the top-75 after their first tick and never got a second
+    // update. 200 keeps history alive for the tail of the volume
+    // distribution too, giving computeMomentum enough samples (≥2)
+    // across a wider set. Env-tunable if we need to dial further.
+    const MOMENTUM_TOP_N = Number(process.env.POLY_MOMENTUM_TOP_N || 200);
     const momentumTargets: BroadMarket[] = broad
       .filter(m => m.horizon !== '5min')
       .sort((a, b) => b.volume24hr - a.volume24hr)
-      .slice(0, 75);
+      .slice(0, MOMENTUM_TOP_N);
 
     const allMomenta: MarketMomentum[] = [];
     const now = Date.now();
