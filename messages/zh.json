@@ -504,7 +504,9 @@
         "p4": "两句话解释一下资金费率",
         "p5": "过去 24 小时我们的金库做了什么？",
         "p6": "我们的 AI 这周预测得准吗？"
-      }
+      },
+      "clear": "Clear",
+      "clearHistory": "Clear conversation"
     }
   },
   "story": {

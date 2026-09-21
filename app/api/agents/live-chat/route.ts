@@ -20,6 +20,7 @@ import { logger } from '@/lib/utils/logger';
 import { heavyLimiter } from '@/lib/security/rate-limiter';
 import { safeErrorResponse } from '@/lib/security/safe-error';
 import { runWithToolsStream, type HistoryTurn, type StreamEvent } from '@/lib/services/ai/tool-runner';
+import { logChatTurn, isValidSessionId } from '@/lib/db/ai-chat-logs';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -108,9 +109,24 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'message too long' }, { status: 413 });
     }
     const priorMessages = normalizeHistory(body?.history);
+    const sessionIdRaw = body?.sessionId;
+    const sessionId = isValidSessionId(sessionIdRaw) ? sessionIdRaw : null;
+    const userAgent = request.headers.get('user-agent');
+    const clientIp = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+      || request.headers.get('x-real-ip')
+      || null;
 
     const messagePreview = message.slice(0, 60);
-    const collectedTools: string[] = [];
+    const collectedTools: Array<{ tool: string; ok: boolean; latencyMs: number }> = [];
+
+    // Log the user turn immediately (fire-and-forget). Assistant turn logs
+    // after the stream completes with final text + tool trace.
+    if (sessionId) {
+      void logChatTurn({
+        sessionId, role: 'user', content: message,
+        userAgent, clientIp,
+      });
+    }
 
     const stream = new ReadableStream<Uint8Array>({
       async start(controller) {
@@ -119,6 +135,10 @@ export async function POST(request: NextRequest) {
           controller.enqueue(encoder.encode(JSON.stringify(event) + '\n'));
         };
         try {
+          let assistantContent = '';
+          let elapsedMs: number | undefined;
+          let iterations: number | undefined;
+          let finishedNormally: boolean | undefined;
           for await (const event of runWithToolsStream({
             systemPrompt: SYSTEM_PROMPT,
             userPrompt: message,
@@ -130,16 +150,37 @@ export async function POST(request: NextRequest) {
             // each) and keeps failure blast radius small.
             maxIterations: 3,
           })) {
+            if (event.type === 'token' && event.delta) assistantContent += event.delta;
             if (event.type === 'tool_end') {
-              collectedTools.push(`${event.tool}(${event.ok ? 'ok' : 'err'})`);
+              collectedTools.push({
+                tool: event.tool,
+                ok: !!event.ok,
+                latencyMs: event.latencyMs ?? 0,
+              });
+            }
+            if (event.type === 'done') {
+              elapsedMs = event.elapsedMs;
+              iterations = event.iterations;
+              finishedNormally = true;
+              if (event.finalText && !assistantContent) assistantContent = event.finalText;
             }
             emit(event);
           }
           logger.info('[LiveChat] streamed', {
             messagePreview,
-            tools: collectedTools,
+            tools: collectedTools.map((t) => `${t.tool}(${t.ok ? 'ok' : 'err'})`),
             historyTurns: priorMessages.length,
           });
+          // Log assistant turn (fire-and-forget). Persists final content
+          // + tool trace even if the stream errored partway.
+          if (sessionId && assistantContent) {
+            void logChatTurn({
+              sessionId, role: 'assistant', content: assistantContent,
+              toolCalls: collectedTools.length ? collectedTools : undefined,
+              elapsedMs, iterations, finishedNormally,
+              userAgent, clientIp,
+            });
+          }
         } catch (err) {
           const msg = err instanceof Error ? err.message : 'stream failed';
           logger.error('[LiveChat] stream error', { error: msg });

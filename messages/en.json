@@ -165,7 +165,9 @@
         "p4": "Explain funding rates in two sentences",
         "p5": "What did our vault do in the last 24h?",
         "p6": "Is our AI predicting correctly this week?"
-      }
+      },
+      "clear": "Clear",
+      "clearHistory": "Clear conversation"
     },
     "architecture": "Architecture",
     "architectureBody": "All agents talk through a central <bus>MessageBus</bus> and extend a common <base>BaseAgent</base>. Each concern owns one file. Nothing shares state through globals.",

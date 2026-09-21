@@ -504,7 +504,9 @@
         "p4": "ファンディングレートを 2 文で説明して",
         "p5": "この 24 時間で金庫は何をした？",
         "p6": "今週 AI の予測は当たっている？"
-      }
+      },
+      "clear": "Clear",
+      "clearHistory": "Clear conversation"
     }
   },
   "story": {

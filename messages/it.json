@@ -504,7 +504,9 @@
         "p4": "Spiega i funding rate in due frasi",
         "p5": "Cosa ha fatto il nostro vault nelle ultime 24 h?",
         "p6": "La nostra IA sta predicendo bene questa settimana?"
-      }
+      },
+      "clear": "Clear",
+      "clearHistory": "Clear conversation"
     }
   },
   "story": {
