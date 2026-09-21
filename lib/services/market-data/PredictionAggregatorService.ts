@@ -27,6 +27,11 @@ import type { MultiAssetSignal } from './MultiAssetSignalService';
 import { MultiAssetSignalService } from './MultiAssetSignalService';
 import { ManifoldMarketService } from './ManifoldMarketService';
 import { SignalDriftFusion, type FusionUpgrade } from './SignalDriftFusion';
+import {
+  fetchBroadCryptoMarkets,
+  type BroadMarket,
+  type BroadHorizon,
+} from './PolymarketBroadMarketsService';
 
 // ─── Types ───────────────────────────────────────────────────────────
 
@@ -684,7 +689,7 @@ export class PredictionAggregatorService {
     const upperAssets = assets.map(a => a.toUpperCase());
     const { getTrackedAssetList } = await import('./MultiAssetSignalService');
     const alignmentUniverse = Array.from(new Set([...getTrackedAssetList(), ...upperAssets]));
-    const [polymarketSignal, delphiPredictions, cryptoComData, fundingRates, multiAssetSignals, manifoldMarkets, binancePositioning, bybitPositioning] = await Promise.all([
+    const [polymarketSignal, delphiPredictions, cryptoComData, fundingRates, multiAssetSignals, manifoldMarkets, binancePositioning, bybitPositioning, broadMarkets] = await Promise.all([
       this.fetchPolymarketSignal(),
       this.fetchDelphiPredictions(),
       this.fetchCryptoComData(upperAssets),
@@ -693,6 +698,7 @@ export class PredictionAggregatorService {
       ManifoldMarketService.getCryptoMarkets(upperAssets).catch(() => [] as PredictionMarket[]),
       this.fetchBinancePositioning(upperAssets).catch(() => ({} as Record<string, { funding: number; longShortRatio: number }>)),
       this.fetchBybitPositioning(upperAssets).catch(() => ({} as Record<string, { funding: number; openInterest: number }>)),
+      fetchBroadCryptoMarkets({}).catch(() => [] as BroadMarket[]),
     ]);
 
     // Track OI delta from previous fetch to compute change %.
@@ -756,7 +762,10 @@ export class PredictionAggregatorService {
 
       // 1b) BTC-specific Polymarket5MinService signal (legacy ticker) —
       //     only kept for BTC since RiskAgent/HedgingAgent already subscribe
-      //     to it. Lower weight since (1a) covers the same signal now.
+      //     to it. Kept at 0.10 weight: source-calibrator data (2026-09-21)
+      //     shows n=75, 56.5% hit rate — it's the highest-N and one of the
+      //     best-performing base sources. Different Polymarket query than
+      //     (1a) so not truly redundant. Calibrator boosts to ~1.13× on top.
       if (asset === 'BTC' && polymarketSignal) {
         sources.push({
           name: 'Polymarket 5-Min BTC (ticker)',
@@ -812,7 +821,12 @@ export class PredictionAggregatorService {
         });
       }
 
-      // 3) Crypto.com 24h ticker for this asset
+      // 3) Crypto.com 24h ticker for this asset. Weight dropped 0.20 → 0.10
+      //    (2026-09-21): 24h price change is a technical/momentum indicator,
+      //    not a prediction-market signal. At 0.20 it was contributing a
+      //    third of total signal weight for BTC/ETH — masking the true
+      //    prediction sources. See PolymarketBroadMarkets (block 3b)
+      //    which now carries proper hourly/daily binary weight.
       const ticker =
         asset === 'BTC' ? cryptoComData.btc : asset === 'ETH' ? cryptoComData.eth : null;
       if (ticker) {
@@ -828,11 +842,48 @@ export class PredictionAggregatorService {
             change > 0
               ? 50 + Math.min(change * 5, 30)
               : 50 + Math.max(change * 5, -30),
-          weight: 0.20,
+          weight: 0.10,
           rawData: ticker,
           fetchedAt: Date.now(),
         });
       }
+
+      // 3b) Polymarket broad markets — hourly/daily binary + price-target
+      //     markets tagged with this asset. These are the horizon-matched
+      //     prediction-market signals the earlier code was leaving on the
+      //     table. `PolymarketBroadMarketsService` already runs a 4× fan-out
+      //     across sort orders and classifies horizon; we filter to hourly
+      //     and daily (paper-trader holds 45min; the sweet spot is
+      //     30min-24h resolution). Top 3 by 24h volume per asset, weighted
+      //     0.06/0.05/0.04 — sums to ~0.15 for a well-covered asset,
+      //     comparable to the Delphi/Manifold budget.
+      const assetBroad = broadMarkets
+        .filter((m) => m.assets.includes(asset))
+        .filter((m) => (['hourly', 'daily'] as BroadHorizon[]).includes(m.horizon))
+        .filter((m) => m.direction !== 'NEUTRAL')
+        .filter((m) => m.liquidity >= 500)
+        .sort((a, b) => b.volume24hr - a.volume24hr)
+        .slice(0, 3);
+      const broadWeights = [0.06, 0.05, 0.04];
+      assetBroad.forEach((m, i) => {
+        sources.push({
+          name: `Polymarket ${m.horizon} ${asset}: ${m.question.substring(0, 40)}…`,
+          type: m.horizon === 'hourly' ? 'short_term' : 'medium_term',
+          direction: m.direction,
+          confidence: Math.min(60 + Math.abs(m.probability - 50), 95),
+          probability: m.probability,
+          weight: broadWeights[i],
+          rawData: {
+            slug: m.slug,
+            horizonHours: m.horizonHours,
+            volume24hr: m.volume24hr,
+            liquidity: m.liquidity,
+            marketType: m.marketType,
+            targetPrice: m.targetPrice,
+          },
+          fetchedAt: Date.now(),
+        });
+      });
 
       // 4) REAL Bluefin funding rate for this asset (decimal per 8h).
       //    Positive funding = longs pay shorts → market crowd is long-biased
