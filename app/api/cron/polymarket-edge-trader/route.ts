@@ -148,6 +148,26 @@ export async function GET(request: NextRequest): Promise<NextResponse<EdgeResult
     });
   }
 
+  // Piggyback #2: paper-GATED trader. Same signal + sizing + exit
+  // discipline as raw paper, but every candidate must clear the LIVE
+  // agent gate (SafeExecutionGuard + HedgingAgent) before opening.
+  // Isolated state under `paper-gated-trader:*` keys, hedge rows under
+  // portfolio_id=-4. Point: side-by-side comparison of paper-raw vs
+  // paper-gated PnL isolates the delta the agent gate adds.
+  // Non-fatal — a gated-paper failure must never block the real trader.
+  try {
+    const { PaperGatedTrader } = await import('@/lib/services/paper-trader/PaperGatedTrader');
+    await PaperGatedTrader.runTick().catch((e) => {
+      logger.warn('[PaperGatedTrader] piggyback tick failed (non-fatal)', {
+        error: e instanceof Error ? e.message : String(e),
+      });
+    });
+  } catch (e) {
+    logger.warn('[PaperGatedTrader] piggyback import failed (non-fatal)', {
+      error: e instanceof Error ? e.message : String(e),
+    });
+  }
+
   // Piggyback: signal-outcome resolver. Closes the learning loop by
   // scoring interpretations that have passed their horizon against
   // realized spot. Runs inline via direct import (not HTTP) because the
