@@ -504,7 +504,9 @@
         "p4": "펀딩 비율을 두 문장으로 설명해",
         "p5": "지난 24시간 우리 볼트는 뭘 했나?",
         "p6": "우리 AI가 이번 주 잘 예측하고 있나?"
-      }
+      },
+      "clear": "Clear",
+      "clearHistory": "Clear conversation"
     }
   },
   "story": {

@@ -504,7 +504,9 @@
         "p4": "Explica las funding rates en dos frases",
         "p5": "¿Qué hizo nuestra bóveda en las últimas 24 h?",
         "p6": "¿Está acertando nuestra IA esta semana?"
-      }
+      },
+      "clear": "Clear",
+      "clearHistory": "Clear conversation"
     }
   },
   "story": {

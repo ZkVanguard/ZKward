@@ -504,7 +504,9 @@
         "p4": "Erklär Funding Rates in zwei Sätzen",
         "p5": "Was hat unser Vault in den letzten 24 h getan?",
         "p6": "Trifft unsere KI diese Woche richtig?"
-      }
+      },
+      "clear": "Clear",
+      "clearHistory": "Clear conversation"
     }
   },
   "story": {

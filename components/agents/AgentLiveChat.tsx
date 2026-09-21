@@ -32,6 +32,74 @@ interface Message {
 // Prompt IDs — labels come from translations via t(`prompts.${id}`).
 const PROMPT_IDS = ['p1', 'p2', 'p3', 'p4', 'p5', 'p6'] as const;
 
+// Client-side chat persistence. Versioned key so schema evolution
+// doesn't break existing users. Cap at HISTORY_LIMIT so localStorage
+// stays bounded (rough size: 50 messages × ~2 KB avg = 100 KB, well
+// under the ~5 MB per-origin quota). Streaming state is stripped
+// before persisting — half-written messages don't survive reloads.
+const STORAGE_KEY = 'zkward-chat-history-v1';
+const SESSION_KEY = 'zkward-chat-session-v1';
+const HISTORY_LIMIT = 50;
+
+// Session ID — UUID stored in localStorage, sent with every request so the
+// server can log to ai_chat_logs and (in a follow-up PR) retrieve prior
+// context for the same session. Clearing browser data resets the session.
+function loadOrCreateSessionId(): string {
+  if (typeof window === 'undefined') return '';
+  try {
+    const existing = window.localStorage.getItem(SESSION_KEY);
+    if (existing && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(existing)) {
+      return existing;
+    }
+  } catch { /* no-op */ }
+  const fresh = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+    ? crypto.randomUUID()
+    // Fallback for very old browsers — not crypto-secure but sufficient for a session tag
+    : `${Date.now().toString(16)}-${Math.random().toString(16).slice(2, 10)}-4${Math.random().toString(16).slice(2, 5)}-8${Math.random().toString(16).slice(2, 5)}-${Math.random().toString(16).slice(2, 14).padEnd(12, '0')}`;
+  try { window.localStorage.setItem(SESSION_KEY, fresh); } catch { /* no-op */ }
+  return fresh;
+}
+
+function loadHistory(): Message[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    // Basic shape validation — reject anything not matching Message
+    return parsed.filter((m: unknown): m is Message => {
+      return !!m && typeof m === 'object'
+        && typeof (m as Message).id === 'string'
+        && ((m as Message).role === 'user' || (m as Message).role === 'assistant')
+        && typeof (m as Message).content === 'string';
+    }).map((m) => ({ ...m, streaming: false, error: !!m.error }));
+  } catch {
+    return [];
+  }
+}
+
+function saveHistory(messages: Message[]) {
+  if (typeof window === 'undefined') return;
+  try {
+    // Strip transient state, drop errored/empty entries, cap size
+    const clean = messages
+      .filter((m) => m.content && !m.rateLimited)
+      .map((m) => ({
+        id: m.id,
+        role: m.role,
+        content: m.content,
+        toolCalls: m.toolCalls?.map(({ pending: _p, ...tc }) => tc),
+        elapsedMs: m.elapsedMs,
+        error: m.error,
+      }))
+      .slice(-HISTORY_LIMIT);
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(clean));
+  } catch {
+    // Storage quota / disabled — silently drop persistence
+  }
+}
+
 function AssistantMarkdown({ content }: { content: string }) {
   return (
     <ReactMarkdown
@@ -77,6 +145,7 @@ function AssistantMarkdown({ content }: { content: string }) {
 export function AgentLiveChat() {
   const t = useTranslations('agentsPage.chat');
   const [messages, setMessages] = useState<Message[]>([]);
+  const [hydrated, setHydrated] = useState(false);
   const [input, setInput] = useState('');
   const [pending, setPending] = useState(false);
   const [ready, setReady] = useState<boolean | null>(null);
@@ -88,6 +157,35 @@ export function AgentLiveChat() {
       .then(r => r.json())
       .then(j => setReady(!!j.ready))
       .catch(() => setReady(false));
+  }, []);
+
+  // Hydrate history from localStorage on mount. Runs once, marks hydrated
+  // so the persist-effect below doesn't wipe existing storage with an
+  // empty `messages` array before load.
+  useEffect(() => {
+    setMessages(loadHistory());
+    setHydrated(true);
+  }, []);
+
+  // Persist history whenever messages change (post-hydration). Skipping
+  // streaming messages entirely — they persist once complete.
+  useEffect(() => {
+    if (!hydrated) return;
+    if (messages.some((m) => m.streaming)) return;
+    saveHistory(messages);
+  }, [messages, hydrated]);
+
+  const sessionIdRef = useRef<string>('');
+  useEffect(() => { sessionIdRef.current = loadOrCreateSessionId(); }, []);
+
+  const clearHistory = useCallback(() => {
+    setMessages([]);
+    if (typeof window !== 'undefined') {
+      try { window.localStorage.removeItem(STORAGE_KEY); } catch { /* no-op */ }
+      // Note: keep the session_id so server-side context (ai_chat_logs)
+      // can still be recalled if the user asks a follow-up. Only the
+      // client-visible history is cleared.
+    }
   }, []);
 
   useEffect(() => {
@@ -129,7 +227,11 @@ export function AgentLiveChat() {
       const r = await fetch('/api/agents/live-chat', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ message: text, history: historySnapshot }),
+        body: JSON.stringify({
+          message: text,
+          history: historySnapshot,
+          sessionId: sessionIdRef.current || undefined,
+        }),
       });
 
       if (r.status === 429) {
@@ -266,6 +368,15 @@ export function AgentLiveChat() {
           <span className="ml-auto text-caption-2 text-label-tertiary hidden sm:inline flex-shrink-0">
             {t('readOnly')}
           </span>
+          {messages.length > 0 && (
+            <button
+              onClick={clearHistory}
+              className="text-caption-2 text-label-tertiary hover:text-label-primary transition-colors px-2 py-1 rounded"
+              title={t('clearHistory')}
+            >
+              {t('clear')}
+            </button>
+          )}
         </div>
         <p className="text-caption-1 sm:text-footnote text-label-tertiary mt-1">
           {t('subtitle')}
