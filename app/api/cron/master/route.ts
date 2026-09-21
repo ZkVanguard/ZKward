@@ -138,6 +138,11 @@ export async function GET(request: NextRequest): Promise<NextResponse<MasterCron
     { name: 'SUI Community Pool',       path: '/api/cron/sui-community-pool', timeoutMs: 60_000 },
     { name: 'SUI Hedge Reconcile',      path: '/api/cron/sui-hedge-reconcile' },
     { name: 'SUI Collect Fees',         path: '/api/cron/sui-collect-fees' },
+    // Watchdog for THIS orchestrator — if master itself stops firing, no cron
+    // updates its heartbeat, heartbeat-monitor detects the stale-cron gap and
+    // fires a Discord KILL. Added 2026-09-20 during the recovery from the
+    // 24h jobs.zkward.com HMAC-secret-mismatch outage.
+    { name: 'Heartbeat Monitor',        path: '/api/cron/heartbeat-monitor', timeoutMs: 15_000 },
   ];
 
   // Fire-and-forget: return 202 immediately so the scheduler (jobs.zkward.com)
