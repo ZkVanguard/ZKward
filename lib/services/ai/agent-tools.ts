@@ -201,6 +201,17 @@ const queryPostmortemStats: AgentTool<
     additionalProperties: false,
   },
   async execute({ days = 30 }) {
+    // 5-min per-lookback cache: this is a 30-day aggregate that shifts
+    // slowly, and the AI chat calls this on almost every relevant
+    // question. Uncached hits are the single biggest chat-latency spike
+    // when the Cloudflare-tunneled DB flaps (verified 2026-09-21: 3s+
+    // per call). Cache key includes `days` so different lookbacks don't
+    // step on each other.
+    const cacheKey = `pm-${days}`;
+    const cached = _postmortemCache.get(cacheKey);
+    if (cached && Date.now() - cached.at < POSTMORTEM_CACHE_TTL_MS) {
+      return cached.value;
+    }
     const { query } = await import('@/lib/db/postgres');
     const sinceMs = Date.now() - days * 24 * 60 * 60 * 1000;
     const rows = await query<{ outcome_correct: boolean | null }>(
@@ -212,15 +223,26 @@ const queryPostmortemStats: AgentTool<
     const resolved = rows.filter((r) => r.outcome_correct !== null).length;
     const correct = rows.filter((r) => r.outcome_correct === true).length;
     const wrong = rows.filter((r) => r.outcome_correct === false).length;
-    return {
+    const value = {
       total,
       resolved,
       correct,
       wrong,
       accuracy: resolved > 0 ? correct / resolved : 0,
     };
+    _postmortemCache.set(cacheKey, { at: Date.now(), value });
+    return value;
   },
 };
+
+// Serverless-scoped cache. Dies with the lambda, which is fine — first
+// request after cold-start pays the DB hit, subsequent requests within
+// TTL are instant.
+const POSTMORTEM_CACHE_TTL_MS = 5 * 60 * 1000;
+const _postmortemCache = new Map<
+  string,
+  { at: number; value: { total: number; resolved: number; correct: number; wrong: number; accuracy: number } }
+>();
 
 const getTreasuryStateTool: AgentTool<
   Record<string, never>,

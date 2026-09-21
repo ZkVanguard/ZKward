@@ -116,7 +116,12 @@ export async function POST(request: NextRequest) {
             systemPrompt: SYSTEM_PROMPT,
             userPrompt: message,
             priorMessages,
-            maxIterations: 6,
+            // Was 6 — but each iteration is one full LLM call, and every
+            // failed tool costs ~3s in the tool timeout window. A chat
+            // answer rarely needs more than 2-3 tool-use rounds; capping
+            // at 3 bounds worst-case latency to ~15s (3 iterations × ~5s
+            // each) and keeps failure blast radius small.
+            maxIterations: 3,
           })) {
             if (event.type === 'tool_end') {
               collectedTools.push(`${event.tool}(${event.ok ? 'ok' : 'err'})`);

@@ -76,7 +76,12 @@ export function getPool(): Pool {
       max: isPooler ? 25 : isNeon ? 8 : 20,
       min: isNeon ? 1 : 2,
       idleTimeoutMillis: isNeon ? 8000 : 20000,
-      connectionTimeoutMillis: isNeon ? 5000 : 3000,
+      // 3000ms was too tight for Bakchodi's Cloudflare-tunneled PG which
+      // flaps intermittently (verified 2026-09-21: multiple sessions timed
+      // out mid-query, dropped the AI chat's postmortem tool at exactly
+      // 3002ms). 8s tolerates a slow tunnel handshake while still failing
+      // fast when the server is truly down. Neon (managed) keeps 5s.
+      connectionTimeoutMillis: isNeon ? 5000 : 8000,
       // statement_timeout deliberately not passed here — pg would send it as a
       // libpq startup parameter, which PgBouncer (Bakchodi's front) rejects
       // with "unsupported startup parameter". We SET it via the on-connect
