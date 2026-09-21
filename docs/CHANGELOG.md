@@ -5,6 +5,53 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.2] - 2026-09-21 — Prediction aggregator overhaul + HedgingAgent integration
+
+Paper-trader forensics from 2026-09-20 identified −$68K on 163 trades at 26.4% win rate. The audit traced the root cause: ~40% of "prediction market" signal weight was actually technical/momentum indicators (Crypto.com 24h + funding), and the primary Polymarket source was a 5-min binary market (coin-flip horizon at that resolution). Meanwhile 995 LOC of built-out prediction market services sat unwired.
+
+### Aggregator — wire what was already built (PRs #193 #194 #195 #196)
+
+- **`PolymarketBroadMarketsService`** (379 LOC) — hourly/daily/weekly binary + price-target markets. Was fetching + classifying by `horizonHours` with no consumer. Now wired into `getPerAssetPredictions`: top 3 by 24h volume per asset, weight 0.06/0.05/0.04, horizon-filtered to hourly + daily (matches paper-trader 45min hold).
+- **`PolymarketMomentumService`** (289 LOC) — computes hotness from probability velocity + volume ratio + liquidity change on the broad markets' history ring buffer. Wired as a per-market weight multiplier: `weight × (1 + min(0.5, hotness/200))` — hot markets get up to 1.5× boost.
+- **`detectThemes()`** — clusters broad markets by keyword theme (`etf-approval`, `fed-rates`, `regulation`, `halving`, etc.). Themes with ≥3 markets and volume-weighted directional consensus ≥ 0.3 become synthetic `PredictionSource` entries scoped by the theme's `affectsAssets` list.
+- **AI signal interpretations** — the fine-tuned Signal Interpreter in `poly-discover-tick` extracts `{asset, direction, horizon, confidence, novelty}` per new broad market. Prod stats: **29 resolved outcomes, 24 correct → 82.8% accuracy**, avg confidence 0.87. Wired via `signal_interpretations` DB query in the aggregator, top 4 per asset ordered by `(confidence × novelty)`. Filter had a bug initially — required `horizon IN ('hourly','daily')` but the interpreter tags most as `unknown` (31 BTC UPs at unknown vs 3 at daily). Fixed to `horizon NOT IN ('weekly','monthly')`.
+- **Crypto.com 24h weight** dropped 0.20 → 0.10. Source calibrator confirmed n=39, 51.0% hit rate = coin flip. Was contributing ~20% of total signal weight to noise.
+- **Legacy BTC ticker** kept at 0.10 — calibrator says it's the best-performing base source (n=75, 56.5% hit rate).
+- **Delphi keyword tagging** extended from BTC/ETH-only to also tag `SOL / XRP / DOGE / SUI` markets. Word-boundary regex on 3-letter tickers to avoid false positives (`\bsol\b`, `\bxrp\b`, etc.).
+- **Kalshi resolved-market filter** — direct API check at 12:57 UTC-4 found `KXBTCD` returning 5 markets all at 0.00/0.01 yes-price (hourly bracket resolved 3 min prior but still `status='active'`). Trusting them produced spurious `direction=DOWN` on BTC because stale $89K strikes were far below $113K spot. Fix: filter yes-price outside `[0.02, 0.98]` before ATM search — next hourly bracket is typically in the same 100-market payload.
+- **`poly-discover` cadence 30min → 5min** — added to master cron fanout list (`app/api/cron/master/route.ts`). Route has no `tryClaimCronRun` gate so 5-min pings mean 5-min runs. Gives the 82.8%-accurate interpreter 6× more opportunities per hour to label new markets. Sui-community-pool piggyback kept for redundancy; DB writes are idempotent.
+- **`poly-discover-tick` momentum slot 75 → 200** (env-tunable via `POLY_MOMENTUM_TOP_N`). Audit found 3,920 of 6,551 tracked slugs had exactly 1 snapshot because they rotated out of the top-75 after first tick. 200 keeps history alive for the volume tail. Post-deploy: slugs with ≥5 samples jumped 18 → 59 (3.3× improvement).
+
+### HedgingAgent → PredictionAggregatorService (PR #197)
+
+The integration gap that made the aggregator work only half-effective: `HedgingAgent` (called via `agent-orchestrator.publishDirectivesAndAttest`) **overrode** the aggregator-seeded per-asset directive with a partial-data opinion — it only imported `DelphiMarketService` + `Polymarket5MinService`, missing everything else.
+
+- New helper `getAggregatorSignal(asset)` — 20s-cached wrapper, null on failure.
+- `analyzeHedgeOpportunity` — consults aggregator, boosts `hedgeRatio` on STRONG_HEDGE_* / HEDGE_* by `confidence × consensus`, adds aggregator recommendation as first-class `shouldHedge` trigger. Delphi path preserved as fail-open fallback.
+- `voteOnExecution` — adds `aggregatorPenalty` combining direction alignment + confidence + rec strength. Legacy signal + Delphi penalties fire ONLY when aggregator missed (no double-count of Delphi).
+- Accepts optional `asset` + `proposedSide` in proposal (LeadAgent's `votingProposal` doesn't currently pass these — strategic intents are asset-agnostic; per-asset votes flow through `agent-trade-guard.castAutomatedConsensusVotes` which reads the rich directives instead).
+
+### Pre-existing test failures fixed (PR #198)
+
+Two tests failing on main since prior refactors; unrelated to today's aggregator work but noticed during verification.
+
+- **`ReportingAgent.test.ts` › should generate risk report** — ZK proof generation in `generateRiskReport(includeZKProofs:true)` invokes the Python prover without a per-request deadline. Unreachable prover → 30s Jest timeout. Wrapped in `Promise.race` against 5000ms (env-tunable via `REPORTING_ZK_TIMEOUT_MS`); existing try/catch handles rejection so reports complete best-effort. Prod benefit: any endpoint that includes ZK proofs no longer blocks for 30s when the prover is down.
+- **`agent-harness.test.ts` › drives LeadAgent intent parsing via the mocked LLM (JSON path)** — `LeadAgent.parseNaturalLanguage` was refactored to route through `reason()` in `lib/services/ai/reasoner` (uses `runWithTools` + provider-abstract ChatClient) instead of calling `llmProvider.generateResponse` directly. Test harness only mocked the old seam. Extended `installMockLLM` to `jest.doMock('@/lib/services/ai/reasoner')` too — records `reason()` calls as `method='generateDirectResponse'` for backward-compat with existing assertions.
+
+### Results
+
+Coverage grew from ~7 sources per asset to **19 for BTC** (4 AI + 3 broad + 3 Delphi + 3 Manifold + others). First two post-improvement paper trades opened at 01:12 UTC-4 both closed profitable: **paper-trader +$37.25**, **paper-gated +$26.41** (paper-gated crossed into positive PnL for the first time; n=2 too small for statistical conclusion but directionally the aggregator upgrades produce signal-consistent decisions).
+
+### New env vars
+
+- `POLY_MOMENTUM_TOP_N` (default 200) — momentum snapshot slot size in `poly-discover-tick`
+- `REPORTING_ZK_TIMEOUT_MS` (default 5000) — ZK proof generation deadline in `ReportingAgent`
+
+### Structural gaps not fixed (data-source-side)
+
+- SUI + DOGE have zero markets in Polymarket top-100 by volume — nothing to wire
+- Kalshi only offers BTC/ETH crypto binaries; no SOL/XRP/DOGE series
+
 ## [0.4.1] - 2026-08-04 — Pool wash-trade bleed stopped
 
 ### Autonomy — sample-rate + hysteresis
