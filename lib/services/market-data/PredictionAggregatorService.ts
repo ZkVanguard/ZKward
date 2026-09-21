@@ -1091,12 +1091,18 @@ export class PredictionAggregatorService {
         if (funding) sources.push(funding);
       }
 
-      // 5c) Kalshi ATM-strike direction (2026-09-19). Different user
-      //     base than Polymarket (US institutional + retail). Binary
-      //     "BTC above $X at time T" markets — we infer direction from
-      //     where the ATM strike sits vs spot. Only BTC + ETH have
-      //     active Kalshi crypto markets.
-      if (asset === 'BTC' || asset === 'ETH') {
+      // 5c) Kalshi ATM-strike direction. Different user base than
+      //     Polymarket (US institutional + retail). Binary "ASSET above
+      //     $X at time T" markets — we infer direction from where the
+      //     ATM strike sits vs spot. Extended 2026-09-21 to SOL/XRP/DOGE
+      //     (was BTC/ETH-only) after direct API check confirmed all 5
+      //     KX*D series tickers exist. Live-priced bracket varies by hour
+      //     across assets (XRP had 10 live, BTC/ETH some, SOL/DOGE
+      //     between-resolution at the time of check). The resolved-market
+      //     filter in getKalshiSignal drops brackets whose yes-prices are
+      //     all clustered near 0 or 1 → source silently skipped when the
+      //     hourly bracket has just resolved, added when live.
+      if (asset === 'BTC' || asset === 'ETH' || asset === 'SOL' || asset === 'XRP' || asset === 'DOGE') {
         const spotForKalshi = cryptoComData.perAsset?.[asset]?.price ?? 0;
         if (spotForKalshi > 0) {
           const { getKalshiSignal } = await import('./KalshiMarketService');
