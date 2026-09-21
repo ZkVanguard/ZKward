@@ -20,8 +20,15 @@
  *
  * - KXBTCD  = BTC hourly binary (Bitcoin Daily/hourly buckets)
  * - KXETHD  = ETH hourly binary
+ * - KXSOLD  = SOL hourly binary
+ * - KXXRPD  = XRP hourly binary (2026-09-21: verified 10 live markets)
+ * - KXDOGED = DOGE hourly binary
  *
- * Other assets (SOL, XRP, DOGE) don't have active Kalshi markets.
+ * SOL and DOGE brackets are frequently between-resolution (all yes-prices
+ * near 0 or 1); the RESOLVED_LO/RESOLVED_HI filter drops those and the
+ * caller gets null → source silently skipped, no fake signal. Adding them
+ * as first-class supported assets means when their brackets ARE live we
+ * light up automatically without a code release.
  *
  * ## Failure handling
  *
@@ -63,20 +70,45 @@ export interface KalshiSignal {
 
 const cache = new Map<string, { signal: KalshiSignal | null; at: number }>();
 
+export type KalshiAsset = 'BTC' | 'ETH' | 'SOL' | 'XRP' | 'DOGE';
+
+const SERIES_TICKER: Record<KalshiAsset, string> = {
+  BTC: 'KXBTCD',
+  ETH: 'KXETHD',
+  SOL: 'KXSOLD',
+  XRP: 'KXXRPD',
+  DOGE: 'KXDOGED',
+};
+
+/**
+ * Cache-key spot-bucket sizing per asset. Same-bucket spot movements hit
+ * cache; big movements refetch. BTC $100 bucket = ~0.1% at $100K. Adapt
+ * per asset so we don't cache a stale signal across a real move on lower-
+ * priced coins.
+ */
+const SPOT_BUCKET: Record<KalshiAsset, number> = {
+  BTC: 100,     // ~0.1% at $100K
+  ETH: 10,      // ~0.3% at $3K
+  SOL: 1,       // ~0.5% at $200
+  XRP: 0.05,    // ~2.5% at $2 (thin, so refetch more)
+  DOGE: 0.005,  // ~2% at $0.25
+};
+
 /** Fetch Kalshi crypto binary markets for the current 1-hour bracket and
  *  return an ATM-implied direction signal. Returns null when no active
  *  markets found or on any error (fail-open). */
 export async function getKalshiSignal(
-  asset: 'BTC' | 'ETH',
+  asset: KalshiAsset,
   spotPrice: number,
 ): Promise<KalshiSignal | null> {
   if (!Number.isFinite(spotPrice) || spotPrice <= 0) return null;
-  const cacheKey = `${asset}:${Math.floor(spotPrice / 100)}`;
+  const bucket = SPOT_BUCKET[asset];
+  const cacheKey = `${asset}:${Math.floor(spotPrice / bucket)}`;
   const cached = cache.get(cacheKey);
   const now = Date.now();
   if (cached && now - cached.at < CACHE_TTL_MS) return cached.signal;
 
-  const seriesTicker = asset === 'BTC' ? 'KXBTCD' : 'KXETHD';
+  const seriesTicker = SERIES_TICKER[asset];
   try {
     const resp = await fetch(
       `${KALSHI_BASE}/markets?series_ticker=${seriesTicker}&status=open&limit=100`,
