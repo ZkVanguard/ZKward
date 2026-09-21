@@ -32,6 +32,15 @@ import {
   type BroadMarket,
   type BroadHorizon,
 } from './PolymarketBroadMarketsService';
+import {
+  computeMomentum,
+  detectThemes,
+  type MarketSnapshot,
+  type MarketMomentum,
+  type ThemeCluster,
+} from './PolymarketMomentumService';
+import { getCronStateOr } from '@/lib/db/cron-state';
+import { query as dbQuery } from '@/lib/db/postgres';
 
 // ─── Types ───────────────────────────────────────────────────────────
 
@@ -730,6 +739,77 @@ export class PredictionAggregatorService {
     // funding line up, the asset's WEAK/MODERATE signal is treated as STRONG.
     const fusionResult = SignalDriftFusion.fuseAll(multiAssetSignals, fundingRates);
 
+    // Pre-loop: theme clusters + AI interpretations. Both are all-asset
+    // queries done once per aggregator call rather than per-asset in the
+    // loop below — saves N-1 duplicate reads.
+    //
+    // Theme clusters: detectThemes() groups the broad markets by keyword
+    // theme (etf-approval, fed-rates, regulation, etc.). A theme with 3+
+    // markets pointing bearish for BTC is a stronger meta-signal than any
+    // single market. Applied per-asset via the theme's `affects` list.
+    const themeClusters: ThemeCluster[] = broadMarkets.length > 0 ? detectThemes(broadMarkets) : [];
+
+    // AI-labeled interpretations. Fine-tuned interpreter runs in
+    // poly-discover cron on every new broad market — extracts asset,
+    // direction, horizon, confidence, novelty. Live prod stats (2026-09-21):
+    // 29 resolved outcomes, 24 correct → 82.8% accuracy, avg confidence
+    // 0.87. This is the single highest-quality signal source we have,
+    // previously sitting in signal_interpretations DB with no consumer.
+    //
+    // Filter to fresh (24h), horizon-matched (hourly/daily match trader's
+    // 45min hold), high-confidence (≥0.7), and not-yet-resolved. One
+    // query for the whole asset set; grouped by asset in memory.
+    let aiInterpretationsByAsset: Record<string, Array<{
+      slug: string;
+      title: string;
+      direction: 'UP' | 'DOWN' | 'NEUTRAL';
+      confidence: number;
+      horizon: string;
+      novelty: number;
+      interpretedAt: Date;
+    }>> = {};
+    try {
+      const rows = await dbQuery<{
+        asset: string;
+        slug: string;
+        title: string;
+        direction: string;
+        confidence: string;
+        horizon: string;
+        novelty: string;
+        interpreted_at: Date;
+      }>(
+        `SELECT asset, slug, title, direction, confidence, horizon, novelty, interpreted_at
+         FROM signal_interpretations
+         WHERE asset = ANY($1::text[])
+           AND direction IN ('UP', 'DOWN')
+           AND confidence >= 0.7
+           AND horizon IN ('hourly', 'daily')
+           AND interpreted_at > NOW() - INTERVAL '24 hours'
+           AND (horizon_end IS NULL OR horizon_end > NOW())
+         ORDER BY (confidence * COALESCE(novelty, 0.5)) DESC
+         LIMIT 30`,
+        [upperAssets],
+      );
+      for (const r of rows) {
+        const list = aiInterpretationsByAsset[r.asset] ??= [];
+        list.push({
+          slug: r.slug,
+          title: r.title,
+          direction: r.direction as 'UP' | 'DOWN' | 'NEUTRAL',
+          confidence: Number(r.confidence),
+          horizon: r.horizon,
+          novelty: Number(r.novelty || 0.5),
+          interpretedAt: r.interpreted_at,
+        });
+      }
+    } catch (e) {
+      logger.debug('[Aggregator] AI interpretations fetch failed (non-fatal)', {
+        error: e instanceof Error ? e.message : String(e),
+      });
+      aiInterpretationsByAsset = {};
+    }
+
     const out: Record<string, AggregatedPrediction> = {};
 
     for (const asset of upperAssets) {
@@ -865,25 +945,111 @@ export class PredictionAggregatorService {
         .sort((a, b) => b.volume24hr - a.volume24hr)
         .slice(0, 3);
       const broadWeights = [0.06, 0.05, 0.04];
-      assetBroad.forEach((m, i) => {
+      // Momentum boost — a market whose probability + volume have moved
+      // sharply in the last 15+ min carries more information than a
+      // static one. poly-discover cron snapshots per-market history to
+      // poly-momentum:history:<slug>. If we have enough samples, compute
+      // hotness (0-100 composite score) and boost weight up to 1.5×.
+      // No history → no boost (weight stays base). Failures silently
+      // no-op — momentum is a bonus, not a requirement.
+      await Promise.all(
+        assetBroad.map(async (m, i) => {
+          let momentum: MarketMomentum | null = null;
+          try {
+            const hist = await getCronStateOr<MarketSnapshot[]>(
+              `poly-momentum:history:${m.slug}`,
+              [],
+            );
+            if (hist.length >= 2) momentum = computeMomentum(m, hist);
+          } catch { /* no-op */ }
+          const boost = momentum ? 1 + Math.min(0.5, momentum.hotness / 200) : 1;
+          sources.push({
+            name: `Polymarket ${m.horizon} ${asset}: ${m.question.substring(0, 40)}…`,
+            type: m.horizon === 'hourly' ? 'short_term' : 'medium_term',
+            direction: m.direction,
+            confidence: Math.min(60 + Math.abs(m.probability - 50), 95),
+            probability: m.probability,
+            weight: broadWeights[i] * boost,
+            rawData: {
+              slug: m.slug,
+              horizonHours: m.horizonHours,
+              volume24hr: m.volume24hr,
+              liquidity: m.liquidity,
+              marketType: m.marketType,
+              targetPrice: m.targetPrice,
+              momentum: momentum
+                ? {
+                    hotness: momentum.hotness,
+                    probabilityDelta: momentum.probabilityDelta,
+                    volumeRatio: momentum.volumeRatio,
+                    windowMinutes: momentum.windowMinutes,
+                  }
+                : null,
+              momentumBoost: boost,
+            },
+            fetchedAt: Date.now(),
+          });
+        }),
+      );
+
+      // 3c) AI-labeled prediction-market interpretations. Fine-tuned model
+      //     (see poly-discover-tick) reads each new broad market's title
+      //     and extracts {asset, direction, horizon, confidence, novelty}.
+      //     Live: 82.8% accuracy on 29 resolved outcomes, avg confidence
+      //     0.87. Highest-quality signal source we have — was sitting
+      //     unwired until 2026-09-21. Weight scales with (confidence ×
+      //     novelty) so a 0.95-conf high-novelty market outranks a
+      //     0.71-conf duplicate-theme market.
+      const aiForAsset = aiInterpretationsByAsset[asset] ?? [];
+      for (const interp of aiForAsset.slice(0, 4)) {
+        const w = 0.05 * interp.confidence * (0.5 + interp.novelty * 0.5);
         sources.push({
-          name: `Polymarket ${m.horizon} ${asset}: ${m.question.substring(0, 40)}…`,
-          type: m.horizon === 'hourly' ? 'short_term' : 'medium_term',
-          direction: m.direction,
-          confidence: Math.min(60 + Math.abs(m.probability - 50), 95),
-          probability: m.probability,
-          weight: broadWeights[i],
+          name: `AI: ${interp.title.substring(0, 45)}…`,
+          type: interp.horizon === 'hourly' ? 'short_term' : 'medium_term',
+          direction: interp.direction,
+          confidence: interp.confidence * 100,
+          probability: interp.direction === 'UP'
+            ? 50 + interp.confidence * 40
+            : 50 - interp.confidence * 40,
+          weight: w,
           rawData: {
-            slug: m.slug,
-            horizonHours: m.horizonHours,
-            volume24hr: m.volume24hr,
-            liquidity: m.liquidity,
-            marketType: m.marketType,
-            targetPrice: m.targetPrice,
+            slug: interp.slug,
+            horizon: interp.horizon,
+            novelty: interp.novelty,
+            interpretedAt: interp.interpretedAt,
+          },
+          fetchedAt: interp.interpretedAt.getTime(),
+        });
+      }
+
+      // 3d) Theme cluster meta-signals. A theme (etf-approval, fed-rates,
+      //     regulation, etc.) with 3+ markets and volume-weighted
+      //     directional consensus is a stronger meta-signal than any
+      //     single market. affectsAssets scopes theme influence — a Fed
+      //     theme applies to BTC + ETH + USDC; a halving theme only to
+      //     BTC. Weight 0.04 per applicable theme with |consensus| ≥ 0.3.
+      for (const theme of themeClusters) {
+        if (theme.marketCount < 3) continue;
+        if (Math.abs(theme.weightedDirection) < 0.3) continue;
+        if (!theme.affectsAssets.includes(asset)) continue;
+        const themeDir: 'UP' | 'DOWN' = theme.weightedDirection > 0 ? 'UP' : 'DOWN';
+        const consensusStrength = Math.min(Math.abs(theme.weightedDirection), 1);
+        sources.push({
+          name: `Theme: ${theme.theme}`,
+          type: 'sentiment',
+          direction: themeDir,
+          confidence: 50 + consensusStrength * 40,
+          probability: 50 + consensusStrength * (themeDir === 'UP' ? 25 : -25),
+          weight: 0.04,
+          rawData: {
+            theme: theme.theme,
+            marketCount: theme.marketCount,
+            weightedDirection: theme.weightedDirection,
+            totalVolume24hr: theme.totalVolume24hr,
           },
           fetchedAt: Date.now(),
         });
-      });
+      }
 
       // 4) REAL Bluefin funding rate for this asset (decimal per 8h).
       //    Positive funding = longs pay shorts → market crowd is long-biased
