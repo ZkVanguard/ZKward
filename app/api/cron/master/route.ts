@@ -138,6 +138,15 @@ export async function GET(request: NextRequest): Promise<NextResponse<MasterCron
     { name: 'SUI Community Pool',       path: '/api/cron/sui-community-pool', timeoutMs: 60_000 },
     { name: 'SUI Hedge Reconcile',      path: '/api/cron/sui-hedge-reconcile' },
     { name: 'SUI Collect Fees',         path: '/api/cron/sui-collect-fees' },
+    // Polymarket discovery + AI interpretation + momentum snapshotting.
+    // Route has no tryClaimCronRun gate → runs on every 5-min ping. Also
+    // still piggybacked from sui-community-pool at 30-min cadence for
+    // redundancy; both writes are idempotent. Added 2026-09-21 during the
+    // aggregator coverage bundle — bringing cadence from 30min → 5min
+    // gives the fine-tuned Signal Interpreter (~83% accurate) 6× more
+    // opportunities to label new markets, and keeps momentum history
+    // snapshots fresh across the wider top-200 slot.
+    { name: 'Polymarket Discover',      path: '/api/cron/poly-discover', timeoutMs: 30_000 },
     // Watchdog for THIS orchestrator — if master itself stops firing, no cron
     // updates its heartbeat, heartbeat-monitor detects the stale-cron gap and
     // fires a Discord KILL. Added 2026-09-20 during the recovery from the

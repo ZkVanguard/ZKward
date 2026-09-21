@@ -472,13 +472,33 @@ export class DelphiMarketService {
           let category: 'price' | 'regulation' | 'adoption' | 'market' | 'defi' = 'market';
           let relatedAssets: string[] = [];
           
-          // Check for crypto-specific keywords
-          if (q.includes('bitcoin') || q.includes('btc')) {
+          // Check for crypto-specific keywords. 2026-09-21: extended
+          // beyond BTC/ETH after the coverage audit showed SOL/XRP/DOGE
+          // got zero Delphi sources despite active markets on those
+          // assets. Word-boundary regex on the 3-letter tickers to avoid
+          // false positives (e.g. "sol" matching "solana" or "console").
+          if (q.includes('bitcoin') || /\bbtc\b/.test(q)) {
             relatedAssets.push('BTC');
             category = 'price';
           }
-          if (q.includes('ethereum') || (q.includes('eth') && !q.includes('meth') && !q.includes('whether'))) {
+          if (q.includes('ethereum') || (/\beth\b/.test(q) && !q.includes('meth') && !q.includes('whether'))) {
             relatedAssets.push('ETH');
+            category = 'price';
+          }
+          if (q.includes('solana') || /\bsol\b/.test(q)) {
+            relatedAssets.push('SOL');
+            category = 'price';
+          }
+          if (/\bxrp\b/.test(q) || q.includes('ripple')) {
+            relatedAssets.push('XRP');
+            category = 'price';
+          }
+          if (q.includes('dogecoin') || /\bdoge\b/.test(q)) {
+            relatedAssets.push('DOGE');
+            category = 'price';
+          }
+          if (/\bsui\b/.test(q)) {
+            relatedAssets.push('SUI');
             category = 'price';
           }
           if (q.includes('crypto') || q.includes('coinbase') || q.includes('binance')) {
@@ -489,12 +509,12 @@ export class DelphiMarketService {
             category = 'regulation';
             if (relatedAssets.length === 0) relatedAssets.push('BTC', 'ETH');
           }
-          if (q.includes('federal') || q.includes('interest rate') || q.includes('inflation') || 
+          if (q.includes('federal') || q.includes('interest rate') || q.includes('inflation') ||
               q.includes('recession') || q.includes('treasury') || q.includes('spending')) {
             category = 'market';
             relatedAssets = ['BTC', 'ETH', 'USDC'];
           }
-          
+
           if (relatedAssets.length === 0) {
             relatedAssets = ['BTC', 'ETH'];
           }
