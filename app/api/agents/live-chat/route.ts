@@ -15,7 +15,7 @@
  * Not for actions — tools are read-only. If a user asks the agent to
  * "open a hedge", it can EXPLAIN the current setup but can't execute.
  */
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse, after } from 'next/server';
 import { logger } from '@/lib/utils/logger';
 import { heavyLimiter } from '@/lib/security/rate-limiter';
 import { safeErrorResponse } from '@/lib/security/safe-error';
@@ -119,12 +119,16 @@ export async function POST(request: NextRequest) {
     const messagePreview = message.slice(0, 60);
     const collectedTools: Array<{ tool: string; ok: boolean; latencyMs: number }> = [];
 
-    // Log the user turn immediately (fire-and-forget). Assistant turn logs
-    // after the stream completes with final text + tool trace.
+    // Log the user turn via `after()` — Vercel Fluid Compute keeps the
+    // function alive post-response to run these deferred writes. Was
+    // `void logChatTurn(...)` originally — that silently dropped writes
+    // when the lambda terminated with the response (verified 2026-09-21).
     if (sessionId) {
-      void logChatTurn({
-        sessionId, role: 'user', content: message,
-        userAgent, clientIp,
+      after(async () => {
+        await logChatTurn({
+          sessionId, role: 'user', content: message,
+          userAgent, clientIp,
+        });
       });
     }
 
@@ -171,14 +175,18 @@ export async function POST(request: NextRequest) {
             tools: collectedTools.map((t) => `${t.tool}(${t.ok ? 'ok' : 'err'})`),
             historyTurns: priorMessages.length,
           });
-          // Log assistant turn (fire-and-forget). Persists final content
-          // + tool trace even if the stream errored partway.
+          // Log assistant turn via `after()` — deferred until after the
+          // response stream closes, guaranteed to complete before lambda
+          // shutdown (Vercel Fluid Compute keeps it alive up to
+          // maxDuration=60s post-response).
           if (sessionId && assistantContent) {
-            void logChatTurn({
-              sessionId, role: 'assistant', content: assistantContent,
-              toolCalls: collectedTools.length ? collectedTools : undefined,
-              elapsedMs, iterations, finishedNormally,
-              userAgent, clientIp,
+            after(async () => {
+              await logChatTurn({
+                sessionId, role: 'assistant', content: assistantContent,
+                toolCalls: collectedTools.length ? collectedTools : undefined,
+                elapsedMs, iterations, finishedNormally,
+                userAgent, clientIp,
+              });
             });
           }
         } catch (err) {
