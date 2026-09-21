@@ -201,6 +201,17 @@ const queryPostmortemStats: AgentTool<
     additionalProperties: false,
   },
   async execute({ days = 30 }) {
+    // 5-min per-lookback cache: this is a 30-day aggregate that shifts
+    // slowly, and the AI chat calls this on almost every relevant
+    // question. Uncached hits are the single biggest chat-latency spike
+    // when the Cloudflare-tunneled DB flaps (verified 2026-09-21: 3s+
+    // per call). Cache key includes `days` so different lookbacks don't
+    // step on each other.
+    const cacheKey = `pm-${days}`;
+    const cached = _postmortemCache.get(cacheKey);
+    if (cached && Date.now() - cached.at < POSTMORTEM_CACHE_TTL_MS) {
+      return cached.value;
+    }
     const { query } = await import('@/lib/db/postgres');
     const sinceMs = Date.now() - days * 24 * 60 * 60 * 1000;
     const rows = await query<{ outcome_correct: boolean | null }>(
@@ -212,15 +223,26 @@ const queryPostmortemStats: AgentTool<
     const resolved = rows.filter((r) => r.outcome_correct !== null).length;
     const correct = rows.filter((r) => r.outcome_correct === true).length;
     const wrong = rows.filter((r) => r.outcome_correct === false).length;
-    return {
+    const value = {
       total,
       resolved,
       correct,
       wrong,
       accuracy: resolved > 0 ? correct / resolved : 0,
     };
+    _postmortemCache.set(cacheKey, { at: Date.now(), value });
+    return value;
   },
 };
+
+// Serverless-scoped cache. Dies with the lambda, which is fine — first
+// request after cold-start pays the DB hit, subsequent requests within
+// TTL are instant.
+const POSTMORTEM_CACHE_TTL_MS = 5 * 60 * 1000;
+const _postmortemCache = new Map<
+  string,
+  { at: number; value: { total: number; resolved: number; correct: number; wrong: number; accuracy: number } }
+>();
 
 const getTreasuryStateTool: AgentTool<
   Record<string, never>,
@@ -347,6 +369,84 @@ const getPredictionSignal: AgentTool<
   },
 };
 
+/**
+ * Broader market data — hits Crypto.com's public tickers endpoint which lists
+ * ~200 crypto pairs. This is the "AI shouldn't be limited to our 5 tracked
+ * assets" tool. Returns price + 24h change + 24h volume for any listed
+ * ticker. When asked about a specific asset outside the trader universe
+ * (e.g., ADA, LINK, AVAX, MATIC, DOT), the agent uses this instead of
+ * failing on the tracked-only get_asset_price path.
+ *
+ * Cached 30s to bound Crypto.com API load across concurrent chat sessions.
+ */
+const getBroaderMarket: AgentTool<
+  { symbol?: string; topN?: number },
+  {
+    top?: Array<{ symbol: string; price: number; change24hPct: number; volume24hUsd: number }>;
+    symbol?: { symbol: string; price: number; change24hPct: number; volume24hUsd: number } | { error: string };
+  }
+> = {
+  name: 'get_broader_market',
+  description:
+    'Look up ANY crypto asset beyond the trader universe — price + 24h change + volume via Crypto.com public tickers (~200 pairs listed). Use this for ADA, LINK, AVAX, MATIC, DOT, or any other asset the user asks about that\'s not one of BTC/ETH/SOL/XRP/DOGE/CRO/SUI/ATOM. Pass `symbol` for one asset or omit for the top movers.',
+  parameters: {
+    type: 'object',
+    properties: {
+      symbol: { type: 'string', description: 'Optional single asset ticker (case-insensitive). If omitted, returns top movers.' },
+      topN: { type: 'number', description: 'When `symbol` is omitted, number of top-by-24h-volume movers to return. Default 8, max 20.' },
+    },
+    additionalProperties: false,
+  },
+  async execute({ symbol, topN }) {
+    const cacheKey = 'broader-tickers';
+    const now = Date.now();
+    let tickers = _broaderCache.value;
+    if (!tickers || now - _broaderCache.at > BROADER_CACHE_TTL_MS) {
+      try {
+        const r = await fetch('https://api.crypto.com/exchange/v1/public/get-tickers', {
+          signal: AbortSignal.timeout(5000),
+        });
+        if (!r.ok) throw new Error(`crypto.com HTTP ${r.status}`);
+        const j = await r.json() as { result?: { data?: Array<Record<string, string>> } };
+        const raw = j.result?.data ?? [];
+        tickers = raw
+          .filter((t) => String(t.i || '').endsWith('_USDT'))
+          .map((t) => {
+            const symbol = String(t.i || '').replace('_USDT', '').toUpperCase();
+            const ask = parseFloat(t.a || '0');
+            const bid = parseFloat(t.b || '0');
+            const price = (ask > 0 && bid > 0) ? (ask + bid) / 2 : (ask || bid);
+            const change24hPct = parseFloat(t.c || '0') * 100;
+            const volume24hUsd = parseFloat(t.v || '0') * (price || 0);
+            return { symbol, price, change24hPct, volume24hUsd };
+          })
+          .filter((t) => Number.isFinite(t.price) && t.price > 0);
+        _broaderCache = { at: now, value: tickers };
+      } catch (e) {
+        // Fail-open: return whatever's cached even if stale, else empty
+        if (!tickers) throw new Error(`broader market fetch failed: ${e instanceof Error ? e.message : String(e)}`);
+      }
+    }
+    if (symbol) {
+      const s = symbol.toUpperCase();
+      const hit = tickers.find((t) => t.symbol === s);
+      return { symbol: hit ?? { error: `${s} not found on Crypto.com` } };
+    }
+    const n = Math.max(1, Math.min(20, topN ?? 8));
+    return {
+      top: tickers
+        .sort((a, b) => b.volume24hUsd - a.volume24hUsd)
+        .slice(0, n),
+    };
+  },
+};
+
+// Serverless-scoped cache for the Crypto.com tickers response — one HTTP
+// call feeds every concurrent chat within the TTL. 30s matches the
+// Crypto.com ticker cache tag used elsewhere.
+const BROADER_CACHE_TTL_MS = 30_000;
+let _broaderCache: { at: number; value: Array<{ symbol: string; price: number; change24hPct: number; volume24hUsd: number }> | null } = { at: 0, value: null };
+
 /** Public registry — the default tool set every Layer 3 agent gets. */
 export const DEFAULT_AGENT_TOOLS: AgentTool[] = [
   queryRecentInterpretations,
@@ -357,6 +457,7 @@ export const DEFAULT_AGENT_TOOLS: AgentTool[] = [
   getCronStateSnapshot,
   queryPostmortemStats,
   getTreasuryStateTool,
+  getBroaderMarket,
 ] as AgentTool[];
 
 /** Look up a tool by name — used by the runner to dispatch. */
