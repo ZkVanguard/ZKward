@@ -170,6 +170,59 @@ export async function POST(request: NextRequest) {
     // difference between a generic assistant and a crypto-native one:
     // by the time the LLM starts, half the work is done.
     const analysis = analyzeMessage(message);
+
+    // Log user turn immediately (deferred post-response via after())
+    if (sessionId) {
+      after(async () => {
+        await logChatTurn({
+          sessionId, role: 'user', content: message,
+          userAgent, clientIp,
+        });
+      });
+    }
+
+    // ─── DETERMINISTIC ROUTE — skip LLM entirely ──────────────────
+    // For pattern-matched vague/meta questions, server builds the answer
+    // from live data. No LLM ambiguity → no fabrication surface. Response
+    // is streamed as a single token event so client rendering is unchanged.
+    if (analysis.deterministicRoute) {
+      logger.info('[LiveChat] deterministic route', {
+        messagePreview,
+        route: analysis.deterministicRoute,
+      });
+      const answer = await buildDeterministicAnswer(analysis.deterministicRoute);
+      const detStream = new ReadableStream<Uint8Array>({
+        async start(controller) {
+          const encoder = new TextEncoder();
+          const emit = (event: StreamEvent) => {
+            controller.enqueue(encoder.encode(JSON.stringify(event) + '\n'));
+          };
+          const t0 = Date.now();
+          emit({ type: 'iteration', n: 1 });
+          emit({ type: 'token', delta: answer });
+          emit({ type: 'done', elapsedMs: Date.now() - t0, iterations: 0, finalText: answer });
+          controller.close();
+          if (sessionId) {
+            after(async () => {
+              await logChatTurn({
+                sessionId, role: 'assistant', content: answer,
+                iterations: 0, finishedNormally: true,
+                userAgent, clientIp,
+              });
+            });
+          }
+        },
+      });
+      return new Response(detStream, {
+        headers: {
+          'Content-Type': 'application/x-ndjson; charset=utf-8',
+          'Cache-Control': 'no-cache, no-transform',
+          'X-Accel-Buffering': 'no',
+        },
+      });
+    }
+
+    // ─── DYNAMIC RUNTIME: context pre-fetch + LLM call ────────────
     const preFetchedContext = await buildRuntimeContext(analysis);
     const activeTools = pickToolSubset(DEFAULT_AGENT_TOOLS, analysis.suggestedTools);
     const runtimeSystemPrompt = preFetchedContext
@@ -184,20 +237,9 @@ export async function POST(request: NextRequest) {
       maxIterations: analysis.suggestedMaxIterations,
       toolSubset: analysis.suggestedTools.length,
       contextChars: preFetchedContext.length,
+      route: analysis.deterministicRoute,
+      pulse: analysis.needsBaselinePulse,
     });
-
-    // Log the user turn via `after()` — Vercel Fluid Compute keeps the
-    // function alive post-response to run these deferred writes. Was
-    // `void logChatTurn(...)` originally — that silently dropped writes
-    // when the lambda terminated with the response (verified 2026-09-21).
-    if (sessionId) {
-      after(async () => {
-        await logChatTurn({
-          sessionId, role: 'user', content: message,
-          userAgent, clientIp,
-        });
-      });
-    }
 
     const stream = new ReadableStream<Uint8Array>({
       async start(controller) {
@@ -416,5 +458,73 @@ async function buildRuntimeContext(analysis: ReturnType<typeof analyzeMessage>):
     }
   }
 
+  // Baseline pulse — inject when no specific asset/protocol was
+  // detected AND no deterministic route fired. Ensures the LLM ALWAYS
+  // has grounded top-of-market data, never zero context → no
+  // fabrication room. Costs ~200 tokens per call, worth it.
+  if (analysis.needsBaselinePulse) {
+    const pulse = await buildMarketPulse();
+    if (pulse) sections.push(pulse);
+  }
+
   return sections.join('\n\n');
+}
+
+/**
+ * Compact market-pulse block for prompt injection. Top-5 tracked assets
+ * with price + 24h change, plus F&G. Real data only — every value is
+ * either from a successful tool call or omitted with `n/a`. Never
+ * fabricates.
+ */
+async function buildMarketPulse(): Promise<string | null> {
+  const snapshotTool = toolByName(DEFAULT_AGENT_TOOLS, 'get_broader_market');
+  const fngTool = toolByName(DEFAULT_AGENT_TOOLS, 'get_fear_greed_index');
+  const TOP = ['BTC', 'ETH', 'SOL', 'XRP', 'DOGE'];
+  const [snaps, fng] = await Promise.allSettled([
+    snapshotTool
+      ? Promise.all(TOP.map((s) => snapshotTool.execute({ symbol: s }).catch(() => null)))
+      : Promise.resolve([]),
+    fngTool ? fngTool.execute({}).catch(() => null) : Promise.resolve(null),
+  ]);
+  const lines: string[] = [];
+  if (snaps.status === 'fulfilled') {
+    for (let i = 0; i < TOP.length; i++) {
+      const raw = snaps.value[i] as { symbol?: { price?: number; change24hPct?: number } } | null;
+      const s = raw?.symbol;
+      if (s && typeof s.price === 'number') {
+        const priceStr = s.price < 1 ? `$${s.price.toFixed(4)}` : s.price < 100 ? `$${s.price.toFixed(2)}` : `$${s.price.toFixed(0)}`;
+        const chgStr = typeof s.change24hPct === 'number' ? `${s.change24hPct >= 0 ? '+' : ''}${s.change24hPct.toFixed(1)}%` : 'n/a';
+        lines.push(`${TOP[i]} ${priceStr} (Δ24h ${chgStr})`);
+      }
+    }
+  }
+  const fngLine = fng.status === 'fulfilled' && fng.value && typeof (fng.value as { value?: number }).value === 'number'
+    ? `F&G ${(fng.value as { value: number; classification: string }).value}/100 (${(fng.value as { value: number; classification: string }).classification})`
+    : null;
+  if (lines.length === 0 && !fngLine) return null;
+  const body = [
+    lines.length > 0 ? `Prices: ${lines.join(' · ')}` : null,
+    fngLine ? `Sentiment: ${fngLine}` : null,
+  ].filter(Boolean).join('\n');
+  return `**Baseline market pulse (real, current — cite these numbers only, do not invent others):**\n${body}`;
+}
+
+/**
+ * Server-side answers for pattern-matched vague/meta questions. Skips
+ * the LLM entirely — no hallucination surface possible. All numbers
+ * come from live tool calls; failure states use fixed messages.
+ */
+async function buildDeterministicAnswer(route: NonNullable<ReturnType<typeof analyzeMessage>['deterministicRoute']>): Promise<string> {
+  if (route === 'self-meta') {
+    return `I'm the ZKward chat — I answer crypto and vault questions grounded in live data.\n\nI can look up:\n- Prices, 24h changes, prediction signals for any asset (BTC/ETH/SOL/XRP/DOGE + ~200 more via Crypto.com)\n- DeFi TVL and metrics for any protocol on DefiLlama (Uniswap, Aave, Lido, etc)\n- Crypto Fear & Greed sentiment\n- Our vault's active + recent hedges, treasury, PnL, AI hit rate\n\nAsk me anything — 'how is BTC', 'TVL of Aave', 'why did we lose today', 'market sentiment'.`;
+  }
+  if (route === 'self-criticism') {
+    return `Fair feedback. My ceiling is the underlying model (asi1-mini) — I can't reason as deeply as GPT-4 or Claude. What I CAN do reliably: pull live prices/signals/TVL/vault-state from real data sources with zero fabrication. Try me with a specific question ('how is BTC', 'TVL of Aave', 'why did our last hedge lose') and I'll ground the answer in tools rather than opinions.`;
+  }
+  // 'market-overview'
+  const pulse = await buildMarketPulse();
+  if (!pulse) return `Market data is temporarily unavailable — try again in a moment, or ask about a specific asset.`;
+  // Strip the "cite only these" instruction (that was for the LLM) and reformat
+  const body = pulse.replace(/^\*\*Baseline market pulse.*?\*\*\n/, '');
+  return `**Market snapshot right now:**\n\n${body}\n\nAsk me about any specific asset for the full read (price + signal + our position + recent hedges).`;
 }

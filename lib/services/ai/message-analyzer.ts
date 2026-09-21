@@ -21,6 +21,12 @@ export type ChatIntent =
   | 'defi'        // "TVL" / "aave" / "uniswap" / "curve" / "defi"
   | 'other';
 
+export type DeterministicRoute =
+  | 'market-overview'  // "how are things", "what's up", "market update"
+  | 'self-meta'        // "what tools do you have", "how do you work", "what can you do"
+  | 'self-criticism'   // "your ai sucks", "your answers are bad"
+  | null;
+
 export interface MessageAnalysis {
   /** Uppercase asset tickers detected in the message. Deduped. */
   assets: string[];
@@ -40,6 +46,12 @@ export interface MessageAnalysis {
   suggestedMaxIterations: number;
   /** The subset of tool names most relevant. Empty = expose all. */
   suggestedTools: string[];
+  /** If non-null, skip LLM entirely — server responds deterministically. */
+  deterministicRoute: DeterministicRoute;
+  /** True when the message is vague enough that we should inject the
+   *  baseline market pulse as fallback context so the LLM never has
+   *  zero grounding. False when specific pre-fetch has coverage. */
+  needsBaselinePulse: boolean;
 }
 
 // ─── Constants ────────────────────────────────────────────────────────
@@ -207,6 +219,33 @@ export function analyzeMessage(text: string): MessageAnalysis {
       break;
   }
 
+  // Deterministic route detection — questions that have a canonical
+  // answer built from live data. Server answers directly, no LLM
+  // ambiguity → no fabrication surface. Order matters (self-criticism
+  // before self-meta before market-overview).
+  let deterministicRoute: DeterministicRoute = null;
+  if (assets.length === 0 && foundProtocols.size === 0) {
+    if (/\b(your|the)\s+(ai|assistant|bot|answers?|responses?)\s+(sucks?|bad|shallow|weak|poor|wrong|useless|dumb)\b/i.test(raw)
+        || /\byou\s+(suck|are\s+(bad|useless|dumb|shallow|wrong))\b/i.test(raw)) {
+      deterministicRoute = 'self-criticism';
+    } else if (/\b(what|which)\s+(tools?|capabilities?|features?|can\s+you\s+do)\b/i.test(raw)
+        || /\b(how\s+do\s+you\s+work|tell\s+me\s+about\s+yourself|what\s+are\s+you)\b/i.test(raw)
+        || /\b(help|commands?)\b/i.test(raw) && wordCount <= 3) {
+      deterministicRoute = 'self-meta';
+    } else if (/\b(how\s+are\s+things|what.s\s+up|whats\s+up|market\s+update|overview|general\s+market|everything|all\s+assets|market\s+state|market\s+today|market\s+now|market\s+overview)\b/i.test(raw)
+        || (intent === 'other' && wordCount <= 6)) {
+      deterministicRoute = 'market-overview';
+    }
+  }
+
+  // Baseline pulse: inject top-5 asset snapshot + F&G into prompt when
+  // no specific asset was detected AND no deterministic route fired.
+  // Ensures LLM never has zero grounding — kills hallucination gap.
+  const needsBaselinePulse = assets.length === 0
+    && foundProtocols.size === 0
+    && deterministicRoute === null
+    && !['sentiment', 'market_wide'].includes(intent); // those get their own pre-fetch
+
   return {
     assets,
     hasTrackedAsset,
@@ -217,5 +256,7 @@ export function analyzeMessage(text: string): MessageAnalysis {
     complexity,
     suggestedMaxIterations,
     suggestedTools,
+    deterministicRoute,
+    needsBaselinePulse,
   };
 }
