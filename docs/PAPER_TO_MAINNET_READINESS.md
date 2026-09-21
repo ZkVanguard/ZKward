@@ -91,3 +91,46 @@ PAPER_TRADER_MAX_CONCURRENT=1
 ```
 
 **Why halve stake but loosen everything else?** More trades × smaller size = more data with the same total risk budget. If the signal is broken, the drawdown per unit time is roughly the same as before (fewer big trades → many small ones); if the signal has edge, we surface it 3-5× faster.
+
+## Paper-gated trader (parallel research surface)
+
+Alongside the raw paper trader (`portfolio_id = -3`) there is now a **paper-gated trader** (`portfolio_id = -4`) that runs the SAME signal + sizing + exit discipline BUT routes every candidate through the LIVE agent gate (`SafeExecutionGuard` + `HedgingAgent` invariants — the same `runAgentGate` the `polymarket-edge-trader` cron uses).
+
+Both piggyback on the same 5-min tick of `polymarket-edge-trader` (custom-jobs schedule). Neither can block the real trader — both are wrapped in non-fatal try/catch.
+
+**State namespace**: `paper-gated-trader:*` cron_state keys, entirely separate from `paper-trader:*`. No collision.
+
+**How to compare on Bakchodi:**
+
+```sql
+-- Side-by-side realized PnL (paper-raw vs paper-gated), last 7 days
+SELECT
+  portfolio_id,
+  CASE portfolio_id WHEN -3 THEN 'raw' WHEN -4 THEN 'gated' END AS mode,
+  COUNT(*) FILTER (WHERE status='closed')                                       AS closed_trades,
+  ROUND(SUM(current_pnl) FILTER (WHERE status='closed')::numeric, 2)            AS pnl_usd,
+  ROUND(100.0 * COUNT(*) FILTER (WHERE current_pnl > 0) /
+        NULLIF(COUNT(*) FILTER (WHERE status='closed'), 0), 1)                  AS win_pct
+FROM hedges
+WHERE simulation_mode = true
+  AND portfolio_id IN (-3, -4)
+  AND created_at >= NOW() - INTERVAL '7 days'
+GROUP BY 1;
+```
+
+```sql
+-- Gate-block count (candidates the agent-guard rejected in gated mode)
+SELECT value::text FROM cron_state WHERE key = 'paper-gated-trader:stats';
+-- (stats.gateBlocks is the running tally)
+```
+
+**Interpreting the delta:**
+
+| Scenario | Reading |
+|---|---|
+| paper-gated PnL >> paper-raw PnL | Agents catch losers the signal alone misses. Ship the agents to mainnet. |
+| paper-gated PnL ≈ paper-raw PnL, high gateBlocks | Agents block trades but signal wasn't picking edge in those; agents are neutral, kept for safety. |
+| paper-gated PnL << paper-raw PnL | Agents killing winners along with losers. Retune the guard invariants before mainnet. |
+| paper-gated has zero trades | Agents rejecting everything — check `paper-gated-trader:last-skip` for the specific stage. |
+
+Read this parallel comparison at every readiness-gate check, alongside the 10 numeric gates above.
