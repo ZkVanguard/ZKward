@@ -635,8 +635,26 @@ export class PaperTrader {
     await setCronState(KEY_STATS, stats);
 
     // 1. Signal scan + rank + filter → picked candidate (or skip reason).
-    //    Helper handles: skip-STRONG, signal-quality, concurrency, signal-history.
-    const selection = await selectCandidate(now, concurrencyFilter);
+    //    Helper handles: skip-STRONG, signal-quality, concurrency, signal-history,
+    //    calibrator, AND the extra gates below (streak/trend/vol/regret) via
+    //    the extraGate callback so a top-pick rejection walks to the next
+    //    candidate instead of aborting the whole tick.
+    const { assetSideStreakRejection, trendMisalignmentRejection } = await import('./streak-guard');
+    const { lowVolatilityRejection } = await import('./volatility-gate');
+    const extraGate = async (asset: string, side: Side, gateNow: number): Promise<string | null> => {
+      const streakReject = await assetSideStreakRejection(asset, side, gateNow);
+      if (streakReject) return streakReject;
+      const trendReject = await trendMisalignmentRejection(asset, side);
+      if (trendReject) return trendReject;
+      const volReject = await lowVolatilityRejection(asset);
+      if (volReject) return volReject;
+      const recentPnl = await assetSideRecentPnl(asset, side, PAPER_REGRET_WINDOW);
+      if (recentPnl < -nav * PAPER_REGRET_COOLDOWN_PCT) {
+        return `regret-cooldown: ${asset} ${side} recent PnL $${recentPnl.toFixed(0)} < threshold $${(-nav * PAPER_REGRET_COOLDOWN_PCT).toFixed(0)}`;
+      }
+      return null;
+    };
+    const selection = await selectCandidate(now, concurrencyFilter, extraGate);
     if (!selection.ok) {
       return { action: 'skipped', reason: selection.reason, nav };
     }
@@ -645,49 +663,9 @@ export class PaperTrader {
     const rec = picked.prediction.recommendation;
     const side = picked.side;
 
-    // 2a. Per-(asset, side) consecutive-loss streak guard — catches
-    //     regime shifts faster than the rolling regret cooldown.
-    //     Motivating incident 2026-09-19: 7-loss BTC LONG streak.
-    const { assetSideStreakRejection, trendMisalignmentRejection } = await import('./streak-guard');
-    const streakReject = await assetSideStreakRejection(asset, side, now);
-    if (streakReject) {
-      logger.info('[PaperTrader] streak-cooldown skip', { asset, side, reason: streakReject });
-      return { action: 'skipped', reason: streakReject, nav };
-    }
-
-    // 2b. Trend-alignment filter — refuses LONGs into a downtrend and
-    //     SHORTs into an uptrend (over the recent 6-trade window).
-    const trendReject = await trendMisalignmentRejection(asset, side);
-    if (trendReject) {
-      logger.info('[PaperTrader] trend-misalignment skip', { asset, side, reason: trendReject });
-      return { action: 'skipped', reason: trendReject, nav };
-    }
-
-    // 2b'. Volatility gate — refuse trades in low-vol regimes where the
-    //      expected 20-min move can't beat fee friction. Deribit realized
-    //      vol for BTC/ETH; other assets fall through.
-    const { lowVolatilityRejection } = await import('./volatility-gate');
-    const volReject = await lowVolatilityRejection(asset);
-    if (volReject) {
-      logger.info('[PaperTrader] low-vol skip', { asset, reason: volReject });
-      return { action: 'skipped', reason: volReject, nav };
-    }
-
-    // 2c. Per-asset regret cooldown — the existing rolling-window check.
-    const recentPnl = await assetSideRecentPnl(asset, side, PAPER_REGRET_WINDOW);
-    if (recentPnl < -nav * PAPER_REGRET_COOLDOWN_PCT) {
-      logger.info('[PaperTrader] regret cooldown skip', {
-        asset,
-        side,
-        recentPnl: recentPnl.toFixed(2),
-        threshold: (-nav * PAPER_REGRET_COOLDOWN_PCT).toFixed(2),
-      });
-      return {
-        action: 'skipped',
-        reason: `regret-cooldown: ${asset} ${side} last ${PAPER_REGRET_WINDOW} = $${recentPnl.toFixed(0)}`,
-        nav,
-      };
-    }
+    // Streak / trend / vol / regret gates all ran inside extraGate above,
+    // so we walk down the ranked candidate list on any per-candidate
+    // rejection rather than aborting the tick on the top pick alone.
 
     // 3. Multi-source validated price at open — catches stale-cache bugs.
     const priceResult = await priceCandidate(asset);
