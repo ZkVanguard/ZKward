@@ -190,11 +190,20 @@ export class PaperGatedTrader {
     const { PAPER_MIN_FLIP_AGE_SEC, PAPER_MIN_FLIP_CONFIDENCE } = await import('./config');
     if (posAgeSec >= PAPER_MIN_FLIP_AGE_SEC) {
       try {
+        // scanAndPickBest.all returns ALL asset predictions regardless of
+        // gates (gates only affect .best), so apply the flip-specific
+        // gates to `live` directly, mirroring the entry gates so weak
+        // 1-source or low-consensus flips can't premature-close.
         const scan = await PredictionAggregatorService.scanAndPickBest(PAPER_UNIVERSE, {
           minConfidence: 0, minConsensus: 0, minSources: 1,
         });
         const live = scan.all[pos.asset];
-        if (live && (live.confidence ?? 0) >= PAPER_MIN_FLIP_CONFIDENCE) {
+        const passesFlipGates =
+          live
+          && (live.confidence ?? 0) >= PAPER_MIN_FLIP_CONFIDENCE
+          && (live.consensus ?? 0) >= PAPER_MIN_CONSENSUS
+          && (live.sources?.length ?? 0) >= PAPER_MIN_SOURCES;
+        if (passesFlipGates) {
           const liveSide = recToSide(live.recommendation);
           const isStrong = live.recommendation?.startsWith('STRONG_') ?? false;
           if (liveSide && liveSide !== pos.side && !(PAPER_SKIP_STRONG_SIGNALS && isStrong)) {
