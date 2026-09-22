@@ -266,9 +266,16 @@ export class PaperGatedTrader {
       };
     }
 
-    // Compute stop-loss price (static threshold, no async vol fetch).
-    const { _STATIC_STOP_LOSS_PCT } = await import('./adaptive-stops');
-    const stopFrac = _STATIC_STOP_LOSS_PCT;
+    // Vol-adaptive stop-loss at entry (2026-09-22) — parity with raw
+    // paper. Regime-multiplied + vol-scaled + safety-clamped, falling
+    // back to static on Deribit fetch error. Was hardcoded 1.2%; per
+    // backtest, adaptive should salvage substantial per-trade PnL.
+    const { computeAdaptiveThresholds, _STATIC_STOP_LOSS_PCT } = await import('./adaptive-stops');
+    let stopFrac = _STATIC_STOP_LOSS_PCT;
+    try {
+      const entryThresholds = await computeAdaptiveThresholds(asset);
+      stopFrac = entryThresholds.stopLossPct;
+    } catch { /* fall back to static */ }
     const stopLossPrice = side === 'LONG'
       ? markPrice * (1 - stopFrac)
       : markPrice * (1 + stopFrac);
