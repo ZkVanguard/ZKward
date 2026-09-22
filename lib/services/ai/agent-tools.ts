@@ -858,9 +858,14 @@ const getOnchainSnapshot: AgentTool<
       const n = Math.max(1, Math.min(20, topN ?? 6));
       return { gasGwei: _onchainCache.value.gasGwei, chains: _onchainCache.value.chains.slice(0, n) };
     }
+    // Timeouts bumped from 6s to 10s: prod-side E2E test on 2026-09-22
+    // showed 'eth gas fees now' returned "unavailable" because Owlracle
+    // occasionally takes 7-9s on cold connect. 10s tolerates the tail
+    // without stalling the chat unreasonably (still well under the LLM's
+    // per-tool budget).
     const [gasRes, chainsRes] = await Promise.allSettled([
       (async () => {
-        const r = await fetch('https://api.owlracle.info/v2/eth/gas', { redirect: 'follow', signal: AbortSignal.timeout(6000) });
+        const r = await fetch('https://api.owlracle.info/v2/eth/gas', { redirect: 'follow', signal: AbortSignal.timeout(10000) });
         if (!r.ok) return null;
         const j = await r.json() as { baseFee?: number; speeds?: Array<{ acceptance: number; gasPrice: number }> };
         if (!j.speeds || j.speeds.length < 3) return null;
@@ -872,7 +877,7 @@ const getOnchainSnapshot: AgentTool<
         };
       })(),
       (async () => {
-        const r = await fetch('https://api.llama.fi/chains', { signal: AbortSignal.timeout(6000) });
+        const r = await fetch('https://api.llama.fi/chains', { signal: AbortSignal.timeout(10000) });
         if (!r.ok) return [];
         const arr = await r.json() as Array<{ name: string; tvl: number; change_1d?: number; change_7d?: number }>;
         return arr

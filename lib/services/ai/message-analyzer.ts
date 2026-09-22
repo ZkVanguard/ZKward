@@ -100,8 +100,9 @@ const INTENT_PATTERNS: Array<{ intent: ChatIntent; re: RegExp }> = [
   { intent: 'options', re: /\b(options?\s+market|put\/?call|put[- ]?call\s+ratio|implied\s+vol|iv\b|max\s+pain|open\s+interest|strikes?|expir(y|ies))\b/i },
   // On-chain / gas — specific
   { intent: 'onchain', re: /\b(gas\s+(fee|price|now)|gwei|eth\s+gas|l2\s+(tvl|growth)|which\s+chain|chain\s+(tvl|growth|ranking))\b/i },
-  // Historical — specific
-  { intent: 'historical', re: /\b(last\s+(week|month|30\s*day|7\s*day)|from\s+ath|all[- ]time\s+high|ath\b|past\s+\d+\s*day|historical|chart|range\s+over)\b/i },
+  // Historical — specific. Accept 'last 30 days' (plural), 'past 7d',
+  // 'over the last month', etc. Previously missed 'days' (with 's').
+  { intent: 'historical', re: /\b(last\s+(week|month|\d+\s*days?|\d+\s*d\b)|past\s+(\d+\s*days?|week|month)|over\s+the\s+(last|past)\s+\w+|from\s+ath|all[- ]time\s+high|\bath\b|historical|chart|range\s+over)\b/i },
   // News — specific
   { intent: 'news', re: /\b(news|trending|hot\s+right\s+now|what.s\s+trending|any\s+news|breaking\s+news|new\s+(coin|launch|listing))\b/i },
   // Diagnose asset move — specific, must come before generic 'diagnose'

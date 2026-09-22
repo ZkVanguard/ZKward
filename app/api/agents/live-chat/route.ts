@@ -498,7 +498,9 @@ async function buildRuntimeContext(analysis: ReturnType<typeof analyzeMessage>):
     }
   }
 
-  // On-chain intent → pre-fetch gas + chain TVL
+  // On-chain intent → pre-fetch gas + chain TVL. Skip the section
+  // entirely if BOTH sub-fetches came back empty — misleading to
+  // inject a stub that says 'unavailable' with no data.
   if (analysis.intent === 'onchain') {
     const onchainTool = toolByName(DEFAULT_AGENT_TOOLS, 'get_onchain_snapshot');
     if (onchainTool) {
@@ -507,14 +509,22 @@ async function buildRuntimeContext(analysis: ReturnType<typeof analyzeMessage>):
           gasGwei: { fast: number; normal: number; slow: number; baseFee: number } | null;
           chains: Array<{ name: string; tvlUsdB: number; changePct1d?: number; changePct7d?: number }>;
         };
-        const gasStr = d.gasGwei
-          ? `ETH gas: ${d.gasGwei.fast}/${d.gasGwei.normal}/${d.gasGwei.slow} gwei (fast/normal/slow) · base ${d.gasGwei.baseFee} gwei`
-          : 'ETH gas: unavailable';
-        const chainLines = (d.chains || []).map((c) => {
-          const chg1d = c.changePct1d !== undefined ? `${c.changePct1d >= 0 ? '+' : ''}${c.changePct1d}%` : 'n/a';
-          return `- ${c.name}: $${c.tvlUsdB}B (Δ1d ${chg1d})`;
-        });
-        sections.push(`**On-chain snapshot:**\n${gasStr}\nTop chains by TVL:\n${chainLines.join('\n')}`);
+        const hasGas = d.gasGwei !== null;
+        const hasChains = d.chains && d.chains.length > 0;
+        if (hasGas || hasChains) {
+          const parts: string[] = [];
+          if (hasGas) {
+            parts.push(`ETH gas: ${d.gasGwei!.fast}/${d.gasGwei!.normal}/${d.gasGwei!.slow} gwei (fast/normal/slow) · base ${d.gasGwei!.baseFee} gwei`);
+          }
+          if (hasChains) {
+            const chainLines = d.chains.map((c) => {
+              const chg1d = c.changePct1d !== undefined ? `${c.changePct1d >= 0 ? '+' : ''}${c.changePct1d}%` : 'n/a';
+              return `- ${c.name}: $${c.tvlUsdB}B (Δ1d ${chg1d})`;
+            });
+            parts.push(`Top chains by TVL:\n${chainLines.join('\n')}`);
+          }
+          sections.push(`**On-chain snapshot:**\n${parts.join('\n')}`);
+        }
       } catch { /* skip */ }
     }
   }
