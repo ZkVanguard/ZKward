@@ -174,23 +174,31 @@ export class PaperGatedTrader {
       );
     }
 
-    // 4. Signal-flip exit (skip-STRONG symmetry).
-    try {
-      const scan = await PredictionAggregatorService.scanAndPickBest(PAPER_UNIVERSE, {
-        minConfidence: 0, minConsensus: 0, minSources: 1,
-      });
-      const live = scan.all[pos.asset];
-      if (live && (live.confidence ?? 0) >= PAPER_MIN_CONFIDENCE) {
-        const liveSide = recToSide(live.recommendation);
-        const isStrong = live.recommendation?.startsWith('STRONG_') ?? false;
-        if (liveSide && liveSide !== pos.side && !(PAPER_SKIP_STRONG_SIGNALS && isStrong)) {
-          return PaperGatedTrader.closeAtMark(
-            pos, markPrice, nav, now,
-            `signal flipped to ${live.recommendation}`, orderId,
-          );
+    // 4. Signal-flip exit — mirrors the raw-paper anti-whipsaw gates
+    // (PAPER_MIN_FLIP_AGE_SEC + PAPER_MIN_FLIP_CONFIDENCE, added 2026-
+    // 09-22). Gated was silently keeping the pre-anti-whipsaw behavior
+    // that fired -$35/-$38 BTC losses inside 15 min of open.
+    const posAgeSec = (now - pos.openedAt) / 1000;
+    const { PAPER_MIN_FLIP_AGE_SEC, PAPER_MIN_FLIP_CONFIDENCE } = await import('./config');
+    if (posAgeSec >= PAPER_MIN_FLIP_AGE_SEC) {
+      try {
+        const scan = await PredictionAggregatorService.scanAndPickBest(PAPER_UNIVERSE, {
+          minConfidence: 0, minConsensus: 0, minSources: 1,
+        });
+        const live = scan.all[pos.asset];
+        if (live && (live.confidence ?? 0) >= PAPER_MIN_FLIP_CONFIDENCE) {
+          const liveSide = recToSide(live.recommendation);
+          const isStrong = live.recommendation?.startsWith('STRONG_') ?? false;
+          if (liveSide && liveSide !== pos.side && !(PAPER_SKIP_STRONG_SIGNALS && isStrong)) {
+            return PaperGatedTrader.closeAtMark(
+              pos, markPrice, nav, now,
+              `signal flipped to ${live.recommendation} (age ${Math.round(posAgeSec)}s, conf ${Math.round(live.confidence)})`,
+              orderId,
+            );
+          }
         }
-      }
-    } catch { /* signal check is optional here */ }
+      } catch { /* signal check is optional here */ }
+    }
 
     return { action: 'held', reason: `holding (${Math.round((now - pos.openedAt) / 60_000)}min)`, nav };
   }
@@ -260,11 +268,21 @@ export class PaperGatedTrader {
     // Simple max-hold: base + signal scalar bonus (min 45 default).
     const maxHoldMin = PAPER_MAX_HOLD_MIN + Math.max(0, (signalScalar - 0.4) * 45);
 
+    // Snapshot the per-source directions at open so recordSourceOutcome
+    // can score each source's call against the actual outcome at close.
+    // Was missing until 2026-09-22 — gated closes never fed source-cal.
+    const { normalizeSourceKey } = await import('@/lib/services/ai/source-calibrator');
+    const sourceSnapshot = (picked.prediction.sources ?? []).map((s) => ({
+      key: normalizeSourceKey(s.name, s.type ?? ''),
+      direction: s.direction,
+    }));
+
     const position: SimulatedPosition = {
       ...simulateOpen(
         { asset, side, notionalUsd, leverage: PAPER_LEVERAGE, entryPrice: markPrice },
         now,
       ),
+      sourceSnapshot,
       peakUnrealizedPnl: 0,
       entryConfidence: picked.prediction.confidence,
       entryConsensus: (picked.prediction as { consensus?: number }).consensus,
@@ -320,6 +338,51 @@ export class PaperGatedTrader {
     const realizedPnl = closeResult.realizedPnlUsd;
     const newNav = priorNav + realizedPnl;
 
+    // Learning-loop callbacks (all wired 2026-09-22 — gated was silently
+    // dropping every close as training data before):
+    //
+    //   1. source-calibrator: score each source's snapshot direction
+    //      against actual price move → sharpens per-source weights that
+    //      the aggregator reads on every scan.
+    //   2. bandit: record realized PnL / notional as arm reward →
+    //      biases future (asset, side) selection toward winning arms.
+    //   3. probability-calibrator: feed (asset, side, opening-conf-decile,
+    //      realizedPnl) into the shared trader:calibration:* buckets that
+    //      both live + paper read on entry.
+    const actualDir: 'UP' | 'DOWN' | 'NEUTRAL' =
+      markPrice > pos.entryPrice ? 'UP' : markPrice < pos.entryPrice ? 'DOWN' : 'NEUTRAL';
+    if (pos.sourceSnapshot && pos.sourceSnapshot.length > 0) {
+      try {
+        const { recordSourceOutcome } = await import('@/lib/services/ai/source-calibrator');
+        await Promise.all(
+          pos.sourceSnapshot.map((s) =>
+            recordSourceOutcome({
+              sourceKey: s.key,
+              sourceDirection: s.direction,
+              actualDirection: actualDir,
+            }).catch(() => undefined),
+          ),
+        );
+      } catch { /* non-fatal */ }
+    }
+    if (pos.notionalUsd > 0) {
+      try {
+        const { recordArmOutcome } = await import('./bandit');
+        await recordArmOutcome(pos.asset, pos.side, realizedPnl / pos.notionalUsd, now);
+      } catch { /* non-fatal */ }
+    }
+    if (pos.entryConfidence !== undefined && (pos.side === 'LONG' || pos.side === 'SHORT')) {
+      try {
+        const { recordOutcome } = await import('@/lib/services/ai/probability-calibrator');
+        await recordOutcome({
+          asset: pos.asset,
+          side: pos.side,
+          openConfidencePct: pos.entryConfidence,
+          realizedPnl,
+        });
+      } catch { /* non-fatal */ }
+    }
+
     // Update state.
     const stats = await loadStats(priorNav);
     stats.trades += 1;
@@ -334,21 +397,43 @@ export class PaperGatedTrader {
     await setCronState(KEY_ORDER_ID, null);
     await setCronState(KEY_STATS, stats);
 
-    // Update hedges row.
+    // Update hedges row — categorized close_reason + attribution metadata
+    // parity with PaperTrader so structured monitoring / source-decay /
+    // MFE-MAE-based stop tuning all cover gated trades too.
     if (orderId) {
       try {
-        await closeHedge(orderId, realizedPnl);
-      } catch (e) {
-        logger.warn('[PaperGatedTrader] closeHedge failed', { error: errMsg(e), orderId });
-      }
-      // Persist the close reason on the row so backtest/analysis can parse.
-      // closeHedge doesn't touch `reason`, so an append here is safe.
-      try {
+        const { PaperTrader } = await import('./PaperTrader');
+        const category = PaperTrader.categorizeCloseReason(reason);
+        const attribution = (pos.sourceSnapshot ?? []).map((s) => ({
+          key: s.key,
+          dir: s.direction,
+          wasCorrect: s.direction !== 'NEUTRAL' && s.direction === actualDir,
+        }));
+        const meta = {
+          mfeUsd: pos.peakUnrealizedPnl ?? 0,
+          maeUsd: pos.troughUnrealizedPnl ?? 0,
+          mfePctOfNav: priorNav > 0 ? (pos.peakUnrealizedPnl ?? 0) / priorNav : 0,
+          maePctOfNav: priorNav > 0 ? (pos.troughUnrealizedPnl ?? 0) / priorNav : 0,
+          actualDir,
+          attribution,
+          exitReason: reason.slice(0, 100),
+        };
         await query(
-          `UPDATE hedges SET reason = COALESCE(reason,'') || $2 WHERE order_id = $1`,
-          [orderId, ` | close: ${reason}`],
+          `UPDATE hedges
+             SET status = 'closed',
+                 realized_pnl = $1,
+                 current_pnl = $1,
+                 closed_at = CURRENT_TIMESTAMP,
+                 updated_at = CURRENT_TIMESTAMP,
+                 reason = COALESCE(reason,'') || ' | close: ' || $2,
+                 close_reason = $3,
+                 metadata = COALESCE(metadata, '{}'::jsonb) || $4::jsonb
+           WHERE order_id = $5`,
+          [realizedPnl, reason.slice(0, 100), category, JSON.stringify(meta), orderId],
         );
-      } catch { /* non-fatal */ }
+      } catch (e) {
+        logger.warn('[PaperGatedTrader] close DB write failed', { error: errMsg(e), orderId });
+      }
     }
 
     logger.info('[PaperGatedTrader] closed', {
