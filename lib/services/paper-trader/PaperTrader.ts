@@ -97,6 +97,7 @@ import {
   PAPER_STOP_LOSS_PCT,
   PAPER_MAX_CONSECUTIVE_LOSSES,
   PAPER_HALT_HOURS,
+  PAPER_DISABLE_HALTS,
   PAPER_TRAILING_STOP_ARM_PCT,
   PAPER_TRAILING_STOP_GIVEBACK_PCT,
   PAPER_REGRET_COOLDOWN_PCT,
@@ -251,10 +252,16 @@ export class PaperTrader {
       // Cheap: one aggregate query, gated to run at most every hour
       // via a cron_state key. Failure is non-fatal — trader keeps
       // running if the check errors.
-      const rollingHalt = await PaperTrader.rollingDrawdownCheck(now);
-      if (rollingHalt) {
-        result = { action: 'skipped', reason: rollingHalt };
-        return result;
+      //
+      // Bypassed when PAPER_TRADER_DISABLE_HALTS=1 — pure data-gathering
+      // mode wants to see the whole return distribution, not just the
+      // segments where safeties allowed trading.
+      if (!PAPER_DISABLE_HALTS) {
+        const rollingHalt = await PaperTrader.rollingDrawdownCheck(now);
+        if (rollingHalt) {
+          result = { action: 'skipped', reason: rollingHalt };
+          return result;
+        }
       }
 
       // L4 — signal-source decay check. Runs at most hourly (gated inside),
@@ -543,7 +550,7 @@ export class PaperTrader {
     // trip extends rather than stacks halts.
     const stats = await loadStats(nav, now);
 
-    if (stats.haltedUntilMs && stats.haltedUntilMs > now) {
+    if (!PAPER_DISABLE_HALTS && stats.haltedUntilMs && stats.haltedUntilMs > now) {
       await setCronState(KEY_STATS, stats);
       return {
         action: 'skipped',
@@ -554,7 +561,7 @@ export class PaperTrader {
 
     const dailyPeak = stats.dailyPeakNavUsd ?? nav;
     const dailyDrawdown = dailyPeak > 0 ? (dailyPeak - nav) / dailyPeak : 0;
-    if (dailyDrawdown >= PAPER_PROFIT_LOCK_DRAWDOWN_PCT) {
+    if (!PAPER_DISABLE_HALTS && dailyDrawdown >= PAPER_PROFIT_LOCK_DRAWDOWN_PCT) {
       // Halt for min(PAPER_HALT_HOURS, until UTC midnight). The daily-peak
       // reset in loadStats() clears the halt at next UTC-day rollover.
       const utcMidnight = new Date(now);
@@ -579,7 +586,7 @@ export class PaperTrader {
       return { action: 'skipped', reason: stats.lastHaltReason, nav };
     }
 
-    if ((stats.consecutiveLosses ?? 0) >= PAPER_MAX_CONSECUTIVE_LOSSES) {
+    if (!PAPER_DISABLE_HALTS && (stats.consecutiveLosses ?? 0) >= PAPER_MAX_CONSECUTIVE_LOSSES) {
       stats.haltedUntilMs = now + PAPER_HALT_HOURS * 60 * 60 * 1000;
       stats.lastHaltReason = `${stats.consecutiveLosses} consecutive losses`;
       await setCronState(KEY_STATS, stats);

@@ -59,6 +59,24 @@ export const PAPER_MAX_CONSECUTIVE_LOSSES = Number(
 );
 export const PAPER_HALT_HOURS = Number(process.env.PAPER_TRADER_HALT_HOURS || 4);
 
+/**
+ * Global halt bypass for pure data-gathering mode.
+ *
+ * When set (=1|true|yes|on) the paper trader skips ALL safety halts:
+ *   • rolling-drawdown 7d-vs-7d kill switch
+ *   • existing haltedUntilMs cool-down
+ *   • profit-lock daily-drawdown halt
+ *   • consecutive-losses streak halt
+ *
+ * Intent: unblock continuous data collection across every regime and
+ * failure mode so we see how the strategy behaves without safeties
+ * gating it. Paper only — real trader's kill switches are separate.
+ * Default OFF so safety-first behavior is preserved unless opted out.
+ */
+export const PAPER_DISABLE_HALTS = /^(1|true|yes|on)$/i.test(
+  (process.env.PAPER_TRADER_DISABLE_HALTS || '').trim(),
+);
+
 // ── Trailing stop ───────────────────────────────────────────────────
 export const PAPER_TRAILING_STOP_ARM_PCT = Number(
   process.env.PAPER_TRADER_TRAILING_ARM_PCT || 0.01,
