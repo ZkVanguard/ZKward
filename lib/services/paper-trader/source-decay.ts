@@ -22,7 +22,12 @@ import { errMsg } from '@/lib/utils/error-handler';
 
 export const DECAY_WEIGHT_KEY = 'source-decay:weight-multipliers';
 export const DECAY_LAST_CHECK_KEY = 'source-decay:last-check';
-export const DECAY_MIN_TRADES = 30;
+// Lowered from 30 → 15 (2026-09-22). Per-asset delphi/manifold sources
+// often appear in fewer than 30 of the last-30 attribution rows, so they
+// never met the threshold and chronic 30-45%-hit-rate sources kept
+// contributing weight to the aggregator. 15 lets asset-specific sources
+// hit the disable threshold within a realistic trade volume.
+export const DECAY_MIN_TRADES = Number(process.env.SOURCE_DECAY_MIN_TRADES || 15);
 export const DECAY_WIN_RATE_FLOOR = Number(process.env.SOURCE_DECAY_WIN_RATE_FLOOR || 0.48);
 export const DECAY_CHECK_INTERVAL_MS = 60 * 60 * 1000; // hourly
 
