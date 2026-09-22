@@ -269,7 +269,13 @@ export async function sizeCandidate(
       weight: s.weight ?? 1,
     })),
   );
-  const stakeUsd = nav * PAPER_STAKE_PCT * signalScalar * volMult * calibrationBoost;
+  const rawStake = nav * PAPER_STAKE_PCT * signalScalar * volMult * calibrationBoost;
+  // Hard cap on stake (was missing — paper had unbounded stake vs live's
+  // $500 cap). Applied AFTER all multipliers so any combined boost still
+  // respects the NAV-fraction ceiling.
+  const { PAPER_MAX_STAKE_PCT } = await import('./config');
+  const maxStake = nav * PAPER_MAX_STAKE_PCT;
+  const stakeUsd = Math.min(rawStake, maxStake);
   const notionalUsd = stakeUsd * PAPER_LEVERAGE;
   return { notionalUsd, stakeUsd, signalScalar, volMult, calibrationBoost };
 }

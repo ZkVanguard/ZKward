@@ -60,6 +60,25 @@ export const PAPER_MAX_CONSECUTIVE_LOSSES = Number(
 export const PAPER_HALT_HOURS = Number(process.env.PAPER_TRADER_HALT_HOURS || 4);
 
 /**
+ * Max stake per trade as a fraction of NAV, applied AFTER all sizing
+ * multipliers (signalScalar × volMult × calibrationBoost).
+ *
+ * Was missing until 2026-09-22. Live Polymarket-edge-trader has a
+ * $500 hard cap (POLYMARKET_EDGE_MAX_STAKE_USD); paper had no
+ * equivalent. On $670K NAV with all boosts maxed, effective stake
+ * could hit $60K (~9% of NAV) × 3× leverage = $180K notional per
+ * trade × 3 concurrent = 80% of NAV levered 3×. That's unbounded
+ * risk that distorts win rates and PnL variance vs any realistic
+ * mainnet deployment.
+ *
+ * Default 0.05 = 5% of NAV — matches the live trader's implicit
+ * cap of $500 / ~\$10K vault = 5%. Env-tunable.
+ */
+export const PAPER_MAX_STAKE_PCT = Number(
+  process.env.PAPER_TRADER_MAX_STAKE_PCT || 0.05,
+);
+
+/**
  * Global halt bypass for pure data-gathering mode.
  *
  * When set (=1|true|yes|on) the paper trader skips ALL safety halts:
