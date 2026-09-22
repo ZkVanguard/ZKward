@@ -32,9 +32,28 @@ import { getCronState, getCronStateOr, setCronState } from '@/lib/db/cron-state'
 import { logger } from '@/lib/utils/logger';
 
 /** Prior "phantom trades" credited to the neutral hit rate before empirical
- *  outcomes take over. Same PRIOR_STRENGTH as probability-calibrator. */
-const PRIOR_STRENGTH = 10;
+ *  outcomes take over.
+ *
+ *  Was 10 until 2026-09-22. Diagnosis: median source hit rate is
+ *  52% ± 5 on live data. With PRIOR=10, a source at 30% over 20 real
+ *  trades only shrinks to 0.37 → weight × 0.73. Chronically-losing
+ *  sources kept contributing to signals. Aggregating 15 near-random
+ *  sources converges to 50% predictor by CLT — matching the observed
+ *  44-55% paper win rate.
+ *
+ *  Lowered to 5 so 20+ real trades meaningfully shift the multiplier
+ *  toward empirical. Trade-off: more variance on very-thin sources
+ *  (< 5 trades), but those get MIN_MULTIPLIER floor.
+ */
+const PRIOR_STRENGTH = Number(process.env.SOURCE_CALIBRATOR_PRIOR || 5);
 const NEUTRAL_HIT_RATE = 0.5;
+
+/** Hard cutoff — sources at < KILL_THRESHOLD hit rate with >= KILL_MIN_TRADES
+ *  data get their weight multiplier floored near zero. Complements
+ *  source-decay's binary disable but fires 2× faster (15 vs 30 min trades). */
+const KILL_THRESHOLD = Number(process.env.SOURCE_CALIBRATOR_KILL_THRESHOLD || 0.40);
+const KILL_MIN_TRADES = Number(process.env.SOURCE_CALIBRATOR_KILL_MIN_TRADES || 15);
+const KILL_MULTIPLIER = 0.05;
 
 /** Clamp multiplier so extreme outliers can't dominate the aggregation. */
 const MIN_MULTIPLIER = 0.2;
@@ -165,6 +184,16 @@ export function hitRateToMultiplier(hitRate: number): number {
 
 export async function getCalibratedMultiplier(sourceKey: string): Promise<number> {
   const rate = await getCalibratedHitRate(sourceKey);
+  // Hard-cut chronically-bad sources. Bayesian shrinkage was too soft
+  // (a 30% source over 20 trades still contributed 0.73× weight); this
+  // kills them explicitly when the empirical evidence is strong enough.
+  try {
+    const bucket = await getCronState<SourceCalibrationBucket>(stateKey(sourceKey));
+    if (bucket && bucket.n >= KILL_MIN_TRADES) {
+      const empirical = bucket.wins / bucket.n;
+      if (empirical < KILL_THRESHOLD) return KILL_MULTIPLIER;
+    }
+  } catch { /* fall through to Bayesian mult */ }
   return hitRateToMultiplier(rate);
 }
 
