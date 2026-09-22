@@ -387,7 +387,7 @@ export function AgentLiveChat() {
                  h-[min(65svh,560px)] sm:h-[min(75vh,680px)] lg:h-[min(80vh,720px)]
                  min-h-[360px] w-full max-w-full"
     >
-      <div className="border-b border-separator-opaque/40 px-3 sm:px-5 py-2.5 sm:py-3.5 flex-shrink-0">
+      <div className="border-b border-separator-opaque/40 px-3.5 sm:px-6 py-2.5 sm:py-3.5 flex-shrink-0">
         <div className="flex items-center gap-2">
           <Bot className="w-4 h-4 text-ios-blue flex-shrink-0" />
           <h3 className="text-callout sm:text-headline font-semibold text-label-primary truncate">{t('title')}</h3>
@@ -418,7 +418,7 @@ export function AgentLiveChat() {
         </p>
       </div>
 
-      <div ref={scrollRef} className="flex-1 overflow-y-auto overflow-x-hidden px-3 sm:px-5 py-3 sm:py-4 space-y-3 sm:space-y-4">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto overflow-x-hidden px-3.5 sm:px-6 py-3 sm:py-4 space-y-3 sm:space-y-4">
         {messages.length === 0 && (
           <div className="space-y-3">
             <p className="text-callout text-label-tertiary">{t('tryOneOfThese')}</p>
@@ -516,7 +516,7 @@ export function AgentLiveChat() {
           e.preventDefault();
           send(input);
         }}
-        className="border-t border-separator-opaque/40 px-2.5 sm:px-5 py-2.5 sm:py-3 flex gap-2 items-end flex-shrink-0 bg-system-bg-primary pb-safe"
+        className="border-t border-separator-opaque/40 px-3.5 sm:px-6 py-3 sm:py-4 flex gap-2.5 sm:gap-3 items-end flex-shrink-0 bg-system-bg-primary pb-safe"
       >
         <textarea
           ref={textareaRef}
@@ -535,12 +535,12 @@ export function AgentLiveChat() {
           // auto-zoom the viewport when the textarea focuses. Anything
           // below 16px triggers the zoom, breaking layout on the
           // return-to-normal.
-          className="flex-1 min-w-0 px-3 py-2 rounded-ios bg-system-bg-secondary text-label-primary placeholder-label-tertiary border border-separator-opaque/40 focus:border-ios-blue focus:outline-none text-[16px] sm:text-body disabled:opacity-50 resize-none max-h-[140px] sm:max-h-[180px] min-h-[42px] leading-snug"
+          className="flex-1 min-w-0 px-3.5 py-2.5 rounded-ios bg-system-bg-secondary text-label-primary placeholder-label-tertiary border border-separator-opaque/40 focus:border-ios-blue focus:outline-none text-[16px] sm:text-body disabled:opacity-50 resize-none max-h-[140px] sm:max-h-[180px] min-h-[42px] leading-snug"
         />
         <button
           type="submit"
           disabled={pending || !input.trim() || ready !== true}
-          className="px-3 sm:px-4 py-2 rounded-ios bg-ios-blue text-white font-medium text-callout disabled:opacity-40 disabled:cursor-not-allowed hover:bg-ios-blue/90 transition-colors flex items-center gap-1.5 sm:gap-2 flex-shrink-0 min-h-[42px]"
+          className="px-4 sm:px-5 py-3 rounded-ios bg-ios-blue text-white font-medium text-callout disabled:opacity-40 disabled:cursor-not-allowed hover:bg-ios-blue/90 transition-colors flex items-center gap-1.5 sm:gap-2 flex-shrink-0"
           aria-label={t('sendAria')}
         >
           {pending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
