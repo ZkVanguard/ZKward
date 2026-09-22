@@ -27,9 +27,15 @@ export const PAPER_LEVERAGE = Number(process.env.PAPER_TRADER_LEVERAGE || 3);
 export const PAPER_STAKE_PCT = Number(process.env.PAPER_TRADER_STAKE_PCT || 0.02);
 
 // ── Entry thresholds ────────────────────────────────────────────────
-export const PAPER_MIN_CONFIDENCE = Number(process.env.PAPER_TRADER_MIN_CONFIDENCE || 55);
-export const PAPER_MIN_CONSENSUS = Number(process.env.PAPER_TRADER_MIN_CONSENSUS || 50);
-export const PAPER_MIN_SOURCES = Number(process.env.PAPER_TRADER_MIN_SOURCES || 2);
+// Bumped 2026-09-22 (55 → 62 conf, 50 → 60 cons, 2 → 3 sources) as
+// part of the "50%+ win rate" push. Root cause analysis showed median
+// source hit rate is ~50-53%, so aggregating a marginal-conf signal
+// converges to ~50% predictor. Tighter gates trade N-per-hour for
+// per-trade edge; expected to lift win rate 5-10pct with same source
+// pool. Env-tunable if further tuning proves productive.
+export const PAPER_MIN_CONFIDENCE = Number(process.env.PAPER_TRADER_MIN_CONFIDENCE || 62);
+export const PAPER_MIN_CONSENSUS = Number(process.env.PAPER_TRADER_MIN_CONSENSUS || 60);
+export const PAPER_MIN_SOURCES = Number(process.env.PAPER_TRADER_MIN_SOURCES || 3);
 
 // ── Hold windows ────────────────────────────────────────────────────
 // Bumped 2026-09-20 from 20 → 45 min. Post-mortem on 164 paper trades
