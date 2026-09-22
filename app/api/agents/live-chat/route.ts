@@ -78,15 +78,17 @@ Drift check: before sending, ask "does my first sentence literally answer the qu
 
 ## Tools — call the one that answers in ONE round-trip
 
-- **get_asset_context(asset)** — PREFERRED for any single-asset question. Price + 24h + signal + our hedges in one call. Works for tracked assets (BTC/ETH/SOL/XRP/DOGE/CRO/SUI/ATOM) with full data; for non-tracked (ADA/LINK/DOT/etc) returns price + 24h from Crypto.com, no signal.
-- get_broader_market — top movers list, OR single non-tracked asset if get_asset_context missed
-- get_prediction_signal — only when you need signals for MULTIPLE tracked assets at once (compare use case)
-- query_hedge_history — vault hedges with filters (asset/status/hours/limit)
-- query_recent_interpretations — AI's per-market labels lately (for "what has the AI been reading")
-- query_postmortem_stats — AI hit rate on resolved outcomes
-- get_treasury_state — vault balance + health
-- get_cron_state — one key by name
-- get_asset_price / get_market_snapshot — legacy, prefer get_asset_context
+- **get_asset_context(asset)** — PREFERRED for single-asset questions. Price + 24h + signal + our hedges. Tracked (BTC/ETH/SOL/XRP/DOGE/CRO/SUI/ATOM) + broader (ADA/LINK/DOT/etc via Crypto.com).
+- **get_historical_summary(asset, days)** — N-day high/low/change. Use for "BTC last week", "SOL 30-day range", "ETH from ATH".
+- **get_onchain_snapshot** — ETH gas (fast/normal/slow gwei) + top chains by TVL with 1d change. Use for "gas fees now", "L2 growth", "which chain is biggest".
+- **get_options_data(asset)** — BTC/ETH options: total OI, put/call ratio, avg IV, top-5 strikes. Use for "BTC IV", "options market", "where are the big strikes".
+- **get_crypto_news** — trending coins + hot narratives from CoinGecko. Use for "what's hot", "trending", "any news".
+- **get_defi_tvl(protocol)** — DefiLlama TVL + category + chains + change for ~2000 protocols. Use for "TVL of Aave", "compare Curve and Uniswap".
+- **get_fear_greed_index** — daily crypto sentiment 0-100. Use for sentiment questions.
+- **get_broader_market** — top movers OR one asset lookup for anything outside tracked set.
+- **get_prediction_signal** — fused prediction-market signal for MULTIPLE tracked assets (compare use case only).
+- **query_hedge_history / query_recent_interpretations / query_postmortem_stats / get_treasury_state / get_cron_state** — vault + AI state.
+- get_asset_price / get_market_snapshot — legacy, prefer get_asset_context.
 
 ## Style
 
@@ -152,9 +154,23 @@ export async function POST(request: NextRequest) {
     if (message.length > 2000) {
       return NextResponse.json({ error: 'message too long' }, { status: 413 });
     }
-    const priorMessages = normalizeHistory(body?.history);
+    const clientHistory = normalizeHistory(body?.history);
     const sessionIdRaw = body?.sessionId;
     const sessionId = isValidSessionId(sessionIdRaw) ? sessionIdRaw : null;
+
+    // Cross-session memory: if the client sent NO history (fresh page load,
+    // cleared localStorage, or new device) BUT has a persistent sessionId,
+    // hydrate the last 6 turns from ai_chat_logs (added 2026-09-22). This
+    // enables "and yesterday?" and other follow-ups even after browser
+    // history is cleared, as long as the session UUID cookie survives.
+    let priorMessages = clientHistory;
+    if (sessionId && clientHistory.length === 0) {
+      try {
+        const { loadRecentSessionContext } = await import('@/lib/db/ai-chat-logs');
+        const persisted = await loadRecentSessionContext(sessionId);
+        priorMessages = persisted.map((p) => ({ role: p.role, content: p.content }));
+      } catch { /* DB flap → no memory this turn, not fatal */ }
+    }
     const userAgent = request.headers.get('user-agent');
     const clientIp = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
       || request.headers.get('x-real-ip')
@@ -465,6 +481,94 @@ async function buildRuntimeContext(analysis: ReturnType<typeof analyzeMessage>):
   if (analysis.needsBaselinePulse) {
     const pulse = await buildMarketPulse();
     if (pulse) sections.push(pulse);
+  }
+
+  // News intent → pre-fetch trending
+  if (analysis.intent === 'news') {
+    const newsTool = toolByName(DEFAULT_AGENT_TOOLS, 'get_crypto_news');
+    if (newsTool) {
+      try {
+        const d = await newsTool.execute({}) as { coins?: Array<{ symbol: string; name: string; rank: number; priceUsd: number }>; categories?: string[] };
+        if (d.coins && d.coins.length > 0) {
+          const coinLines = d.coins.slice(0, 5).map((c) => `${c.symbol} (${c.name}, rank ${c.rank}, $${c.priceUsd.toFixed(4)})`);
+          const catStr = d.categories && d.categories.length > 0 ? `\nHot narratives: ${d.categories.join(', ')}` : '';
+          sections.push(`**Trending coins (CoinGecko, cached 5min):**\n${coinLines.join('\n')}${catStr}`);
+        }
+      } catch { /* skip */ }
+    }
+  }
+
+  // On-chain intent → pre-fetch gas + chain TVL
+  if (analysis.intent === 'onchain') {
+    const onchainTool = toolByName(DEFAULT_AGENT_TOOLS, 'get_onchain_snapshot');
+    if (onchainTool) {
+      try {
+        const d = await onchainTool.execute({ topN: 6 }) as {
+          gasGwei: { fast: number; normal: number; slow: number; baseFee: number } | null;
+          chains: Array<{ name: string; tvlUsdB: number; changePct1d?: number; changePct7d?: number }>;
+        };
+        const gasStr = d.gasGwei
+          ? `ETH gas: ${d.gasGwei.fast}/${d.gasGwei.normal}/${d.gasGwei.slow} gwei (fast/normal/slow) · base ${d.gasGwei.baseFee} gwei`
+          : 'ETH gas: unavailable';
+        const chainLines = (d.chains || []).map((c) => {
+          const chg1d = c.changePct1d !== undefined ? `${c.changePct1d >= 0 ? '+' : ''}${c.changePct1d}%` : 'n/a';
+          return `- ${c.name}: $${c.tvlUsdB}B (Δ1d ${chg1d})`;
+        });
+        sections.push(`**On-chain snapshot:**\n${gasStr}\nTop chains by TVL:\n${chainLines.join('\n')}`);
+      } catch { /* skip */ }
+    }
+  }
+
+  // Options intent → pre-fetch BTC or ETH options (whichever detected, else BTC)
+  if (analysis.intent === 'options') {
+    const optionsTool = toolByName(DEFAULT_AGENT_TOOLS, 'get_options_data');
+    if (optionsTool) {
+      const target = analysis.assets.includes('ETH') ? 'ETH' : 'BTC';
+      try {
+        const d = await optionsTool.execute({ asset: target as 'BTC' | 'ETH' }) as {
+          asset: string; totalOI: number; putCallRatio: number; avgIV: number;
+          underlyingPrice: number;
+          topStrikes: Array<{ strike: number; type: 'C' | 'P'; oi: number; iv: number }>;
+        };
+        if (d.totalOI) {
+          const strikeLines = d.topStrikes.map((s) => `${s.strike}${s.type} (OI ${s.oi.toFixed(0)}, IV ${s.iv}%)`).join(', ');
+          sections.push(`**${d.asset} options (Deribit):** total OI ${d.totalOI}, P/C ratio ${d.putCallRatio}, avg IV ${d.avgIV}%, spot $${d.underlyingPrice}\nTop strikes: ${strikeLines}`);
+        }
+      } catch { /* skip */ }
+    }
+  }
+
+  // Historical intent → pre-fetch summary for detected assets
+  if (analysis.intent === 'historical' && analysis.assets.length > 0) {
+    const histTool = toolByName(DEFAULT_AGENT_TOOLS, 'get_historical_summary');
+    if (histTool) {
+      const days = analysis.timeframeHours ? Math.max(1, Math.round(analysis.timeframeHours / 24)) : 7;
+      try {
+        const d = await histTool.execute({ asset: analysis.assets[0], days }) as {
+          asset?: string; currentPrice?: number; high?: number; low?: number;
+          changePct?: number; days?: number;
+        };
+        if (typeof d.currentPrice === 'number') {
+          const chg = d.changePct! >= 0 ? '+' : '';
+          sections.push(`**${d.asset} last ${d.days}d:** current $${d.currentPrice.toFixed(d.currentPrice < 1 ? 4 : 2)} · high $${d.high?.toFixed(2)} · low $${d.low?.toFixed(2)} · Δ ${chg}${d.changePct?.toFixed(1)}%`);
+        }
+      } catch { /* skip */ }
+    }
+  }
+
+  // Diagnose-move intent → pre-fetch news alongside asset context (already done above)
+  if (analysis.intent === 'diagnose_move' && analysis.assets.length > 0) {
+    const newsTool = toolByName(DEFAULT_AGENT_TOOLS, 'get_crypto_news');
+    if (newsTool) {
+      try {
+        const d = await newsTool.execute({}) as { coins?: Array<{ symbol: string; name: string }>; categories?: string[] };
+        if (d.coins && d.coins.length > 0) {
+          const trending = d.coins.slice(0, 5).map((c) => c.symbol);
+          const isTrending = trending.some((s) => analysis.assets.includes(s));
+          sections.push(`**Trending context:** ${trending.join(', ')}${isTrending ? ` — user's asset (${analysis.assets.join('/')}) IS on the trending list, so social/attention flow is a likely factor.` : ''}${d.categories ? `\nHot narratives: ${d.categories.join(', ')}` : ''}`);
+        }
+      } catch { /* skip */ }
+    }
   }
 
   return sections.join('\n\n');

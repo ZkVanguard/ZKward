@@ -10,15 +10,20 @@
  */
 
 export type ChatIntent =
-  | 'lookup'      // "how is BTC" / "what's XRP at"
-  | 'compare'     // "BTC vs ETH" / "which is stronger"
-  | 'diagnose'    // "why did we lose" / "what went wrong"
-  | 'advise'      // "should I buy" / "is now a good time"
-  | 'explain'     // "what is a perp" / "how does funding work"
-  | 'market_wide' // "top movers" / "market state" / "market update"
-  | 'vault_state' // "how is our vault" / "our positions" / "our pnl"
-  | 'sentiment'   // "fear and greed" / "market sentiment" / "sentiment"
-  | 'defi'        // "TVL" / "aave" / "uniswap" / "curve" / "defi"
+  | 'lookup'         // "how is BTC" / "what's XRP at"
+  | 'compare'        // "BTC vs ETH" / "which is stronger"
+  | 'diagnose'       // "why did we lose" / "what went wrong"
+  | 'diagnose_move'  // "why is BTC pumping" / "what's driving DOGE"
+  | 'advise'         // "should I buy" / "is now a good time"
+  | 'explain'        // "what is a perp" / "how does funding work"
+  | 'market_wide'    // "top movers" / "market state" / "market update"
+  | 'vault_state'    // "how is our vault" / "our positions" / "our pnl"
+  | 'sentiment'      // "fear and greed" / "market sentiment" / "sentiment"
+  | 'defi'           // "TVL" / "aave" / "uniswap" / "curve" / "defi"
+  | 'news'           // "what news" / "trending" / "hot right now"
+  | 'historical'     // "BTC last week" / "ETH from ATH" / "SOL 30-day"
+  | 'onchain'        // "gas fees" / "L2 TVL" / "which chain"
+  | 'options'        // "IV" / "put call ratio" / "options market"
   | 'other';
 
 export type DeterministicRoute =
@@ -89,7 +94,18 @@ const PROTOCOLS = new Set([
 ]);
 
 // Intent keyword clusters — regex-hit order matters, earlier wins.
+// More specific patterns MUST come first to avoid stealing broader ones.
 const INTENT_PATTERNS: Array<{ intent: ChatIntent; re: RegExp }> = [
+  // Options — very specific, must come before generic 'market'
+  { intent: 'options', re: /\b(options?\s+market|put\/?call|put[- ]?call\s+ratio|implied\s+vol|iv\b|max\s+pain|open\s+interest|strikes?|expir(y|ies))\b/i },
+  // On-chain / gas — specific
+  { intent: 'onchain', re: /\b(gas\s+(fee|price|now)|gwei|eth\s+gas|l2\s+(tvl|growth)|which\s+chain|chain\s+(tvl|growth|ranking))\b/i },
+  // Historical — specific
+  { intent: 'historical', re: /\b(last\s+(week|month|30\s*day|7\s*day)|from\s+ath|all[- ]time\s+high|ath\b|past\s+\d+\s*day|historical|chart|range\s+over)\b/i },
+  // News — specific
+  { intent: 'news', re: /\b(news|trending|hot\s+right\s+now|what.s\s+trending|any\s+news|breaking\s+news|new\s+(coin|launch|listing))\b/i },
+  // Diagnose asset move — specific, must come before generic 'diagnose'
+  { intent: 'diagnose_move', re: /\b(why\s+is\s+\w+\s+(pumping|dumping|up|down|rising|falling|moving|mooning|crashing|rallying)|what.s\s+(moving|driving|pushing)\s+\w+|catalyst\s+for)\b/i },
   { intent: 'advise', re: /\b(should\s+(i|we)|worth\s+(buying|selling)|good\s+(time|move)|time\s+to\s+(buy|sell|enter|exit))\b/i },
   { intent: 'diagnose', re: /\b(why\s+(did|is|are|has|does)|what\s+went\s+wrong|what\s+happened|explain\s+the\s+(loss|drop|dip|crash|move))\b/i },
   { intent: 'compare', re: /\b(compare|vs\.?|versus|better|stronger|weaker|between\s+\w+\s+and)\b/i },
@@ -175,7 +191,7 @@ export function analyzeMessage(text: string): MessageAnalysis {
   // Complexity heuristic: intent + entity count + question length
   let complexity: 'simple' | 'medium' | 'complex' = 'simple';
   const wordCount = raw.split(/\s+/).length;
-  const isDiagnostic = intent === 'diagnose' || intent === 'advise';
+  const isDiagnostic = intent === 'diagnose' || intent === 'advise' || intent === 'diagnose_move';
   const isMultiEntity = assets.length + foundProtocols.size >= 2;
   if (isDiagnostic || (isMultiEntity && wordCount > 8)) complexity = 'complex';
   else if (isMultiEntity || wordCount > 15 || intent === 'compare') complexity = 'medium';
@@ -213,6 +229,22 @@ export function analyzeMessage(text: string): MessageAnalysis {
       break;
     case 'defi':
       suggestedTools.push('get_defi_tvl', 'get_broader_market', 'get_asset_context');
+      break;
+    case 'news':
+      suggestedTools.push('get_crypto_news', 'get_broader_market', 'get_fear_greed_index');
+      break;
+    case 'historical':
+      suggestedTools.push('get_historical_summary', 'get_asset_context');
+      break;
+    case 'onchain':
+      suggestedTools.push('get_onchain_snapshot', 'get_defi_tvl');
+      break;
+    case 'options':
+      suggestedTools.push('get_options_data', 'get_asset_context');
+      break;
+    case 'diagnose_move':
+      // Multi-tool chain: context + news + funding for causal narrative
+      suggestedTools.push('get_asset_context', 'get_crypto_news', 'get_historical_summary', 'get_fear_greed_index');
       break;
     default:
       // 'other' → expose all
