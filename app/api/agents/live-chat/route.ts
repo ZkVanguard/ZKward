@@ -510,21 +510,17 @@ async function buildMarketPulse(): Promise<string | null> {
 }
 
 /**
- * Server-side answers for pattern-matched vague/meta questions. Skips
- * the LLM entirely — no hallucination surface possible. All numbers
- * come from live tool calls; failure states use fixed messages.
+ * Server-side answer for canonical meta-questions. Only 'self-meta' is
+ * routed here now (2026-09-21): 'what tools do you have' has one right
+ * answer and doesn't need LLM. Market/critique questions were moved
+ * back to LLM + baseline pulse — LLM interpretation adds real value
+ * (verified: LLM path answers were strictly better than the static
+ * table for identical market data).
  */
 async function buildDeterministicAnswer(route: NonNullable<ReturnType<typeof analyzeMessage>['deterministicRoute']>): Promise<string> {
   if (route === 'self-meta') {
     return `I'm the ZKward chat — I answer crypto and vault questions grounded in live data.\n\nI can look up:\n- Prices, 24h changes, prediction signals for any asset (BTC/ETH/SOL/XRP/DOGE + ~200 more via Crypto.com)\n- DeFi TVL and metrics for any protocol on DefiLlama (Uniswap, Aave, Lido, etc)\n- Crypto Fear & Greed sentiment\n- Our vault's active + recent hedges, treasury, PnL, AI hit rate\n\nAsk me anything — 'how is BTC', 'TVL of Aave', 'why did we lose today', 'market sentiment'.`;
   }
-  if (route === 'self-criticism') {
-    return `Fair feedback. My ceiling is the underlying model (asi1-mini) — I can't reason as deeply as GPT-4 or Claude. What I CAN do reliably: pull live prices/signals/TVL/vault-state from real data sources with zero fabrication. Try me with a specific question ('how is BTC', 'TVL of Aave', 'why did our last hedge lose') and I'll ground the answer in tools rather than opinions.`;
-  }
-  // 'market-overview'
-  const pulse = await buildMarketPulse();
-  if (!pulse) return `Market data is temporarily unavailable — try again in a moment, or ask about a specific asset.`;
-  // Strip the "cite only these" instruction (that was for the LLM) and reformat
-  const body = pulse.replace(/^\*\*Baseline market pulse.*?\*\*\n/, '');
-  return `**Market snapshot right now:**\n\n${body}\n\nAsk me about any specific asset for the full read (price + signal + our position + recent hedges).`;
+  // Unreachable given current analyzer routes, kept as defensive fallback
+  return `I couldn't route that question — try being more specific.`;
 }

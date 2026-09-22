@@ -219,28 +219,29 @@ export function analyzeMessage(text: string): MessageAnalysis {
       break;
   }
 
-  // Deterministic route detection — questions that have a canonical
-  // answer built from live data. Server answers directly, no LLM
-  // ambiguity → no fabrication surface. Order matters (self-criticism
-  // before self-meta before market-overview).
+  // Deterministic route detection — ONLY for truly canonical questions
+  // with a single correct answer. Market/critique questions were removed
+  // 2026-09-21 after empirical comparison: LLM path with baseline pulse
+  // (Layer 2) gives strictly better answers (real data + interpretation)
+  // than a static table. Deterministic route now covers only:
+  //   - self-meta: 'what tools do you have', 'help' — one canonical answer
+  //
+  // Market questions ('how are things', 'market update') → LLM + pulse
+  // Self-criticism ('your AI sucks') → LLM + interpretation tools
+  //   (Test #3 proved LLM engages with real data + gives useful critique)
   let deterministicRoute: DeterministicRoute = null;
   if (assets.length === 0 && foundProtocols.size === 0) {
-    if (/\b(your|the)\s+(ai|assistant|bot|answers?|responses?)\s+(sucks?|bad|shallow|weak|poor|wrong|useless|dumb)\b/i.test(raw)
-        || /\byou\s+(suck|are\s+(bad|useless|dumb|shallow|wrong))\b/i.test(raw)) {
-      deterministicRoute = 'self-criticism';
-    } else if (/\b(what|which)\s+(tools?|capabilities?|features?|can\s+you\s+do)\b/i.test(raw)
+    if (/\b(what|which)\s+(tools?|capabilities?|features?|can\s+you\s+do)\b/i.test(raw)
         || /\b(how\s+do\s+you\s+work|tell\s+me\s+about\s+yourself|what\s+are\s+you)\b/i.test(raw)
         || /\b(help|commands?)\b/i.test(raw) && wordCount <= 3) {
       deterministicRoute = 'self-meta';
-    } else if (/\b(how\s+are\s+things|what.s\s+up|whats\s+up|market\s+update|overview|general\s+market|everything|all\s+assets|market\s+state|market\s+today|market\s+now|market\s+overview)\b/i.test(raw)
-        || (intent === 'other' && wordCount <= 6)) {
-      deterministicRoute = 'market-overview';
     }
   }
 
   // Baseline pulse: inject top-5 asset snapshot + F&G into prompt when
   // no specific asset was detected AND no deterministic route fired.
-  // Ensures LLM never has zero grounding — kills hallucination gap.
+  // This is the LLM-grounding layer — ensures the model never has zero
+  // context and can add interpretation on top of guaranteed-real data.
   const needsBaselinePulse = assets.length === 0
     && foundProtocols.size === 0
     && deterministicRoute === null
