@@ -45,17 +45,23 @@ export async function assetSideStreakRejection(
     // Pull the last STREAK_LOSS_COUNT closed trades on this (asset, side)
     // ordered by close time. If ALL are losses AND the most recent
     // closed less than COOLDOWN_MS ago, we're in the pause window.
+    // Filter by portfolio_id so PaperGatedTrader (-4) losses don't
+    // trigger cooldowns on PaperTrader (-3) — both share the paper_%
+    // LIKE prefix (paper_ vs paper_gated_) causing cross-portfolio
+    // contamination. Fixed 2026-09-22.
+    const { PAPER_PORTFOLIO_ID } = await import('./config');
     const rows = await query<{
       realized_pnl: string | number | null;
       closed_at: Date;
     }>(
       `SELECT COALESCE(realized_pnl, 0) AS realized_pnl, closed_at
        FROM hedges
-       WHERE order_id LIKE 'paper_%'
+       WHERE portfolio_id = $4
+         AND order_id LIKE 'paper_%'
          AND asset = $1 AND side = $2 AND status = 'closed'
        ORDER BY closed_at DESC NULLS LAST
        LIMIT $3`,
-      [asset, side, STREAK_LOSS_COUNT],
+      [asset, side, STREAK_LOSS_COUNT, PAPER_PORTFOLIO_ID],
     );
     if (rows.length < STREAK_LOSS_COUNT) return null; // insufficient history
     const allLosses = rows.every((r) => Number(r.realized_pnl ?? 0) <= 0);
@@ -92,6 +98,9 @@ export async function trendMisalignmentRejection(
   side: Side,
 ): Promise<string | null> {
   try {
+    // Filter by portfolio_id to avoid PaperGatedTrader (-4) entries
+    // polluting PaperTrader's (-3) trend proxy (see streak-guard fix).
+    const { PAPER_PORTFOLIO_ID } = await import('./config');
     // Prefer multi-source live price + last N entry prices from paper history.
     const rows = await query<{
       entry_price: string | number | null;
@@ -99,11 +108,12 @@ export async function trendMisalignmentRejection(
     }>(
       `SELECT entry_price, created_at
        FROM hedges
-       WHERE order_id LIKE 'paper_%'
+       WHERE portfolio_id = $2
+         AND order_id LIKE 'paper_%'
          AND asset = $1 AND entry_price IS NOT NULL
        ORDER BY created_at DESC
        LIMIT 6`,
-      [asset],
+      [asset, PAPER_PORTFOLIO_ID],
     );
     if (rows.length < 4) return null; // not enough history to judge
 

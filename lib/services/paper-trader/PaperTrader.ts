@@ -175,13 +175,16 @@ async function assetSideRecentPnl(
   limit: number,
 ): Promise<number> {
   try {
+    // portfolio_id filter isolates PaperTrader (-3) from PaperGated (-4)
+    // so gated losses don't trigger raw's regret cooldown (2026-09-22).
     const rows = await query<{ pnl: string | number }>(
       `SELECT COALESCE(current_pnl, realized_pnl, 0) AS pnl
        FROM hedges
-       WHERE order_id LIKE 'paper_%' AND asset = $1 AND side = $2 AND status = 'closed'
+       WHERE portfolio_id = $4
+         AND order_id LIKE 'paper_%' AND asset = $1 AND side = $2 AND status = 'closed'
        ORDER BY closed_at DESC NULLS LAST
        LIMIT $3`,
-      [asset, side, limit],
+      [asset, side, limit, PAPER_PORTFOLIO_ID],
     );
     return rows.reduce((sum, r) => sum + Number(r.pnl ?? 0), 0);
   } catch (e) {
