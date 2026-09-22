@@ -151,7 +151,9 @@ export class PaperGatedTrader {
     // 2. Trailing stop.
     const mtm = markToMarket(pos, markPrice, now);
     const priorPeak = pos.peakUnrealizedPnl ?? 0;
+    const priorTrough = pos.troughUnrealizedPnl ?? 0;
     const currentPeak = Math.max(priorPeak, mtm.unrealizedPnlUsd);
+    const currentTrough = Math.min(priorTrough, mtm.unrealizedPnlUsd);
     const trailingArmed = currentPeak >= nav * PAPER_TRAILING_STOP_ARM_PCT;
     if (trailingArmed && mtm.unrealizedPnlUsd < currentPeak * (1 - PAPER_TRAILING_STOP_GIVEBACK_PCT)) {
       return PaperGatedTrader.closeAtMark(
@@ -160,9 +162,15 @@ export class PaperGatedTrader {
         orderId,
       );
     }
-    // Persist peak so cross-tick reads see the ratchet.
-    if (currentPeak > priorPeak) {
-      await setCronState(KEY_POSITION, { ...pos, peakUnrealizedPnl: currentPeak }).catch(() => {});
+    // Persist BOTH peak (MFE) + trough (MAE) so the metadata blob at
+    // close carries real values. MAE was always 0 for gated trades
+    // until 2026-09-22 — corrupted every downstream stop-tuning read.
+    if (currentPeak > priorPeak || currentTrough < priorTrough) {
+      await setCronState(KEY_POSITION, {
+        ...pos,
+        peakUnrealizedPnl: currentPeak,
+        troughUnrealizedPnl: currentTrough,
+      }).catch(() => {});
     }
 
     // 3. Max-hold expiry.
