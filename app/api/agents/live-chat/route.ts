@@ -46,10 +46,21 @@ Every response has AT MOST two parts:
 1. **Direct answer** (1-2 sentences) that literally addresses the question as asked. This MUST be your first sentence. If the question is "how is BTC", this sentence is BTC's current state. If "why did we lose", this sentence is the specific cause. If "explain X", this sentence is X's definition.
 2. **Optional single "Also:" line** — one related fact ONLY if it's genuinely material to the ask (a warning, a caveat, a signal-flip that changes the read). Never a shopping list of adjacent data. If nothing rises to "material", omit part 2.
 
+## Universal rules (apply BEFORE any answer pattern — regardless of question phrasing)
+
+**RULE A — Divergence has priority.** If Live context contains a "⚠ DIVERGENCE" line for any asset the user's question touches, that observation IS the lead sentence. Applies to every intent — "how is BTC", "should I long BTC", "wtf with BTC", "give me the read on BTC" — they all lead with divergence when it exists. Format: "Signal is <REC> but vault holds <SIDE> $<N> — <one-line interpretation>."
+
+**RULE B — "Why" is triggered by the question, not the intent.** Any question containing "why", "reason", "reasoning", "rationale", "catalyst", "what's driving", "because", "how come", "what happened", or any equivalent phrasing → append EXACTLY ONE sentence quoting the "Signal reasoning:" line from Live context. Name the actual sources (funding, momentum, aggregator, specific prediction market). If the reasoning line is empty or absent, say "signal aggregator didn't attach specific reasons" — do NOT invent them.
+
+**RULE C — Vault numbers come ONLY from Live context "Vault:" or from tool results.** If Live context says "Vault: flat" or "Vault: HAS ACTIVE: SHORT $37", you may quote that verbatim. You may NOT extrapolate ($37 → $1.2M), infer entry prices you don't have, or state any position size that isn't in the injected data. If no vault line is present and you haven't called a hedge tool, say "no vault position data pre-fetched" and stop.
+
+**RULE D — NFA disclaimer is exactly one sentence.** When financial-advice framing appears ("should I", "worth buying", "long or short"), close with the exact sentence: Not financial advice — position sizing is yours. Nothing more. No follow-on about "market sentiment", "entry / leverage / risk management", "outcomes depend on your ...". One sentence, hard stop.
+
 FORBIDDEN openings and endings:
 - "You might want to know…" "Interesting note…" "Additionally…" "Also worth noting…" (these are drift markers)
 - "Would you like…" "Want me to…" "Should I check…" "Let me know if…" (these are the customer-service tail — no)
 - "Great question!" "Sure!" "Absolutely!" "That's a good one!" (throat-clearing — no)
+- Any NFA disclaimer LONGER than the one exact sentence "Not financial advice — position sizing is yours." No trailing clauses about "market sentiment", "technicals", "entry, leverage, risk management", "outcomes depend on..." — one sentence, hard stop.
 
 If you catch yourself writing any of the above, delete the sentence and stop.
 
@@ -65,7 +76,7 @@ Drift check: before sending, ask "does my first sentence literally answer the qu
 
 **"compare X and Y"** → two \`get_asset_context\` calls, then a 3-line comparison: which is stronger 24h, which has more conviction from the aggregator, which one WE hold if any.
 
-**"should I buy/sell X"** → NEVER give financial advice. But DO give the aggregator's read: "Signal is RECOMMENDATION at N% conf. Our vault is [position]. Reasons cited: TOP-3." Add one line: "Not financial advice — position sizing is yours."
+**"should I buy/sell X" / "long or short" / "worth buying X" / any advice framing** → follow Rules A-D above. In short: divergence-if-present leads, otherwise signal + vault; if user asked "why" include one sentence of real reasoning; end with the one-sentence NFA. That's the entire response — no expansions.
 
 **"explain X"** (protocol / mechanic / term) → 2-3 sentences on the concept. If X is a live crypto asset, append one line of live stats via \`get_asset_context\`.
 
@@ -500,7 +511,14 @@ async function buildRuntimeContext(analysis: ReturnType<typeof analyzeMessage>):
         price: number | null;
         change24hPct: number | null;
         volume24hUsd: number | null;
-        signal?: { direction: string; confidence: number; consensus: number; recommendation: string } | null;
+        signal?: {
+          direction: 'UP' | 'DOWN' | 'NEUTRAL';
+          confidence: number;
+          consensus: number;
+          recommendation: string;
+          sourceCount: number;
+          reasoning: string;
+        } | null;
         recentHedges: Array<{ side: string; notionalUsd: number; status: string; realizedPnlUsd: number | null }>;
       };
       const priceStr = d.price !== null ? `$${d.price < 1 ? d.price.toFixed(4) : d.price < 100 ? d.price.toFixed(2) : d.price.toFixed(0)}` : 'n/a';
@@ -509,16 +527,46 @@ async function buildRuntimeContext(analysis: ReturnType<typeof analyzeMessage>):
         ? d.volume24hUsd > 1e9 ? `$${(d.volume24hUsd / 1e9).toFixed(1)}B` : `$${(d.volume24hUsd / 1e6).toFixed(0)}M`
         : 'n/a';
       const sigStr = d.signal
-        ? `${d.signal.recommendation} @${d.signal.confidence}%conf/${d.signal.consensus}%cons`
+        ? `${d.signal.recommendation} @${d.signal.confidence}%conf/${d.signal.consensus}%cons (${d.signal.sourceCount} src)`
         : 'no signal (untracked)';
       const activeHedges = d.recentHedges.filter((h) => h.status === 'active');
       const lastClosed = d.recentHedges.find((h) => h.status === 'closed');
+      // Format is intentionally verbose+explicit so asi1-mini doesn't
+      // misread "flat (last: SHORT -$1.76)" as an active SHORT position
+      // (observed 2026-09-22). Active vs prior-closed is now a distinct
+      // sentence, not a parenthetical.
       const posStr = activeHedges.length > 0
-        ? `HAS ACTIVE: ${activeHedges.map((h) => `${h.side} $${h.notionalUsd.toFixed(0)}`).join(', ')}`
+        ? `ACTIVE POSITION: ${activeHedges.map((h) => `${h.side.toUpperCase()} $${h.notionalUsd.toFixed(0)} notional`).join(' + ')} — this is a real, currently-open position.`
         : lastClosed
-          ? `flat (last: ${lastClosed.side} ${lastClosed.realizedPnlUsd !== null ? (lastClosed.realizedPnlUsd >= 0 ? '+' : '') + '$' + lastClosed.realizedPnlUsd.toFixed(2) : 'unknown pnl'})`
-          : 'flat, no recent history';
-      assetLines.push(`- **${asset}**: ${priceStr} (Δ24h ${changeStr}, vol ${volStr}) · Signal: ${sigStr} · Vault: ${posStr}`);
+          ? `NO ACTIVE POSITION (vault is flat). Most recent CLOSED hedge: ${lastClosed.side.toUpperCase()}, realized PnL ${lastClosed.realizedPnlUsd !== null ? (lastClosed.realizedPnlUsd >= 0 ? '+' : '') + '$' + lastClosed.realizedPnlUsd.toFixed(2) : 'unknown'}. Do NOT quote the realized-PnL number as a current position size.`
+          : 'NO ACTIVE POSITION and no recent hedge history for this asset.';
+
+      // Divergence detector: signal direction vs currently-open vault side.
+      // Only fires when there's a REAL active position AND it opposes the
+      // signal. Filter out sub-$1 operational transport hedges (SUI pool
+      // uses $0.01 microhedges to move USDC — those aren't directional).
+      let divergenceStr = '';
+      if (d.signal && activeHedges.length > 0) {
+        const realActive = activeHedges.filter((h) => Math.abs(h.notionalUsd) >= 1);
+        const signalBullish = d.signal.direction === 'UP';
+        const signalBearish = d.signal.direction === 'DOWN';
+        const vaultLong = realActive.some((h) => /long/i.test(h.side));
+        const vaultShort = realActive.some((h) => /short/i.test(h.side));
+        if (signalBullish && vaultShort) {
+          divergenceStr = `\n  ⚠ **DIVERGENCE:** signal is ${d.signal.recommendation} (bullish) but vault holds an ACTIVE SHORT — this contradiction is THE most important observation. Lead with it: name both sides, offer one line of interpretation (trader hasn't caught up, counter-positioning, hedging tail risk, etc.), do NOT bury it as an "Also".`;
+        } else if (signalBearish && vaultLong) {
+          divergenceStr = `\n  ⚠ **DIVERGENCE:** signal is ${d.signal.recommendation} (bearish) but vault holds an ACTIVE LONG — this contradiction is THE most important observation. Lead with it: name both sides, offer one line of interpretation, do NOT bury it as an "Also".`;
+        }
+      }
+
+      // Signal reasoning: the aggregator's own "why" text (already
+      // capped to 240 chars). Without this, the LLM has no data to
+      // answer "why long?" and either fabricates or omits reasons.
+      const reasoningStr = d.signal?.reasoning
+        ? `\n  Signal reasoning: ${d.signal.reasoning}`
+        : '';
+
+      assetLines.push(`- **${asset}**: ${priceStr} (Δ24h ${changeStr}, vol ${volStr}) · Signal: ${sigStr} · Vault: ${posStr}${divergenceStr}${reasoningStr}`);
     }
     if (assetLines.length > 0) {
       sections.push(`**Assets you asked about:**\n${assetLines.join('\n')}`);
