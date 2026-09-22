@@ -98,6 +98,8 @@ import {
   PAPER_MAX_CONSECUTIVE_LOSSES,
   PAPER_HALT_HOURS,
   PAPER_DISABLE_HALTS,
+  PAPER_MIN_FLIP_AGE_SEC,
+  PAPER_MIN_FLIP_CONFIDENCE,
   PAPER_TRAILING_STOP_ARM_PCT,
   PAPER_TRAILING_STOP_GIVEBACK_PCT,
   PAPER_REGRET_COOLDOWN_PCT,
@@ -490,35 +492,50 @@ export class PaperTrader {
     }
 
     // 4. Signal-flip exit (mirrors #101 confidence gate)
-    try {
-      const scan = await PredictionAggregatorService.scanAndPickBest(PAPER_UNIVERSE, {
-        minConfidence: 0,
-        minConsensus: 0,
-        minSources: 1,
-      });
-      const livePred = scan.all[pos.asset];
-      if (livePred && (livePred.confidence ?? 0) >= PAPER_MIN_CONFIDENCE) {
-        const liveSide = recommendationToSide(livePred.recommendation);
-        const isStrong = livePred.recommendation?.startsWith('STRONG_') ?? false;
-        // Mirror the entry skip-STRONG filter on flip: STRONG_ signals had
-        // 13% win rate on the live trader (2026-08-28 data) — they fire
-        // when the market is already priced in and mean-reversion follows.
-        // If we refuse to OPEN on STRONG_, we shouldn't let STRONG_ force
-        // a CLOSE either (2026-09-18 asymmetry fix).
-        const { PAPER_SKIP_STRONG_SIGNALS } = await import('./config');
-        if (liveSide && liveSide !== pos.side && !(PAPER_SKIP_STRONG_SIGNALS && isStrong)) {
-          return PaperTrader.closeAtMark(
-            pos,
-            markPrice,
-            nav,
-            now,
-            `signal flipped to ${livePred.recommendation}`,
-            orderId,
-          );
+    //
+    // Anti-whipsaw gates (2026-09-22): the raw "opposite signal above
+    // 55% conf → close immediately" path caused a documented whipsaw
+    // pattern — BTC LONG closed at -$35/-$38/-$39 within 15 min of open
+    // because signals flipped between 60s ticks and fees + micro-adverse
+    // moves ate every position. Two symmetric gates now protect exit:
+    //   (a) position must be older than PAPER_MIN_FLIP_AGE_SEC (default 180s)
+    //   (b) opposite signal must clear PAPER_MIN_FLIP_CONFIDENCE (default 65,
+    //       higher than the 55 entry gate) to justify the round-trip cost.
+    // Both env-tunable. Max-hold still catches anything that goes stale.
+    const posAgeSec = (now - pos.openedAt) / 1000;
+    if (posAgeSec < PAPER_MIN_FLIP_AGE_SEC) {
+      // Too fresh to flip — ride out this tick. Falls through to hold.
+    } else {
+      try {
+        const scan = await PredictionAggregatorService.scanAndPickBest(PAPER_UNIVERSE, {
+          minConfidence: 0,
+          minConsensus: 0,
+          minSources: 1,
+        });
+        const livePred = scan.all[pos.asset];
+        if (livePred && (livePred.confidence ?? 0) >= PAPER_MIN_FLIP_CONFIDENCE) {
+          const liveSide = recommendationToSide(livePred.recommendation);
+          const isStrong = livePred.recommendation?.startsWith('STRONG_') ?? false;
+          // Mirror the entry skip-STRONG filter on flip: STRONG_ signals had
+          // 13% win rate on the live trader (2026-08-28 data) — they fire
+          // when the market is already priced in and mean-reversion follows.
+          // If we refuse to OPEN on STRONG_, we shouldn't let STRONG_ force
+          // a CLOSE either (2026-09-18 asymmetry fix).
+          const { PAPER_SKIP_STRONG_SIGNALS } = await import('./config');
+          if (liveSide && liveSide !== pos.side && !(PAPER_SKIP_STRONG_SIGNALS && isStrong)) {
+            return PaperTrader.closeAtMark(
+              pos,
+              markPrice,
+              nav,
+              now,
+              `signal flipped to ${livePred.recommendation} (age ${Math.round(posAgeSec)}s, conf ${Math.round(livePred.confidence)})`,
+              orderId,
+            );
+          }
         }
+      } catch (e) {
+        logger.debug('[PaperTrader] flip re-scan failed (non-fatal)', { error: errMsg(e) });
       }
-    } catch (e) {
-      logger.debug('[PaperTrader] flip re-scan failed (non-fatal)', { error: errMsg(e) });
     }
 
     // 5. Otherwise hold. Report mark-to-market NAV for the chart (reuse mtm from stop-loss check above).

@@ -215,6 +215,31 @@ export const PAPER_MIN_STABLE_TICKS = Math.max(
 );
 export const KEY_SIGNAL_HISTORY = 'paper-trader:signal-history';
 
+/**
+ * Signal-flip anti-whipsaw gates (2026-09-22).
+ *
+ * Diagnosed: BTC LONG closed at -$35/-$38/-$39 within 15 min of open,
+ * all via 'signal flipped'. Cause: the flip-close path had ZERO
+ * stability or hold-time checks — any opposite signal >= 55% conf
+ * closed the position instantly. Fees + micro-adverse move ate the
+ * position on every flip. Entry has majority+stability filters; exit
+ * did not (asymmetric).
+ *
+ * Two symmetric gates now guard the flip-close path:
+ *   • MIN_FLIP_AGE_SEC — position must be at least this old before
+ *     any flip-close is even considered. Sub-3-min positions ride
+ *     out the tick regardless of signal noise.
+ *   • MIN_FLIP_CONFIDENCE — the opposite signal must clear a HIGHER
+ *     confidence bar than the entry gate (65 vs 55) to justify the
+ *     round-trip cost.
+ */
+export const PAPER_MIN_FLIP_AGE_SEC = Number(
+  process.env.PAPER_TRADER_MIN_FLIP_AGE_SEC || 180,
+);
+export const PAPER_MIN_FLIP_CONFIDENCE = Number(
+  process.env.PAPER_TRADER_MIN_FLIP_CONFIDENCE || 65,
+);
+
 // ── Skip STRONG_ signals (2026-09-18) ──────────────────────────────
 // Mirrors POLYMARKET_EDGE_SKIP_STRONG_SIGNALS on the live trader.
 // Historical outcome analysis (2026-08-28, live-trader data):
