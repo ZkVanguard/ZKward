@@ -506,7 +506,9 @@
         "p6": "我们的 AI 这周预测得准吗？"
       },
       "clear": "Clear",
-      "clearHistory": "Clear conversation"
+      "clearHistory": "Clear conversation",
+      "newChat": "New Chat",
+      "newChatTooltip": "Start a fresh conversation (resets memory)"
     }
   },
   "story": {

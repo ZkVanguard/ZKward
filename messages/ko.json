@@ -506,7 +506,9 @@
         "p6": "우리 AI가 이번 주 잘 예측하고 있나?"
       },
       "clear": "Clear",
-      "clearHistory": "Clear conversation"
+      "clearHistory": "Clear conversation",
+      "newChat": "New Chat",
+      "newChatTooltip": "Start a fresh conversation (resets memory)"
     }
   },
   "story": {

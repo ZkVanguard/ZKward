@@ -506,7 +506,9 @@
         "p6": "¿Está acertando nuestra IA esta semana?"
       },
       "clear": "Clear",
-      "clearHistory": "Clear conversation"
+      "clearHistory": "Clear conversation",
+      "newChat": "New Chat",
+      "newChatTooltip": "Start a fresh conversation (resets memory)"
     }
   },
   "story": {

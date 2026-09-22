@@ -506,7 +506,9 @@
         "p6": "Наш ИИ верно предсказывает на этой неделе?"
       },
       "clear": "Clear",
-      "clearHistory": "Clear conversation"
+      "clearHistory": "Clear conversation",
+      "newChat": "New Chat",
+      "newChatTooltip": "Start a fresh conversation (resets memory)"
     }
   },
   "story": {
