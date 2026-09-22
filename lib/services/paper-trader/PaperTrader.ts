@@ -842,6 +842,27 @@ export class PaperTrader {
     }
   }
 
+  /**
+   * Map a raw close-reason string to a canonical short category that
+   * fits the hedges.close_reason varchar(64) column. Monitoring queries
+   * ("what % of paper closes are max-hold vs signal-flip vs stop-loss")
+   * pivot on this — the free-text `reason` column is fine for humans
+   * reading a single row but useless for structured aggregation.
+   *
+   * Kept as a static so the same mapping applies for both closeAtMark
+   * writes and the backfill script.
+   */
+  static categorizeCloseReason(rawReason: string): string {
+    const r = rawReason.toLowerCase();
+    if (r.includes('stop-loss')) return 'stop-loss';
+    if (r.includes('trailing-stop')) return 'trailing-stop';
+    if (r.includes('max-hold')) return 'max-hold';
+    if (r.includes('signal flipped') || r.includes('signal-flip')) return 'signal-flip';
+    if (r.includes('liquidation')) return 'liquidation';
+    if (r.includes('halt')) return 'halt';
+    return 'other';
+  }
+
   private static async closeAtMark(
     pos: SimulatedPosition,
     exitPrice: number,
@@ -941,6 +962,12 @@ export class PaperTrader {
         // if the 2nd write failed, the row landed in a "closed but no close-reason"
         // state that confused monitoring (observed 2026-09-17). Merging metadata
         // via jsonb concat preserves any earlier writes to the same column.
+        //
+        // close_reason gets the canonical short category (max-hold / signal-flip /
+        // stop-loss / trailing-stop / liquidation / halt / other) so structured
+        // monitoring queries can aggregate. The free-text `reason` column keeps
+        // the full human-readable string for single-row debugging.
+        const category = PaperTrader.categorizeCloseReason(reason);
         await query(
           `UPDATE hedges
            SET status = 'closed',
@@ -950,9 +977,10 @@ export class PaperTrader {
                closed_at = CURRENT_TIMESTAMP,
                updated_at = CURRENT_TIMESTAMP,
                reason = COALESCE(reason,'') || ' | close: ' || $3,
+               close_reason = $6,
                metadata = COALESCE(metadata, '{}'::jsonb) || $5::jsonb
            WHERE order_id = $4`,
-          [result.realizedPnlUsd, result.fundingUsd, reason.slice(0, 100), orderId, JSON.stringify(meta)],
+          [result.realizedPnlUsd, result.fundingUsd, reason.slice(0, 100), orderId, JSON.stringify(meta), category],
         );
         // Paper trades MUST NOT credit the real treasury. Diagnosed
         // 2026-09-18: 126 paper closes polluted treasury_ledger with
