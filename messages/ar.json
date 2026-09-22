@@ -506,7 +506,9 @@
         "p6": "هل يتنبأ الذكاء الاصطناعي لدينا بشكل صحيح هذا الأسبوع؟"
       },
       "clear": "Clear",
-      "clearHistory": "Clear conversation"
+      "clearHistory": "Clear conversation",
+      "newChat": "New Chat",
+      "newChatTooltip": "Start a fresh conversation (resets memory)"
     }
   },
   "story": {

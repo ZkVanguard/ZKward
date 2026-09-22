@@ -248,7 +248,9 @@
         "p6": "यो हप्ता हाम्रो AI ले सही भविष्यवाणी गर्दैछ?"
       },
       "clear": "Clear",
-      "clearHistory": "Clear conversation"
+      "clearHistory": "Clear conversation",
+      "newChat": "New Chat",
+      "newChatTooltip": "Start a fresh conversation (resets memory)"
     }
   },
   "story": {

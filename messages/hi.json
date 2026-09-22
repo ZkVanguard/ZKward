@@ -506,7 +506,9 @@
         "p6": "क्या हमारा AI इस हफ़्ते सही अनुमान लगा रहा है?"
       },
       "clear": "Clear",
-      "clearHistory": "Clear conversation"
+      "clearHistory": "Clear conversation",
+      "newChat": "New Chat",
+      "newChatTooltip": "Start a fresh conversation (resets memory)"
     }
   },
   "story": {

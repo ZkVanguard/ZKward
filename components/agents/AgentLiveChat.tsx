@@ -188,6 +188,32 @@ export function AgentLiveChat() {
     }
   }, []);
 
+  /**
+   * True fresh start — rotate the sessionId AND wipe visible history.
+   * Server-side memory (ai_chat_logs) is by session, so a new UUID
+   * means the LLM starts with zero cross-session context. Follow-up
+   * questions WITHIN this new session still work as normal via server
+   * memory retrieval. Distinct from clearHistory() which only wipes
+   * the UI while keeping the persistent server context.
+   */
+  const startNewChat = useCallback(() => {
+    setMessages([]);
+    if (typeof window !== 'undefined') {
+      try {
+        window.localStorage.removeItem(STORAGE_KEY);
+        window.localStorage.removeItem(SESSION_KEY);
+      } catch { /* no-op */ }
+    }
+    // Generate fresh session — same logic as loadOrCreateSessionId but forced
+    const fresh = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+      ? crypto.randomUUID()
+      : `${Date.now().toString(16)}-${Math.random().toString(16).slice(2, 10)}-4${Math.random().toString(16).slice(2, 5)}-8${Math.random().toString(16).slice(2, 5)}-${Math.random().toString(16).slice(2, 14).padEnd(12, '0')}`;
+    sessionIdRef.current = fresh;
+    if (typeof window !== 'undefined') {
+      try { window.localStorage.setItem(SESSION_KEY, fresh); } catch { /* no-op */ }
+    }
+  }, []);
+
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [messages, pending]);
@@ -369,13 +395,22 @@ export function AgentLiveChat() {
             {t('readOnly')}
           </span>
           {messages.length > 0 && (
-            <button
-              onClick={clearHistory}
-              className="text-caption-2 text-label-tertiary hover:text-label-primary transition-colors px-2 py-1 rounded"
-              title={t('clearHistory')}
-            >
-              {t('clear')}
-            </button>
+            <>
+              <button
+                onClick={startNewChat}
+                className="text-caption-2 text-ios-blue hover:opacity-80 transition-opacity px-2 py-1 rounded font-medium"
+                title={t('newChatTooltip')}
+              >
+                {t('newChat')}
+              </button>
+              <button
+                onClick={clearHistory}
+                className="text-caption-2 text-label-tertiary hover:text-label-primary transition-colors px-2 py-1 rounded"
+                title={t('clearHistory')}
+              >
+                {t('clear')}
+              </button>
+            </>
           )}
         </div>
         <p className="text-caption-1 sm:text-footnote text-label-tertiary mt-1">
