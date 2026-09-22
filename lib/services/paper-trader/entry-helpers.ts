@@ -73,6 +73,23 @@ export interface ConcurrencyFilter {
   rejectionReason: (asset: string, side: Side) => string | null;
 }
 
+/**
+ * Optional post-selection async gate. Runs INSIDE the ranked-candidate
+ * loop so a rejection on the top pick lets the loop try the next-best
+ * candidate instead of aborting the whole tick. Return `null` to accept
+ * or a rejection reason string to skip this candidate and continue.
+ *
+ * Used by PaperTrader to plug in the streak-guard / trend-alignment /
+ * vol-gate / regret-cooldown checks that were previously ran AFTER
+ * selection — meaning BTC failing streak would abort the tick even
+ * though SOL would have been a valid trade.
+ */
+export type ExtraCandidateGate = (
+  asset: string,
+  side: Side,
+  now: number,
+) => Promise<string | null>;
+
 // ── selectCandidate ──────────────────────────────────────────────────
 
 const recommendationToSide = (rec: string): Side | null => {
@@ -95,6 +112,7 @@ const recommendationToSide = (rec: string): Side | null => {
 export async function selectCandidate(
   now: number,
   concurrencyFilter?: ConcurrencyFilter,
+  extraGate?: ExtraCandidateGate,
 ): Promise<SelectResult> {
   // Regime-scale the entry conf gate: CHOP tightens 1.05× (55 → 58),
   // TREND relaxes 0.95× (55 → 52). minConfidenceMult was dead until
@@ -201,6 +219,18 @@ export async function selectCandidate(
         continue;
       }
     } catch { /* non-fatal — fall through */ }
+
+    // Extra caller-supplied gate (streak / trend / vol / regret) —
+    // was AFTER selection previously, meaning a top-pick rejection
+    // aborted the tick instead of trying the next-best candidate.
+    // Now runs INSIDE the loop so we walk down the ranked list.
+    if (extraGate) {
+      const extraReject = await extraGate(cand.asset, candSide, now);
+      if (extraReject) {
+        lastSkipReason = `${cand.asset}: ${extraReject}`;
+        continue;
+      }
+    }
 
     logger.info('[PaperTrader] candidate picked from ranked scan', {
       asset: cand.asset,
