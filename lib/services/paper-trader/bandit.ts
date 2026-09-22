@@ -114,13 +114,24 @@ export async function getArmMultiplier(asset: string, side: Side): Promise<numbe
     const totalPulls = Object.values(arms).reduce((sum, a) => sum + a.trades, 0);
     if (totalPulls < COLD_START_TRADES) return 1;
 
+    // Bug fix 2026-09-22: prior code was Math.exp(ucb * 20) where
+    // ucb = meanReward + bonus. The classic UCB1 bonus is on the order
+    // of ~1.5 for typical trades/totalPulls values, while realized
+    // rewards (PnL / notional) are ~±0.01. So bonus dominated ucb,
+    // and exp(1.5 * 20) = exp(30) always clamped to MAX_MULT for
+    // EVERY arm — the bandit produced no discrimination at all.
+    //
+    // The scaling comment (±0.05 reward → 2.7×/0.37×) matches
+    // exp(meanReward * 20) — the ucb form was a copy-paste bug.
+    // Use meanReward for the multiplier and keep the exploration
+    // bonus as a small additive boost so under-explored arms don't
+    // get permanently pruned.
     const meanReward = target.totalRewardPct / target.trades;
     const bonus = EXPLORATION_C * Math.sqrt((2 * Math.log(totalPulls)) / target.trades);
-    const ucb = meanReward + bonus;
-    // Map a UCB expressed in "reward pct" units to a multiplier by
-    // exp() — since rewards are tiny fractions like ±0.003, this maps
-    // to multipliers close to 1 with slight boost/suppression.
-    const mult = Math.exp(ucb * 20); // scale factor tuned so ±0.05 reward maps to ~2.7×/0.37×
+    // Small exploration additive on top of the reward-based mult.
+    // bonus × 0.01 keeps its influence in the same order of magnitude
+    // as real rewards while still nudging cold arms to be re-explored.
+    const mult = Math.exp((meanReward + bonus * 0.01) * 20);
     return Math.max(MIN_MULT, Math.min(MAX_MULT, mult));
   } catch (e) {
     logger.debug('[Bandit] getArmMultiplier failed (non-fatal)', { asset, side, error: errMsg(e) });
