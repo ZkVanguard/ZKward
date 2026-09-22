@@ -507,13 +507,22 @@ export class PaperTrader {
       // Too fresh to flip — ride out this tick. Falls through to hold.
     } else {
       try {
+        // scanAndPickBest.all returns ALL asset predictions regardless of
+        // the gates arg (gates only affect .best selection), so we apply
+        // the flip-specific gates to livePred directly — mirroring the
+        // entry gates so weak 1-source or low-consensus flips can't
+        // unwind a position that was opened on 3+ sources with strong
+        // consensus.
         const scan = await PredictionAggregatorService.scanAndPickBest(PAPER_UNIVERSE, {
-          minConfidence: 0,
-          minConsensus: 0,
-          minSources: 1,
+          minConfidence: 0, minConsensus: 0, minSources: 1,
         });
         const livePred = scan.all[pos.asset];
-        if (livePred && (livePred.confidence ?? 0) >= PAPER_MIN_FLIP_CONFIDENCE) {
+        const passesFlipGates =
+          livePred
+          && (livePred.confidence ?? 0) >= PAPER_MIN_FLIP_CONFIDENCE
+          && (livePred.consensus ?? 0) >= PAPER_MIN_CONSENSUS
+          && (livePred.sources?.length ?? 0) >= PAPER_MIN_SOURCES;
+        if (passesFlipGates) {
           const liveSide = recommendationToSide(livePred.recommendation);
           const isStrong = livePred.recommendation?.startsWith('STRONG_') ?? false;
           // Mirror the entry skip-STRONG filter on flip: STRONG_ signals had
