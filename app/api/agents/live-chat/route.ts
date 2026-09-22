@@ -23,6 +23,7 @@ import { runWithToolsStream, type HistoryTurn, type StreamEvent } from '@/lib/se
 import { logChatTurn, isValidSessionId } from '@/lib/db/ai-chat-logs';
 import { analyzeMessage } from '@/lib/services/ai/message-analyzer';
 import { DEFAULT_AGENT_TOOLS, toolByName, type AgentTool } from '@/lib/services/ai/agent-tools';
+import { makeCacheKey, getCachedResponse, setCachedResponse, isCacheable } from '@/lib/db/chat-response-cache';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -197,6 +198,67 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    // ─── RESPONSE CACHE — cross-user, hash-keyed, 5-min TTL ────────
+    // Popular questions ('how is BTC', 'TVL of Aave') get sub-200ms
+    // responses by skipping the LLM entirely when a fresh cached
+    // response exists. Only applied when the question is cacheable
+    // (not vault-personal, not diagnostic, no follow-up context).
+    const cacheEligible = isCacheable(analysis.intent, priorMessages.length > 0);
+    const cacheKey = cacheEligible
+      ? makeCacheKey(message, analysis.intent, analysis.assets, analysis.protocols)
+      : null;
+    if (cacheKey) {
+      const cached = await getCachedResponse(cacheKey);
+      if (cached) {
+        logger.info('[LiveChat] cache HIT', {
+          messagePreview,
+          hitCount: cached.hitCount + 1,
+          intent: analysis.intent,
+        });
+        const cachedStream = new ReadableStream<Uint8Array>({
+          async start(controller) {
+            const encoder = new TextEncoder();
+            const emit = (event: StreamEvent) => {
+              controller.enqueue(encoder.encode(JSON.stringify(event) + '\n'));
+            };
+            const t0 = Date.now();
+            emit({ type: 'iteration', n: 1 });
+            // Re-emit tool_end events so client shows the same tool badges
+            for (const tc of cached.toolCalls ?? []) {
+              emit({ type: 'tool_end', tool: tc.tool, ok: tc.ok, latencyMs: tc.latencyMs });
+            }
+            emit({ type: 'token', delta: cached.response });
+            emit({
+              type: 'done',
+              elapsedMs: Date.now() - t0,
+              iterations: cached.iterations ?? 1,
+              finalText: cached.response,
+            });
+            controller.close();
+            if (sessionId) {
+              after(async () => {
+                await logChatTurn({
+                  sessionId, role: 'assistant', content: cached.response,
+                  toolCalls: cached.toolCalls ?? undefined,
+                  iterations: cached.iterations ?? 1,
+                  finishedNormally: true,
+                  userAgent, clientIp,
+                });
+              });
+            }
+          },
+        });
+        return new Response(cachedStream, {
+          headers: {
+            'Content-Type': 'application/x-ndjson; charset=utf-8',
+            'Cache-Control': 'no-cache, no-transform',
+            'X-Accel-Buffering': 'no',
+            'X-ZKWard-Cache': 'HIT',
+          },
+        });
+      }
+    }
+
     // ─── DETERMINISTIC ROUTE — skip LLM entirely ──────────────────
     // For pattern-matched vague/meta questions, server builds the answer
     // from live data. No LLM ambiguity → no fabrication surface. Response
@@ -312,6 +374,24 @@ export async function POST(request: NextRequest) {
             });
             assistantContent = fallback;
             finishedNormally = true;
+          }
+          // Cache the successful response for future identical questions.
+          // Skip caching for empty/fallback responses and errored streams
+          // — those shouldn't be served as cache hits.
+          if (cacheKey && assistantContent && finishedNormally && assistantContent.length > 20) {
+            const isFallback = assistantContent.startsWith("I couldn't") || assistantContent.startsWith("That's outside");
+            if (!isFallback) {
+              after(async () => {
+                await setCachedResponse(cacheKey, {
+                  questionPreview: message,
+                  intent: analysis.intent,
+                  response: assistantContent,
+                  toolCalls: collectedTools.length ? collectedTools : undefined,
+                  iterations,
+                  elapsedMs,
+                });
+              });
+            }
           }
           logger.info('[LiveChat] streamed', {
             messagePreview,
