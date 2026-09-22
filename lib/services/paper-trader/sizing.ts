@@ -33,11 +33,18 @@ export function computeSignalScalar(confidence: number, consensus: number): numb
  * PAPER_MAX_HOLD_EXTRA_MIN extra) so moves develop past fees. Uses the
  * same signalScalar as sizing so a signal that gets a bigger position
  * also gets a longer window.
+ *
+ * The optional `regimeMult` is the current regime's maxHoldMult from
+ * getRegimeMultipliers — 0.75 in CHOP (cut short), 1.5 in TRENDING
+ * (let winners run). Was defined in regime.ts but unwired until
+ * 2026-09-22. Defaults to 1 (identity) so pure-signal callers stay
+ * unchanged.
  */
-export function computeMaxHoldMinutes(signalScalar: number): number {
+export function computeMaxHoldMinutes(signalScalar: number, regimeMult: number = 1): number {
   const capped = Math.max(0.4, Math.min(2.0, signalScalar));
   const bonusRatio = (capped - 0.4) / 1.6; // 0.0 at min gate, 1.0 at max
-  return PAPER_MAX_HOLD_MIN + bonusRatio * PAPER_MAX_HOLD_EXTRA_MIN;
+  const base = PAPER_MAX_HOLD_MIN + bonusRatio * PAPER_MAX_HOLD_EXTRA_MIN;
+  return base * Math.max(0.25, Math.min(3, regimeMult));
 }
 
 /**
