@@ -480,6 +480,15 @@ const getAssetContext: AgentTool<
       recommendation: string;
       sourceCount: number;
       reasoning: string;
+      /** Top-5 individual source contributions by weight — lets consumers
+       *  cite REAL sources ("Delphi UP@78%, Polymarket DOWN@51%") instead
+       *  of inventing generic phrases like "funding rates elevated". */
+      topSources: Array<{
+        name: string;
+        direction: 'UP' | 'DOWN' | 'NEUTRAL';
+        confidence: number;
+        weight: number;
+      }>;
     };
     recentHedges: Array<{
       orderId: string;
@@ -568,6 +577,15 @@ const getAssetContext: AgentTool<
             recommendation: pred.recommendation,
             sourceCount: pred.sources.length,
             reasoning: pred.reasoning.slice(0, 240),
+            topSources: [...pred.sources]
+              .sort((a, b) => b.weight - a.weight)
+              .slice(0, 5)
+              .map((s) => ({
+                name: s.name,
+                direction: s.direction,
+                confidence: Math.round(s.confidence),
+                weight: Math.round(s.weight * 100) / 100,
+              })),
           }
         : null,
       recentHedges: hedges.map((h) => ({

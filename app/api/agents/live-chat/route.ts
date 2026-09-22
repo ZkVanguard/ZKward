@@ -56,6 +56,18 @@ Every response has AT MOST two parts:
 
 **RULE D — NFA disclaimer is exactly one sentence.** When financial-advice framing appears ("should I", "worth buying", "long or short"), close with the exact sentence: Not financial advice — position sizing is yours. Nothing more. No follow-on about "market sentiment", "entry / leverage / risk management", "outcomes depend on your ...". One sentence, hard stop.
 
+**RULE E — Live context markers you MUST honor.** Pre-fetched sections may include these markers; each has an exact response behavior:
+- "⚠ DIVERGENCE:" → Rule A applies (lead with it).
+- "Alignment: ALIGNED" → frame as "signal and vault agree" and cite the conviction level from the consensus number.
+- "Alignment: VAULT-FLAT" → frame as "signal says X, we haven't positioned yet."
+- "Alignment: NO-SIGNAL" → asset is untracked; quote only price/volume; explicitly say "no aggregator signal for this asset" if the user asks about direction.
+- "⚠ Attention flags: [EXTREME 24h MOVE]" → lift the anomaly into the answer, don't gloss over a >10% swing.
+- "⚠ Attention flags: [LOW LIQUIDITY]" → any signal here is fragile; disclose the thin market before making directional claims.
+- "⚠ Attention flags: [LOW CONSENSUS]" → do NOT describe as high-conviction; explicitly note sources disagree.
+- "⚠ Attention flags: [Signal is WAIT]" → if the user's question assumes a direction ("why is X bullish"), correct the premise first: "the signal is actually WAIT, not bullish."
+- "Top sources (name, direction, confidence, weight — cite these BY NAME)" → when quoting reasoning, USE the actual source names (Delphi, Polymarket, CryptoCom, ManifoldMarkets, DelphiVault, etc.) with their real directions and confidences. Do NOT invent phrases like "spot ETF inflows" or "options put/call 0.92" unless you actually see those in the reasoning line or a tool result.
+- "Signal reasoning (aggregator's own text):" → quote this text (or paraphrase it faithfully); do not add specifics the aggregator didn't produce.
+
 FORBIDDEN openings and endings:
 - "You might want to know…" "Interesting note…" "Additionally…" "Also worth noting…" (these are drift markers)
 - "Would you like…" "Want me to…" "Should I check…" "Let me know if…" (these are the customer-service tail — no)
@@ -518,6 +530,7 @@ async function buildRuntimeContext(analysis: ReturnType<typeof analyzeMessage>):
           recommendation: string;
           sourceCount: number;
           reasoning: string;
+          topSources: Array<{ name: string; direction: 'UP' | 'DOWN' | 'NEUTRAL'; confidence: number; weight: number }>;
         } | null;
         recentHedges: Array<{ side: string; notionalUsd: number; status: string; realizedPnlUsd: number | null }>;
       };
@@ -563,10 +576,65 @@ async function buildRuntimeContext(analysis: ReturnType<typeof analyzeMessage>):
       // capped to 240 chars). Without this, the LLM has no data to
       // answer "why long?" and either fabricates or omits reasons.
       const reasoningStr = d.signal?.reasoning
-        ? `\n  Signal reasoning: ${d.signal.reasoning}`
+        ? `\n  Signal reasoning (aggregator's own text): ${d.signal.reasoning}`
         : '';
 
-      assetLines.push(`- **${asset}**: ${priceStr} (Δ24h ${changeStr}, vol ${volStr}) · Signal: ${sigStr} · Vault: ${posStr}${divergenceStr}${reasoningStr}`);
+      // Top-5 source-level signals — REAL names, REAL directions, REAL
+      // confidences. Gives the LLM concrete facts to cite when the user
+      // asks "why" or "which sources are driving this?", so it doesn't
+      // have to invent generic phrases like "funding rates elevated".
+      const topSourcesStr = d.signal?.topSources && d.signal.topSources.length > 0
+        ? `\n  Top sources (name, direction, confidence, weight — cite these BY NAME when quoting reasoning): ${d.signal.topSources.map((s) => `${s.name} ${s.direction}@${s.confidence}% (w=${s.weight})`).join(' · ')}`
+        : '';
+
+      // Explicit alignment status — makes it trivial for the LLM to
+      // pick the right narrative for any phrasing. Four states:
+      //   DIVERGENT: signal ≠ active-vault side (Rule A lead)
+      //   ALIGNED: signal same side as active-vault (confirmation narrative)
+      //   VAULT-FLAT: no active exposure (signal-only narrative)
+      //   NO-SIGNAL: untracked asset, no aggregator opinion
+      let alignmentStr = '';
+      if (d.signal) {
+        const realActiveHere = activeHedges.filter((h) => Math.abs(h.notionalUsd) >= 1);
+        if (realActiveHere.length === 0) {
+          alignmentStr = `\n  Alignment: VAULT-FLAT — signal has an opinion, vault has no directional exposure. Frame as "signal says X, we haven't positioned yet."`;
+        } else {
+          const signalBull = d.signal.direction === 'UP';
+          const signalBear = d.signal.direction === 'DOWN';
+          const vaultLong = realActiveHere.some((h) => /long/i.test(h.side));
+          const vaultShort = realActiveHere.some((h) => /short/i.test(h.side));
+          if ((signalBull && vaultLong) || (signalBear && vaultShort)) {
+            alignmentStr = `\n  Alignment: ALIGNED — signal direction matches active vault side. Frame as "signal and vault agree" and cite conviction level.`;
+          } else if ((signalBull && vaultShort) || (signalBear && vaultLong)) {
+            // Divergence flag above already covers this — no extra line needed
+          } else {
+            alignmentStr = `\n  Alignment: NEUTRAL-SIGNAL — signal is neither strongly bullish nor bearish; vault position is directional. Frame as "signal is neutral, we're currently positioned <SIDE>."`;
+          }
+        }
+      } else {
+        alignmentStr = `\n  Alignment: NO-SIGNAL — this asset is not tracked by the aggregator. Only price/volume data available; don't invent signal opinions.`;
+      }
+
+      // Anomaly flags — server-side detection of unusual states so the
+      // LLM naturally lifts them into the response instead of glossing.
+      const anomalies: string[] = [];
+      if (d.change24hPct !== null && Math.abs(d.change24hPct) >= 10) {
+        anomalies.push(`EXTREME 24h MOVE (${d.change24hPct.toFixed(1)}%) — this is a >10% swing, treat as high-attention. Flag it in the response.`);
+      }
+      if (d.volume24hUsd !== null && d.volume24hUsd < 10e6 && d.price !== null && d.price > 0.01) {
+        anomalies.push(`LOW LIQUIDITY (24h vol <$10M) — any signal here is fragile, disclose the thin market before making claims.`);
+      }
+      if (d.signal && d.signal.consensus < 25 && d.signal.sourceCount >= 3) {
+        anomalies.push(`LOW CONSENSUS (${d.signal.consensus}% agreement across ${d.signal.sourceCount} sources) — signal is divergent, do NOT frame as high-conviction.`);
+      }
+      if (d.signal?.recommendation === 'WAIT') {
+        anomalies.push(`Signal is WAIT — do NOT describe as bullish or bearish. The aggregator is explicitly saying "no clear direction". If the user assumes a direction, correct the premise.`);
+      }
+      const anomalyStr = anomalies.length > 0
+        ? `\n  ⚠ Attention flags: ${anomalies.map((a) => `[${a}]`).join(' ')}`
+        : '';
+
+      assetLines.push(`- **${asset}**: ${priceStr} (Δ24h ${changeStr}, vol ${volStr}) · Signal: ${sigStr} · Vault: ${posStr}${divergenceStr}${alignmentStr}${reasoningStr}${topSourcesStr}${anomalyStr}`);
     }
     if (assetLines.length > 0) {
       sections.push(`**Assets you asked about:**\n${assetLines.join('\n')}`);
