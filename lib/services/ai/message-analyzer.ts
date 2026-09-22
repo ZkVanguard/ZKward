@@ -97,7 +97,10 @@ const PROTOCOLS = new Set([
 // More specific patterns MUST come first to avoid stealing broader ones.
 const INTENT_PATTERNS: Array<{ intent: ChatIntent; re: RegExp }> = [
   // Options — very specific, must come before generic 'market'
-  { intent: 'options', re: /\b(options?\s+market|put\/?call|put[- ]?call\s+ratio|implied\s+vol|iv\b|max\s+pain|open\s+interest|strikes?|expir(y|ies))\b/i },
+  // "implied vol" / "implied volatility" — vol\w* so "volatility" also matches
+  // (previously \bvol\b required a word boundary after "vol" which "volatility"
+  // does not have, so "ETH implied volatility" wrongly fell through to lookup).
+  { intent: 'options', re: /\b(options?\s+market|put\/?call|put[- ]?call\s+ratio|implied\s+vol\w*|iv\b|max\s+pain|open\s+interest|strikes?|expir(y|ies))\b/i },
   // On-chain / gas — specific
   { intent: 'onchain', re: /\b(gas\s+(fee|price|now)|gwei|eth\s+gas|l2\s+(tvl|growth)|which\s+chain|chain\s+(tvl|growth|ranking))\b/i },
   // Historical — specific. Accept 'last 30 days' (plural), 'past 7d',
@@ -241,7 +244,10 @@ export function analyzeMessage(text: string): MessageAnalysis {
       suggestedTools.push('get_onchain_snapshot', 'get_defi_tvl');
       break;
     case 'options':
-      suggestedTools.push('get_options_data', 'get_asset_context');
+      // Only get_options_data — asi1-mini otherwise falls back to
+      // get_asset_context (which has no IV) and tells the user the tool
+      // is unavailable. Narrowing forces the correct call.
+      suggestedTools.push('get_options_data');
       break;
     case 'diagnose_move':
       // Multi-tool chain: context + news + funding for causal narrative

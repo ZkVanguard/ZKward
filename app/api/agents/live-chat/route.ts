@@ -82,7 +82,7 @@ Drift check: before sending, ask "does my first sentence literally answer the qu
 - **get_asset_context(asset)** — PREFERRED for single-asset questions. Price + 24h + signal + our hedges. Tracked (BTC/ETH/SOL/XRP/DOGE/CRO/SUI/ATOM) + broader (ADA/LINK/DOT/etc via Crypto.com).
 - **get_historical_summary(asset, days)** — N-day high/low/change. Use for "BTC last week", "SOL 30-day range", "ETH from ATH".
 - **get_onchain_snapshot** — ETH gas (fast/normal/slow gwei) + top chains by TVL with 1d change. Use for "gas fees now", "L2 growth", "which chain is biggest".
-- **get_options_data(asset)** — BTC/ETH options: total OI, put/call ratio, avg IV, top-5 strikes. Use for "BTC IV", "options market", "where are the big strikes".
+- **get_options_data(asset)** — BTC/ETH ONLY. Total OI, put/call ratio, avg IV, top-5 strikes (Deribit). This is the ONLY source of IV / options data — get_asset_context has price + signal but NO options info. For any question about IV, implied volatility, put/call, open interest, max pain, or strikes: call get_options_data.
 - **get_crypto_news** — trending coins + hot narratives from CoinGecko. Use for "what's hot", "trending", "any news".
 - **get_defi_tvl(protocol)** — DefiLlama TVL + category + chains + change for ~2000 protocols. Use for "TVL of Aave", "compare Curve and Uniswap".
 - **get_fear_greed_index** — daily crypto sentiment 0-100. Use for sentiment questions.
@@ -188,14 +188,26 @@ export async function POST(request: NextRequest) {
     // by the time the LLM starts, half the work is done.
     const analysis = analyzeMessage(message);
 
-    // Log user turn immediately (deferred post-response via after())
+    // Log the user turn SYNCHRONOUSLY before the LLM starts (with a
+    // 750ms budget) so any rapid follow-up turn — mega-battery test #27
+    // ("which of the two we asked about") — sees it in DB when it calls
+    // loadRecentSessionContext. Deferring via after() was racy: the next
+    // request could arrive before the write landed and lose multi-turn
+    // context.
+    //
+    // The timeout is a graceful degradation escape hatch: if the write
+    // can't complete in 750ms (slow tunnel, DB hiccup), we proceed
+    // without blocking the chat. Assistant turn stays deferred via
+    // after() because latency there hurts UX more.
     if (sessionId) {
-      after(async () => {
-        await logChatTurn({
-          sessionId, role: 'user', content: message,
-          userAgent, clientIp,
-        });
+      const writeUserTurn = logChatTurn({
+        sessionId, role: 'user', content: message,
+        userAgent, clientIp,
       });
+      await Promise.race([
+        writeUserTurn,
+        new Promise((resolve) => setTimeout(resolve, 750)),
+      ]).catch(() => { /* logChatTurn already swallows its own errors */ });
     }
 
     // ─── RESPONSE CACHE — cross-user, hash-keyed, 5-min TTL ────────
@@ -609,22 +621,30 @@ async function buildRuntimeContext(analysis: ReturnType<typeof analyzeMessage>):
     }
   }
 
-  // Options intent → pre-fetch BTC or ETH options (whichever detected, else BTC)
+  // Options intent → pre-fetch BTC or ETH options (whichever detected, else BTC).
+  // Push a section either way — with data, or with an honest "unavailable"
+  // note. Missing section previously left the LLM to guess and it wrongly
+  // claimed the tool doesn't exist ("ETH implied volatility" test #18).
   if (analysis.intent === 'options') {
     const optionsTool = toolByName(DEFAULT_AGENT_TOOLS, 'get_options_data');
     if (optionsTool) {
       const target = analysis.assets.includes('ETH') ? 'ETH' : 'BTC';
       try {
         const d = await optionsTool.execute({ asset: target as 'BTC' | 'ETH' }) as {
-          asset: string; totalOI: number; putCallRatio: number; avgIV: number;
-          underlyingPrice: number;
-          topStrikes: Array<{ strike: number; type: 'C' | 'P'; oi: number; iv: number }>;
+          asset?: string; totalOI?: number; putCallRatio?: number; avgIV?: number;
+          underlyingPrice?: number;
+          topStrikes?: Array<{ strike: number; type: 'C' | 'P'; oi: number; iv: number }>;
+          error?: string;
         };
-        if (d.totalOI) {
+        if (d.totalOI && d.topStrikes) {
           const strikeLines = d.topStrikes.map((s) => `${s.strike}${s.type} (OI ${s.oi.toFixed(0)}, IV ${s.iv}%)`).join(', ');
           sections.push(`**${d.asset} options (Deribit):** total OI ${d.totalOI}, P/C ratio ${d.putCallRatio}, avg IV ${d.avgIV}%, spot $${d.underlyingPrice}\nTop strikes: ${strikeLines}`);
+        } else {
+          sections.push(`**${target} options unavailable right now** (${d.error || 'Deribit returned no data'}). Tell the user the options feed is temporarily unreachable — do NOT say the tool doesn't exist.`);
         }
-      } catch { /* skip */ }
+      } catch (e) {
+        sections.push(`**${target} options unavailable right now** (${e instanceof Error ? e.message.slice(0, 80) : 'network error'}). Tell the user the options feed is temporarily unreachable — do NOT say the tool doesn't exist.`);
+      }
     }
   }
 

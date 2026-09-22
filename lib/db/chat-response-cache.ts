@@ -42,18 +42,24 @@ const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes — balance freshness vs hit ra
 /**
  * Deterministic cache key for a chat message. Ignores case, punctuation
  * variation, and word-order shuffling within the same intent.
+ *
+ * Returns null when the normalized message has fewer than 3 real chars —
+ * "?" and "🚀🚀🚀" both normalize to "" and would collide on the same
+ * hash, serving the wrong response. Sub-3-char inputs also aren't the
+ * kind of query worth caching anyway.
  */
 export function makeCacheKey(
   message: string,
   intent: string,
   assets: string[],
   protocols: string[],
-): string {
+): string | null {
   const normalizedMsg = message
     .trim()
     .toLowerCase()
     .replace(/\s+/g, ' ')
     .replace(/[^\w\s]/g, ''); // strip punctuation
+  if (normalizedMsg.length < 3) return null;
   const sortedAssets = [...assets].sort().join(',');
   const sortedProtos = [...protocols].sort().join(',');
   const raw = `${normalizedMsg}|${intent}|${sortedAssets}|${sortedProtos}`;
