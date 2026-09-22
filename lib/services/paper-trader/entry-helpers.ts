@@ -96,10 +96,21 @@ export async function selectCandidate(
   now: number,
   concurrencyFilter?: ConcurrencyFilter,
 ): Promise<SelectResult> {
+  // Regime-scale the entry conf gate: CHOP tightens 1.05× (55 → 58),
+  // TREND relaxes 0.95× (55 → 52). minConfidenceMult was dead until
+  // 2026-09-22.
+  let effectiveMinConf = PAPER_MIN_CONFIDENCE;
+  try {
+    const { getCurrentRegime, getRegimeMultipliers } = await import('./regime');
+    const { regime } = await getCurrentRegime(now);
+    const regMults = getRegimeMultipliers(regime);
+    effectiveMinConf = PAPER_MIN_CONFIDENCE * regMults.minConfidenceMult;
+  } catch { /* fall back to static */ }
+
   let scan: Awaited<ReturnType<typeof PredictionAggregatorService.scanAndPickBest>>;
   try {
     scan = await PredictionAggregatorService.scanAndPickBest(PAPER_UNIVERSE, {
-      minConfidence: PAPER_MIN_CONFIDENCE,
+      minConfidence: effectiveMinConf,
       minConsensus: PAPER_MIN_CONSENSUS,
       minSources: PAPER_MIN_SOURCES,
     });
@@ -108,7 +119,7 @@ export async function selectCandidate(
   }
   if (!scan.best) {
     logger.warn('[PaperTrader] scan.best null — no asset met gates', {
-      min: { conf: PAPER_MIN_CONFIDENCE, cons: PAPER_MIN_CONSENSUS, sources: PAPER_MIN_SOURCES },
+      min: { conf: effectiveMinConf, cons: PAPER_MIN_CONSENSUS, sources: PAPER_MIN_SOURCES },
       universeSize: PAPER_UNIVERSE.length,
     });
     return { ok: false, reason: 'no edge above gates' };
@@ -125,7 +136,7 @@ export async function selectCandidate(
   const rankedCandidates: Array<{ asset: string; prediction: AggregatedPrediction; score: number }> = [];
   if (concurrencyFilter) {
     for (const [candidateAsset, pred] of Object.entries(scan.all)) {
-      if (pred.confidence < PAPER_MIN_CONFIDENCE) continue;
+      if (pred.confidence < effectiveMinConf) continue;
       if (pred.consensus < PAPER_MIN_CONSENSUS) continue;
       if (pred.sources.length < PAPER_MIN_SOURCES) continue;
       const rawScore = PredictionAggregatorService.scoreOpportunity(pred);
@@ -169,6 +180,28 @@ export async function selectCandidate(
         continue;
       }
     }
+
+    // Probability-calibrator gate (2026-09-22): reject candidates whose
+    // (asset, side, confidence-bucket) has historically won < 50% of the
+    // time. Live trader wrote 189 records under trader:calibration:*
+    // showing e.g. SOL:SHORT:6 wins 25% empirically vs its raw 60%+
+    // aggregator confidence. Paper trader was ignoring that data.
+    // PRIOR=10 shrinkage means new-bucket signals fall back to raw conf.
+    try {
+      const { calibrate } = await import('@/lib/services/ai/probability-calibrator');
+      const cal = await calibrate({
+        asset: cand.asset,
+        side: candSide,
+        rawConfidencePct: cand.prediction.confidence,
+      });
+      // Only gate when we have real data in this bucket (n >= 5). Below
+      // that, PRIOR dominates and calibrated ≈ raw — no signal to act on.
+      if (cal.nHistory >= 5 && cal.pCalibrated < 0.50) {
+        lastSkipReason = `calibrator (${cand.asset} ${candSide}): bucket win-rate ${(cal.pCalibrated * 100).toFixed(0)}% (n=${cal.nHistory}) below 50%`;
+        continue;
+      }
+    } catch { /* non-fatal — fall through */ }
+
     logger.info('[PaperTrader] candidate picked from ranked scan', {
       asset: cand.asset,
       rec: cand.prediction.recommendation,

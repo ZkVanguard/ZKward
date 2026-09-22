@@ -732,6 +732,12 @@ export class PaperTrader {
     const stopFrac = _STATIC_STOP_LOSS_PCT;
     const stopLossPrice = side === 'LONG' ? markPrice * (1 - stopFrac) : markPrice * (1 + stopFrac);
 
+    // Regime-scale the max-hold: CHOP shrinks 0.75× (~34min), TREND
+    // expands 1.5× (~68min). maxHoldMult was dead until 2026-09-22.
+    const { getCurrentRegime, getRegimeMultipliers } = await import('./regime');
+    const { regime } = await getCurrentRegime(now);
+    const regMults = getRegimeMultipliers(regime);
+
     const position: SimulatedPosition = {
       ...simulateOpen(
         { asset, side, notionalUsd, leverage: PAPER_LEVERAGE, entryPrice: markPrice },
@@ -741,7 +747,7 @@ export class PaperTrader {
       peakUnrealizedPnl: 0,
       entryConfidence: conf,
       entryConsensus: cons,
-      maxHoldMin: computeMaxHoldMinutes(signalScalar),
+      maxHoldMin: computeMaxHoldMinutes(signalScalar, regMults.maxHoldMult),
       stopLossPrice,
     };
 
@@ -928,6 +934,23 @@ export class PaperTrader {
       try {
         const { recordArmOutcome } = await import('./bandit');
         await recordArmOutcome(pos.asset, pos.side, result.realizedPnlUsd / pos.notionalUsd, now);
+      } catch { /* non-fatal */ }
+    }
+
+    // Probability-calibrator outcome (2026-09-22): feed paper closes into
+    // the shared trader:calibration:* bucket store so the live trader's
+    // calibrator sharpens on 5-10× more samples. Same store both traders
+    // read via calibrate() at entry — one-way pipe was leaving live's
+    // small live sample as the only training signal.
+    if (pos.entryConfidence !== undefined && (pos.side === 'LONG' || pos.side === 'SHORT')) {
+      try {
+        const { recordOutcome } = await import('@/lib/services/ai/probability-calibrator');
+        await recordOutcome({
+          asset: pos.asset,
+          side: pos.side,
+          openConfidencePct: pos.entryConfidence,
+          realizedPnl: result.realizedPnlUsd,
+        });
       } catch { /* non-fatal */ }
     }
 
