@@ -812,13 +812,16 @@ export class PaperTrader {
       if (now - lastCheck < 60 * 60_000) return null; // check once per hour
       await setCronState(CHECK_KEY, now);
 
-      // Aggregate 7-day PnL windows. Same-portfolio, same-chain paper only.
+      // Aggregate 7-day PnL windows. Filter by portfolio_id AND the LIKE
+      // clause so a session reset (which archives old rows to a different
+      // portfolio_id) doesn't drag pre-reset losses into the halt trigger.
       const rows = await query<{ recent: string; prior: string }>(
         `SELECT
            COALESCE(SUM(realized_pnl) FILTER (WHERE closed_at > NOW() - INTERVAL '7 days'), 0) AS recent,
            COALESCE(SUM(realized_pnl) FILTER (WHERE closed_at BETWEEN NOW() - INTERVAL '14 days' AND NOW() - INTERVAL '7 days'), 0) AS prior
          FROM hedges
-         WHERE order_id LIKE 'paper_%' AND status = 'closed'`,
+         WHERE portfolio_id = $1 AND order_id LIKE 'paper_%' AND status = 'closed'`,
+        [PAPER_PORTFOLIO_ID],
       );
       const recent = Number(rows[0]?.recent ?? 0);
       const prior = Number(rows[0]?.prior ?? 0);
