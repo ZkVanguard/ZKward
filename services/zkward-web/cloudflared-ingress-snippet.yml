@@ -1,0 +1,61 @@
+# Cloudflare tunnel ingress snippet for zkward-web.
+#
+# APPEND these entries to your existing cloudflared config (usually at
+# /etc/cloudflared/config.yml). The paths + hostnames may look
+# different depending on how the tunnel was originally set up — the
+# key rule is: zkward.com (and www) must forward to localhost:3000.
+#
+# ── Where this file goes ──────────────────────────────────────────
+# Add these two ingress rules ABOVE any existing catch-all (`service:
+# http_status:404`) rule. cloudflared matches ingress rules in order —
+# first match wins.
+
+ingress:
+  # ─── ZKward website (new — 2026-09-23) ────────────────────────
+  - hostname: zkward.com
+    service: http://localhost:3000
+    originRequest:
+      # SSR needs a longer read timeout than the 30s default because
+      # some routes (chat AI streaming, aggregator with cold cache)
+      # take 10-25s. Bumping to 60s.
+      connectTimeout: 30s
+      tlsTimeout: 10s
+      # Set Host header to what Next.js expects — otherwise redirects
+      # rewrite to localhost.
+      httpHostHeader: zkward.com
+      # Origin server does its own TLS — we're talking HTTP loopback
+      # so noTLSVerify doesn't matter but keep explicit.
+      noTLSVerify: true
+
+  - hostname: www.zkward.com
+    service: http://localhost:3000
+    originRequest:
+      connectTimeout: 30s
+      httpHostHeader: www.zkward.com
+      noTLSVerify: true
+
+  # ─── Existing entries (pg.zkward.com, jobs.zkward.com, ssh.zkward.com)
+  # keep them here — don't remove.
+
+  # ─── Catch-all — MUST be last ─────────────────────────────────
+  - service: http_status:404
+
+# ── After editing ─────────────────────────────────────────────────
+# Reload the tunnel:
+#   sudo systemctl restart cloudflared
+# Verify:
+#   curl -sI https://zkward.com | head -5
+#   → HTTP/2 200 (from Next.js on Bakchodi via Cloudflare)
+
+# ── DNS ───────────────────────────────────────────────────────────
+# In Cloudflare dashboard for zkward.com zone:
+#   1. Delete the current A/CNAME record for zkward.com pointing at
+#      Vercel (usually cname.vercel-dns.com or 76.76.21.21).
+#   2. Add a CNAME record:
+#        zkward.com  →  <TUNNEL-UUID>.cfargotunnel.com
+#      (get the UUID from `cloudflared tunnel list`)
+#   3. Same for www.zkward.com.
+#   4. Cloudflare orange-cloud (proxied) must be ON.
+#
+# Propagation takes 1-5 min. Test with:
+#   dig +short zkward.com

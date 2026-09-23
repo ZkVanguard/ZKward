@@ -1,0 +1,43 @@
+[Unit]
+Description=ZKward website (Next.js production server)
+Documentation=file:///opt/zkward-worker/services/zkward-web/README.md
+After=network-online.target
+Wants=network-online.target
+# Wants (not Requires) the DB — the site can render some pages while
+# the DB is briefly unreachable; hard-dep would cause needless restarts.
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/zkward-worker
+EnvironmentFile=/opt/zkward-worker/.env
+# Pin port to 3000 and hostname to 0.0.0.0 so cloudflared can reach it
+# via localhost:3000. NODE_ENV=production drops Next's dev-only checks.
+Environment=NODE_ENV=production
+Environment=PORT=3000
+Environment=HOSTNAME=0.0.0.0
+Environment=NODE_OPTIONS=--max-old-space-size=4096
+# next start (via node_modules/.bin/next) — bun runtime works fine here
+# and matches the rest of the worker stack.
+ExecStart=/usr/local/bin/bun run node_modules/.bin/next start -p 3000 -H 0.0.0.0
+Restart=on-failure
+RestartSec=15s
+# Give the process 30s to gracefully close in-flight requests before
+# SIGKILL. Next handles SIGTERM cleanly (drains connections).
+KillSignal=SIGTERM
+TimeoutStopSec=30
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=zkward-web
+User=zkward
+Group=zkward
+
+# Sandbox — same shape as the cron workers. Slightly relaxed:
+# next needs to write to .next/cache during runtime.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/opt/zkward-worker
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target
