@@ -51,7 +51,7 @@ export async function generateMetadata(
   // Homepage title puts the brand FIRST so branded searches (zkward,
   // ZKward, "zkward vault") get a strong exact-match signal. Descriptive
   // tail explains what the product does in a single line.
-  const title = 'ZKward — AI-managed USDC vault on SUI, ZK-STARK attested';
+  const title = 'ZKward — 20 signal sources, ranked by track record';
   const description = t('subtitle');
 
   return {
@@ -67,10 +67,12 @@ export async function generateMetadata(
     // `keywords` meta for ranking, but Bing and DuckDuckGo still weight
     // it lightly, and it costs nothing.
     keywords: [
-      'ZKward', 'zkward', 'zkward vault', 'zkward.com',
-      'SUI', 'ZK-STARK', 'zero knowledge proof',
-      'autonomous vault', 'AI agents', 'prediction markets',
-      'DeFi', 'BlueFin', 'Polymarket',
+      'ZKward', 'zkward', 'zkward.com',
+      'signal intelligence', 'signal fusion', 'signal aggregator',
+      'per-source calibration', 'Bayesian hit rate', 'source scoring',
+      'prediction market execution', 'algorithmic trading',
+      'Polymarket', 'Kalshi', 'Delphi', 'Manifold',
+      'autonomous execution', 'ZK-STARK', 'SUI',
     ],
     authors: [{ name: 'ZKward', url: baseUrl }],
     creator: 'ZKward',

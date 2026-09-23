@@ -6,7 +6,7 @@ import { ImageResponse } from 'next/og';
 // runtime — no size cap, and OG images cache aggressively so first-hit
 // latency is amortised.
 export const runtime = 'nodejs';
-export const alt = 'ZKward. Autonomous SUI vault, ZK-STARK attested';
+export const alt = 'ZKward. 20 signal sources. Ranked by track record.';
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
 
@@ -57,7 +57,7 @@ export default async function OpengraphImage() {
               maxWidth: 980,
             }}
           >
-            Autonomous SUI vault.
+            20 signal sources.
           </div>
           <div
             style={{
@@ -69,7 +69,7 @@ export default async function OpengraphImage() {
               maxWidth: 980,
             }}
           >
-            ZK-STARK attested.
+            Ranked by track record.
           </div>
           <div
             style={{
@@ -81,7 +81,7 @@ export default async function OpengraphImage() {
               letterSpacing: '-0.01em',
             }}
           >
-            Seven AI agents. BTC, ETH, SUI. Auto-hedged perps on BlueFin. Verified end-to-end.
+            Prediction markets + funding + orderbook + AI-graded titles. Autonomous execution, STARK-attested.
           </div>
         </div>
 
