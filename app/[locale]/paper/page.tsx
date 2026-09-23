@@ -165,7 +165,7 @@ export default function PaperTraderPage() {
     return (
       <div className="min-h-screen bg-black text-white p-8">
         <div className="max-w-6xl mx-auto">
-          <h1 className="text-2xl mb-4">Paper Trader</h1>
+          <h1 className="text-2xl mb-4">Signal Stack in Production</h1>
           <div className="text-red-400">Failed to load: {error}</div>
         </div>
       </div>
@@ -180,11 +180,12 @@ export default function PaperTraderPage() {
     <div className="min-h-screen bg-black text-white p-4 md:p-8">
       <div className="max-w-6xl mx-auto space-y-6">
         <header>
-          <h1 className="text-3xl md:text-4xl font-bold">Paper Trader</h1>
+          <h1 className="text-3xl md:text-4xl font-bold">Signal Stack in Production</h1>
           <p className="text-gray-400 mt-1">
-            Live shadow-simulator on Hedera testnet. Same signals as the SUI mainnet trader, mark-price
-            fills, realistic 13&nbsp;bp round-trip + 11% APR funding. Answers: does the strategy have edge
-            net of fees at $100k?
+            Live shadow-execution of the aggregator&apos;s output. 20 sources per asset, per-source
+            hit-rate-weighted, autonomous entry + exit with adaptive stops. Mark-price fills, 13&nbsp;bp
+            round-trip + 11% APR funding modeled. Answers: does the signal stack have edge net of
+            fees at $100k?
           </p>
           <p className="text-xs text-gray-500 mt-2">
             Last tick: {status.lastTickAt ? new Date(status.lastTickAt).toLocaleString() : 'never'}
