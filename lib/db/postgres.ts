@@ -26,6 +26,27 @@ export function getPool(): Pool {
       process.env.DATABASE_URL ||
       'postgresql://postgres:postgres@localhost:5432/zkvanguard';
 
+    // 2026-09-23: stale DATABASE_POOL_URL pointing at the retired Aiven DB
+    // silently routed every query to a dead endpoint. The AI-interpretation
+    // load in PredictionAggregatorService swallowed the failure at `debug`
+    // level so nothing paged — AI signals silently vanished from the
+    // aggregator for weeks. Warn loudly if both vars are set and point at
+    // different hosts, so the next drift surfaces immediately.
+    const poolUrl = process.env.DATABASE_POOL_URL;
+    const directUrl = process.env.DATABASE_URL;
+    if (poolUrl && directUrl) {
+      const poolHost = poolUrl.match(/@([^:/]+)/)?.[1];
+      const directHost = directUrl.match(/@([^:/]+)/)?.[1];
+      if (poolHost && directHost && poolHost !== directHost) {
+        logger.warn('[postgres] DATABASE_POOL_URL and DATABASE_URL point at different hosts', {
+          component: 'postgres',
+          poolHost,
+          directHost,
+          chose: poolHost,
+        });
+      }
+    }
+
     // Remove channel_binding parameter if present (not supported by pg module)
     connectionString = connectionString.replace(/&?channel_binding=[^&]*/g, '').replace('?&', '?');
 
