@@ -97,7 +97,9 @@ export async function GET(request: NextRequest) {
 
   // Paper is a virtual pool — not backed by an on-chain contract. Its
   // data lives in cron_state and is served by /api/paper-trader/status.
-  if (chainConfig.chainKey === 'paper') {
+  // Check raw chainParam BEFORE getChainConfig so the type-narrowed
+  // chainKey union doesn't need to widen.
+  if (chainParam === 'paper') {
     return NextResponse.json(
       {
         success: false,
@@ -680,7 +682,9 @@ export async function POST(request: NextRequest) {
 
   // Paper is a virtual pool — not backed by an on-chain contract. Its
   // data lives in cron_state and is served by /api/paper-trader/status.
-  if (chainConfig.chainKey === 'paper') {
+  // Check raw chainParam BEFORE getChainConfig so the type-narrowed
+  // chainKey union doesn't need to widen.
+  if (chainParam === 'paper') {
     return NextResponse.json(
       {
         success: false,
