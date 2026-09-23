@@ -40,16 +40,17 @@ export async function assetSideStreakRejection(
   asset: string,
   side: Side,
   now: number,
+  portfolioId?: number,
 ): Promise<string | null> {
   try {
     // Pull the last STREAK_LOSS_COUNT closed trades on this (asset, side)
     // ordered by close time. If ALL are losses AND the most recent
     // closed less than COOLDOWN_MS ago, we're in the pause window.
-    // Filter by portfolio_id so PaperGatedTrader (-4) losses don't
-    // trigger cooldowns on PaperTrader (-3) — both share the paper_%
-    // LIKE prefix (paper_ vs paper_gated_) causing cross-portfolio
-    // contamination. Fixed 2026-09-22.
+    // portfolioId defaults to PaperTrader's for backward compat; callers
+    // from PaperGatedTrader (-4) MUST pass their own or the guard scans
+    // the wrong portfolio's history.
     const { PAPER_PORTFOLIO_ID } = await import('./config');
+    const pid = portfolioId ?? PAPER_PORTFOLIO_ID;
     const rows = await query<{
       realized_pnl: string | number | null;
       closed_at: Date;
@@ -61,7 +62,7 @@ export async function assetSideStreakRejection(
          AND asset = $1 AND side = $2 AND status = 'closed'
        ORDER BY closed_at DESC NULLS LAST
        LIMIT $3`,
-      [asset, side, STREAK_LOSS_COUNT, PAPER_PORTFOLIO_ID],
+      [asset, side, STREAK_LOSS_COUNT, pid],
     );
     if (rows.length < STREAK_LOSS_COUNT) return null; // insufficient history
     const allLosses = rows.every((r) => Number(r.realized_pnl ?? 0) <= 0);
@@ -74,6 +75,60 @@ export async function assetSideStreakRejection(
   } catch (e) {
     logger.debug('[PaperTrader] streak-guard lookup failed (non-fatal)', {
       asset, side, error: errMsg(e),
+    });
+    return null;
+  }
+}
+
+/** Asset-level concentration guard. Different from assetSideStreakRejection:
+ *  ignores side, so LONG losses + SHORT losses on the same asset both
+ *  count. Motivating incident 2026-09-23: 3 SOL LONG losses in an hour
+ *  (chop regime) — assetSideStreakRejection needed 3 SOL LONG in a row
+ *  BUT the trader kept switching between LONG and SHORT on SOL, so
+ *  neither side hit the streak while combined losses piled up.
+ *
+ *  Threshold defaults to 4 (any side) — one more than the same-side
+ *  guard because mixed-side losses can happen legitimately during a
+ *  volatile-but-trendless day.
+ */
+const ASSET_STREAK_LOSS_COUNT = Number(process.env.PAPER_TRADER_ASSET_STREAK_LOSS_COUNT || 4);
+const ASSET_STREAK_COOLDOWN_MS =
+  Number(process.env.PAPER_TRADER_ASSET_STREAK_COOLDOWN_HOURS || 2) * 60 * 60 * 1000;
+
+export async function assetStreakRejection(
+  asset: string,
+  now: number,
+  portfolioId?: number,
+): Promise<string | null> {
+  try {
+    const { PAPER_PORTFOLIO_ID } = await import('./config');
+    const pid = portfolioId ?? PAPER_PORTFOLIO_ID;
+    const rows = await query<{
+      realized_pnl: string | number | null;
+      closed_at: Date;
+      side: string;
+    }>(
+      `SELECT COALESCE(realized_pnl, 0) AS realized_pnl, closed_at, side
+       FROM hedges
+       WHERE portfolio_id = $3
+         AND order_id LIKE 'paper_%'
+         AND asset = $1 AND status = 'closed'
+       ORDER BY closed_at DESC NULLS LAST
+       LIMIT $2`,
+      [asset, ASSET_STREAK_LOSS_COUNT, pid],
+    );
+    if (rows.length < ASSET_STREAK_LOSS_COUNT) return null;
+    const allLosses = rows.every((r) => Number(r.realized_pnl ?? 0) <= 0);
+    if (!allLosses) return null;
+    const mostRecentAt = new Date(rows[0].closed_at).getTime();
+    const elapsed = now - mostRecentAt;
+    if (elapsed >= ASSET_STREAK_COOLDOWN_MS) return null;
+    const remainMin = Math.round((ASSET_STREAK_COOLDOWN_MS - elapsed) / 60_000);
+    const sideMix = rows.map((r) => r.side).join('/');
+    return `asset-cooldown: ${ASSET_STREAK_LOSS_COUNT} losses on ${asset} (${sideMix}) — pause ${remainMin}min more`;
+  } catch (e) {
+    logger.debug('[PaperTrader] asset-streak lookup failed (non-fatal)', {
+      asset, error: errMsg(e),
     });
     return null;
   }

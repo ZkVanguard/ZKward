@@ -16,9 +16,13 @@
  *   • Same sizing          (sizeCandidate from entry-helpers)
  *   • Same exit discipline (price-anchored stop + trailing + max-hold)
  *   • ADDS agent gate      (runAgentGate from polymarket-edge-trader)
- *   • Skips redundant safeties (rolling-drawdown kill, source-decay,
- *     streak-guard) — those are raw-paper's job. Gated mode tests the
- *     agent-gate delta cleanly.
+ *   • Skips rolling-drawdown kill + source-decay (raw-paper's job).
+ *   • Streak-guard: NOW ENABLED as of 2026-09-23 (scoped to portfolio
+ *     -4 so learning stays isolated). Was previously skipped to keep
+ *     the A/B clean, but empirical result was $130 of duplicate-setup
+ *     losses across the two portfolios in 48h. Both guards run before
+ *     the agent-gate; A/B on the agent-gate delta is preserved because
+ *     both portfolios now have the same streak-based bail-out.
  *
  * NOT a replacement for PaperTrader — a parallel research surface.
  * Intended lifespan: until the mainnet-readiness gates in
@@ -173,6 +177,24 @@ export class PaperGatedTrader {
       }).catch(() => {});
     }
 
+    // 2.5. Adaptive underwater tighten (2026-09-23) — same knobs as
+    //      PaperTrader. Cap the failure mode Phase 2 introduced.
+    if (!trailingArmed && currentPeak <= 0) {
+      const ageMin = (now - pos.openedAt) / 60_000;
+      const lossUsd = -mtm.unrealizedPnlUsd;
+      const lossPctOfNav = nav > 0 ? lossUsd / nav : 0;
+      const TIGHTEN_AGE_MIN = Number(process.env.PAPER_TRADER_TIGHTEN_AGE_MIN || 30);
+      const TIGHTEN_USD = Number(process.env.PAPER_TRADER_TIGHTEN_LOSS_USD || 50);
+      const TIGHTEN_NAV_PCT = Number(process.env.PAPER_TRADER_TIGHTEN_LOSS_PCT || 0.0002);
+      if (ageMin >= TIGHTEN_AGE_MIN && (lossUsd >= TIGHTEN_USD || lossPctOfNav >= TIGHTEN_NAV_PCT)) {
+        return PaperGatedTrader.closeAtMark(
+          pos, markPrice, nav, now,
+          `underwater-tighten: ${Math.round(ageMin)}min under, never positive, loss $${lossUsd.toFixed(2)}`,
+          orderId,
+        );
+      }
+    }
+
     // 3. Max-hold expiry.
     const posMaxHoldMin = pos.maxHoldMin ?? PAPER_MAX_HOLD_MIN;
     if (now - pos.openedAt >= posMaxHoldMin * 60_000) {
@@ -247,6 +269,19 @@ export class PaperGatedTrader {
       };
     }
 
+    // ── Concentration guards (2026-09-23) ────────────────────────────
+    // Previously the gated trader's header comment said streak-guard
+    // was 'raw-paper's job' — as an A/B statement that's true, but the
+    // empirical result was ~$130 of duplicate-setup losses in 48h
+    // (XRP LONG concentration, then SOL LONG). Adding the guards here
+    // scoped to portfolio -4 so the two portfolios still learn
+    // independently but neither pyramids losses on a losing asset.
+    const { assetSideStreakRejection, assetStreakRejection } = await import('./streak-guard');
+    const sideStreak = await assetSideStreakRejection(asset, side, now, PORTFOLIO_ID);
+    if (sideStreak) return { action: 'skipped', reason: sideStreak, nav };
+    const assetStreak = await assetStreakRejection(asset, now, PORTFOLIO_ID);
+    if (assetStreak) return { action: 'skipped', reason: assetStreak, nav };
+
     // Price + sizing (shared helpers).
     const priceResult = await priceCandidate(asset);
     if (!priceResult.ok) return { action: 'skipped', reason: priceResult.reason, nav };
@@ -313,6 +348,16 @@ export class PaperGatedTrader {
     await setCronState(KEY_ORDER_ID, orderId);
 
     try {
+      // Close any orphan ACTIVE row from a prior tick before writing.
+      // Prevents id-711-style ghosts where cron_state moved on without
+      // the DB row closing.
+      const { orphanCloseIfExists } = await import('./orphan-cleanup');
+      await orphanCloseIfExists({
+        portfolioId: PORTFOLIO_ID,
+        asset,
+        side,
+        newOrderId: orderId,
+      });
       await createHedge({
         orderId,
         portfolioId: PORTFOLIO_ID,

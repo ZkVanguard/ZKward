@@ -26,6 +26,7 @@ import { getCronState, setCronState } from '@/lib/db/cron-state';
 import { positionOpen, positionUpdate, positionClose } from './concurrent';
 import { selectCandidate, priceCandidate, sizeCandidate } from './entry-helpers';
 import { createHedge } from '@/lib/db/hedges';
+import { orphanCloseIfExists } from './orphan-cleanup';
 import { query } from '@/lib/db/postgres';
 import { logger } from '@/lib/utils/logger';
 import { errMsg } from '@/lib/utils/error-handler';
@@ -485,6 +486,37 @@ export class PaperTrader {
       }));
     }
 
+    // 2.5. Adaptive underwater tighten (2026-09-23) — caps the failure
+    //      mode Phase 2 introduced: extended max-hold lets a trade sit
+    //      underwater for hours before the wide stop-loss fires. If a
+    //      position has been open > TIGHTEN_AGE_MIN, has NEVER gone
+    //      positive (trailing never armed), AND the unrealized loss is
+    //      deep enough to matter, close it early. Two thresholds:
+    //        - by USD magnitude (catches large notional trades)
+    //        - by NAV percentage (catches small-notional death-by-1000-cuts)
+    //      Skips if trailing armed (trailing-stop is the correct exit
+    //      for once-profitable trades that give back).
+    if (orderId && !trailingArmed && currentPeak <= 0) {
+      const ageMin = (now - pos.openedAt) / 60_000;
+      const lossUsd = -mtm.unrealizedPnlUsd; // positive = deeper underwater
+      const lossPctOfNav = nav > 0 ? lossUsd / nav : 0;
+      const TIGHTEN_AGE_MIN = Number(process.env.PAPER_TRADER_TIGHTEN_AGE_MIN || 30);
+      const TIGHTEN_USD = Number(process.env.PAPER_TRADER_TIGHTEN_LOSS_USD || 50);
+      const TIGHTEN_NAV_PCT = Number(process.env.PAPER_TRADER_TIGHTEN_LOSS_PCT || 0.0002);
+      const oldEnough = ageMin >= TIGHTEN_AGE_MIN;
+      const deepEnough = lossUsd >= TIGHTEN_USD || lossPctOfNav >= TIGHTEN_NAV_PCT;
+      if (oldEnough && deepEnough) {
+        return PaperTrader.closeAtMark(
+          pos,
+          markPrice,
+          nav,
+          now,
+          `underwater-tighten: ${Math.round(ageMin)}min under, never positive, loss $${lossUsd.toFixed(2)}`,
+          orderId,
+        );
+      }
+    }
+
     // 3. Max-hold expiry → close. Uses per-position maxHoldMin (scaled by
     //    signal strength at open) with fallback to the static base for
     //    positions opened before this feature landed.
@@ -639,11 +671,17 @@ export class PaperTrader {
     //    calibrator, AND the extra gates below (streak/trend/vol/regret) via
     //    the extraGate callback so a top-pick rejection walks to the next
     //    candidate instead of aborting the whole tick.
-    const { assetSideStreakRejection, trendMisalignmentRejection } = await import('./streak-guard');
+    const { assetSideStreakRejection, assetStreakRejection, trendMisalignmentRejection } = await import('./streak-guard');
     const { lowVolatilityRejection } = await import('./volatility-gate');
     const extraGate = async (asset: string, side: Side, gateNow: number): Promise<string | null> => {
       const streakReject = await assetSideStreakRejection(asset, side, gateNow);
       if (streakReject) return streakReject;
+      // Asset-level concentration guard — catches mixed-side loss piles
+      // (e.g. SOL LONG loses → SOL SHORT loses → SOL LONG loses again).
+      // Runs BEFORE trend-guard so we don't waste price checks on a
+      // cooled-down asset.
+      const assetReject = await assetStreakRejection(asset, gateNow);
+      if (assetReject) return assetReject;
       const trendReject = await trendMisalignmentRejection(asset, side);
       if (trendReject) return trendReject;
       const volReject = await lowVolatilityRejection(asset);
@@ -751,8 +789,20 @@ export class PaperTrader {
     // single) based on PAPER_MAX_CONCURRENT.
     await positionOpen({ orderId, position });
 
-    // Persist to hedges table for reuse by dashboard + analytics
+    // Persist to hedges table for reuse by dashboard + analytics.
+    // First close any orphan ACTIVE row for the same (portfolio, asset,
+    // side) — historical bug: if the trader's cron_state moved on
+    // without the row being closed (e.g. crash mid-close, redeploy
+    // during close), the old row lingers as 'active' forever. Query
+    // dashboards + reconcilers then double-count. Auto-close is safer
+    // than manual reconcile.
     try {
+      await orphanCloseIfExists({
+        portfolioId: PAPER_PORTFOLIO_ID,
+        asset,
+        side,
+        newOrderId: orderId,
+      });
       await createHedge({
         orderId,
         portfolioId: PAPER_PORTFOLIO_ID,
