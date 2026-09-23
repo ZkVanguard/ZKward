@@ -28,6 +28,14 @@ import { MultiAssetSignalService } from './MultiAssetSignalService';
 import { ManifoldMarketService } from './ManifoldMarketService';
 import { SignalDriftFusion, type FusionUpgrade } from './SignalDriftFusion';
 import {
+  fetchOrderbookImbalanceBatch,
+  type OrderbookImbalance,
+} from './OrderbookImbalanceService';
+import {
+  fetchOptionsSkewBatch,
+  type OptionsSkew,
+} from './OptionsSkewService';
+import {
   fetchBroadCryptoMarkets,
   type BroadMarket,
   type BroadHorizon,
@@ -698,7 +706,9 @@ export class PredictionAggregatorService {
     const upperAssets = assets.map(a => a.toUpperCase());
     const { getTrackedAssetList } = await import('./MultiAssetSignalService');
     const alignmentUniverse = Array.from(new Set([...getTrackedAssetList(), ...upperAssets]));
-    const [polymarketSignal, delphiPredictions, cryptoComData, fundingRates, multiAssetSignals, manifoldMarkets, binancePositioning, bybitPositioning, broadMarkets] = await Promise.all([
+    // Options skew: Deribit series only exist for BTC + ETH.
+    const optionsAssets = upperAssets.filter((a): a is 'BTC' | 'ETH' => a === 'BTC' || a === 'ETH');
+    const [polymarketSignal, delphiPredictions, cryptoComData, fundingRates, multiAssetSignals, manifoldMarkets, binancePositioning, bybitPositioning, broadMarkets, orderbookImbalance, optionsSkew] = await Promise.all([
       this.fetchPolymarketSignal(),
       this.fetchDelphiPredictions(),
       this.fetchCryptoComData(upperAssets),
@@ -708,6 +718,14 @@ export class PredictionAggregatorService {
       this.fetchBinancePositioning(upperAssets).catch(() => ({} as Record<string, { funding: number; longShortRatio: number }>)),
       this.fetchBybitPositioning(upperAssets).catch(() => ({} as Record<string, { funding: number; openInterest: number }>)),
       fetchBroadCryptoMarkets({}).catch(() => [] as BroadMarket[]),
+      // NEW 2026-09-23: orderbook microstructure — top-20 L2 depth imbalance
+      // from Binance perp. Independent short-term signal beyond prediction
+      // markets. Free public endpoint, 30s cache. Fail-open.
+      fetchOrderbookImbalanceBatch(upperAssets).catch(() => ({} as Record<string, OrderbookImbalance>)),
+      // NEW 2026-09-23: options-market skew — 25-delta risk reversal from
+      // Deribit (BTC + ETH only). Positive = calls > puts IV (bullish).
+      // Options positioning leads spot; smart money paying up for upside.
+      fetchOptionsSkewBatch(optionsAssets).catch(() => ({} as Record<string, OptionsSkew>)),
     ]);
 
     // Track OI delta from previous fetch to compute change %.
@@ -1232,6 +1250,62 @@ export class PredictionAggregatorService {
             fetchedAt: Date.now(),
           });
         }
+      }
+
+      // 5c) NEW 2026-09-23 — Orderbook microstructure (Binance perp L2).
+      //     Top-20 bid vs ask depth ratio. Independent of prediction
+      //     markets, captures near-term directional pressure that
+      //     leaks into prices before it shows up in binaries.
+      //     Signal: bid-heavy = UP (bullish demand), ask-heavy = DOWN.
+      //     Only fires above |0.15| — sub-noise otherwise.
+      const orderbook = orderbookImbalance[asset];
+      if (orderbook && Math.abs(orderbook.imbalance) > 0.15) {
+        const obDir: 'UP' | 'DOWN' = orderbook.imbalance > 0 ? 'UP' : 'DOWN';
+        const magnitude = Math.abs(orderbook.imbalance);
+        // Confidence scales with magnitude but caps at 78 — orderbook can
+        // be spoofed at times, so we don't let it dominate.
+        const conf = Math.min(45 + magnitude * 60, 78);
+        sources.push({
+          name: `Orderbook ${asset} depth-imbalance`,
+          type: 'short_term',
+          direction: obDir,
+          confidence: conf,
+          probability: 50 + Math.min(magnitude * 40, 25) * (obDir === 'UP' ? 1 : -1),
+          weight: 0.13,
+          rawData: {
+            imbalancePct: Math.round(orderbook.imbalance * 100),
+            bidDepthUsd: Math.round(orderbook.bidDepthUsd),
+            askDepthUsd: Math.round(orderbook.askDepthUsd),
+          },
+          fetchedAt: Date.now(),
+        });
+      }
+
+      // 5d) NEW 2026-09-23 — Options-market skew (Deribit BTC + ETH only).
+      //     Weighted 25-delta risk reversal: positive = calls > puts IV
+      //     (bullish, market paying up for upside). Also uses put/call
+      //     OI ratio as a secondary confirm. Options positioning leads
+      //     spot, so this is a leading indicator when it fires.
+      const skew = optionsSkew[asset];
+      if (skew && Math.abs(skew.riskReversal) > 2) {
+        const skewDir: 'UP' | 'DOWN' = skew.riskReversal > 0 ? 'UP' : 'DOWN';
+        // Confidence: risk-reversal magnitude in IV points, capped at 75.
+        const conf = Math.min(45 + Math.abs(skew.riskReversal) * 3, 75);
+        sources.push({
+          name: `Options-skew ${asset} risk-reversal`,
+          type: 'medium_term',
+          direction: skewDir,
+          confidence: conf,
+          probability: 50 + Math.min(Math.abs(skew.riskReversal) * 2, 25) * (skewDir === 'UP' ? 1 : -1),
+          weight: 0.11,
+          rawData: {
+            riskReversal: skew.riskReversal,
+            callIv: skew.callIvAvg,
+            putIv: skew.putIvAvg,
+            putCallOiRatio: skew.putCallOiRatio,
+          },
+          fetchedAt: Date.now(),
+        });
       }
 
       // 6) Cross-asset alignment as its own source. When 3+ assets agree on
