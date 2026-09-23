@@ -1,7 +1,17 @@
 # Paper Trader — Horizon Alignment Fix Plan
 
 **Date:** 2026-09-23
-**Status:** Planned, not yet implemented
+**Status:** Phase 1 shipped (PR #240). Root-cause blocker (DATABASE_POOL_URL routing to dead Aiven) also fixed the same day — see "2026-09-23 root-cause find" below.
+
+## 2026-09-23 root-cause find (blocked all measurement)
+
+Post-deploy verification of Phase 1 initially showed 0 AI sources firing in aggregator output. Root cause: `postgres.ts:24` prefers `DATABASE_POOL_URL` over `DATABASE_URL`, and a leftover `DATABASE_POOL_URL` from the pre-Bakchodi era still pointed at Aiven (retired Q3 2026) in `.env.local` AND in Vercel prod + preview. The AI-interpretation DB load in `PredictionAggregatorService.ts:790` is wrapped in try/catch, so failure returned an empty map silently — no error surfaced. AI signals had been dead in prod since the Bakchodi migration completed.
+
+Fix: removed the var from `.env.local` and from Vercel (both production + preview environments). Bakchodi's `pg.zkward.com:6432` IS already the pooler port, so no replacement needed.
+
+Local re-test after the fix: BTC aggregator jumped from 17 sources → 20 (4 AI sources at 3-4% weight each, ~14% aggregate weight combined). Recommendation flipped from `HEDGE_LONG @80/65` to `STRONG_HEDGE_LONG @77/75` — exactly the horizon-alignment intent of Phase 1, but now actually measurable.
+
+
 
 ## Problem statement
 
