@@ -1,6 +1,8 @@
 {
   "nav": {
     "home": "Home",
+    "signals": "Signals",
+    "sources": "Sources",
     "vault": "Vault",
     "agents": "Agents",
     "zk": "ZK",
@@ -22,81 +24,96 @@
       "members": "members"
     },
     "hero": {
-      "headline1": "The AI vault",
-      "headline2": "with receipts.",
-      "subtitle": "Deposit USDC. Seven agents debate, then trade. Every hedge closes with a cryptographic proof anyone can verify on-chain."
+      "headline1": "20 signal sources.",
+      "headline2": "Ranked by track record.",
+      "subtitle": "Every prediction market, every funding rate, every on-chain signal — scored against real outcomes. Autonomous execution when the winners align."
+    },
+    "stats": {
+      "eyebrow": "Right now, in production",
+      "sources": {
+        "value": "20+",
+        "label": "signal sources fused per asset"
+      },
+      "accuracy": {
+        "value": "82.8%",
+        "label": "AI resolved accuracy on prediction market titles"
+      },
+      "mature": {
+        "value": "37",
+        "label": "sources with mature track records"
+      }
     },
     "vault": {
-      "poolNav": "Pool value",
+      "poolNav": "Live capital",
       "sharePrice": "Per share",
       "capacity": "Capacity",
       "capacityOf": "{current} of {cap}"
     },
     "cta": {
-      "depositUsdc": "Deposit USDC",
-      "howItWorks": "See the loop",
+      "depositUsdc": "See live signals",
+      "howItWorks": "How it works",
       "viewSource": "View source",
       "installApp": "Install app",
       "installIosHint": "To install: tap the Share icon in Safari, scroll down, and tap \"Add to Home Screen\"."
     },
     "composition": {
-      "eyebrow": "Right now",
-      "title": "Where your USDC lives.",
-      "body": "Rebalances every 30 minutes across BTC, ETH, and SUI. Idle USDC counts as defense. Refreshes every 30s."
+      "eyebrow": "Live signal",
+      "title": "What the aggregator says right now.",
+      "body": "20 sources fused per asset across BTC, ETH, SUI. Refreshes every 30 seconds."
     },
     "howItWorks": {
       "eyebrow": "The loop",
-      "title": "Three moving parts. One loop.",
+      "title": "Aggregate. Score. Execute.",
       "body": "Runs every five minutes. All day. Without you.",
       "step1": {
-        "title": "The AI reads the room",
-        "body": "Ten signals — Polymarket, Kalshi, Deribit vol, funding rates, price momentum — fused into one target. Seven agents must agree before capital moves."
+        "title": "Fuse 20 sources per asset",
+        "body": "Polymarket, Kalshi, Delphi, Manifold, funding rates, orderbook depth, options skew, cross-asset correlation. Every tick, every asset."
       },
       "step2": {
-        "title": "The pool rebalances",
-        "body": "Your USDC swaps across BTC, ETH, and SUI on-chain. Drift-based. Only trades when the target shifts. Nothing wasted on churn."
+        "title": "Score each source against real outcomes",
+        "body": "Bayesian-shrunk hit rate per source. Auto-kill below 40%. Weights winners up to 2×, killed sources drop to 0.05×."
       },
       "step3": {
-        "title": "A hedge lands with a proof",
-        "body": "A matching BlueFin perpetual balances the risk. Every open and close writes a STARK proof to the chain. Verifiable. Unfakeable."
+        "title": "Execute when winners align",
+        "body": "Multi-agent safety guard. Adaptive stops. Every trade STARK-attested and written on-chain. Verifiable. Unfakeable."
       }
     },
     "trust": {
-      "title": "The rails are written into the contract.",
-      "body": "Not a policy on our website. Rules the chain enforces, whether we're paying attention or not.",
+      "title": "Signal integrity, enforced by the code.",
+      "body": "Not a policy on our website. The pipeline itself refuses bad signals, bad venues, and stale data.",
       "poolCap": {
-        "title": "Pool cap",
-        "value": "$10,000",
-        "hint": "Enforced by the Move contract."
+        "title": "Sources tracked",
+        "value": "111",
+        "hint": "Every source's hit rate accumulates against real outcomes."
       },
       "freshOracle": {
-        "title": "Fresh price",
-        "value": "2-hour max",
-        "hint": "Deposits revert if the price attestation is stale."
+        "title": "Signal freshness",
+        "value": "30s max",
+        "hint": "Aggregator refresh cadence per asset."
       },
       "withdrawThrottle": {
-        "title": "Withdraw throttle",
-        "value": "25% / day",
-        "hint": "One account can't drain the pool."
+        "title": "Auto-kill floor",
+        "value": "40%",
+        "hint": "Sources below this hit rate drop to 0.05× weight."
       },
       "proofs": {
-        "title": "Proofs, not promises",
+        "title": "Every trade attested",
         "value": "Post-quantum",
-        "hint": "STARK on the Goldilocks field. Quantum-safe by design."
+        "hint": "STARK on the Goldilocks field. 180-bit soundness."
       },
       "twoChains": {
-        "title": "Two chains, one code",
-        "value": "Hedera + SUI",
-        "hint": "SUI leads. Hedera backs up."
+        "title": "Multi-venue execution",
+        "value": "SUI + EVM",
+        "hint": "Signal is chain-agnostic. Execution routes to the deepest venue."
       }
     },
     "surfaces": {
       "eyebrow": "Look around",
-      "title": "Every corner of ZKward is public.",
-      "body": "Dashboard, agents, proofs, whitepaper, story. Nothing behind a login except your wallet.",
+      "title": "Every layer of ZKward is public.",
+      "body": "Signals, sources, trades, proofs. Nothing behind a login except your wallet.",
       "dashboard": {
         "eyebrow": "Dashboard",
-        "title": "Your pool, one screen.",
+        "title": "Live capital, one screen.",
         "body": "Balance, hedges, drawdown, proofs. Refreshed every minute."
       },
       "rwa": {
@@ -122,12 +139,12 @@
       "whitepaper": {
         "eyebrow": "Whitepaper",
         "title": "The technical version.",
-        "body": "Prediction-market alpha, 7-agent architecture, STARK-attested execution."
+        "body": "20-source signal fusion, per-source calibration, AI-graded prediction market interpretation, STARK-attested execution."
       }
     },
     "finalCta": {
-      "title": "Come see it running.",
-      "body": "Connect a wallet, deposit USDC, close the tab. The AI takes it from there.",
+      "title": "See the signal stack running.",
+      "body": "Every source, every hit rate, every trade — public. Connect a wallet to deposit into the live demo vault.",
       "alreadyIn": "{count} already in.",
       "paused": "Deposits paused for maintenance."
     }

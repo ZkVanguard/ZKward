@@ -1,18 +1,20 @@
 {
   "name": "zkvanguard",
   "version": "0.2.0",
-  "description": "AI-managed crypto vault platform on Sui mainnet \u00e2\u20ac\u201d Polymarket-alpha vault (lead product), private hedges, and private portfolio creator. Seven autonomous AI agents, prediction-market signals fused per asset, ZK-attested decisions, BlueFin perp execution. Protocol fees + tiered subscription revenue.",
+  "description": "Signal intelligence platform for algorithmic trading. 20 sources fused per asset - prediction markets (Polymarket, Kalshi, Delphi, Manifold), funding rates, orderbook depth, options skew, cross-asset correlation. Every source has a Bayesian-shrunk hit rate against real outcomes; sources below 40% auto-kill. Fine-tuned model reads every new market and extracts direction, horizon, confidence (82.8% resolved accuracy). Autonomous multi-agent execution with STARK-attested settlement. Live demo vault on SUI mainnet.",
   "author": "ZkWard Team",
   "license": "Apache-2.0",
   "keywords": [
-    "sui",
-    "ai-agents",
+    "signal-intelligence",
+    "algorithmic-trading",
     "prediction-markets",
     "polymarket",
-    "defi",
-    "vault",
+    "kalshi",
+    "source-calibration",
+    "ai-signal-fusion",
+    "autonomous-execution",
     "zk-proofs",
-    "bluefin",
+    "sui",
     "web3"
   ],
   "repository": {

@@ -2,9 +2,11 @@
 
 # ZkWard
 
-**Multi-chain AI-managed stablecoin vault where seven agents allocate capital autonomously, pay for their own inference, and settle through cryptographic proofs.**
+**Signal intelligence platform for algorithmic trading. 20 sources fused per asset, every source scored against real outcomes, autonomous execution when the winners align.**
 
-Live on Sui mainnet since 2026-06-12 · Hedera-primary pivot shipped 2026-09-04 · **ETHGlobal Online submission**
+Prediction markets (Polymarket, Kalshi, Delphi, Manifold) + funding rates + orderbook depth + options skew + cross-asset correlation, aggregated per asset every 30 seconds. Bayesian-shrunk hit rate per source; sources below 40% auto-kill. Fine-tuned model reads every new market and extracts direction, horizon, confidence (82.8% resolved accuracy). Multi-agent safety guard + STARK-attested execution.
+
+Live demo vault on Sui mainnet since 2026-06-12 · Multi-chain execution surface · **ETHGlobal Online submission**
 
 [![Live](https://img.shields.io/badge/Live-www.zkward.com-brightgreen?style=flat-square)](https://www.zkward.com)
 [![Sui Mainnet](https://img.shields.io/badge/Sui-Mainnet%20Live-4ca3ff?style=flat-square)](https://suiscan.xyz/mainnet/object/0x107292a69eea2f6eaf4a4e4727ee25d747b04c1985441b138933f0ef33f7b726)
