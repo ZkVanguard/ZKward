@@ -11,125 +11,142 @@
     "rwa": "RWA",
     "story": "कथा",
     "faq": "प्रश्नोत्तर",
-    "enterApp": "एप खोल्नुहोस्"
+    "enterApp": "एप खोल्नुहोस्",
+    "signals": "Signals",
+    "sources": "Sources"
   },
   "landing": {
     "status": {
-      "liveOn": "प्रत्यक्ष",
+      "liveOn": "Live on",
       "hederaTestnet": "Hedera Testnet",
       "suiMainnet": "SUI Mainnet",
-      "member": "सदस्य",
-      "members": "सदस्यहरू"
+      "member": "member",
+      "members": "members"
     },
     "hero": {
-      "headline1": "रसिद दिने",
-      "headline2": "AI भल्ट।",
-      "subtitle": "USDC जम्मा गर्नुहोस्। सात एजेन्ट बहस गर्छन्, त्यसपछि व्यापार गर्छन्। हरेक हेज कसैले पनि on-chain प्रमाणित गर्न सक्ने क्रिप्टोग्राफिक प्रमाणसहित बन्द हुन्छ।"
+      "headline1": "20 signal sources.",
+      "headline2": "Ranked by track record.",
+      "subtitle": "Every prediction market, every funding rate, every on-chain signal — scored against real outcomes. Autonomous execution when the winners align."
+    },
+    "stats": {
+      "eyebrow": "Right now, in production",
+      "sources": {
+        "value": "20+",
+        "label": "signal sources fused per asset"
+      },
+      "accuracy": {
+        "value": "82.8%",
+        "label": "AI resolved accuracy on prediction market titles"
+      },
+      "mature": {
+        "value": "37",
+        "label": "sources with mature track records"
+      }
     },
     "vault": {
-      "poolNav": "पूल मूल्य",
-      "sharePrice": "प्रति शेयर",
-      "capacity": "क्षमता",
-      "capacityOf": "{cap} मध्ये {current}"
+      "poolNav": "Live capital",
+      "sharePrice": "Per share",
+      "capacity": "Capacity",
+      "capacityOf": "{current} of {cap}"
     },
     "cta": {
-      "depositUsdc": "USDC जम्मा गर्नुहोस्",
-      "howItWorks": "लुप हेर्नुहोस्",
-      "viewSource": "स्रोत हेर्नुहोस्",
-      "installApp": "एप स्थापना गर्नुहोस्",
-      "installIosHint": "स्थापना गर्न: Safari मा Share आइकनमा ट्याप गर्नुहोस्, तल स्क्रोल गर्नुहोस्, र \"Add to Home Screen\" मा ट्याप गर्नुहोस्।"
+      "depositUsdc": "See live signals",
+      "howItWorks": "How it works",
+      "viewSource": "View source",
+      "installApp": "Install app",
+      "installIosHint": "To install: tap the Share icon in Safari, scroll down, and tap \"Add to Home Screen\"."
     },
     "composition": {
-      "eyebrow": "अहिले",
-      "title": "तपाईंको USDC कहाँ बस्छ।",
-      "body": "AI ले प्रत्येक ३० मिनेटमा BTC, ETH र SUI बीच प्रत्यक्ष बजार संकेतहरूको आधारमा पुनर्संतुलन गर्छ। निष्क्रिय USDC लाई रक्षात्मक बकेटको रूपमा गनिन्छ। हरेक ३० सेकेन्डमा ताजा हुन्छ।"
+      "eyebrow": "Live signal",
+      "title": "What the aggregator says right now.",
+      "body": "20 sources fused per asset across BTC, ETH, SUI. Refreshes every 30 seconds."
     },
     "howItWorks": {
-      "eyebrow": "लुप",
-      "title": "तीनवटा चल्ने भाग। एउटै लुप।",
-      "body": "यो हरेक पाँच मिनेटमा, दिनभर, तपाईंविना नै चल्छ। तपाईं एक पटक जम्मा गर्नुहोस् र हेर्नुहोस्।",
+      "eyebrow": "The loop",
+      "title": "Aggregate. Score. Execute.",
+      "body": "Runs every five minutes. All day. Without you.",
       "step1": {
-        "title": "AI ले वातावरण पढ्छ",
-        "body": "दशवटा संकेत स्रोतहरू। Polymarket, Kalshi, Deribit vol, चारवटा venue बाट funding rates, मूल्य momentum। एउटै वितरण लक्ष्यमा मिसाइन्छ। पूँजी चल्नु अघि सातवटा एजेन्ट सहमत हुनुपर्छ।"
+        "title": "Fuse 20 sources per asset",
+        "body": "Polymarket, Kalshi, Delphi, Manifold, funding rates, orderbook depth, options skew, cross-asset correlation. Every tick, every asset."
       },
       "step2": {
-        "title": "पूल पुनर्संतुलित हुन्छ",
-        "body": "तपाईंको USDC on-chain मा BTC, ETH र SUI बीच साट्छ। Drift-आधारित। पूलले तब मात्र व्यापार गर्छ जब वितरण साँच्चै परिवर्तन हुन्छ। चर्नमा केही नष्ट हुँदैन।"
+        "title": "Score each source against real outcomes",
+        "body": "Bayesian-shrunk hit rate per source. Auto-kill below 40%. Weights winners up to 2×, killed sources drop to 0.05×."
       },
       "step3": {
-        "title": "हेज प्रमाणसहित उतर्छ",
-        "body": "मिल्दो BlueFin perpetual position ले जोखिम सन्तुलनमा राख्छ। हरेक खुल्ने र बन्द हुनेले चेनमा निर्णयको STARK प्रमाण लेख्छ। कसैले पनि प्रमाणित गर्न सक्छ। कसैले पनि नक्कल गर्न सक्दैन।"
+        "title": "Execute when winners align",
+        "body": "Multi-agent safety guard. Adaptive stops. Every trade STARK-attested and written on-chain. Verifiable. Unfakeable."
       }
     },
     "trust": {
-      "title": "रेलहरू सम्झौतामै लेखिएका छन्।",
-      "body": "हाम्रो वेबसाइटमा नीति होइन। हामी ध्यान दिने हो कि होइन, चेनले लागू गर्ने नियमहरू।",
+      "title": "Signal integrity, enforced by the code.",
+      "body": "Not a policy on our website. The pipeline itself refuses bad signals, bad venues, and stale data.",
       "poolCap": {
-        "title": "पूल क्याप",
-        "value": "$१०,०००",
-        "hint": "Move कन्ट्र्याक्टले लागू गर्छ। मार्केटिङ अंक होइन।"
+        "title": "Sources tracked",
+        "value": "111",
+        "hint": "Every source's hit rate accumulates against real outcomes."
       },
       "freshOracle": {
-        "title": "ताजा मूल्य",
-        "value": "बढीमा २ घण्टा",
-        "hint": "NAV प्रमाणीकरण दुई घण्टाभन्दा पुरानो भए जम्माहरू फर्किन्छन्।"
+        "title": "Signal freshness",
+        "value": "30s max",
+        "hint": "Aggregator refresh cadence per asset."
       },
       "withdrawThrottle": {
-        "title": "निकासी थ्रोटल",
-        "value": "२५% / दिन",
-        "hint": "एक खाताले पूल खाली गर्न सक्दैन। On-chain rate limit।"
+        "title": "Auto-kill floor",
+        "value": "40%",
+        "hint": "Sources below this hit rate drop to 0.05× weight."
       },
       "proofs": {
-        "title": "प्रमाणहरू, वाचा होइन",
-        "value": "पोस्ट-क्वान्टम",
-        "hint": "Goldilocks field मा STARK प्रमाणहरू। डिजाइनद्वारा क्वान्टम-सुरक्षित।"
+        "title": "Every trade attested",
+        "value": "Post-quantum",
+        "hint": "STARK on the Goldilocks field. 180-bit soundness."
       },
       "twoChains": {
-        "title": "दुई चेन, एक कोड",
-        "value": "Hedera + SUI",
-        "hint": "दुवैमा प्रत्यक्ष। SUI मुख्य हो। Hedera फलब्याक।"
+        "title": "Multi-venue execution",
+        "value": "SUI + EVM",
+        "hint": "Signal is chain-agnostic. Execution routes to the deepest venue."
       }
     },
     "surfaces": {
-      "eyebrow": "एक चक्कर लगाउनुहोस्",
-      "title": "ZKward को प्रत्येक कुनो सार्वजनिक छ।",
-      "body": "ड्यासबोर्ड, एजेन्टहरू, प्रमाणहरू, श्वेतपत्र, कथा। तपाईंको आफ्नै वालेट बाहेक लगइनपछि केही लुकाइएको छैन।",
+      "eyebrow": "Look around",
+      "title": "Every layer of ZKward is public.",
+      "body": "Signals, sources, trades, proofs. Nothing behind a login except your wallet.",
       "dashboard": {
-        "eyebrow": "ड्यासबोर्ड",
-        "title": "तपाईंको पूल, एउटै स्क्रिन।",
-        "body": "ब्यालेन्स, हेजहरू, drawdown, र प्रमाण फिड। हरेक मिनेटमा ताजा हुन्छ। तपाईंले देख्ने चेनले भन्ने कुरा हो।"
+        "eyebrow": "Dashboard",
+        "title": "Live capital, one screen.",
+        "body": "Balance, hedges, drawdown, proofs. Refreshed every minute."
       },
       "rwa": {
-        "eyebrow": "वास्तविक-संसारका सम्पत्तिहरू",
-        "title": "Off-chain सम्पत्ति। On-chain प्रमाण।",
-        "body": "Custodian हस्ताक्षरहरूले पोर्टफोलियोलाई वास्तविक सम्पत्तिसँग जोड्छन् जबकि होल्डिङ्स गोप्य राख्छन्। जारीकर्ता र संस्थाहरूका लागि निर्मित।"
+        "eyebrow": "Real-world assets",
+        "title": "Off-chain assets. On-chain proof.",
+        "body": "Custodian signatures bind portfolios to real assets. Holdings stay private."
       },
       "agents": {
-        "eyebrow": "सातवटा एजेन्ट",
-        "title": "सात विशेषज्ञ। एउटै लुप।",
-        "body": "Lead, Risk, Hedging, Settlement, Reporting, Price Monitor, SUI Pool। प्रत्येकको काम छ। ठूला व्यापारहरूलाई २-मध्ये-३ सहमत हुनुपर्छ।"
+        "eyebrow": "The seven agents",
+        "title": "Seven specialists. One loop.",
+        "body": "Lead, Risk, Hedging, Settlement, Reporting, Price Monitor, SUI Pool. Big trades need 2-of-3."
       },
       "zk": {
-        "eyebrow": "शून्य-ज्ञान प्रमाणहरू",
-        "title": "स्क्रिनसट होइन। गणित।",
-        "body": "पोस्ट-क्वान्टम STARK प्रमाणहरू, तपाईंको ब्राउजरमा प्रमाणयोग्य। १८०-बिट soundness। कुनै trusted setup छैन, कुनै elliptic curves छैन।"
+        "eyebrow": "Zero-knowledge proofs",
+        "title": "Not screenshots. Math.",
+        "body": "Post-quantum STARK proofs, verifiable in your browser. 180-bit soundness."
       },
       "story": {
-        "eyebrow": "हाम्रो कथा",
-        "title": "हामी यहाँ कसरी पुग्यौं।",
-        "body": "पाँच-मिनेटको पढाइ। न्यानो, इमानदार, र हो, हामीले पैसा गुमाउँदा हामी तपाईंलाई भन्छौं। त्यही मुख्य कुरा हो।"
+        "eyebrow": "Our story",
+        "title": "How we got here.",
+        "body": "A five-minute read. We tell you when we lose money, too."
       },
       "whitepaper": {
-        "eyebrow": "श्वेतपत्र",
-        "title": "प्राविधिक संस्करण।",
-        "body": "Prediction-market alpha, ७-एजेन्ट वास्तुकला, STARK-प्रमाणित कार्यान्वयन, roadmap, सन्दर्भहरू। कोठाका इन्जिनियरहरूका लागि।"
+        "eyebrow": "Whitepaper",
+        "title": "The technical version.",
+        "body": "20-source signal fusion, per-source calibration, AI-graded prediction market interpretation, STARK-attested execution."
       }
     },
     "finalCta": {
-      "title": "यसलाई चलिरहेको हेर्नुहोस्।",
-      "body": "वालेट जडान गर्नुहोस्, USDC जम्मा गर्नुहोस्, ट्याब बन्द गर्नुहोस्। बाँकी AI ले सम्हाल्छ।",
-      "alreadyIn": "{count} पहिले नै भित्र।",
-      "paused": "मर्मतका लागि जम्माहरू हाल रोकिएका छन्।"
+      "title": "See the signal stack running.",
+      "body": "Every source, every hit rate, every trade — public. Connect a wallet to deposit into the live demo vault.",
+      "alreadyIn": "{count} already in.",
+      "paused": "Deposits paused for maintenance."
     }
   },
   "agentsPage": {
