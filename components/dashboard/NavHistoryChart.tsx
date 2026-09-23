@@ -54,59 +54,9 @@ interface NavHistoryChartProps {
   chain?: 'sui' | 'hedera';
 }
 
-/** Query the @zkward/hedera-graphql-adapter navHistory resolver.
- *  Each row is an HCS-anchored NavSnapshot. Every data point has an
- *  hcsSeq that HashScan can verify independently. */
-async function fetchHederaHistoryViaAdapter(): Promise<NavHistoryResponse | null> {
-  const r = await fetch('/api/subgraph/hedera', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({
-      query: `{ navHistory(first: 100) { id timestamp totalNavUsd hcsSeq } pools { totalShares } }`,
-    }),
-  });
-  if (!r.ok) return null;
-  const j = (await r.json()) as {
-    data?: {
-      navHistory?: Array<{ id: string; timestamp: string; totalNavUsd: string; hcsSeq: number | null }>;
-      pools?: Array<{ totalShares: string }>;
-    };
-    errors?: Array<{ message: string }>;
-  };
-  if (j.errors?.length || !j.data?.navHistory?.length) return null;
-  // HCS topic accumulates NAV snapshots across BOTH the old V1 vault
-  // and the current V2 vault. Filter to points ≤10x current NAV (drops
-  // V1-era leftovers cleanly; V1 held ~$1000, V2 currently ~$70).
-  const currentNavUsd = Number(j.data.navHistory[0]?.totalNavUsd ?? 0) / 1e6;
-  const navCeiling = currentNavUsd > 0 ? currentNavUsd * 10 : Infinity;
-  // SimpleUsdcVaultV2 uses ERC-4626-lite virtual-offset math that keeps
-  // share price stable at $1.00 across deposits/withdrawals (no yield
-  // accrual on-chain). Dividing historical navUsd by CURRENT share count
-  // produced misleading "prices" that looked like a share-price dip
-  // when it was just historical NAV growth. Since the true share price
-  // never leaves $1.00 for this vault, render it as a flat line. This
-  // matches the actual on-chain invariant.
-  const points = j.data.navHistory
-    .slice()
-    .sort((a, b) => Number(a.timestamp) - Number(b.timestamp))
-    .filter((s) => (Number(s.totalNavUsd) / 1e6) <= navCeiling)
-    .map((s) => ({
-      t: new Date(Number(s.timestamp) * 1000).toISOString(),
-      navUsd: Number(s.totalNavUsd) / 1e6,
-      sharePrice: 1,
-    }));
-  const first = points[0];
-  const last = points[points.length - 1];
-  return {
-    asOf: new Date().toISOString(),
-    window: 'adapter',
-    count: points.length,
-    points,
-    first,
-    last,
-    peak: points.reduce((a, b) => (b.sharePrice > a.sharePrice ? b : a), first),
-  };
-}
+// Hedera adapter fetch removed 2026-09-23 — /api/subgraph/hedera backend
+// was retired in commit 5303af22 (ETHGlobal cleanup). Callers now use the
+// Mirror Node REST endpoint directly (fallback path was already present).
 
 export function NavHistoryChart({ chain = 'sui' }: NavHistoryChartProps = {}) {
   const [window, setWindow] = useState<typeof WINDOWS[number]>(WINDOWS[1]);
@@ -124,20 +74,10 @@ export function NavHistoryChart({ chain = 'sui' }: NavHistoryChartProps = {}) {
   const { data, isPending: loading, error } = useQuery({
     queryKey: ['nav-history', chain, window.value, window.bucket],
     queryFn: async (): Promise<NavHistoryResponse & { fallbackFrom?: 'sui'; sourcedFrom?: 'adapter' }> => {
-      // Hedera chain: try the adapter's navHistory GraphQL first. That's
-      // the HCS-anchored time-series where every point has an hcsSeq. Fall
-      // back to /api/hedera/nav-history (Mirror Node event replay) if the
-      // adapter has no data, then finally to SUI history for empty-state UX.
-      if (chain === 'hedera') {
-        try {
-          const viaAdapter = await fetchHederaHistoryViaAdapter();
-          if (viaAdapter && viaAdapter.points.length > 0) {
-            return { ...viaAdapter, sourcedFrom: 'adapter' as const };
-          }
-        } catch {
-          /* fall through to REST endpoint */
-        }
-      }
+      // Hedera chain uses Mirror Node event replay via
+      // /api/hedera/nav-history. Falls back to SUI history for empty-state
+      // UX if Mirror Node has nothing. (Previously the GraphQL adapter
+      // was tried first; that backend was retired in commit 5303af22.)
       const r = await fetch(primaryEndpoint);
       const primary = (await r.json()) as NavHistoryResponse;
       if (chain === 'hedera' && (!primary.points || primary.points.length === 0)) {

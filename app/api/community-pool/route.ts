@@ -365,38 +365,13 @@ export async function GET(request: NextRequest) {
       let leaderboardRaw: Array<{ walletAddress: string; shares: number }> = [];
       let source = 'none';
 
-      if (chainKey === 'hedera') {
-        // Adapter serves the ERC-4626-lite vault at share-price = 1, so
-        // shares field is already share balance in 6-decimal micros.
-        try {
-          const gqlRes = await fetch(`${origin}/api/subgraph/hedera`, {
-            method: 'POST',
-            headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({
-              query: `{ members(first: ${limit * 3}) { address currentShares totalDeposited } }`,
-            }),
-            // signal-only server-fetch — no auth header needed
-          });
-          const gql = (await gqlRes.json()) as {
-            data?: { members?: Array<{ address: string; currentShares: string; totalDeposited: string }> };
-          };
-          const members = (gql.data?.members ?? [])
-            .map((m) => ({
-              walletAddress: m.address,
-              shares: Number(m.currentShares) / 1e6,
-            }))
-            .filter((m) => m.shares > 0);
-          if (members.length > 0) {
-            leaderboardRaw = members;
-            source = 'hedera-adapter';
-          }
-        } catch { /* fall through to empty */ }
-      } else {
-        const onChainMembers = await getAllOnChainMembers(chainConfig);
-        if (onChainMembers && onChainMembers.length > 0) {
-          leaderboardRaw = onChainMembers.filter((m) => m.shares > 0);
-          source = 'onchain';
-        }
+      // Hedera adapter fetch removed 2026-09-23: /api/subgraph/hedera
+      // backend was retired in commit 5303af22 (ETHGlobal cleanup). All
+      // chains now use the on-chain members path.
+      const onChainMembers = await getAllOnChainMembers(chainConfig);
+      if (onChainMembers && onChainMembers.length > 0) {
+        leaderboardRaw = onChainMembers.filter((m) => m.shares > 0);
+        source = 'onchain';
       }
 
       if (leaderboardRaw.length === 0) {
