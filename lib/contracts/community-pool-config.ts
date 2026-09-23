@@ -261,6 +261,30 @@ export const POOL_CHAIN_CONFIGS: Record<string, PoolChainConfig> = {
     assets: ['BTC', 'ETH', 'SUI'],
     status: 'live',
   },
+
+  // Paper pool - shadow trader running the aggregator's signal stack at
+  // $100K notional. Not a chain, not deposit-able — it's a virtual pool
+  // that lives entirely in cron_state (paper-trader:*) and the hedges
+  // table (portfolio_id = -3). Selecting it in the chain picker renders
+  // the PaperPoolPanel instead of the on-chain pool UI. Status 'testing'
+  // makes PoolHeader's filter show it in the pill row.
+  paper: {
+    chainId: 'paper:shadow',
+    chainType: 'evm',
+    name: 'Paper Pool (signal stack)',
+    shortName: 'Paper',
+    icon: '🧪',
+    color: 'bg-purple-400',
+    nativeCurrency: { name: 'USDC', symbol: 'USDC', decimals: 6 },
+    rpcUrls: { testnet: '', mainnet: '' },
+    blockExplorer: { testnet: '', mainnet: '' },
+    contracts: {
+      testnet: { communityPool: '0x0000000000000000000000000000000000000000', usdt: '0x0000000000000000000000000000000000000000' },
+      mainnet: { communityPool: '0x0000000000000000000000000000000000000000', usdt: '0x0000000000000000000000000000000000000000' },
+    },
+    assets: ['BTC', 'ETH', 'SOL', 'XRP', 'DOGE'],
+    status: 'testing',
+  },
 };
 
 // ============================================

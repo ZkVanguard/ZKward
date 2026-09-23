@@ -58,7 +58,7 @@ export const PoolHeader = memo(function PoolHeader({
             Both share the same CommunityPool contract shape; picker just swaps
             the RPC + address the fetcher hits. */}
         <div className="flex items-center gap-2 bg-system-bg-grouped border border-separator-opaque/30 rounded-full px-2 py-1">
-          {(['sui', 'hedera'] as const)
+          {(['sui', 'hedera', 'paper'] as const)
             .map((key) => [key, POOL_CHAIN_CONFIGS[key]] as const)
             .filter(([, config]) => config && (config.status === 'live' || config.status === 'testing'))
             .map(([key, config]) => (

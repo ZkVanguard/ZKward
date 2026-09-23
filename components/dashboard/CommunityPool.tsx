@@ -42,7 +42,8 @@ import {
 } from './community-pool';
 import { PieChart, Shield, Users } from 'lucide-react';
 import { CommunityPoolSkeleton } from './community-pool/Skeletons';
-import { NavHistoryChart } from './NavHistoryChart'; // Lazy load heavy panels (only load when in viewport)
+import { NavHistoryChart } from './NavHistoryChart';
+import { PaperPoolPanel } from './PaperPoolPanel'; // Lazy load heavy panels (only load when in viewport)
 const RiskMetricsPanel = lazy(() =>
   import('./RiskMetricsPanel').then((mod) => ({ default: mod.RiskMetricsPanel }))
 );
@@ -294,6 +295,34 @@ export const CommunityPool = memo(function CommunityPool({
     rootMargin: '200px',
     freezeOnceVisible: true,
   });
+
+  // ============================================================================
+  // PAPER POOL SHORT-CIRCUIT
+  // ============================================================================
+  // Paper isn't a chain — it's a virtual pool backed by paper-trader:*
+  // cron_state + hedges (portfolio_id -3). Short-circuit BEFORE the loading
+  // gate so the on-chain fetchers never fire for this selection. Keeps the
+  // PoolHeader visible so users can switch back to Sui/Hedera.
+  if (pool.selectedChain === 'paper') {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="bg-white dark:bg-gray-800 rounded-2xl sm:rounded-xl shadow-lg overflow-hidden min-w-0 max-w-full"
+      >
+        <PoolHeader
+          selectedChain={pool.selectedChain}
+          onChainSelect={pool.handleChainSelect}
+          chainName="Paper Pool"
+          network="shadow"
+          poolDeployed
+        />
+        <div className="p-3 sm:p-6">
+          <PaperPoolPanel />
+        </div>
+      </motion.div>
+    );
+  }
 
   // ============================================================================
   // LOADING STATE (with optimized skeleton)
