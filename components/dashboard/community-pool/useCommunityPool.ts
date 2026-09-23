@@ -346,6 +346,15 @@ export function useCommunityPool(propAddress?: string) {
       if (!force && now - lastFetchRef.current < 5000) return;
       lastFetchRef.current = now;
 
+      // Paper is a virtual pool — its data lives in cron_state via
+      // /api/paper-trader/status, not in the multi-chain community-pool
+      // endpoint. Short-circuit the fetcher entirely (CommunityPool.tsx
+      // renders PaperPoolPanel which fetches from its own endpoint).
+      if (selectedChain === 'paper') {
+        dispatchPool({ type: 'SET_LOADING', payload: false });
+        return;
+      }
+
       if (selectedChain === 'sui') {
         const userAddress = suiAddress; // Only use SUI address for SUI chain
         try {

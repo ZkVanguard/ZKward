@@ -95,6 +95,19 @@ export async function GET(request: NextRequest) {
     );
   }
 
+  // Paper is a virtual pool — not backed by an on-chain contract. Its
+  // data lives in cron_state and is served by /api/paper-trader/status.
+  if (chainConfig.chainKey === 'paper') {
+    return NextResponse.json(
+      {
+        success: false,
+        error: 'Paper pool has no on-chain contract',
+        hint: 'Use /api/paper-trader/status for paper pool data',
+      },
+      { status: 400 }
+    );
+  }
+
   const chainKey = chainConfig.chainKey;
 
   try {
@@ -660,6 +673,19 @@ export async function POST(request: NextRequest) {
         success: false,
         error: 'SUI chain requires the SUI-specific API endpoint',
         hint: 'Use /api/sui/community-pool for SUI chain operations',
+      },
+      { status: 400 }
+    );
+  }
+
+  // Paper is a virtual pool — not backed by an on-chain contract. Its
+  // data lives in cron_state and is served by /api/paper-trader/status.
+  if (chainConfig.chainKey === 'paper') {
+    return NextResponse.json(
+      {
+        success: false,
+        error: 'Paper pool has no on-chain contract',
+        hint: 'Use /api/paper-trader/status for paper pool data',
       },
       { status: 400 }
     );
