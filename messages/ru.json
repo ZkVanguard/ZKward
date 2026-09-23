@@ -11,7 +11,9 @@
     "rwa": "RWA",
     "story": "История",
     "enterApp": "Открыть приложение",
-    "faq": "FAQ"
+    "faq": "FAQ",
+    "signals": "Signals",
+    "sources": "Sources"
   },
   "hero": {
     "eyebrow": "SUI Mainnet",
@@ -273,121 +275,136 @@
   },
   "landing": {
     "status": {
-      "liveOn": "В эфире на",
+      "liveOn": "Live on",
       "hederaTestnet": "Hedera Testnet",
       "suiMainnet": "SUI Mainnet",
-      "member": "участник",
-      "members": "участников"
+      "member": "member",
+      "members": "members"
     },
     "hero": {
-      "headline1": "ИИ-хранилище",
-      "headline2": "с квитанциями.",
-      "subtitle": "Внесите USDC. Семь агентов спорят, затем торгуют. Каждый хедж закрывается криптографическим доказательством, проверяемым on-chain."
+      "headline1": "20 signal sources.",
+      "headline2": "Ranked by track record.",
+      "subtitle": "Every prediction market, every funding rate, every on-chain signal — scored against real outcomes. Autonomous execution when the winners align."
+    },
+    "stats": {
+      "eyebrow": "Right now, in production",
+      "sources": {
+        "value": "20+",
+        "label": "signal sources fused per asset"
+      },
+      "accuracy": {
+        "value": "82.8%",
+        "label": "AI resolved accuracy on prediction market titles"
+      },
+      "mature": {
+        "value": "37",
+        "label": "sources with mature track records"
+      }
     },
     "vault": {
-      "poolNav": "Стоимость пула",
-      "sharePrice": "За долю",
-      "capacity": "Ёмкость",
-      "capacityOf": "{current} из {cap}"
+      "poolNav": "Live capital",
+      "sharePrice": "Per share",
+      "capacity": "Capacity",
+      "capacityOf": "{current} of {cap}"
     },
     "cta": {
-      "depositUsdc": "Внести USDC",
-      "howItWorks": "Посмотреть цикл",
-      "viewSource": "Посмотреть исходники",
-      "installApp": "Установить приложение",
-      "installIosHint": "Чтобы установить: нажмите значок «Поделиться» в Safari, прокрутите вниз и нажмите «На экран «Домой»»."
+      "depositUsdc": "See live signals",
+      "howItWorks": "How it works",
+      "viewSource": "View source",
+      "installApp": "Install app",
+      "installIosHint": "To install: tap the Share icon in Safari, scroll down, and tap \"Add to Home Screen\"."
     },
     "composition": {
-      "eyebrow": "Прямо сейчас",
-      "title": "Где живёт ваш USDC.",
-      "body": "ИИ ребалансирует каждые 30 минут между BTC, ETH и SUI на основе живых рыночных сигналов. Простой USDC считается защитным резервом. Обновление каждые 30 с."
+      "eyebrow": "Live signal",
+      "title": "What the aggregator says right now.",
+      "body": "20 sources fused per asset across BTC, ETH, SUI. Refreshes every 30 seconds."
     },
     "howItWorks": {
-      "eyebrow": "Цикл",
-      "title": "Три движущиеся части. Один цикл.",
-      "body": "Работает каждые пять минут, весь день, без вас. Внесли один раз — и наблюдаете.",
+      "eyebrow": "The loop",
+      "title": "Aggregate. Score. Execute.",
+      "body": "Runs every five minutes. All day. Without you.",
       "step1": {
-        "title": "ИИ читает обстановку",
-        "body": "Десять источников сигнала: Polymarket, Kalshi, волатильность Deribit, funding rate с четырёх площадок, ценовой моментум. Сливаются в одну цель распределения. Семь агентов должны согласиться до движения капитала."
+        "title": "Fuse 20 sources per asset",
+        "body": "Polymarket, Kalshi, Delphi, Manifold, funding rates, orderbook depth, options skew, cross-asset correlation. Every tick, every asset."
       },
       "step2": {
-        "title": "Пул ребалансируется",
-        "body": "Ваш USDC обменивается между BTC, ETH и SUI on-chain. На основе дрифта. Пул торгует только когда распределение действительно смещается. Ничего не тратится впустую."
+        "title": "Score each source against real outcomes",
+        "body": "Bayesian-shrunk hit rate per source. Auto-kill below 40%. Weights winners up to 2×, killed sources drop to 0.05×."
       },
       "step3": {
-        "title": "Хедж приземляется с доказательством",
-        "body": "Соответствующая перпетуальная позиция на BlueFin балансирует риск. Каждое открытие и закрытие записывает STARK-доказательство решения в цепь. Любой может проверить. Никто не подделает."
+        "title": "Execute when winners align",
+        "body": "Multi-agent safety guard. Adaptive stops. Every trade STARK-attested and written on-chain. Verifiable. Unfakeable."
       }
     },
     "trust": {
-      "title": "Ограждения вписаны в контракт.",
-      "body": "Не политика на нашем сайте. Правила, которые применяет цепь, обращаем мы внимание или нет.",
+      "title": "Signal integrity, enforced by the code.",
+      "body": "Not a policy on our website. The pipeline itself refuses bad signals, bad venues, and stale data.",
       "poolCap": {
-        "title": "Потолок пула",
-        "value": "$10 000",
-        "hint": "Обеспечено Move-контрактом. Не маркетинговое число."
+        "title": "Sources tracked",
+        "value": "111",
+        "hint": "Every source's hit rate accumulates against real outcomes."
       },
       "freshOracle": {
-        "title": "Свежая цена",
-        "value": "Максимум 2 ч",
-        "hint": "Депозиты откатываются, если аттестация NAV старше двух часов."
+        "title": "Signal freshness",
+        "value": "30s max",
+        "hint": "Aggregator refresh cadence per asset."
       },
       "withdrawThrottle": {
-        "title": "Троттлинг вывода",
-        "value": "25 % / день",
-        "hint": "Один аккаунт не может опустошить пул. Rate limit on-chain."
+        "title": "Auto-kill floor",
+        "value": "40%",
+        "hint": "Sources below this hit rate drop to 0.05× weight."
       },
       "proofs": {
-        "title": "Доказательства, не обещания",
-        "value": "Пост-квантовые",
-        "hint": "STARK-доказательства на поле Goldilocks. Квантово-устойчивы по замыслу."
+        "title": "Every trade attested",
+        "value": "Post-quantum",
+        "hint": "STARK on the Goldilocks field. 180-bit soundness."
       },
       "twoChains": {
-        "title": "Две цепи, один код",
-        "value": "Hedera + SUI",
-        "hint": "Живы на обеих. SUI — флагман. Hedera — резерв."
+        "title": "Multi-venue execution",
+        "value": "SUI + EVM",
+        "hint": "Signal is chain-agnostic. Execution routes to the deepest venue."
       }
     },
     "surfaces": {
-      "eyebrow": "Осмотритесь",
-      "title": "Каждый уголок ZKward — публичный.",
-      "body": "Дашборд, агенты, доказательства, whitepaper, история. Ничего не спрятано за логином, кроме вашего кошелька.",
+      "eyebrow": "Look around",
+      "title": "Every layer of ZKward is public.",
+      "body": "Signals, sources, trades, proofs. Nothing behind a login except your wallet.",
       "dashboard": {
-        "eyebrow": "Дашборд",
-        "title": "Ваш пул на одном экране.",
-        "body": "Баланс, хеджи, drawdown и лента доказательств. Обновляется каждую минуту. Что видите — то и говорит цепь."
+        "eyebrow": "Dashboard",
+        "title": "Live capital, one screen.",
+        "body": "Balance, hedges, drawdown, proofs. Refreshed every minute."
       },
       "rwa": {
-        "eyebrow": "Реальные активы",
-        "title": "Off-chain активы. On-chain доказательство.",
-        "body": "Подписи кастодиана привязывают портфели к реальным активам, сохраняя владение приватным. Сделано для эмитентов и институтов."
+        "eyebrow": "Real-world assets",
+        "title": "Off-chain assets. On-chain proof.",
+        "body": "Custodian signatures bind portfolios to real assets. Holdings stay private."
       },
       "agents": {
-        "eyebrow": "Семь агентов",
-        "title": "Семь специалистов. Один цикл.",
-        "body": "Lead, Risk, Hedging, Settlement, Reporting, Price Monitor, SUI Pool. У каждого своя роль. Крупные сделки требуют 2 из 3."
+        "eyebrow": "The seven agents",
+        "title": "Seven specialists. One loop.",
+        "body": "Lead, Risk, Hedging, Settlement, Reporting, Price Monitor, SUI Pool. Big trades need 2-of-3."
       },
       "zk": {
-        "eyebrow": "Доказательства с нулевым разглашением",
-        "title": "Не скриншоты. Математика.",
-        "body": "Пост-квантовые STARK-доказательства, проверяемые в браузере. Стойкость 180 бит. Без trusted setup, без эллиптических кривых."
+        "eyebrow": "Zero-knowledge proofs",
+        "title": "Not screenshots. Math.",
+        "body": "Post-quantum STARK proofs, verifiable in your browser. 180-bit soundness."
       },
       "story": {
-        "eyebrow": "Наша история",
-        "title": "Как мы сюда пришли.",
-        "body": "Пять минут чтения. Тёплая, честная и да, мы говорим, когда теряем деньги. В этом весь смысл."
+        "eyebrow": "Our story",
+        "title": "How we got here.",
+        "body": "A five-minute read. We tell you when we lose money, too."
       },
       "whitepaper": {
         "eyebrow": "Whitepaper",
-        "title": "Техническая версия.",
-        "body": "Alpha предсказательных рынков, архитектура на 7 агентов, STARK-заверенное исполнение, roadmap, ссылки. Для инженеров в зале."
+        "title": "The technical version.",
+        "body": "20-source signal fusion, per-source calibration, AI-graded prediction market interpretation, STARK-attested execution."
       }
     },
     "finalCta": {
-      "title": "Приходите посмотреть, как оно работает.",
-      "body": "Подключите кошелёк, внесите USDC, закройте вкладку. Дальше ИИ сам.",
-      "alreadyIn": "{count} уже внутри.",
-      "paused": "Депозиты приостановлены на техобслуживание."
+      "title": "See the signal stack running.",
+      "body": "Every source, every hit rate, every trade — public. Connect a wallet to deposit into the live demo vault.",
+      "alreadyIn": "{count} already in.",
+      "paused": "Deposits paused for maintenance."
     }
   },
   "agentsPage": {

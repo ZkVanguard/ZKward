@@ -11,7 +11,9 @@
     "rwa": "RWA",
     "story": "스토리",
     "enterApp": "앱 열기",
-    "faq": "FAQ"
+    "faq": "FAQ",
+    "signals": "Signals",
+    "sources": "Sources"
   },
   "hero": {
     "eyebrow": "SUI Mainnet",
@@ -273,121 +275,136 @@
   },
   "landing": {
     "status": {
-      "liveOn": "라이브:",
+      "liveOn": "Live on",
       "hederaTestnet": "Hedera Testnet",
       "suiMainnet": "SUI Mainnet",
-      "member": "멤버",
-      "members": "멤버"
+      "member": "member",
+      "members": "members"
     },
     "hero": {
-      "headline1": "영수증 있는",
-      "headline2": "AI 볼트.",
-      "subtitle": "USDC를 예치. 일곱 에이전트가 논쟁 후 거래. 모든 헤지는 누구나 온체인에서 검증 가능한 암호학적 증명으로 끝납니다."
+      "headline1": "20 signal sources.",
+      "headline2": "Ranked by track record.",
+      "subtitle": "Every prediction market, every funding rate, every on-chain signal — scored against real outcomes. Autonomous execution when the winners align."
+    },
+    "stats": {
+      "eyebrow": "Right now, in production",
+      "sources": {
+        "value": "20+",
+        "label": "signal sources fused per asset"
+      },
+      "accuracy": {
+        "value": "82.8%",
+        "label": "AI resolved accuracy on prediction market titles"
+      },
+      "mature": {
+        "value": "37",
+        "label": "sources with mature track records"
+      }
     },
     "vault": {
-      "poolNav": "풀 가치",
-      "sharePrice": "지분당",
-      "capacity": "용량",
-      "capacityOf": "{cap} 중 {current}"
+      "poolNav": "Live capital",
+      "sharePrice": "Per share",
+      "capacity": "Capacity",
+      "capacityOf": "{current} of {cap}"
     },
     "cta": {
-      "depositUsdc": "USDC 입금",
-      "howItWorks": "루프 보기",
-      "viewSource": "소스 보기",
-      "installApp": "앱 설치",
-      "installIosHint": "설치하려면: Safari에서 공유 아이콘을 탭하고, 아래로 스크롤한 뒤 '홈 화면에 추가'를 탭하세요."
+      "depositUsdc": "See live signals",
+      "howItWorks": "How it works",
+      "viewSource": "View source",
+      "installApp": "Install app",
+      "installIosHint": "To install: tap the Share icon in Safari, scroll down, and tap \"Add to Home Screen\"."
     },
     "composition": {
-      "eyebrow": "지금",
-      "title": "당신의 USDC가 있는 곳.",
-      "body": "AI는 실시간 시장 신호를 바탕으로 30분마다 BTC, ETH, SUI 사이에서 리밸런싱합니다. 유휴 USDC는 방어 버킷으로 계산됩니다. 30초마다 새로고침."
+      "eyebrow": "Live signal",
+      "title": "What the aggregator says right now.",
+      "body": "20 sources fused per asset across BTC, ETH, SUI. Refreshes every 30 seconds."
     },
     "howItWorks": {
-      "eyebrow": "루프",
-      "title": "움직이는 부품 셋. 루프 하나.",
-      "body": "당신 없이도 하루 종일 5분마다 돕니다. 한 번 입금하고 지켜보세요.",
+      "eyebrow": "The loop",
+      "title": "Aggregate. Score. Execute.",
+      "body": "Runs every five minutes. All day. Without you.",
       "step1": {
-        "title": "AI가 분위기를 읽는다",
-        "body": "10개의 신호 소스. Polymarket, Kalshi, Deribit 변동성, 4개 venue의 funding rate, 가격 모멘텀. 하나의 배분 목표로 융합. 자본이 움직이기 전에 7 에이전트가 동의해야 합니다."
+        "title": "Fuse 20 sources per asset",
+        "body": "Polymarket, Kalshi, Delphi, Manifold, funding rates, orderbook depth, options skew, cross-asset correlation. Every tick, every asset."
       },
       "step2": {
-        "title": "풀이 리밸런싱한다",
-        "body": "당신의 USDC는 온체인에서 BTC, ETH, SUI 사이로 스왑됩니다. drift 기반. 배분이 실제로 이동할 때만 거래합니다. churn에 낭비되지 않습니다."
+        "title": "Score each source against real outcomes",
+        "body": "Bayesian-shrunk hit rate per source. Auto-kill below 40%. Weights winners up to 2×, killed sources drop to 0.05×."
       },
       "step3": {
-        "title": "헤지는 증명과 함께 착지",
-        "body": "매칭되는 BlueFin 퍼페추얼 포지션이 위험을 균형 잡습니다. 모든 개폐마다 결정의 STARK 증명이 체인에 기록됩니다. 누구나 검증할 수 있고, 누구도 위조할 수 없습니다."
+        "title": "Execute when winners align",
+        "body": "Multi-agent safety guard. Adaptive stops. Every trade STARK-attested and written on-chain. Verifiable. Unfakeable."
       }
     },
     "trust": {
-      "title": "가드레일은 계약에 새겨져 있습니다.",
-      "body": "웹사이트의 정책이 아닙니다. 우리가 주의하든 말든 체인이 강제하는 규칙입니다.",
+      "title": "Signal integrity, enforced by the code.",
+      "body": "Not a policy on our website. The pipeline itself refuses bad signals, bad venues, and stale data.",
       "poolCap": {
-        "title": "풀 상한",
-        "value": "$10,000",
-        "hint": "Move 계약이 강제합니다. 마케팅 숫자가 아닙니다."
+        "title": "Sources tracked",
+        "value": "111",
+        "hint": "Every source's hit rate accumulates against real outcomes."
       },
       "freshOracle": {
-        "title": "신선한 가격",
-        "value": "최대 2시간",
-        "hint": "NAV 증명이 2시간보다 오래되면 입금이 되돌려집니다."
+        "title": "Signal freshness",
+        "value": "30s max",
+        "hint": "Aggregator refresh cadence per asset."
       },
       "withdrawThrottle": {
-        "title": "출금 제한",
-        "value": "하루 25%",
-        "hint": "단일 계정으로는 풀을 비울 수 없습니다. 온체인 레이트 제한."
+        "title": "Auto-kill floor",
+        "value": "40%",
+        "hint": "Sources below this hit rate drop to 0.05× weight."
       },
       "proofs": {
-        "title": "약속이 아닌 증명",
-        "value": "포스트 양자",
-        "hint": "Goldilocks 체 위 STARK 증명. 설계상 양자 내성."
+        "title": "Every trade attested",
+        "value": "Post-quantum",
+        "hint": "STARK on the Goldilocks field. 180-bit soundness."
       },
       "twoChains": {
-        "title": "두 체인, 한 코드",
-        "value": "Hedera + SUI",
-        "hint": "둘 다 라이브. SUI가 대표. Hedera가 백업."
+        "title": "Multi-venue execution",
+        "value": "SUI + EVM",
+        "hint": "Signal is chain-agnostic. Execution routes to the deepest venue."
       }
     },
     "surfaces": {
-      "eyebrow": "둘러보기",
-      "title": "ZKward의 모든 구석이 공개되어 있습니다.",
-      "body": "대시보드, 에이전트, 증명, 백서, 이야기. 자신의 지갑 외에는 로그인 뒤에 숨겨진 것이 없습니다.",
+      "eyebrow": "Look around",
+      "title": "Every layer of ZKward is public.",
+      "body": "Signals, sources, trades, proofs. Nothing behind a login except your wallet.",
       "dashboard": {
-        "eyebrow": "대시보드",
-        "title": "당신의 풀, 한 화면.",
-        "body": "잔고, 헤지, 드로다운, 증명 피드. 매분 새로고침. 보이는 것이 체인이 말하는 것입니다."
+        "eyebrow": "Dashboard",
+        "title": "Live capital, one screen.",
+        "body": "Balance, hedges, drawdown, proofs. Refreshed every minute."
       },
       "rwa": {
-        "eyebrow": "실물 자산",
-        "title": "오프체인 자산. 온체인 증명.",
-        "body": "수탁자 서명이 포트폴리오를 실제 자산에 묶으면서 보유는 비공개로 유지합니다. 발행자와 기관을 위해 구축."
+        "eyebrow": "Real-world assets",
+        "title": "Off-chain assets. On-chain proof.",
+        "body": "Custodian signatures bind portfolios to real assets. Holdings stay private."
       },
       "agents": {
-        "eyebrow": "일곱 에이전트",
-        "title": "일곱 전문가. 하나의 루프.",
-        "body": "Lead, Risk, Hedging, Settlement, Reporting, Price Monitor, SUI Pool. 각자 역할이 있습니다. 큰 거래는 2/3 합의가 필요합니다."
+        "eyebrow": "The seven agents",
+        "title": "Seven specialists. One loop.",
+        "body": "Lead, Risk, Hedging, Settlement, Reporting, Price Monitor, SUI Pool. Big trades need 2-of-3."
       },
       "zk": {
-        "eyebrow": "영지식 증명",
-        "title": "스크린샷이 아닙니다. 수학입니다.",
-        "body": "포스트 양자 STARK 증명, 브라우저에서 검증 가능. 180비트 견고성. 신뢰된 세팅 없음, 타원 곡선 없음."
+        "eyebrow": "Zero-knowledge proofs",
+        "title": "Not screenshots. Math.",
+        "body": "Post-quantum STARK proofs, verifiable in your browser. 180-bit soundness."
       },
       "story": {
-        "eyebrow": "우리 이야기",
-        "title": "여기까지 온 이야기.",
-        "body": "5분 읽기. 따뜻하고 정직하며, 그렇습니다, 돈을 잃을 때도 알려드립니다. 그게 요점입니다."
+        "eyebrow": "Our story",
+        "title": "How we got here.",
+        "body": "A five-minute read. We tell you when we lose money, too."
       },
       "whitepaper": {
-        "eyebrow": "백서",
-        "title": "기술 버전.",
-        "body": "예측 시장 alpha, 7 에이전트 아키텍처, STARK 인증 실행, 로드맵, 참고문헌. 이 방의 엔지니어들에게."
+        "eyebrow": "Whitepaper",
+        "title": "The technical version.",
+        "body": "20-source signal fusion, per-source calibration, AI-graded prediction market interpretation, STARK-attested execution."
       }
     },
     "finalCta": {
-      "title": "실제로 도는 걸 보러 오세요.",
-      "body": "지갑을 연결하고, USDC를 입금하고, 탭을 닫으세요. 나머지는 AI가 처리합니다.",
-      "alreadyIn": "이미 {count} 참여.",
-      "paused": "점검 중으로 입금이 일시 중단되었습니다."
+      "title": "See the signal stack running.",
+      "body": "Every source, every hit rate, every trade — public. Connect a wallet to deposit into the live demo vault.",
+      "alreadyIn": "{count} already in.",
+      "paused": "Deposits paused for maintenance."
     }
   },
   "agentsPage": {

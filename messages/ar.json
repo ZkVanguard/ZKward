@@ -11,7 +11,9 @@
     "rwa": "RWA",
     "story": "قصتنا",
     "enterApp": "افتح التطبيق",
-    "faq": "الأسئلة الشائعة"
+    "faq": "الأسئلة الشائعة",
+    "signals": "Signals",
+    "sources": "Sources"
   },
   "hero": {
     "eyebrow": "SUI Mainnet",
@@ -273,121 +275,136 @@
   },
   "landing": {
     "status": {
-      "liveOn": "مباشر على",
-      "hederaTestnet": "شبكة Hedera التجريبية",
-      "suiMainnet": "شبكة SUI الرئيسية",
-      "member": "عضو",
-      "members": "أعضاء"
+      "liveOn": "Live on",
+      "hederaTestnet": "Hedera Testnet",
+      "suiMainnet": "SUI Mainnet",
+      "member": "member",
+      "members": "members"
     },
     "hero": {
-      "headline1": "خزينة الذكاء الاصطناعي",
-      "headline2": "بإيصالات.",
-      "subtitle": "أودع USDC. سبعة وكلاء يتناقشون ثم يتداولون. كل تحوّط يُغلق بإثبات تشفيري يمكن للجميع التحقق منه على السلسلة."
+      "headline1": "20 signal sources.",
+      "headline2": "Ranked by track record.",
+      "subtitle": "Every prediction market, every funding rate, every on-chain signal — scored against real outcomes. Autonomous execution when the winners align."
+    },
+    "stats": {
+      "eyebrow": "Right now, in production",
+      "sources": {
+        "value": "20+",
+        "label": "signal sources fused per asset"
+      },
+      "accuracy": {
+        "value": "82.8%",
+        "label": "AI resolved accuracy on prediction market titles"
+      },
+      "mature": {
+        "value": "37",
+        "label": "sources with mature track records"
+      }
     },
     "vault": {
-      "poolNav": "قيمة المجمع",
-      "sharePrice": "لكل حصة",
-      "capacity": "السعة",
-      "capacityOf": "{current} من {cap}"
+      "poolNav": "Live capital",
+      "sharePrice": "Per share",
+      "capacity": "Capacity",
+      "capacityOf": "{current} of {cap}"
     },
     "cta": {
-      "depositUsdc": "إيداع USDC",
-      "howItWorks": "شاهد الحلقة",
-      "viewSource": "عرض المصدر",
-      "installApp": "تثبيت التطبيق",
-      "installIosHint": "للتثبيت: اضغط أيقونة المشاركة في Safari، مرّر للأسفل، ثم اضغط «إضافة إلى الشاشة الرئيسية»."
+      "depositUsdc": "See live signals",
+      "howItWorks": "How it works",
+      "viewSource": "View source",
+      "installApp": "Install app",
+      "installIosHint": "To install: tap the Share icon in Safari, scroll down, and tap \"Add to Home Screen\"."
     },
     "composition": {
-      "eyebrow": "الآن",
-      "title": "أين يعيش USDC الخاص بك.",
-      "body": "يُعيد الذكاء الاصطناعي التوازن كل 30 دقيقة بين BTC وETH وSUI بناءً على إشارات السوق المباشرة. يُحتسب USDC الخامل احتياطياً دفاعياً. يتم التحديث كل 30 ثانية."
+      "eyebrow": "Live signal",
+      "title": "What the aggregator says right now.",
+      "body": "20 sources fused per asset across BTC, ETH, SUI. Refreshes every 30 seconds."
     },
     "howItWorks": {
-      "eyebrow": "الحلقة",
-      "title": "ثلاثة أجزاء متحركة. حلقة واحدة.",
-      "body": "يعمل كل خمس دقائق، طوال اليوم، بدونك. تُودع مرة واحدة وتُشاهد.",
+      "eyebrow": "The loop",
+      "title": "Aggregate. Score. Execute.",
+      "body": "Runs every five minutes. All day. Without you.",
       "step1": {
-        "title": "الذكاء الاصطناعي يقرأ الأجواء",
-        "body": "عشرة مصادر إشارة: Polymarket وKalshi وتقلب Deribit ومعدلات التمويل من أربعة أماكن وزخم السعر. تُدمج في هدف تخصيص واحد. يجب أن يتفق سبعة وكلاء قبل تحرك رأس المال."
+        "title": "Fuse 20 sources per asset",
+        "body": "Polymarket, Kalshi, Delphi, Manifold, funding rates, orderbook depth, options skew, cross-asset correlation. Every tick, every asset."
       },
       "step2": {
-        "title": "المجمع يُعيد التوازن",
-        "body": "يُبادَل USDC الخاص بك بين BTC وETH وSUI على السلسلة. مبني على الانحراف. يتداول المجمع فقط عندما يتغير التوزيع فعلياً. لا هدر في الحركة."
+        "title": "Score each source against real outcomes",
+        "body": "Bayesian-shrunk hit rate per source. Auto-kill below 40%. Weights winners up to 2×, killed sources drop to 0.05×."
       },
       "step3": {
-        "title": "التحوط يهبط ومعه دليل",
-        "body": "مركز BlueFin الدائم المقابل يوازن المخاطرة. كل فتح وإغلاق يكتب دليل STARK للقرار على السلسلة. يمكن للجميع التحقق. ولا يمكن لأحد التزوير."
+        "title": "Execute when winners align",
+        "body": "Multi-agent safety guard. Adaptive stops. Every trade STARK-attested and written on-chain. Verifiable. Unfakeable."
       }
     },
     "trust": {
-      "title": "الحواجز مكتوبة في العقد.",
-      "body": "ليست سياسة على موقعنا. قواعد تفرضها السلسلة، سواء انتبهنا أم لا.",
+      "title": "Signal integrity, enforced by the code.",
+      "body": "Not a policy on our website. The pipeline itself refuses bad signals, bad venues, and stale data.",
       "poolCap": {
-        "title": "سقف المجمع",
-        "value": "10,000 دولار",
-        "hint": "يفرضه عقد Move. ليس رقماً تسويقياً."
+        "title": "Sources tracked",
+        "value": "111",
+        "hint": "Every source's hit rate accumulates against real outcomes."
       },
       "freshOracle": {
-        "title": "سعر طازج",
-        "value": "بحد أقصى ساعتان",
-        "hint": "تُلغى الإيداعات إذا كان تصديق NAV أقدم من ساعتين."
+        "title": "Signal freshness",
+        "value": "30s max",
+        "hint": "Aggregator refresh cadence per asset."
       },
       "withdrawThrottle": {
-        "title": "تقييد السحب",
-        "value": "25% / يوم",
-        "hint": "لا يستطيع حساب واحد إفراغ المجمع. حد المعدل على السلسلة."
+        "title": "Auto-kill floor",
+        "value": "40%",
+        "hint": "Sources below this hit rate drop to 0.05× weight."
       },
       "proofs": {
-        "title": "أدلة، لا وعود",
-        "value": "ما بعد كمومي",
-        "hint": "أدلة STARK على حقل Goldilocks. آمنة كمومياً بالتصميم."
+        "title": "Every trade attested",
+        "value": "Post-quantum",
+        "hint": "STARK on the Goldilocks field. 180-bit soundness."
       },
       "twoChains": {
-        "title": "سلسلتان، رمز واحد",
-        "value": "Hedera + SUI",
-        "hint": "مباشر على الاثنين. SUI هي الرئيسية. Hedera احتياط."
+        "title": "Multi-venue execution",
+        "value": "SUI + EVM",
+        "hint": "Signal is chain-agnostic. Execution routes to the deepest venue."
       }
     },
     "surfaces": {
-      "eyebrow": "ألقِ نظرة",
-      "title": "كل زاوية من ZKward علنية.",
-      "body": "لوحة التحكم، الوكلاء، الأدلة، الورقة البيضاء، القصة. لا شيء مخفي خلف تسجيل دخول باستثناء محفظتك.",
+      "eyebrow": "Look around",
+      "title": "Every layer of ZKward is public.",
+      "body": "Signals, sources, trades, proofs. Nothing behind a login except your wallet.",
       "dashboard": {
-        "eyebrow": "لوحة التحكم",
-        "title": "مجمعك في شاشة واحدة.",
-        "body": "الرصيد، التحوطات، السحب وموجز الأدلة. يتم التحديث كل دقيقة. ما تراه هو ما تقوله السلسلة."
+        "eyebrow": "Dashboard",
+        "title": "Live capital, one screen.",
+        "body": "Balance, hedges, drawdown, proofs. Refreshed every minute."
       },
       "rwa": {
-        "eyebrow": "الأصول الواقعية",
-        "title": "أصول خارج السلسلة. إثبات على السلسلة.",
-        "body": "توقيعات الحارس تربط المحافظ بالأصول الحقيقية مع إبقاء الحيازات خاصة. مبني للمصدرين والمؤسسات."
+        "eyebrow": "Real-world assets",
+        "title": "Off-chain assets. On-chain proof.",
+        "body": "Custodian signatures bind portfolios to real assets. Holdings stay private."
       },
       "agents": {
-        "eyebrow": "الوكلاء السبعة",
-        "title": "سبعة متخصصين. حلقة واحدة.",
-        "body": "Lead وRisk وHedging وSettlement وReporting وPrice Monitor وSUI Pool. لكلٍ دور. التداولات الكبيرة تحتاج تصويت 2 من 3."
+        "eyebrow": "The seven agents",
+        "title": "Seven specialists. One loop.",
+        "body": "Lead, Risk, Hedging, Settlement, Reporting, Price Monitor, SUI Pool. Big trades need 2-of-3."
       },
       "zk": {
-        "eyebrow": "أدلة المعرفة الصفرية",
-        "title": "ليست لقطات شاشة. رياضيات.",
-        "body": "أدلة STARK ما بعد كمومية، قابلة للتحقق في متصفحك. صلابة 180 بت. بدون trusted setup، بدون منحنيات إهليلجية."
+        "eyebrow": "Zero-knowledge proofs",
+        "title": "Not screenshots. Math.",
+        "body": "Post-quantum STARK proofs, verifiable in your browser. 180-bit soundness."
       },
       "story": {
-        "eyebrow": "قصتنا",
-        "title": "كيف وصلنا إلى هنا.",
-        "body": "قراءة خمس دقائق. دافئة وصادقة، ونعم، نخبرك عندما نخسر المال. هذا هو الهدف كله."
+        "eyebrow": "Our story",
+        "title": "How we got here.",
+        "body": "A five-minute read. We tell you when we lose money, too."
       },
       "whitepaper": {
-        "eyebrow": "الورقة البيضاء",
-        "title": "النسخة التقنية.",
-        "body": "ألفا أسواق التنبؤ، معمارية 7 وكلاء، تنفيذ مصادَق بـ STARK، خريطة الطريق، المراجع. للمهندسين في القاعة."
+        "eyebrow": "Whitepaper",
+        "title": "The technical version.",
+        "body": "20-source signal fusion, per-source calibration, AI-graded prediction market interpretation, STARK-attested execution."
       }
     },
     "finalCta": {
-      "title": "تعال شاهده يعمل.",
-      "body": "اربط محفظة، أودع USDC، أغلق التبويب. الذكاء الاصطناعي يتولى الباقي.",
-      "alreadyIn": "{count} بالفعل بالداخل.",
-      "paused": "الإيداعات متوقفة حالياً للصيانة."
+      "title": "See the signal stack running.",
+      "body": "Every source, every hit rate, every trade — public. Connect a wallet to deposit into the live demo vault.",
+      "alreadyIn": "{count} already in.",
+      "paused": "Deposits paused for maintenance."
     }
   },
   "agentsPage": {

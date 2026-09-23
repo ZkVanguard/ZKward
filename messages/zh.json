@@ -11,7 +11,9 @@
     "rwa": "RWA",
     "story": "故事",
     "enterApp": "打开应用",
-    "faq": "常见问题"
+    "faq": "常见问题",
+    "signals": "Signals",
+    "sources": "Sources"
   },
   "hero": {
     "eyebrow": "SUI Mainnet",
@@ -273,121 +275,136 @@
   },
   "landing": {
     "status": {
-      "liveOn": "已上线",
-      "hederaTestnet": "Hedera 测试网",
-      "suiMainnet": "SUI 主网",
-      "member": "成员",
-      "members": "成员"
+      "liveOn": "Live on",
+      "hederaTestnet": "Hedera Testnet",
+      "suiMainnet": "SUI Mainnet",
+      "member": "member",
+      "members": "members"
     },
     "hero": {
-      "headline1": "会出示回执的",
-      "headline2": "AI 金库。",
-      "subtitle": "存入 USDC。七个代理辩论后交易。每笔对冲以任何人都能链上验证的密码学证明结束。"
+      "headline1": "20 signal sources.",
+      "headline2": "Ranked by track record.",
+      "subtitle": "Every prediction market, every funding rate, every on-chain signal — scored against real outcomes. Autonomous execution when the winners align."
+    },
+    "stats": {
+      "eyebrow": "Right now, in production",
+      "sources": {
+        "value": "20+",
+        "label": "signal sources fused per asset"
+      },
+      "accuracy": {
+        "value": "82.8%",
+        "label": "AI resolved accuracy on prediction market titles"
+      },
+      "mature": {
+        "value": "37",
+        "label": "sources with mature track records"
+      }
     },
     "vault": {
-      "poolNav": "池子净值",
-      "sharePrice": "每份价格",
-      "capacity": "容量",
-      "capacityOf": "{current} / {cap}"
+      "poolNav": "Live capital",
+      "sharePrice": "Per share",
+      "capacity": "Capacity",
+      "capacityOf": "{current} of {cap}"
     },
     "cta": {
-      "depositUsdc": "存入 USDC",
-      "howItWorks": "看看循环",
-      "viewSource": "查看源码",
-      "installApp": "安装应用",
-      "installIosHint": "安装方法：在 Safari 中点击「分享」图标，向下滚动，点击「添加到主屏幕」。"
+      "depositUsdc": "See live signals",
+      "howItWorks": "How it works",
+      "viewSource": "View source",
+      "installApp": "Install app",
+      "installIosHint": "To install: tap the Share icon in Safari, scroll down, and tap \"Add to Home Screen\"."
     },
     "composition": {
-      "eyebrow": "此刻",
-      "title": "你的 USDC 在哪里。",
-      "body": "AI 根据实时市场信号，每 30 分钟在 BTC、ETH 和 SUI 之间再平衡。闲置的 USDC 作为防御性储备。每 30 秒刷新一次。"
+      "eyebrow": "Live signal",
+      "title": "What the aggregator says right now.",
+      "body": "20 sources fused per asset across BTC, ETH, SUI. Refreshes every 30 seconds."
     },
     "howItWorks": {
-      "eyebrow": "循环",
-      "title": "三个运转部件。一个闭环。",
-      "body": "全天每五分钟运行一次，无需你参与。存入一次，坐等即可。",
+      "eyebrow": "The loop",
+      "title": "Aggregate. Score. Execute.",
+      "body": "Runs every five minutes. All day. Without you.",
       "step1": {
-        "title": "AI 读懂市场氛围",
-        "body": "十个信号源：Polymarket、Kalshi、Deribit 波动率、四家场所的资金费率、价格动量。融合成一个统一的仓位目标。七个代理必须达成一致，资金才会动。"
+        "title": "Fuse 20 sources per asset",
+        "body": "Polymarket, Kalshi, Delphi, Manifold, funding rates, orderbook depth, options skew, cross-asset correlation. Every tick, every asset."
       },
       "step2": {
-        "title": "池子再平衡",
-        "body": "你的 USDC 在链上在 BTC、ETH、SUI 之间兑换。基于偏移。只有当配置真正变化时才交易。不为反复调整而浪费。"
+        "title": "Score each source against real outcomes",
+        "body": "Bayesian-shrunk hit rate per source. Auto-kill below 40%. Weights winners up to 2×, killed sources drop to 0.05×."
       },
       "step3": {
-        "title": "对冲落地伴随证明",
-        "body": "配对的 BlueFin 永续仓位平衡风险。每次开仓和平仓都会把决策的 STARK 证明写入链上。人人可验证。无人可伪造。"
+        "title": "Execute when winners align",
+        "body": "Multi-agent safety guard. Adaptive stops. Every trade STARK-attested and written on-chain. Verifiable. Unfakeable."
       }
     },
     "trust": {
-      "title": "护栏写进了合约里。",
-      "body": "不是网站上的一条政策。是链会强制执行的规则，无论我们是否留意。",
+      "title": "Signal integrity, enforced by the code.",
+      "body": "Not a policy on our website. The pipeline itself refuses bad signals, bad venues, and stale data.",
       "poolCap": {
-        "title": "池子上限",
-        "value": "10,000 美元",
-        "hint": "由 Move 合约强制执行。不是营销数字。"
+        "title": "Sources tracked",
+        "value": "111",
+        "hint": "Every source's hit rate accumulates against real outcomes."
       },
       "freshOracle": {
-        "title": "新鲜价格",
-        "value": "最长 2 小时",
-        "hint": "如果净值证明超过两小时，存款会被回退。"
+        "title": "Signal freshness",
+        "value": "30s max",
+        "hint": "Aggregator refresh cadence per asset."
       },
       "withdrawThrottle": {
-        "title": "提现节流",
-        "value": "每日 25%",
-        "hint": "单个账户无法抽干池子。链上限速。"
+        "title": "Auto-kill floor",
+        "value": "40%",
+        "hint": "Sources below this hit rate drop to 0.05× weight."
       },
       "proofs": {
-        "title": "证明，不是承诺",
-        "value": "抗量子",
-        "hint": "在 Goldilocks 域上的 STARK 证明。设计即抗量子。"
+        "title": "Every trade attested",
+        "value": "Post-quantum",
+        "hint": "STARK on the Goldilocks field. 180-bit soundness."
       },
       "twoChains": {
-        "title": "两条链，一份代码",
-        "value": "Hedera + SUI",
-        "hint": "两条链都在线上。SUI 是旗舰。Hedera 是备份。"
+        "title": "Multi-venue execution",
+        "value": "SUI + EVM",
+        "hint": "Signal is chain-agnostic. Execution routes to the deepest venue."
       }
     },
     "surfaces": {
-      "eyebrow": "四处看看",
-      "title": "ZKward 的每个角落都公开。",
-      "body": "仪表盘、代理、证明、白皮书、故事。除了你自己的钱包，没有任何东西藏在登录之后。",
+      "eyebrow": "Look around",
+      "title": "Every layer of ZKward is public.",
+      "body": "Signals, sources, trades, proofs. Nothing behind a login except your wallet.",
       "dashboard": {
-        "eyebrow": "仪表盘",
-        "title": "你的池子，一屏。",
-        "body": "余额、对冲、回撤和证明流。每分钟刷新。你看到的就是链上所说的。"
+        "eyebrow": "Dashboard",
+        "title": "Live capital, one screen.",
+        "body": "Balance, hedges, drawdown, proofs. Refreshed every minute."
       },
       "rwa": {
-        "eyebrow": "现实世界资产",
-        "title": "链下资产。链上证明。",
-        "body": "托管人签名将投资组合与真实资产绑定，同时保持持仓私密。为发行方和机构而建。"
+        "eyebrow": "Real-world assets",
+        "title": "Off-chain assets. On-chain proof.",
+        "body": "Custodian signatures bind portfolios to real assets. Holdings stay private."
       },
       "agents": {
-        "eyebrow": "七个代理",
-        "title": "七位专家。一个循环。",
-        "body": "Lead、Risk、Hedging、Settlement、Reporting、Price Monitor、SUI Pool。各司其职。大额交易需要 2/3 同意。"
+        "eyebrow": "The seven agents",
+        "title": "Seven specialists. One loop.",
+        "body": "Lead, Risk, Hedging, Settlement, Reporting, Price Monitor, SUI Pool. Big trades need 2-of-3."
       },
       "zk": {
-        "eyebrow": "零知识证明",
-        "title": "不是截图。是数学。",
-        "body": "抗量子 STARK 证明，可在浏览器中验证。180 位可靠性。无需可信设置，无椭圆曲线。"
+        "eyebrow": "Zero-knowledge proofs",
+        "title": "Not screenshots. Math.",
+        "body": "Post-quantum STARK proofs, verifiable in your browser. 180-bit soundness."
       },
       "story": {
-        "eyebrow": "我们的故事",
-        "title": "我们是怎么走到这里的。",
-        "body": "五分钟阅读。温暖、诚实，而且是的，我们赔钱时会告诉你。这才是重点。"
+        "eyebrow": "Our story",
+        "title": "How we got here.",
+        "body": "A five-minute read. We tell you when we lose money, too."
       },
       "whitepaper": {
-        "eyebrow": "白皮书",
-        "title": "技术版本。",
-        "body": "预测市场 alpha、7 代理架构、STARK 证明执行、路线图、参考。给房间里的工程师。"
+        "eyebrow": "Whitepaper",
+        "title": "The technical version.",
+        "body": "20-source signal fusion, per-source calibration, AI-graded prediction market interpretation, STARK-attested execution."
       }
     },
     "finalCta": {
-      "title": "来看它运行。",
-      "body": "连接钱包，存入 USDC，关闭标签页。剩下的交给 AI。",
-      "alreadyIn": "已有 {count} 加入。",
-      "paused": "维护期间存款暂停。"
+      "title": "See the signal stack running.",
+      "body": "Every source, every hit rate, every trade — public. Connect a wallet to deposit into the live demo vault.",
+      "alreadyIn": "{count} already in.",
+      "paused": "Deposits paused for maintenance."
     }
   },
   "agentsPage": {

@@ -11,7 +11,9 @@
     "rwa": "RWA",
     "story": "Histoire",
     "enterApp": "Ouvrir l'app",
-    "faq": "FAQ"
+    "faq": "FAQ",
+    "signals": "Signals",
+    "sources": "Sources"
   },
   "hero": {
     "eyebrow": "SUI Mainnet",
@@ -273,121 +275,136 @@
   },
   "landing": {
     "status": {
-      "liveOn": "En direct sur",
+      "liveOn": "Live on",
       "hederaTestnet": "Hedera Testnet",
       "suiMainnet": "SUI Mainnet",
-      "member": "membre",
-      "members": "membres"
+      "member": "member",
+      "members": "members"
     },
     "hero": {
-      "headline1": "Le coffre IA",
-      "headline2": "avec preuves.",
-      "subtitle": "Déposez des USDC. Sept agents débattent puis tradent. Chaque couverture se ferme avec une preuve cryptographique vérifiable on-chain."
+      "headline1": "20 signal sources.",
+      "headline2": "Ranked by track record.",
+      "subtitle": "Every prediction market, every funding rate, every on-chain signal — scored against real outcomes. Autonomous execution when the winners align."
+    },
+    "stats": {
+      "eyebrow": "Right now, in production",
+      "sources": {
+        "value": "20+",
+        "label": "signal sources fused per asset"
+      },
+      "accuracy": {
+        "value": "82.8%",
+        "label": "AI resolved accuracy on prediction market titles"
+      },
+      "mature": {
+        "value": "37",
+        "label": "sources with mature track records"
+      }
     },
     "vault": {
-      "poolNav": "Valeur du pool",
-      "sharePrice": "Par part",
-      "capacity": "Capacité",
-      "capacityOf": "{current} sur {cap}"
+      "poolNav": "Live capital",
+      "sharePrice": "Per share",
+      "capacity": "Capacity",
+      "capacityOf": "{current} of {cap}"
     },
     "cta": {
-      "depositUsdc": "Déposer des USDC",
-      "howItWorks": "Voir la boucle",
-      "viewSource": "Voir le code source",
-      "installApp": "Installer l'app",
-      "installIosHint": "Pour installer : touchez l'icône Partager dans Safari, faites défiler et touchez « Sur l'écran d'accueil »."
+      "depositUsdc": "See live signals",
+      "howItWorks": "How it works",
+      "viewSource": "View source",
+      "installApp": "Install app",
+      "installIosHint": "To install: tap the Share icon in Safari, scroll down, and tap \"Add to Home Screen\"."
     },
     "composition": {
-      "eyebrow": "En ce moment",
-      "title": "Où vivent vos USDC.",
-      "body": "L'IA rééquilibre toutes les 30 minutes entre BTC, ETH et SUI selon les signaux de marché en direct. Les USDC inactifs comptent comme réserve défensive. Rafraîchi toutes les 30 s."
+      "eyebrow": "Live signal",
+      "title": "What the aggregator says right now.",
+      "body": "20 sources fused per asset across BTC, ETH, SUI. Refreshes every 30 seconds."
     },
     "howItWorks": {
-      "eyebrow": "La boucle",
-      "title": "Trois pièces en mouvement. Une seule boucle.",
-      "body": "Ça tourne toutes les cinq minutes, toute la journée, sans vous. Vous déposez une fois et regardez.",
+      "eyebrow": "The loop",
+      "title": "Aggregate. Score. Execute.",
+      "body": "Runs every five minutes. All day. Without you.",
       "step1": {
-        "title": "L'IA lit la salle",
-        "body": "Dix sources de signal : Polymarket, Kalshi, volatilité Deribit, funding rates de quatre venues, momentum des prix. Fusionnées en une seule cible d'allocation. Sept agents doivent être d'accord avant tout mouvement de capital."
+        "title": "Fuse 20 sources per asset",
+        "body": "Polymarket, Kalshi, Delphi, Manifold, funding rates, orderbook depth, options skew, cross-asset correlation. Every tick, every asset."
       },
       "step2": {
-        "title": "Le pool se rééquilibre",
-        "body": "Vos USDC sont échangés entre BTC, ETH et SUI on-chain. Basé sur le drift. Le pool ne trade que quand l'allocation change vraiment. Rien de gaspillé en churn."
+        "title": "Score each source against real outcomes",
+        "body": "Bayesian-shrunk hit rate per source. Auto-kill below 40%. Weights winners up to 2×, killed sources drop to 0.05×."
       },
       "step3": {
-        "title": "Une couverture arrive avec sa preuve",
-        "body": "Une position perpétuelle BlueFin correspondante équilibre le risque. Chaque ouverture et fermeture écrit une preuve STARK de la décision sur la chaîne. N'importe qui peut la vérifier. Personne ne peut la falsifier."
+        "title": "Execute when winners align",
+        "body": "Multi-agent safety guard. Adaptive stops. Every trade STARK-attested and written on-chain. Verifiable. Unfakeable."
       }
     },
     "trust": {
-      "title": "Les garde-fous sont écrits dans le contrat.",
-      "body": "Pas une politique sur notre site. Des règles que la chaîne applique, qu'on soit attentifs ou non.",
+      "title": "Signal integrity, enforced by the code.",
+      "body": "Not a policy on our website. The pipeline itself refuses bad signals, bad venues, and stale data.",
       "poolCap": {
-        "title": "Plafond du pool",
-        "value": "10 000 $",
-        "hint": "Appliqué par le contrat Move. Pas un chiffre marketing."
+        "title": "Sources tracked",
+        "value": "111",
+        "hint": "Every source's hit rate accumulates against real outcomes."
       },
       "freshOracle": {
-        "title": "Prix frais",
-        "value": "Max 2 h",
-        "hint": "Les dépôts sont annulés si l'attestation NAV a plus de deux heures."
+        "title": "Signal freshness",
+        "value": "30s max",
+        "hint": "Aggregator refresh cadence per asset."
       },
       "withdrawThrottle": {
-        "title": "Limite de retrait",
-        "value": "25 % / jour",
-        "hint": "Un seul compte ne peut pas vider le pool. Rate limit on-chain."
+        "title": "Auto-kill floor",
+        "value": "40%",
+        "hint": "Sources below this hit rate drop to 0.05× weight."
       },
       "proofs": {
-        "title": "Des preuves, pas des promesses",
-        "value": "Post-quantique",
-        "hint": "Preuves STARK sur le corps Goldilocks. Sécurisées post-quantique par conception."
+        "title": "Every trade attested",
+        "value": "Post-quantum",
+        "hint": "STARK on the Goldilocks field. 180-bit soundness."
       },
       "twoChains": {
-        "title": "Deux chaînes, un code",
-        "value": "Hedera + SUI",
-        "hint": "En direct sur les deux. SUI est la principale. Hedera est la roue de secours."
+        "title": "Multi-venue execution",
+        "value": "SUI + EVM",
+        "hint": "Signal is chain-agnostic. Execution routes to the deepest venue."
       }
     },
     "surfaces": {
-      "eyebrow": "Jetez un œil",
-      "title": "Chaque recoin de ZKward est public.",
-      "body": "Le tableau de bord, les agents, les preuves, le whitepaper, l'histoire. Rien caché derrière un login sauf votre propre wallet.",
+      "eyebrow": "Look around",
+      "title": "Every layer of ZKward is public.",
+      "body": "Signals, sources, trades, proofs. Nothing behind a login except your wallet.",
       "dashboard": {
-        "eyebrow": "Tableau de bord",
-        "title": "Votre pool, un écran.",
-        "body": "Solde, couvertures, drawdown et le flux de preuves. Rafraîchi chaque minute. Ce que vous voyez, c'est ce que la chaîne dit."
+        "eyebrow": "Dashboard",
+        "title": "Live capital, one screen.",
+        "body": "Balance, hedges, drawdown, proofs. Refreshed every minute."
       },
       "rwa": {
-        "eyebrow": "Actifs du monde réel",
-        "title": "Actifs off-chain. Preuve on-chain.",
-        "body": "Les signatures de dépositaire lient les portefeuilles à des actifs réels tout en gardant les positions privées. Pensé pour émetteurs et institutions."
+        "eyebrow": "Real-world assets",
+        "title": "Off-chain assets. On-chain proof.",
+        "body": "Custodian signatures bind portfolios to real assets. Holdings stay private."
       },
       "agents": {
-        "eyebrow": "Les sept agents",
-        "title": "Sept spécialistes. Une boucle.",
-        "body": "Lead, Risk, Hedging, Settlement, Reporting, Price Monitor, SUI Pool. Chacun son rôle. Les gros trades exigent un 2 sur 3."
+        "eyebrow": "The seven agents",
+        "title": "Seven specialists. One loop.",
+        "body": "Lead, Risk, Hedging, Settlement, Reporting, Price Monitor, SUI Pool. Big trades need 2-of-3."
       },
       "zk": {
-        "eyebrow": "Preuves à divulgation nulle",
-        "title": "Pas des captures. Des maths.",
-        "body": "Preuves STARK post-quantiques, vérifiables dans votre navigateur. Solidité 180 bits. Pas de trusted setup, pas de courbes elliptiques."
+        "eyebrow": "Zero-knowledge proofs",
+        "title": "Not screenshots. Math.",
+        "body": "Post-quantum STARK proofs, verifiable in your browser. 180-bit soundness."
       },
       "story": {
-        "eyebrow": "Notre histoire",
-        "title": "Comment on est arrivés là.",
-        "body": "Cinq minutes de lecture. Chaleureuse, honnête et oui, on vous dit quand on perd de l'argent. C'est tout l'intérêt."
+        "eyebrow": "Our story",
+        "title": "How we got here.",
+        "body": "A five-minute read. We tell you when we lose money, too."
       },
       "whitepaper": {
         "eyebrow": "Whitepaper",
-        "title": "La version technique.",
-        "body": "Alpha des marchés de prédiction, architecture à 7 agents, exécution attestée par STARK, roadmap, références. Pour les ingénieurs de la salle."
+        "title": "The technical version.",
+        "body": "20-source signal fusion, per-source calibration, AI-graded prediction market interpretation, STARK-attested execution."
       }
     },
     "finalCta": {
-      "title": "Venez le voir tourner.",
-      "body": "Connectez un wallet, déposez des USDC, fermez l'onglet. L'IA prend le relais.",
-      "alreadyIn": "{count} déjà dedans.",
-      "paused": "Dépôts en pause pour maintenance."
+      "title": "See the signal stack running.",
+      "body": "Every source, every hit rate, every trade — public. Connect a wallet to deposit into the live demo vault.",
+      "alreadyIn": "{count} already in.",
+      "paused": "Deposits paused for maintenance."
     }
   },
   "agentsPage": {
