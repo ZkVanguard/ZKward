@@ -1,6 +1,6 @@
 [Unit]
 Description=ZKward cron worker — %i (generic Vercel cron replacement)
-Documentation=file:///opt/zkward-worker/services/cron-workers/README.md
+Documentation=file:///opt/zkward-worker/_ops/cron-workers/README.md
 After=network-online.target
 Wants=network-online.target
 

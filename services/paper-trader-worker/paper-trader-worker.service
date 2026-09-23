@@ -1,6 +1,6 @@
 [Unit]
 Description=ZKward paper trader tick (PaperTrader + PaperGatedTrader)
-Documentation=file:///opt/zkward-worker/README.md
+Documentation=file:///opt/zkward-worker/_ops/paper-trader-worker/README.md
 After=network-online.target
 Wants=network-online.target
 

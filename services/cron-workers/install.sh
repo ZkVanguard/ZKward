@@ -34,7 +34,7 @@ fail() { echo "[install] ERROR: $*" >&2; exit 1; }
 
 [ "$(id -u)" -eq 0 ] || fail "run with sudo"
 [ -d "$INSTALL_DIR" ] || fail "$INSTALL_DIR not found — run services/paper-trader-worker/install.sh first"
-[ -f "$INSTALL_DIR/.env" ] || fail "$INSTALL_DIR/.env not found — see services/cron-workers/README.md"
+[ -f "$INSTALL_DIR/.env" ] || fail "$INSTALL_DIR/.env not found — populate with DATABASE_URL + CRON_SECRET + per-cron keys"
 
 log "installing systemd template unit"
 install -m 644 "$INSTALL_DIR/services/cron-workers/zkward-cron@.service" "$SYSTEMD_DIR/"
@@ -67,4 +67,4 @@ log "  journalctl -t 'zkward-cron-*' -n 40 --no-pager"
 log ""
 log "IMPORTANT: disable the corresponding Vercel crons via jobs.zkward.com"
 log "before these timers fire, to avoid double-invocation. See:"
-log "  services/cron-workers/README.md § 'Prevent double-fire'"
+log "  local _ops/cron-workers/README.md for details"

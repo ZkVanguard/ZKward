@@ -1,6 +1,6 @@
 [Unit]
 Description=ZKward website (Next.js production server)
-Documentation=file:///opt/zkward-worker/services/zkward-web/README.md
+Documentation=file:///opt/zkward-worker/_ops/zkward-web/README.md
 After=network-online.target
 Wants=network-online.target
 # Wants (not Requires) the DB — the site can render some pages while

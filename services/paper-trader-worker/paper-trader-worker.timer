@@ -1,6 +1,6 @@
 [Unit]
 Description=Fire paper-trader tick every 5 min
-Documentation=file:///opt/zkward-worker/README.md
+Documentation=file:///opt/zkward-worker/_ops/paper-trader-worker/README.md
 Requires=paper-trader-worker.service
 
 [Timer]
