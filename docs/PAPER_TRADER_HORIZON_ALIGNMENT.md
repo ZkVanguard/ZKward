@@ -1,7 +1,20 @@
 # Paper Trader — Horizon Alignment Fix Plan
 
 **Date:** 2026-09-23
-**Status:** Phase 1 shipped (PR #240). Root-cause blocker (DATABASE_POOL_URL routing to dead Aiven) also fixed the same day — see "2026-09-23 root-cause find" below.
+**Status:** Phase 1 shipped (PR #240). Phase 2 shipped as env-only (`PAPER_TRADER_MAX_HOLD_MIN=240` in Vercel prod). Root-cause blocker (DATABASE_POOL_URL routing to dead Aiven) also fixed the same day — see "2026-09-23 root-cause find" below.
+
+## Phase 2 delivered
+
+Vercel prod env: `PAPER_TRADER_MAX_HOLD_MIN 45 → 240`, no code change (config.ts:48 already env-driven).
+
+Combined ceiling by trader:
+- **PaperTrader** (`sizing.ts:46`): `240 + bonusRatio × 90 min × regimeMult`. Weak signal CHOP = 180min. Strong signal TREND = up to 495min (~8h). Outer clamp 960min.
+- **PaperGatedTrader** (`PaperGatedTrader.ts:287`): flat `240 + (signalScalar - 0.4) × 45`. 240min weak → 312min strong. No regime scaling.
+
+Only new positions inherit the extended ceiling — `pos.maxHoldMin` snapshotted at open (PaperTrader.ts:386, :491, :745), so existing open positions keep their pre-deploy hold. Rollback single-var: `vercel env rm PAPER_TRADER_MAX_HOLD_MIN production && echo 45 | vercel env add PAPER_TRADER_MAX_HOLD_MIN production && vercel deploy --prod --yes`.
+
+**Attribution caveat:** Phase 1 real signal (AI weight × 3 via the DB fix) only started flowing to prod ~30 min before Phase 2 shipped. Any win-rate lift measured over the next 6–12h reflects BOTH changes — cannot cleanly attribute either alone. Acceptable trade-off since both were compounding losses.
+
 
 ## 2026-09-23 root-cause find (blocked all measurement)
 
