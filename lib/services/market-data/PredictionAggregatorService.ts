@@ -1021,14 +1021,26 @@ export class PredictionAggregatorService {
       // 3c) AI-labeled prediction-market interpretations. Fine-tuned model
       //     (see poly-discover-tick) reads each new broad market's title
       //     and extracts {asset, direction, horizon, confidence, novelty}.
-      //     Live: 82.8% accuracy on 29 resolved outcomes, avg confidence
-      //     0.87. Highest-quality signal source we have — was sitting
-      //     unwired until 2026-09-21. Weight scales with (confidence ×
-      //     novelty) so a 0.95-conf high-novelty market outranks a
-      //     0.71-conf duplicate-theme market.
-      const aiForAsset = aiInterpretationsByAsset[asset] ?? [];
+      //
+      //     Live: 81.3% accuracy on 48 resolved outcomes (measured
+      //     2026-09-23). Highest-quality signal source in the pool.
+      //
+      //     Two 2026-09-23 tunings (see docs/PAPER_TRADER_HORIZON_ALIGNMENT.md):
+      //     (a) Horizon filter — skip 'monthly' since paper closes trades
+      //         in ~30-90 min and 30-day predictions don't inform the tick
+      //         decision. Keep 'hourly', 'daily', and 'unknown' (default).
+      //     (b) Weight base 0.05 → 0.15 — AI has 3× the empirical accuracy
+      //         of the median prediction-market source (81% vs 50-53%);
+      //         give it 3× the weight so calibrator-boosted good AI
+      //         sources actually swing aggregate direction. Bad AI sources
+      //         (22-28% observed on some) still get calibrator-killed
+      //         at <40% via PR #233's KILL cutoff.
+      const usableHorizons = new Set(['hourly', 'daily', 'unknown']);
+      const aiForAsset = (aiInterpretationsByAsset[asset] ?? []).filter(
+        (interp) => !interp.horizon || usableHorizons.has(interp.horizon),
+      );
       for (const interp of aiForAsset.slice(0, 4)) {
-        const w = 0.05 * interp.confidence * (0.5 + interp.novelty * 0.5);
+        const w = 0.15 * interp.confidence * (0.5 + interp.novelty * 0.5);
         sources.push({
           name: `AI: ${interp.title.substring(0, 45)}…`,
           type: interp.horizon === 'hourly' || interp.horizon === 'unknown' ? 'short_term' : 'medium_term',
