@@ -1,0 +1,12 @@
+[Unit]
+Description=Fire alert-response-loop cron every 15 min
+Requires=zkward-cron@alert-response-loop.service
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=15min
+AccuracySec=30s
+Unit=zkward-cron@alert-response-loop.service
+
+[Install]
+WantedBy=timers.target

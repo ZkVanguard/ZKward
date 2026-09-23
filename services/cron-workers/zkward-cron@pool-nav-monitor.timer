@@ -1,0 +1,12 @@
+[Unit]
+Description=Fire pool-nav-monitor cron every 15 min
+Requires=zkward-cron@pool-nav-monitor.service
+
+[Timer]
+OnBootSec=6min
+OnUnitActiveSec=15min
+AccuracySec=30s
+Unit=zkward-cron@pool-nav-monitor.service
+
+[Install]
+WantedBy=timers.target

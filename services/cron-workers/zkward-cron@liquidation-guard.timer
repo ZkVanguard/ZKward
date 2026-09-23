@@ -1,0 +1,12 @@
+[Unit]
+Description=Fire liquidation-guard cron every 10 min
+Requires=zkward-cron@liquidation-guard.service
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=10min
+AccuracySec=30s
+Unit=zkward-cron@liquidation-guard.service
+
+[Install]
+WantedBy=timers.target

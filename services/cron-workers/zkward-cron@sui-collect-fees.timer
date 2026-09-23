@@ -1,0 +1,12 @@
+[Unit]
+Description=Fire sui-collect-fees cron daily at 12:00 UTC
+Requires=zkward-cron@sui-collect-fees.service
+
+[Timer]
+OnCalendar=*-*-* 12:00:00 UTC
+AccuracySec=1min
+Persistent=true
+Unit=zkward-cron@sui-collect-fees.service
+
+[Install]
+WantedBy=timers.target

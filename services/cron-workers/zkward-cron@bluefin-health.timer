@@ -1,0 +1,12 @@
+[Unit]
+Description=Fire bluefin-health cron every 5 min
+Requires=zkward-cron@bluefin-health.service
+
+[Timer]
+OnBootSec=90s
+OnUnitActiveSec=5min
+AccuracySec=15s
+Unit=zkward-cron@bluefin-health.service
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,12 @@
+[Unit]
+Description=Fire sui-community-pool cron every 30 min
+Requires=zkward-cron@sui-community-pool.service
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=30min
+AccuracySec=1min
+Unit=zkward-cron@sui-community-pool.service
+
+[Install]
+WantedBy=timers.target

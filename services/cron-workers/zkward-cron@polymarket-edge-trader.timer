@@ -1,0 +1,12 @@
+[Unit]
+Description=Fire polymarket-edge-trader cron every 5 min
+Requires=zkward-cron@polymarket-edge-trader.service
+
+[Timer]
+OnBootSec=1min
+OnUnitActiveSec=5min
+AccuracySec=15s
+Unit=zkward-cron@polymarket-edge-trader.service
+
+[Install]
+WantedBy=timers.target

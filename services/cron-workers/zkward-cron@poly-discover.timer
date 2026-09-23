@@ -1,0 +1,12 @@
+[Unit]
+Description=Fire poly-discover cron every 5 min
+Requires=zkward-cron@poly-discover.service
+
+[Timer]
+OnBootSec=3min
+OnUnitActiveSec=5min
+AccuracySec=15s
+Unit=zkward-cron@poly-discover.service
+
+[Install]
+WantedBy=timers.target

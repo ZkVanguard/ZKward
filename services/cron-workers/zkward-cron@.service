@@ -1,0 +1,28 @@
+[Unit]
+Description=ZKward cron worker — %i (generic Vercel cron replacement)
+Documentation=file:///opt/zkward-worker/services/cron-workers/README.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/zkward-worker
+EnvironmentFile=/opt/zkward-worker/.env
+# %i is the systemd instance name — passed as the cron name arg.
+# e.g. systemctl start zkward-cron@sui-community-pool.service
+ExecStart=/usr/local/bin/bun run scripts/vercel-cron-worker.ts %i
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=zkward-cron-%i
+# 5-min ceiling per tick. sui-community-pool + polymarket-edge-trader
+# can take 30-60s on a slow SUI RPC + BlueFin round-trip; 5min is safe.
+TimeoutStopSec=300
+User=zkward
+Group=zkward
+
+# Sandbox: same as paper-trader-worker.service.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/opt/zkward-worker
+ProtectHome=true

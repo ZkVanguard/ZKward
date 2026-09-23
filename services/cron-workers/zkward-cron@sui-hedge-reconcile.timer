@@ -1,0 +1,12 @@
+[Unit]
+Description=Fire sui-hedge-reconcile cron every hour
+Requires=zkward-cron@sui-hedge-reconcile.service
+
+[Timer]
+OnBootSec=3min
+OnUnitActiveSec=1h
+AccuracySec=1min
+Unit=zkward-cron@sui-hedge-reconcile.service
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,12 @@
+[Unit]
+Description=Fire agent-signal-tick cron every 2 min (signal-flip drift-close)
+Requires=zkward-cron@agent-signal-tick.service
+
+[Timer]
+OnBootSec=90s
+OnUnitActiveSec=2min
+AccuracySec=10s
+Unit=zkward-cron@agent-signal-tick.service
+
+[Install]
+WantedBy=timers.target
