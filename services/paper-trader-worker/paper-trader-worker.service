@@ -1,0 +1,25 @@
+[Unit]
+Description=ZKward paper trader tick (PaperTrader + PaperGatedTrader)
+Documentation=file:///opt/zkward-worker/README.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/zkward-worker
+EnvironmentFile=/opt/zkward-worker/.env
+ExecStart=/usr/local/bin/bun run scripts/paper-trader-worker.ts
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=zkward-paper-trader
+# Kill hard if a tick hangs past 90s. Normal ticks are 3-8s.
+TimeoutStopSec=90
+User=zkward
+Group=zkward
+
+# Sandbox: prevent the worker from touching anything but its own dir.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/opt/zkward-worker
+ProtectHome=true

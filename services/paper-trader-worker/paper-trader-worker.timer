@@ -1,0 +1,17 @@
+[Unit]
+Description=Fire paper-trader tick every 5 min
+Documentation=file:///opt/zkward-worker/README.md
+Requires=paper-trader-worker.service
+
+[Timer]
+# 5-min cadence matches the historical Vercel cron schedule. Adjust
+# with `sudo systemctl edit paper-trader-worker.timer` if you want
+# tighter/looser ticks. Faster than 2 min risks racing the aggregator's
+# 30s signal freshness; slower than 15 min loses signal alignment.
+OnBootSec=1min
+OnUnitActiveSec=5min
+AccuracySec=15s
+Unit=paper-trader-worker.service
+
+[Install]
+WantedBy=timers.target
