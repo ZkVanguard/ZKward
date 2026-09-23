@@ -535,37 +535,67 @@ export const SuiPoolLanding = memo(function SuiPoolLanding() {
           </h1>
 
           {/* Subtitle — plain-English promise; brand-forward for search. */}
-          <p className="text-center text-base sm:text-[19px] text-label-secondary max-w-[600px] mx-auto leading-relaxed mb-10 sm:mb-14 px-1">
+          <p className="text-center text-base sm:text-[19px] text-label-secondary max-w-[600px] mx-auto leading-relaxed mb-8 sm:mb-10 px-1">
             {t('hero.subtitle')}
           </p>
 
-          {/* ─── VAULT METER (signature element) ─── */}
-          {/* Shows the vault's live state as the hero's real visual, instead
-              of a text hero + stat cards. NAV + composition + capacity in one
-              card. This is "the product IS the pitch".
-              As the hero exits the viewport, the card rises + shadow deepens
-              via .vault-scroll-lift (native CSS scroll-driven animation,
-              zero JS, respects reduced-motion). */}
-          {/* .vault-tilt-scene → perspective(1200px) container for the
-              cursor-driven tilt. useCursorSpotlight is attached only to
-              THIS container (not the whole hero) so the card feels 3D
-              without a page-wide pointer-follow background glow. */}
-          <VaultTiltScene>
-            <VaultMeter
-              pool={pool}
-              loading={loading}
-              cap={TVL_CAP_USD}
-              labels={{
-                poolNav: t('vault.poolNav'),
-                sharePrice: t('vault.sharePrice'),
-                capacity: t('vault.capacity'),
-                capacityOf: (current, cap) =>
-                  t('vault.capacityOf', { current, cap }),
-              }}
-            />
-          </VaultTiltScene>
-          {/* CTAs */}
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 mb-6">
+          {/* ─── BIG-NUMBER STATS STRIP ─── */}
+          {/* Institutional-grade credibility band directly under the hero.
+              Three numbers that answer "why should I take this seriously?":
+              source count, AI accuracy, mature-source count. Feature-parity
+              with the leading enterprise DeFi presentation pattern.
+              Kept center-aligned + generous letter-spacing so the digits
+              read as monument, not marketing. */}
+          <div className="mx-auto max-w-[900px] mb-10 sm:mb-14">
+            <p className="text-center text-[11px] sm:text-caption-1 font-semibold uppercase tracking-wide text-label-tertiary mb-4 sm:mb-6">
+              {t('stats.eyebrow')}
+            </p>
+            <div className="grid grid-cols-3 gap-4 sm:gap-8">
+              {(['sources', 'accuracy', 'mature'] as const).map((k) => (
+                <div key={k} className="flex flex-col items-center text-center min-w-0">
+                  <div className="font-display text-[32px] sm:text-[48px] md:text-[56px] font-semibold tracking-[-0.03em] leading-none text-label-primary tabular-nums">
+                    {t(`stats.${k}.value`)}
+                  </div>
+                  <div className="mt-2 text-[11px] sm:text-caption-1 text-label-secondary max-w-[180px] leading-snug">
+                    {t(`stats.${k}.label`)}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* ─── READS FROM: data-source row ─── */}
+          {/* Text-only source strip — cleaner + no third-party logo
+              licensing risk. These are the REAL data providers the
+              aggregator consumes every tick; genuine social proof. */}
+          <div className="mx-auto max-w-[1000px] mb-12 sm:mb-16">
+            <p className="text-center text-[10px] sm:text-caption-2 font-semibold uppercase tracking-[0.14em] text-label-tertiary mb-3 sm:mb-4">
+              Reads from
+            </p>
+            <div className="flex flex-wrap items-center justify-center gap-x-5 sm:gap-x-8 gap-y-2 text-label-secondary font-medium text-[13px] sm:text-[15px] tracking-[-0.005em]">
+              <span>Polymarket</span>
+              <span className="text-label-quaternary">·</span>
+              <span>Kalshi</span>
+              <span className="text-label-quaternary">·</span>
+              <span>Delphi</span>
+              <span className="text-label-quaternary">·</span>
+              <span>Manifold</span>
+              <span className="text-label-quaternary">·</span>
+              <span>Binance</span>
+              <span className="text-label-quaternary">·</span>
+              <span>Bybit</span>
+              <span className="text-label-quaternary">·</span>
+              <span>Deribit</span>
+              <span className="text-label-quaternary">·</span>
+              <span>BlueFin</span>
+              <span className="text-label-quaternary">·</span>
+              <span>Crypto.com</span>
+            </div>
+          </div>
+
+          {/* CTAs — promoted to sit directly under the credibility strip
+              so the primary action follows the pitch, not the vault card. */}
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 mb-10 sm:mb-14">
             {/* Magnetic button-in-button (soft-skill pattern) — the
                 trailing arrow lives in its own nested circle instead of
                 sitting naked next to the label. On hover the entire
