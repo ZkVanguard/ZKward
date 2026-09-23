@@ -713,20 +713,18 @@ export class PaperTrader {
     // (a single +$11,794 trade in the window); the trailing-stop path
     // handles "let winners run, ratchet at give-back" without capping.
     //
-    // Vol-adaptive stop-loss at entry (was static 1.2% until 2026-09-22).
-    // Old comment claimed static was preferred for "tick-speed" but the
-    // Deribit vol fetch is ~200-400ms which fits the entry latency budget
-    // and the win: adaptive is regime-multiplied (0.75× in CHOP → tighter),
-    // vol-scaled (high-vol BTC gets tighter than low-vol XRP), and
-    // clamped to a safe floor. Backtest showed tight stops (0.2-0.3%
-    // vs static 1.2%) would have salvaged ~$50K of paper losses.
-    // Falls back to static on fetch error so entry never blocks on vol.
-    const { computeAdaptiveThresholds, _STATIC_STOP_LOSS_PCT } = await import('./adaptive-stops');
-    let stopFrac = _STATIC_STOP_LOSS_PCT;
-    try {
-      const entryThresholds = await computeAdaptiveThresholds(asset);
-      stopFrac = entryThresholds.stopLossPct;
-    } catch { /* fall back to static */ }
+    // Revert 2026-09-22: back to static 1.2% stop after adaptive-at-entry
+    // (PR #227) produced 4 stop-loss trades totalling -$173 (-$43 avg per
+    // hit) in live paper. Backtest sensitivity predicted salvage from
+    // tighter stops but used only FINAL close prices — intra-tick dips
+    // hit the tight stop then price recovered, converting held trades
+    // into forced losses. Loose static stop lets noise pass through;
+    // signal-flip + max-hold handle real exit decisions.
+    //
+    // Adaptive stop stays available for handleActive's trailing-arm
+    // computation where vol scaling still adds value.
+    const { _STATIC_STOP_LOSS_PCT } = await import('./adaptive-stops');
+    const stopFrac = _STATIC_STOP_LOSS_PCT;
     const stopLossPrice = side === 'LONG' ? markPrice * (1 - stopFrac) : markPrice * (1 + stopFrac);
 
     // Regime-scale the max-hold: CHOP shrinks 0.75× (~34min), TREND
