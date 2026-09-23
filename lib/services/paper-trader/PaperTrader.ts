@@ -337,12 +337,23 @@ export class PaperTrader {
     //    legacy path and clears KEY_POSITION on close — in concurrent mode
     //    we drop the entry from the array instead. Detect a close by the
     //    action string.
+    // Track whether ANY active position was still held after the loop
+    // so we can return "held" when handleEntry has nothing to open — a
+    // "skipped" tick shouldn't overwrite the fact that our existing
+    // positions are still working (unit test regression 2026-09-22).
+    let heldCount = 0;
     for (const entry of active) {
       const r = await PaperTrader.handleActive(entry.position, currentNav, now, entry.orderId);
       if (r.action === 'closed') {
         await removeActivePosition(entry.orderId);
         if (typeof r.nav === 'number') currentNav = r.nav;
         closesThisTick++;
+        lastActionResult = r;
+      } else if (r.action === 'held') {
+        heldCount++;
+        if (typeof r.nav === 'number') currentNav = r.nav;
+        // Preserve the most recent held result so we can return it when
+        // no open fires and no close happened this tick.
         lastActionResult = r;
       }
     }
@@ -364,10 +375,18 @@ export class PaperTrader {
       activeAssets: remaining.map((p) => p.position.asset),
       rejectionReason: (asset, side) => rejectionReason(asset, side, remaining),
     });
-    if (r.action === 'opened' || r.action === 'skipped') {
-      return r;
-    }
-    return closesThisTick > 0 ? lastActionResult : r;
+    // Precedence for the return value:
+    //   1. Just opened  → return the open result
+    //   2. A close happened this tick → return the last close
+    //   3. Existing position was held → return the held result (not the
+    //      "skipped: no edge above gates" from handleEntry, which is
+    //      informational about the entry attempt and drowns out the
+    //      more meaningful "your positions are working" signal)
+    //   4. Otherwise return handleEntry's skip
+    if (r.action === 'opened') return r;
+    if (closesThisTick > 0) return lastActionResult;
+    if (heldCount > 0) return lastActionResult;
+    return r;
   }
 
   private static async handleActive(
