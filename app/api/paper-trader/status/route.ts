@@ -32,6 +32,73 @@ import { PredictionAggregatorService } from '@/lib/services/market-data/Predicti
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
+interface BanditArm {
+  key: string;
+  wins: number;
+  trades: number;
+  totalRewardPct: number;
+  lastPulledAt: number;
+}
+interface SourceCal {
+  n: number;
+  wins: number;
+}
+
+/** Summarizes the learning subsystems for the dashboard paper-pool tab.
+ *  All reads are cron_state fetches — cheap, no external calls. */
+async function loadLearningSnapshot() {
+  try {
+    const bandit = (await getCronState<Record<string, BanditArm>>('paper-trader:bandit:arms')) ?? {};
+    const arms = Object.values(bandit)
+      .filter((a) => a && a.trades > 0)
+      .map((a) => ({
+        key: a.key,
+        wins: a.wins,
+        trades: a.trades,
+        winPct: a.trades > 0 ? (a.wins / a.trades) * 100 : 0,
+        avgRewardPct: a.trades > 0 ? (a.totalRewardPct / a.trades) * 100 : 0,
+      }))
+      .sort((a, b) => b.avgRewardPct - a.avgRewardPct);
+
+    // Source calibrator entries under trader:source-cal:{key}. Load in one
+    // query — the LIKE scan is bounded (~200 keys total across all sources).
+    const rows = await query<{ key: string; value: SourceCal }>(
+      `SELECT key, value FROM cron_state WHERE key LIKE 'trader:source-cal:%'`,
+    );
+    const sources = rows
+      .map((r) => {
+        const v = r.value as unknown as SourceCal;
+        const n = Number(v?.n ?? 0);
+        const wins = Number(v?.wins ?? 0);
+        return {
+          key: r.key.replace('trader:source-cal:', ''),
+          obs: n,
+          wins,
+          hitPct: n > 0 ? (wins / n) * 100 : 0,
+          killed: n >= 15 && wins / n < 0.4,
+        };
+      })
+      .filter((s) => s.obs >= 5)
+      .sort((a, b) => b.hitPct - a.hitPct);
+
+    return {
+      bandit: {
+        armCount: arms.length,
+        arms,
+      },
+      sources: {
+        total: sources.length,
+        killed: sources.filter((s) => s.killed).length,
+        top: sources.slice(0, 10),
+        bottom: [...sources].reverse().slice(0, 10),
+      },
+    };
+  } catch (e) {
+    logger.debug('[paper-trader/status] loadLearningSnapshot failed', { error: errMsg(e) });
+    return { bandit: { armCount: 0, arms: [] }, sources: { total: 0, killed: 0, top: [], bottom: [] } };
+  }
+}
+
 interface ClosedTradeRow {
   id: number;
   order_id: string;
@@ -217,6 +284,7 @@ export async function GET(_req: NextRequest): Promise<NextResponse> {
       perAsset,
       signals,
       navSeries: series ?? [],
+      learning: await loadLearningSnapshot(),
     });
   } catch (e) {
     logger.error('[paper-trader/status] failed', { error: errMsg(e) });

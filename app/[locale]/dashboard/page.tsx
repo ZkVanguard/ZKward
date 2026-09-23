@@ -20,6 +20,7 @@ import {
   MoreHorizontal,
   Coins,
   UserCog,
+  Beaker,
 } from 'lucide-react';
 import { MobileTabBar } from '@/components/dashboard/MobileTabBar';
 import { WalletAvatar } from '@/components/ui/WalletAvatar';
@@ -125,6 +126,15 @@ const FiveMinSignalWidget = nextDynamic(
   }
 );
 
+const PaperPoolPanel = nextDynamic(
+  () =>
+    import('@/components/dashboard/PaperPoolPanel').then((mod) => ({ default: mod.PaperPoolPanel })),
+  {
+    loading: () => <LoadingSkeleton />,
+    ssr: false,
+  }
+);
+
 const CommunityPool = nextDynamic(
   () =>
     import('@/components/dashboard/CommunityPool').then((mod) => ({ default: mod.CommunityPool })),
@@ -211,6 +221,7 @@ const navItems: NavItem[] = [
   { id: 'hedges', label: 'Hedges', icon: Shield },
   { id: 'agents', label: 'AI Agents', icon: Bot, badge: 'Live' },
   { id: 'insights', label: 'Insights', icon: TrendingUp },
+  { id: 'paper', label: 'Paper Pool', icon: Beaker, badge: 'Learning' },
 ];
 
 // Platform nav. Sub-tabs consolidated from former /dashboard/{portfolio,risk,
@@ -922,6 +933,9 @@ export default function DashboardPage() {
             assets={portfolioAssets}
           />
         );
+
+      case 'paper':
+        return <PaperPoolPanel />;
 
       case 'community':
         return (
