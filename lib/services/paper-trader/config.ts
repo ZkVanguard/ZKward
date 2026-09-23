@@ -77,11 +77,13 @@ export const PAPER_HALT_HOURS = Number(process.env.PAPER_TRADER_HALT_HOURS || 4)
  * risk that distorts win rates and PnL variance vs any realistic
  * mainnet deployment.
  *
- * Default 0.05 = 5% of NAV — matches the live trader's implicit
- * cap of $500 / ~\$10K vault = 5%. Env-tunable.
+ * Cut 5% → 3% (2026-09-22) after observed max-hold + stop-loss trades
+ * generated -$40 to -$62 per hit at 5%. Halving stake halves per-trade
+ * dollar loss magnitude while keeping the strategy exposure similar to
+ * a live $10K vault at ~3% stake ($300/trade).
  */
 export const PAPER_MAX_STAKE_PCT = Number(
-  process.env.PAPER_TRADER_MAX_STAKE_PCT || 0.05,
+  process.env.PAPER_TRADER_MAX_STAKE_PCT || 0.03,
 );
 
 /**
