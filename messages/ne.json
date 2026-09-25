@@ -116,26 +116,6 @@
         "title": "Live capital, one screen.",
         "body": "Balance, hedges, drawdown, proofs. Refreshed every minute."
       },
-      "rwa": {
-        "eyebrow": "Real-world assets",
-        "title": "Off-chain assets. On-chain proof.",
-        "body": "Custodian signatures bind portfolios to real assets. Holdings stay private."
-      },
-      "agents": {
-        "eyebrow": "The seven agents",
-        "title": "Seven specialists. One loop.",
-        "body": "Lead, Risk, Hedging, Settlement, Reporting, Price Monitor, SUI Pool. Big trades need 2-of-3."
-      },
-      "zk": {
-        "eyebrow": "Zero-knowledge proofs",
-        "title": "Not screenshots. Math.",
-        "body": "Post-quantum STARK proofs, verifiable in your browser. 180-bit soundness."
-      },
-      "story": {
-        "eyebrow": "Our story",
-        "title": "How we got here.",
-        "body": "A five-minute read. We tell you when we lose money, too."
-      },
       "whitepaper": {
         "eyebrow": "Whitepaper",
         "title": "The technical version.",
@@ -452,50 +432,6 @@
   "whitepaperMeta": {
     "title": "श्वेतपत्र",
     "description": "पूर्ण ZKward thesis: prediction-market alpha, ७-एजेन्ट वास्तुकला, STARK-प्रमाणित कार्यान्वयन, tokenomics, roadmap।"
-  },
-  "hero": {
-    "eyebrow": "SUI Mainnet मा प्रत्यक्ष",
-    "quantumProof": "Quantum-Proof",
-    "headline1": "एउटा भल्ट जसले",
-    "headline2": "आफ्नो काम देखाउँछ।",
-    "subtitle": "AI ले तपाईंको crypto व्यापार गर्छ। हामी गणित प्रकाशित गर्छौं। तपाईंले हामीलाई कहिल्यै विश्वास गर्नुपर्दैन।",
-    "ctaDashboard": "एप खोल्नुहोस्",
-    "ctaLearnMore": "कथा पढ्नुहोस्",
-    "ctaArrow": "→"
-  },
-  "features": {
-    "title": "यसलाई के फरक बनाउँछ",
-    "subtitle": "चारवटा कुरा जुन तपाईं एउटै ठाउँमा विरलै पाउनुहुन्छ।",
-    "zkProofs": {
-      "title": "प्रमाणहरू, वाचा होइन",
-      "description": "प्रत्येक हेज निर्णय क्रिप्टोग्राफिक रसिदसहित बन्द हुन्छ जुन कसैले पनि on-chain प्रमाणित गर्न सक्छ। स्क्रिनसट होइन। प्रमाण।"
-    },
-    "aiAgents": {
-      "title": "सातवटा AI विशेषज्ञहरू",
-      "description": "एउटा ठूलो मोडेल होइन। सातवटा साना एजेन्टहरू जो कुनै वास्तविक पैसा चल्नु अघि आपसमा तर्क गर्छन्। $१००K भन्दा माथिका व्यापारहरूलाई २-मध्ये-३ मत चाहिन्छ।"
-    },
-    "liveAnalytics": {
-      "title": "सार्वजनिक रसिदहरू",
-      "description": "प्रत्येक व्यापार, जित वा हार, ड्यासबोर्डमा छ। हामीले गत हप्ता $६८K गुमाउँदा, तपाईंले देख्नुभयो। त्यो सम्झौता हो।"
-    },
-    "quantumProof": {
-      "title": "पूर्वनिर्धारित रूपमा पोस्ट-क्वान्टम",
-      "description": "Goldilocks field मा STARK प्रमाणहरू। कुनै elliptic curves छैन। भविष्यको क्वान्टम कम्प्युटरले भाँच्ने कुनै कुरा छैन।"
-    }
-  },
-  "stats": {
-    "aiAgents": "AI एजेन्टहरू",
-    "gasSavings": "Sub-cent gas",
-    "zkProofs": "प्रति हेज प्रमाणहरू",
-    "responseTime": "संकेत देखि कार्यान्वयन",
-    "batchingNote": "आज SUI Mainnet मा चलिरहेको",
-    "chainsSupported": "समर्थित चेनहरू"
-  },
-  "cta": {
-    "title": "जानाजानी सानो। जानाजानी वास्तविक।",
-    "subtitle": "पूल कन्ट्र्याक्टद्वारा $१०,००० मा क्याप गरिएको छ। स्केल गर्नुअघि यो काम गर्छ भन्ने प्रमाणित गर्न चाहेका थियौं। ढिलो नै मुख्य कुरा हो।",
-    "button": "एप खोल्नुहोस्",
-    "learnMore": "श्वेतपत्र पढ्नुहोस्"
   },
   "footer": {
     "product": "उत्पादन",

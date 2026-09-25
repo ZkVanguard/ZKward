@@ -15,50 +15,6 @@
     "signals": "Signals",
     "sources": "Sources"
   },
-  "hero": {
-    "eyebrow": "SUI Mainnet",
-    "quantumProof": "量子防护",
-    "headline1": "您的投资组合。",
-    "headline2": "受保护。",
-    "subtitle": "AI代理管理风险。零知识证明保护隐私。",
-    "ctaDashboard": "启动仪表板",
-    "ctaLearnMore": "了解更多",
-    "ctaArrow": "→"
-  },
-  "features": {
-    "title": "高级保护",
-    "subtitle": "企业级安全与自主智能相结合",
-    "zkProofs": {
-      "title": "ZK-STARK证明",
-      "description": "后量子安全与透明证明，无需可信设置"
-    },
-    "aiAgents": {
-      "title": "AI代理",
-      "description": "24/7自主风险管理与智能对冲触发器"
-    },
-    "liveAnalytics": {
-      "title": "实时分析",
-      "description": "实时投资组合跟踪与预测风险评分"
-    },
-    "quantumProof": {
-      "title": "量子安全",
-      "description": "使用BLS12-381曲线的后量子密码学就绪"
-    }
-  },
-  "stats": {
-    "aiAgents": "AI代理",
-    "gasSavings": "Gas费节省",
-    "zkProofs": "ZK证明",
-    "responseTime": "响应时间",
-    "batchingNote": "SUI主网上的AI交易代理",
-    "chainsSupported": "支持的链"
-  },
-  "cta": {
-    "title": "准备好保护您的资产了吗？",
-    "subtitle": "加入数千名使用AI驱动风险管理和ZK-STARK隐私的投资者。",
-    "button": "启动仪表板",
-    "learnMore": "了解更多安全信息"
-  },
   "footer": {
     "product": "产品",
     "platform": "平台",
@@ -373,26 +329,6 @@
         "eyebrow": "Dashboard",
         "title": "Live capital, one screen.",
         "body": "Balance, hedges, drawdown, proofs. Refreshed every minute."
-      },
-      "rwa": {
-        "eyebrow": "Real-world assets",
-        "title": "Off-chain assets. On-chain proof.",
-        "body": "Custodian signatures bind portfolios to real assets. Holdings stay private."
-      },
-      "agents": {
-        "eyebrow": "The seven agents",
-        "title": "Seven specialists. One loop.",
-        "body": "Lead, Risk, Hedging, Settlement, Reporting, Price Monitor, SUI Pool. Big trades need 2-of-3."
-      },
-      "zk": {
-        "eyebrow": "Zero-knowledge proofs",
-        "title": "Not screenshots. Math.",
-        "body": "Post-quantum STARK proofs, verifiable in your browser. 180-bit soundness."
-      },
-      "story": {
-        "eyebrow": "Our story",
-        "title": "How we got here.",
-        "body": "A five-minute read. We tell you when we lose money, too."
       },
       "whitepaper": {
         "eyebrow": "Whitepaper",
