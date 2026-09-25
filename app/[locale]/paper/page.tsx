@@ -107,7 +107,7 @@ export default function PaperTraderPage() {
 
   async function load() {
     try {
-      const r = await fetch('/api/paper-trader/status', { cache: 'no-store' });
+      const r = await fetch('/api/paper-trader/status');
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       const j = (await r.json()) as Status;
       setStatus(j);
@@ -135,8 +135,8 @@ export default function PaperTraderPage() {
         {
           label: 'Paper NAV',
           data: series.map((p) => p.nav),
-          borderColor: 'rgb(59, 130, 246)',
-          backgroundColor: 'rgba(59, 130, 246, 0.1)',
+          borderColor: '#0069D9',
+          backgroundColor: 'rgba(0, 105, 217, 0.08)',
           fill: true,
           tension: 0.2,
           pointRadius: 0,
@@ -144,7 +144,7 @@ export default function PaperTraderPage() {
         {
           label: `Buy-hold baseline ($${status.config.startingNavUsd.toLocaleString()})`,
           data: series.map(() => status.config.startingNavUsd),
-          borderColor: 'rgb(156, 163, 175)',
+          borderColor: '#86868B',
           borderDash: [6, 4],
           fill: false,
           pointRadius: 0,
@@ -155,18 +155,27 @@ export default function PaperTraderPage() {
 
   if (loading && !status) {
     return (
-      <div className="min-h-screen bg-black text-white p-8">
-        <div className="max-w-6xl mx-auto">Loading paper-trader status…</div>
+      <div className="min-h-screen bg-system-bg-primary text-label-primary pt-20 sm:pt-24 px-4 sm:px-6 md:px-8 pb-16">
+        <div className="max-w-6xl mx-auto space-y-6 animate-pulse">
+          <div className="h-10 w-2/3 bg-system-bg-secondary rounded-ios" />
+          <div className="h-4 w-full bg-system-bg-secondary rounded-ios" />
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            {[0,1,2,3].map(i => (
+              <div key={i} className="h-28 bg-system-bg-secondary rounded-ios-xl border border-separator-opaque/30" />
+            ))}
+          </div>
+          <div className="h-72 bg-system-bg-secondary rounded-ios-xl border border-separator-opaque/30" />
+        </div>
       </div>
     );
   }
 
   if (error && !status) {
     return (
-      <div className="min-h-screen bg-black text-white p-8">
+      <div className="min-h-screen bg-system-bg-primary text-label-primary pt-20 sm:pt-24 px-4 sm:px-6 md:px-8 pb-16">
         <div className="max-w-6xl mx-auto">
           <h1 className="text-2xl mb-4">Signal Stack in Production</h1>
-          <div className="text-red-400">Failed to load: {error}</div>
+          <div className="text-red-700">Failed to load: {error}</div>
         </div>
       </div>
     );
@@ -174,20 +183,20 @@ export default function PaperTraderPage() {
 
   if (!status) return null;
 
-  const returnColor = status.nav.cumReturnPct >= 0 ? 'text-green-400' : 'text-red-400';
+  const returnColor = status.nav.cumReturnPct >= 0 ? 'text-green-700' : 'text-red-700';
 
   return (
-    <div className="min-h-screen bg-black text-white p-4 md:p-8">
+    <div className="min-h-screen bg-system-bg-primary text-label-primary pt-20 sm:pt-24 px-4 sm:px-6 md:px-8 pb-16">
       <div className="max-w-6xl mx-auto space-y-6">
         <header>
-          <h1 className="text-3xl md:text-4xl font-bold">Signal Stack in Production</h1>
-          <p className="text-gray-400 mt-1">
+          <h1 className="text-[28px] sm:text-[34px] md:text-[42px] font-display font-semibold tracking-[-0.03em] leading-[1.1] text-label-primary">Signal Stack in Production</h1>
+          <p className="text-label-secondary mt-1">
             Live shadow-execution of the aggregator&apos;s output. 20 sources per asset, per-source
             hit-rate-weighted, autonomous entry + exit with adaptive stops. Mark-price fills, 13&nbsp;bp
             round-trip + 11% APR funding modeled. Answers: does the signal stack have edge net of
             fees at $100k?
           </p>
-          <p className="text-xs text-gray-500 mt-2">
+          <p className="text-xs text-label-tertiary mt-2">
             Last tick: {status.lastTickAt ? new Date(status.lastTickAt).toLocaleString() : 'never'}
             &nbsp;·&nbsp; Chain: {status.config.chain}
             &nbsp;·&nbsp; Universe: {status.config.universe.join(', ')}
@@ -196,32 +205,32 @@ export default function PaperTraderPage() {
 
         {/* Top-line NAV */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="bg-gray-900 rounded-lg p-4">
-            <div className="text-xs text-gray-400 uppercase">Current NAV</div>
+          <div className="bg-system-bg-secondary rounded-ios-xl p-4 sm:p-5 border border-separator-opaque/30">
+            <div className="text-xs text-label-secondary uppercase">Current NAV</div>
             <div className="text-2xl font-bold mt-1">{fmtUsd(status.nav.currentUsd)}</div>
             <div className={`text-sm mt-1 ${returnColor}`}>{fmtPct(status.nav.cumReturnPct)}</div>
           </div>
-          <div className="bg-gray-900 rounded-lg p-4">
-            <div className="text-xs text-gray-400 uppercase">vs Buy-hold</div>
+          <div className="bg-system-bg-secondary rounded-ios-xl p-4 sm:p-5 border border-separator-opaque/30">
+            <div className="text-xs text-label-secondary uppercase">vs Buy-hold</div>
             <div className="text-2xl font-bold mt-1">
               {fmtUsd(status.nav.currentUsd - status.config.startingNavUsd)}
             </div>
-            <div className="text-sm mt-1 text-gray-400">
+            <div className="text-sm mt-1 text-label-secondary">
               baseline {fmtUsd(status.config.startingNavUsd)}
             </div>
           </div>
-          <div className="bg-gray-900 rounded-lg p-4">
-            <div className="text-xs text-gray-400 uppercase">Trades</div>
+          <div className="bg-system-bg-secondary rounded-ios-xl p-4 sm:p-5 border border-separator-opaque/30">
+            <div className="text-xs text-label-secondary uppercase">Trades</div>
             <div className="text-2xl font-bold mt-1">{status.stats.trades}</div>
-            <div className="text-sm mt-1 text-gray-400">
+            <div className="text-sm mt-1 text-label-secondary">
               {status.stats.wins}W / {status.stats.losses}L
               {status.stats.trades > 0 && ` · ${status.stats.winRatePct.toFixed(0)}%`}
             </div>
           </div>
-          <div className="bg-gray-900 rounded-lg p-4">
-            <div className="text-xs text-gray-400 uppercase">Peak NAV</div>
+          <div className="bg-system-bg-secondary rounded-ios-xl p-4 sm:p-5 border border-separator-opaque/30">
+            <div className="text-xs text-label-secondary uppercase">Peak NAV</div>
             <div className="text-2xl font-bold mt-1">{fmtUsd(status.nav.peakUsd)}</div>
-            <div className="text-sm mt-1 text-orange-400">
+            <div className="text-sm mt-1 text-orange-700">
               {status.nav.drawdownFromPeakPct > 0.1
                 ? `-${status.nav.drawdownFromPeakPct.toFixed(1)}% dd`
                 : 'at peak'}
@@ -231,7 +240,7 @@ export default function PaperTraderPage() {
 
         {/* Chart */}
         {chartData && chartData.labels.length > 0 && (
-          <div className="bg-gray-900 rounded-lg p-4">
+          <div className="bg-system-bg-secondary rounded-ios-xl p-4 sm:p-5 border border-separator-opaque/30">
             <div className="h-64 md:h-80">
               <Line
                 data={chartData}
@@ -240,7 +249,7 @@ export default function PaperTraderPage() {
                   maintainAspectRatio: false,
                   interaction: { intersect: false, mode: 'index' },
                   plugins: {
-                    legend: { labels: { color: 'rgb(209, 213, 219)' } },
+                    legend: { labels: { color: '#1D1D1F' } },
                     tooltip: {
                       callbacks: {
                         label: (ctx) => `${ctx.dataset.label}: ${fmtUsd(Number(ctx.parsed.y))}`,
@@ -249,15 +258,15 @@ export default function PaperTraderPage() {
                   },
                   scales: {
                     x: {
-                      ticks: { color: 'rgb(156, 163, 175)', maxTicksLimit: 8 },
-                      grid: { color: 'rgba(75, 85, 99, 0.2)' },
+                      ticks: { color: '#6E6E73', maxTicksLimit: 8 },
+                      grid: { color: 'rgba(198, 198, 200, 0.4)' },
                     },
                     y: {
                       ticks: {
-                        color: 'rgb(156, 163, 175)',
+                        color: '#6E6E73',
                         callback: (v) => fmtUsd(Number(v)),
                       },
-                      grid: { color: 'rgba(75, 85, 99, 0.2)' },
+                      grid: { color: 'rgba(198, 198, 200, 0.4)' },
                     },
                   },
                 }}
@@ -276,50 +285,50 @@ export default function PaperTraderPage() {
             (status.activePosition ? [status.activePosition] : []);
           if (positions.length === 0) return null;
           return (
-            <div className="bg-gray-900 rounded-lg p-4">
-              <div className="text-xs text-gray-400 uppercase mb-2">
+            <div className="bg-system-bg-secondary rounded-ios-xl p-4 sm:p-5 border border-separator-opaque/30">
+              <div className="text-xs text-label-secondary uppercase mb-2">
                 Active {positions.length === 1 ? 'Position' : `Positions (${positions.length})`}
               </div>
               <div className="space-y-2">
                 {positions.map((p) => (
                   <div
                     key={p.orderId ?? `${p.asset}-${p.openedAt}`}
-                    className="grid grid-cols-2 md:grid-cols-6 gap-4 text-sm border-b border-gray-800 last:border-0 pb-2 last:pb-0"
+                    className="grid grid-cols-2 md:grid-cols-6 gap-4 text-sm border-b border-separator-opaque/30 last:border-0 pb-2 last:pb-0"
                   >
                     <div>
-                      <div className="text-gray-500 text-xs">Asset</div>
+                      <div className="text-label-tertiary text-xs">Asset</div>
                       <div className="font-bold">{p.asset}</div>
                     </div>
                     <div>
-                      <div className="text-gray-500 text-xs">Side</div>
+                      <div className="text-label-tertiary text-xs">Side</div>
                       <div
-                        className={p.side === 'LONG' ? 'text-green-400' : 'text-red-400'}
+                        className={p.side === 'LONG' ? 'text-green-700' : 'text-red-700'}
                       >
                         {p.side}
                       </div>
                     </div>
                     <div>
-                      <div className="text-gray-500 text-xs">Entry / Mark</div>
+                      <div className="text-label-tertiary text-xs">Entry / Mark</div>
                       <div>
                         ${p.entryPrice.toFixed(2)} /{' '}
                         {p.markPrice ? `$${p.markPrice.toFixed(2)}` : '—'}
                       </div>
                     </div>
                     <div>
-                      <div className="text-gray-500 text-xs">Notional</div>
+                      <div className="text-label-tertiary text-xs">Notional</div>
                       <div>{fmtUsd(p.notionalUsd)}</div>
                     </div>
                     <div>
-                      <div className="text-gray-500 text-xs">Hold</div>
+                      <div className="text-label-tertiary text-xs">Hold</div>
                       <div>{fmtDur(p.holdSeconds)}</div>
                     </div>
                     <div>
-                      <div className="text-gray-500 text-xs">Unrealized</div>
+                      <div className="text-label-tertiary text-xs">Unrealized</div>
                       <div
                         className={
                           (p.unrealizedPnlUsd ?? 0) >= 0
-                            ? 'text-green-400'
-                            : 'text-red-400'
+                            ? 'text-green-700'
+                            : 'text-red-700'
                         }
                       >
                         {fmtUsd(p.unrealizedPnlUsd ?? 0)}
@@ -334,17 +343,17 @@ export default function PaperTraderPage() {
 
         {/* Live signals */}
         {Object.keys(status.signals).length > 0 && (
-          <div className="bg-gray-900 rounded-lg p-4">
-            <div className="text-xs text-gray-400 uppercase mb-2">Current Signals</div>
+          <div className="bg-system-bg-secondary rounded-ios-xl p-4 sm:p-5 border border-separator-opaque/30">
+            <div className="text-xs text-label-secondary uppercase mb-2">Current Signals</div>
             <div className="grid grid-cols-2 md:grid-cols-5 gap-3 text-sm">
               {Object.entries(status.signals).map(([asset, s]) => (
-                <div key={asset} className="bg-gray-800 rounded p-2">
+                <div key={asset} className="bg-system-bg-primary rounded-ios p-2 border border-separator-opaque/30">
                   <div className="font-bold">{asset}</div>
-                  <div className="text-xs text-gray-400">{s.recommendation}</div>
+                  <div className="text-xs text-label-secondary">{s.recommendation}</div>
                   <div className="text-xs">
-                    <span className="text-gray-500">conf </span>
+                    <span className="text-label-tertiary">conf </span>
                     <span>{s.confidence}%</span>
-                    <span className="text-gray-500"> · src </span>
+                    <span className="text-label-tertiary"> · src </span>
                     <span>{s.sources}</span>
                   </div>
                 </div>
@@ -355,20 +364,20 @@ export default function PaperTraderPage() {
 
         {/* Per-asset breakdown */}
         {Object.keys(status.perAsset).length > 0 && (
-          <div className="bg-gray-900 rounded-lg p-4">
-            <div className="text-xs text-gray-400 uppercase mb-2">Per-Asset (last 20 closed)</div>
+          <div className="bg-system-bg-secondary rounded-ios-xl p-4 sm:p-5 border border-separator-opaque/30">
+            <div className="text-xs text-label-secondary uppercase mb-2">Per-Asset (last 20 closed)</div>
             <div className="grid grid-cols-2 md:grid-cols-5 gap-3 text-sm">
               {Object.entries(status.perAsset).map(([asset, a]) => (
-                <div key={asset} className="bg-gray-800 rounded p-2">
+                <div key={asset} className="bg-system-bg-primary rounded-ios p-2 border border-separator-opaque/30">
                   <div className="font-bold">{asset}</div>
-                  <div className="text-xs text-gray-400">
+                  <div className="text-xs text-label-secondary">
                     {a.trades} trades · {a.wins}W
                   </div>
                   <div
                     className={
                       a.cumRealizedUsd >= 0
-                        ? 'text-green-400 text-xs'
-                        : 'text-red-400 text-xs'
+                        ? 'text-green-700 text-xs'
+                        : 'text-red-700 text-xs'
                     }
                   >
                     {fmtUsd(a.cumRealizedUsd)}
@@ -380,15 +389,15 @@ export default function PaperTraderPage() {
         )}
 
         {/* Recent trades */}
-        <div className="bg-gray-900 rounded-lg p-4">
-          <div className="text-xs text-gray-400 uppercase mb-2">Recent Closed Trades</div>
+        <div className="bg-system-bg-secondary rounded-ios-xl p-4 sm:p-5 border border-separator-opaque/30">
+          <div className="text-xs text-label-secondary uppercase mb-2">Recent Closed Trades</div>
           {status.recentTrades.length === 0 ? (
-            <div className="text-sm text-gray-500">No closed trades yet.</div>
+            <div className="text-sm text-label-tertiary">No closed trades yet.</div>
           ) : (
             <div className="overflow-x-auto">
               <table className="min-w-full text-sm">
                 <thead>
-                  <tr className="text-left text-gray-500 text-xs uppercase border-b border-gray-800">
+                  <tr className="text-left text-label-tertiary text-xs uppercase border-b border-separator-opaque/30">
                     <th className="py-2 pr-4">Asset</th>
                     <th className="py-2 pr-4">Side</th>
                     <th className="py-2 pr-4">Notional</th>
@@ -401,11 +410,11 @@ export default function PaperTraderPage() {
                 </thead>
                 <tbody>
                   {status.recentTrades.map((t) => (
-                    <tr key={t.id} className="border-b border-gray-800 last:border-0">
+                    <tr key={t.id} className="border-b border-separator-opaque/30 last:border-0">
                       <td className="py-2 pr-4">{t.asset}</td>
                       <td
                         className={
-                          'py-2 pr-4 ' + (t.side === 'LONG' ? 'text-green-400' : 'text-red-400')
+                          'py-2 pr-4 ' + (t.side === 'LONG' ? 'text-green-700' : 'text-red-700')
                         }
                       >
                         {t.side}
@@ -415,18 +424,18 @@ export default function PaperTraderPage() {
                       <td
                         className={
                           'py-2 pr-4 ' +
-                          (t.realizedPnlUsd >= 0 ? 'text-green-400' : 'text-red-400')
+                          (t.realizedPnlUsd >= 0 ? 'text-green-700' : 'text-red-700')
                         }
                       >
                         {fmtUsd(t.realizedPnlUsd)}
                       </td>
-                      <td className="py-2 pr-4 text-gray-400">
+                      <td className="py-2 pr-4 text-label-secondary">
                         {fmtUsd(t.fundingUsd)}
                       </td>
-                      <td className="py-2 pr-4 text-gray-400">
+                      <td className="py-2 pr-4 text-label-secondary">
                         {new Date(t.closedAt).toLocaleString()}
                       </td>
-                      <td className="py-2 pr-4 text-gray-500 max-w-xs truncate">
+                      <td className="py-2 pr-4 text-label-tertiary max-w-xs truncate">
                         {t.reason.split('|').pop()?.trim() ?? t.reason}
                       </td>
                     </tr>
@@ -437,9 +446,8 @@ export default function PaperTraderPage() {
           )}
         </div>
 
-        <footer className="text-xs text-gray-600 pt-4 pb-8">
-          Auto-refreshes every 30s. Paper-trader piggybacks the polymarket-edge-trader 5-min cron
-          (QStash 10-schedule cap). Fills at oracle mark price; no venue slippage. Fee model matches
+        <footer className="text-xs text-label-tertiary pt-4 pb-8">
+          Auto-refreshes every 30s. Paper-trader runs on the standalone systemd worker every 5 min. Fills at oracle mark price; no venue slippage. Fee model matches
           BlueFin Pro observed 2026-09.
         </footer>
       </div>
