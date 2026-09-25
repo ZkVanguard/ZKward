@@ -25,7 +25,6 @@
     "node": "24.x",
     "bun": ">=1.3.0"
   },
-  "packageManager": "npm@10.9.3",
   "scripts": {
     "prepare": "[ -n \"$VERCEL\" ] || [ -n \"$CI\" ] || husky install",
     "security:scan": "node scripts/security-scan.cjs",
