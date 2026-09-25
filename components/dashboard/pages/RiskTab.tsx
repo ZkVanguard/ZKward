@@ -136,10 +136,11 @@ function StatusDot({ status }: { status: 'ok' | 'warn' | 'stale' }) {
 function StatCard({ label, value, sub, icon: Icon, tone = 'neutral' }: {
   label: string; value: string; sub?: string;
   icon: React.ComponentType<{ className?: string }>;
-  tone?: 'neutral' | 'positive' | 'negative' | 'warn';
+  tone?: 'neutral' | 'positive' | 'negative' | 'warn' | 'critical';
 }) {
   const toneClass = tone === 'positive' ? 'text-green-700'
     : tone === 'negative' ? 'text-red-700'
+    : tone === 'critical' ? 'text-red-700'
     : tone === 'warn' ? 'text-amber-700'
     : 'text-[#1d1d1f]';
   return (
@@ -482,15 +483,19 @@ export function RiskTab() {
                 label="Share price"
                 value={`$${data.platform.sharePrice.toFixed(4)}`}
                 sub={`${fmtPct(data.platform.sharePriceReturn)} since inception`}
-                icon={Activity}
-                tone="positive"
+                icon={data.platform.sharePriceReturn >= 0 ? TrendingUp : TrendingDown}
+                tone={data.platform.sharePriceReturn >= 0 ? 'positive' : 'negative'}
               />
               <StatCard
                 label={data.platform.drawdownPct > 0 ? 'Drawdown from ATH' : 'At ATH'}
                 value={data.platform.drawdownPct > 0 ? fmtPct(-data.platform.drawdownPct) : 'New peak'}
                 sub={`peak $${data.platform.peakSharePrice.toFixed(4)}`}
                 icon={data.platform.drawdownPct > 3 ? AlertTriangle : Eye}
-                tone={data.platform.drawdownPct > 5 ? 'warn' : 'neutral'}
+                tone={
+                  data.platform.drawdownPct >= 20 ? 'critical'
+                  : data.platform.drawdownPct > 5 ? 'warn'
+                  : 'neutral'
+                }
               />
             </div>
           </section>
