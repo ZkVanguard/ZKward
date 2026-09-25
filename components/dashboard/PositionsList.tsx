@@ -1,13 +1,11 @@
 'use client';
 
-import { useState, useEffect, useMemo, memo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   TrendingUp,
   TrendingDown,
   Wallet,
-  Bitcoin,
   Coins,
-  DollarSign,
   RefreshCw,
   ArrowDownToLine,
   Sparkles,
@@ -29,6 +27,7 @@ import { WithdrawModal } from './WithdrawModal';
 import PortfolioDetailModal from './PortfolioDetailModal';
 import { AdvancedPortfolioCreator } from './AdvancedPortfolioCreator';
 import { PositionsLoadingSkeleton } from './positions-list/LoadingSkeleton';
+import { TokenIcon } from './positions-list/TokenIcon';
 import {
   DelphiMarketService,
   type PredictionMarket,
@@ -37,7 +36,6 @@ import { usePositions } from '@/contexts/PositionsContext';
 import { usePortfolioAction, type CustomActionPayload } from '@/contexts/AIDecisionsContext';
 import { logger } from '@/lib/utils/logger';
 import type {
-  Position,
   AgentRecommendation,
   SettlementBatch,
   PortfolioTransaction,
@@ -45,75 +43,6 @@ import type {
   PositionsListProps,
   OnChainPortfolio,
 } from './positions-types';
-
-// Memoized token icon component for better performance
-const TokenIcon = memo(({ symbol }: { symbol: string }) => {
-  const iconClasses = 'w-6 h-6';
-  switch (symbol.toUpperCase()) {
-    case 'BTC':
-    case 'WBTC':
-      return <Bitcoin className={`${iconClasses} text-orange-500`} />;
-    case 'ETH':
-    case 'WETH':
-      return <Coins className={`${iconClasses} text-blue-400`} />;
-    case 'USDC':
-    case 'USDT':
-      return <DollarSign className={`${iconClasses} text-green-400`} />;
-    case 'CRO':
-      return <Coins className={`${iconClasses} text-[#007AFF]`} />;
-    default:
-      return <Coins className={`${iconClasses} text-[#86868b]`} />;
-  }
-});
-TokenIcon.displayName = 'TokenIcon';
-
-// Memoized position row component
-const PositionRow = memo(({ position, idx }: { position: Position; idx: number }) => (
-  <div key={idx} className="px-3 sm:px-4 py-3 sm:py-4 hover:bg-white/50 transition-colors">
-    <div className="flex items-center justify-between">
-      <div className="flex items-center gap-3 sm:gap-4">
-        <div className="w-9 h-9 sm:w-11 sm:h-11 bg-white rounded-[10px] sm:rounded-[12px] flex items-center justify-center flex-shrink-0">
-          <TokenIcon symbol={position.symbol} />
-        </div>
-        <div className="min-w-0">
-          <div className="text-[14px] sm:text-[15px] font-semibold text-[#1d1d1f]">
-            {position.symbol}
-          </div>
-          <div className="text-[11px] sm:text-[13px] text-[#86868b] truncate">
-            {parseFloat(position.balance).toLocaleString(undefined, { maximumFractionDigits: 4 })}
-          </div>
-        </div>
-      </div>
-      <div className="text-right flex-shrink-0">
-        <div className="text-[15px] sm:text-[17px] font-bold text-[#1d1d1f]">
-          $
-          {parseFloat(position.balanceUSD || '0').toLocaleString(undefined, {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
-          })}
-        </div>
-        <div className="flex items-center gap-1.5 justify-end">
-          <span className="text-[11px] sm:text-[12px] text-[#86868b]">
-            @${parseFloat(position.price || '0').toFixed(4)}
-          </span>
-          {position.change24h !== 0 && (
-            <span
-              className={`text-[11px] sm:text-[12px] font-medium flex items-center ${position.change24h >= 0 ? 'text-[#34C759]' : 'text-[#FF3B30]'}`}
-            >
-              {position.change24h >= 0 ? (
-                <TrendingUp className="w-3 h-3 mr-0.5" />
-              ) : (
-                <TrendingDown className="w-3 h-3 mr-0.5" />
-              )}
-              {Math.abs(position.change24h).toFixed(1)}%
-            </span>
-          )}
-        </div>
-      </div>
-    </div>
-  </div>
-));
-PositionRow.displayName = 'PositionRow';
 
 export function PositionsList({ address, onOpenHedge }: PositionsListProps) {
   const { isConnected, evmAddress } = useWallet();
