@@ -17,13 +17,16 @@ export const config: VercelConfig = {
   regions: ['sin1'],
 
   // Only auto-deploy production (main). Every other branch skips
-  // Vercel's preview build via ignoreCommand — exit 0 (skip) when the
-  // pushed branch is NOT main, exit 1 (proceed) when it IS main.
-  // (`git.deploymentEnabled` doesn't support wildcards; `ignoreCommand`
-  // is Vercel's documented per-branch skip mechanism.)
+  // Vercel's preview build via ignoreCommand.
+  //
+  // Vercel ignoreCommand semantics: exit 0 = SKIP the build, exit 1
+  // = PROCEED with build. The `!=` in the test means:
+  //   - Pushed to main: test returns false → exit 1 → BUILD ✓
+  //   - Pushed to any other branch: test returns true → exit 0 → SKIP ✓
+  //
   // Manual deploys still available via the main-manual deploy hook or
   // `vercel deploy --prod`.
-  ignoreCommand: 'sh -c \'[ "$VERCEL_GIT_COMMIT_REF" = "main" ]\'',
+  ignoreCommand: 'sh -c \'[ "$VERCEL_GIT_COMMIT_REF" != "main" ]\'',
 
   installCommand: 'npm install --legacy-peer-deps',
 
