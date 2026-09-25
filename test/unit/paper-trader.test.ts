@@ -13,6 +13,10 @@
 // at 16.7% win rate). The tests here assert the state transition at
 // expiry — behavior at boundary, not the numeric value.
 process.env.PAPER_TRADER_MAX_HOLD_MIN = '20';
+// Force single-position (KEY_POSITION) mode for these tests. Prod ran
+// KEY_POSITIONS (concurrent 3) since 2026-09-22; the tests here assert
+// the legacy single-slot state transitions.
+process.env.PAPER_TRADER_MAX_CONCURRENT = '1';
 
 import { describe, it, expect, jest, beforeEach } from '@jest/globals';
 
@@ -77,7 +81,11 @@ function primeStore(seed: Record<string, any>) {
   }) as any);
 }
 
-function stubSignal(asset: string, rec: string, conf = 70, cons = 65) {
+function stubSignal(asset: string, rec: string, conf = 80, cons = 75) {
+  // Default confidence bumped 70 → 80 on 2026-09-25 after Fix J raised
+  // PAPER_MIN_CONFIDENCE default 62 → 70 and the regime chop-multiplier
+  // (1.05×) can push the effective floor above 70. 80 stays clear of
+  // any reasonable gate. Individual tests still override this arg.
   // Derive direction from recommendation so signal-quality gate has data
   // it can actually work with (majority + stability filters read
   // prediction.direction + prediction.sources).
@@ -115,9 +123,21 @@ function stubPrice(price: number) {
 }
 
 function stubSameAssetPrediction(asset: string, rec: string, conf: number) {
+  // 2026-09-25: bumped default sources 2 → 3 + added consensus so flip
+  // gates (PAPER_MIN_SOURCES=3, PAPER_MIN_CONSENSUS=60) pass. Tests
+  // asserting the gate itself override the shape locally.
+  const dir: 'UP' | 'DOWN' | 'NEUTRAL' =
+    rec.includes('LONG') ? 'UP' : rec.includes('SHORT') ? 'DOWN' : 'NEUTRAL';
+  const sources = [
+    { direction: dir, weight: 0.34 },
+    { direction: dir, weight: 0.33 },
+    { direction: dir, weight: 0.33 },
+  ];
   mockScanAndPickBest.mockResolvedValue({
     best: null,
-    all: { [asset]: { recommendation: rec, confidence: conf, sources: [{}, {}] } },
+    all: {
+      [asset]: { recommendation: rec, direction: dir, confidence: conf, consensus: 75, sources },
+    },
   } as any);
 }
 
@@ -143,7 +163,7 @@ beforeEach(() => {
 describe('PaperTrader.runTick — entry path', () => {
   it('opens a position when no active position + strong signal + valid price', async () => {
     primeStore({});
-    stubSignal('BTC', 'HEDGE_LONG', 72);
+    stubSignal('BTC', 'HEDGE_LONG', 80);
     stubPrice(65_000);
 
     const res = await PaperTrader.runTick(NOW);
@@ -178,7 +198,7 @@ describe('PaperTrader.runTick — entry path', () => {
 
   it('skips when multi-source price validation fails (stale/insufficient sources)', async () => {
     primeStore({});
-    stubSignal('BTC', 'HEDGE_LONG', 70);
+    stubSignal('BTC', 'HEDGE_LONG', 80);
     mockGetMultiSourceValidatedPrice.mockRejectedValue(
       new Error('INSUFFICIENT_SOURCES: Only 1/2 price sources available for BTC'),
     );
@@ -189,7 +209,7 @@ describe('PaperTrader.runTick — entry path', () => {
 
   it('skips when multi-source returns zero price (defensive check)', async () => {
     primeStore({});
-    stubSignal('BTC', 'HEDGE_LONG', 70);
+    stubSignal('BTC', 'HEDGE_LONG', 80);
     mockGetMultiSourceValidatedPrice.mockResolvedValue({
       price: 0,
       confidence: 'low',
@@ -530,11 +550,12 @@ describe('closeAtMark orderId passthrough (PR #127)', () => {
       (call) => typeof call[0] === 'string' && /SET status = 'closed'/.test(call[0]),
     );
     expect(updateCall).toBeTruthy();
-    // The last SQL param is the orderId (WHERE order_id = $4). Verify
-    // it matches the KEY_ORDER_ID we primed — i.e., the orderId
-    // propagated to the DB write and wasn't lost.
+    // orderId is $4 in the SQL — index 3 in the params array. Position
+    // shifted after a `category` param was added at the tail (2026-09-20
+    // close-reason categorisation); assert by index rather than by
+    // "last param" which is now `close_reason`.
     const params = updateCall![1] as any[];
-    expect(params[params.length - 1]).toBe('paper_BTC_orderIdCheck');
+    expect(params[3]).toBe('paper_BTC_orderIdCheck');
   });
 });
 
@@ -547,7 +568,7 @@ describe('assetSideRecentPnl paper isolation (PR #131 sibling)', () => {
 
   it('the regret query filters by order_id LIKE paper_%', async () => {
     primeStore({});
-    stubSignal('BTC', 'HEDGE_LONG', 72);
+    stubSignal('BTC', 'HEDGE_LONG', 80);
     // Return one row so the regret query gets exercised.
     mockQuery.mockResolvedValue([{ pnl: 0 }]);
 
@@ -698,14 +719,22 @@ describe('PaperTrader.runTick — profit-lock + halt gates', () => {
   });
 
   it('skips (asset, side) after recent losses cross regret-cooldown threshold', async () => {
-    // Seed 5 recent losing paper hedges on ETH SHORT summing to -$3000, > 2% of $100k NAV.
-    mockQuery.mockResolvedValueOnce([
-      { pnl: -800 },
-      { pnl: -600 },
-      { pnl: -500 },
-      { pnl: -700 },
-      { pnl: -500 },
-    ] as any);
+    // Multiple queries fire before assetSideRecentPnl (Fix G shortWindow,
+    // asset-streak, trend-misalignment); route by SQL text so the seeded
+    // regret loss series only lands where assetSideRecentPnl reads it
+    // (SELECT COALESCE(current_pnl, realized_pnl, 0) ...).
+    mockQuery.mockImplementation(((sql: string) => {
+      if (typeof sql === 'string' && /current_pnl.*realized_pnl.*AS pnl/i.test(sql)) {
+        return Promise.resolve([
+          { pnl: -800 },
+          { pnl: -600 },
+          { pnl: -500 },
+          { pnl: -700 },
+          { pnl: -500 },
+        ]);
+      }
+      return Promise.resolve([]);
+    }) as any);
     primeStore({});
     stubSignal('ETH', 'HEDGE_SHORT', 80, 75);
     mockGetLivePrice.mockResolvedValue(2500);
