@@ -4,4 +4,5 @@ export { CloseReceiptModal } from './CloseReceiptModal';
 export { AIRecommendationsSection } from './AIRecommendationsSection';
 export { EmptyHedgesState } from './EmptyHedgesState';
 export { ActiveHedgeDetailRow } from './ActiveHedgeDetailRow';
+export { ActivePositionCard } from './ActivePositionCard';
 export type { HedgePosition, CloseReceipt, PerformanceStats, AIRecommendation } from './types';
