@@ -163,17 +163,18 @@ describe('getCalibratedHitRate — Bayesian shrinkage', () => {
     const r = await getCalibratedHitRate('x');
     expect(r).toBeCloseTo(0.75, 4);
   });
-  it('with n=100 and empirical=0.8, shrunken hit rate close to 0.77', async () => {
+  it('with n=100 and empirical=0.8, shrunken hit rate close to 0.786', async () => {
     store['trader:source-cal:x'] = { n: 100, wins: 80, updatedAt: 0 };
     const r = await getCalibratedHitRate('x');
-    // (100*0.8 + 10*0.5) / 110 = 85/110 ≈ 0.7727
-    expect(r).toBeCloseTo(0.7727, 3);
+    // Post-2026-09-22: PRIOR_STRENGTH lowered 10 → 5
+    // (100*0.8 + 5*0.5) / 105 = 82.5/105 ≈ 0.7857
+    expect(r).toBeCloseTo(0.786, 3);
   });
   it('with n=1000, shrinkage disappears — empirical dominates', async () => {
     store['trader:source-cal:x'] = { n: 1000, wins: 800, updatedAt: 0 };
     const r = await getCalibratedHitRate('x');
-    // (1000*0.8 + 10*0.5) / 1010 ≈ 0.7970
-    expect(r).toBeCloseTo(0.797, 3);
+    // (1000*0.8 + 5*0.5) / 1005 ≈ 0.7985
+    expect(r).toBeCloseTo(0.799, 3);
   });
 });
 
@@ -208,11 +209,13 @@ describe('getCalibratedMultiplier', () => {
     expect(m).toBeGreaterThan(1.4);
     expect(m).toBeLessThanOrEqual(_MAX_MULTIPLIER);
   });
-  it('returns < 1 for a proven-bad source (low hit rate)', async () => {
+  it('returns KILL_MULTIPLIER (0.05) for a proven-bad source once n >= KILL_MIN_TRADES', async () => {
+    // Post-2026-09-22: hard-cut fires when n >= 15 AND empirical < 0.40.
+    // The soft MIN_MULTIPLIER floor only applies to shrunken-but-not-killed
+    // sources (n < KILL_MIN_TRADES or empirical >= 0.40).
     store['trader:source-cal:noisy'] = { n: 100, wins: 20, updatedAt: 0 };
     const m = await getCalibratedMultiplier('noisy');
-    expect(m).toBeLessThan(0.6);
-    expect(m).toBeGreaterThanOrEqual(_MIN_MULTIPLIER);
+    expect(m).toBe(0.05);
   });
 });
 
