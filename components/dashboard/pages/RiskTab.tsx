@@ -42,6 +42,8 @@ interface DefenseState {
   dustFlagsCount: number;
   activeHaltsCount: number;
   integrityDriftCount: number;
+  activeHalts?: Array<{ name: string; untilIso: string; reason?: string }>;
+  integrityDriftKeys?: string[];
 }
 
 interface IncidentsState {
@@ -191,6 +193,50 @@ function DefenseStatusPanel({ d, i }: { d: DefenseState; i?: IncidentsState }) {
         <DefenseGateBadge label="ProfitLockDISABLE" on={d.gates.profitLockDisable} danger />
         <DefenseGateBadge label="AutoHedgeDISABLE" on={d.gates.suiAutoHedgeDisable} danger />
       </div>
+
+      {(d.activeHalts?.length ?? 0) > 0 && (
+        <div className="mt-4 pt-4 border-t border-black/5">
+          <div className="text-[11px] sm:text-[12px] font-medium text-[#86868b] uppercase tracking-wide mb-2">
+            Active halts
+          </div>
+          <div className="space-y-1.5">
+            {d.activeHalts!.map((h) => {
+              const untilMs = new Date(h.untilIso).getTime();
+              const minsLeft = Math.max(0, Math.round((untilMs - Date.now()) / 60000));
+              return (
+                <div key={h.name} className="bg-amber-50 border border-amber-200 rounded-md px-2.5 py-2 text-[12px]">
+                  <div className="flex items-center justify-between gap-2 mb-0.5">
+                    <span className="font-mono text-amber-800 truncate">{h.name}</span>
+                    <span className="text-[11px] text-amber-700 flex-shrink-0 tabular-nums">
+                      clears in {fmtAge(minsLeft)}
+                    </span>
+                  </div>
+                  {h.reason && <div className="text-[11px] text-[#5a4a1f] leading-snug">{h.reason}</div>}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {(d.integrityDriftKeys?.length ?? 0) > 0 && (
+        <div className="mt-4 pt-4 border-t border-black/5">
+          <div className="text-[11px] sm:text-[12px] font-medium text-[#86868b] uppercase tracking-wide mb-2">
+            Integrity drift ({d.integrityDriftKeys!.length})
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {d.integrityDriftKeys!.map((k) => (
+              <span
+                key={k}
+                className="font-mono text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5"
+                title={k}
+              >
+                {k}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
 
       {i && (
         <div className="mt-4 pt-4 border-t border-black/5">

@@ -128,6 +128,11 @@ interface RiskOverviewResponse {
     dustFlagsCount: number;
     activeHaltsCount: number;
     integrityDriftCount: number;
+    /** Named halts currently in force. Reason is truncated to 120 chars
+     *  to keep the response body small; full text lives in cron_state. */
+    activeHalts: Array<{ name: string; untilIso: string; reason?: string }>;
+    /** Integrity-fsck violation keys currently tripping the drift counter. */
+    integrityDriftKeys: string[];
   };
   /** Aggregate incident counts from the alert-log ring buffer — investor-safe
    *  (no raw messages leaked; message text lives at /api/admin/state-snapshot). */
@@ -293,12 +298,18 @@ async function getActiveHedges(): Promise<HedgeRow[]> {
       leverage: string;
       created_at: Date;
     }>(
+      // reconstructed_* orphans are BlueFin positions the reconciler
+      // adopted from a venue where our stack lost track of the open —
+      // real capital but not something the current strategy manages, so
+      // they don't belong in the "active hedges" display. Same filter
+      // as the settled-track-record query below (getSettledHedgeHistory).
       `SELECT market, side, notional_value, current_pnl, leverage, created_at
          FROM hedges
         WHERE chain = 'sui'
           AND status = 'active'
           AND market LIKE '%-PERP'
           AND COALESCE(notional_value, 0) >= 1
+          AND (order_id IS NULL OR order_id NOT LIKE 'reconstructed_%')
         ORDER BY notional_value DESC
         LIMIT 30`,
     );
@@ -397,6 +408,7 @@ async function getDefenseSection(): Promise<RiskOverviewResponse['defense']> {
       profitLockDisable: false, suiAutoHedgeDisable: false,
     },
     dustFlagsCount: 0, activeHaltsCount: 0, integrityDriftCount: 0,
+    activeHalts: [], integrityDriftKeys: [],
   };
   try {
     const [{ envFlag, envFlagOnByDefault }, { getCronStateByPrefix }, { getActiveHedges }, { findIntegrityViolations }] = await Promise.all([
@@ -405,15 +417,23 @@ async function getDefenseSection(): Promise<RiskOverviewResponse['defense']> {
       import('@/lib/db/hedges'),
       import('@/lib/services/state-integrity/checks'),
     ]);
-    const [halts, directives, peaks, dustFlags, activeHedges] = await Promise.all([
+    const [halts, haltReasons, directives, peaks, dustFlags, activeHedges] = await Promise.all([
       getCronStateByPrefix('cron:haltUntil:'),
+      getCronStateByPrefix('cron:haltReason:'),
       getCronStateByPrefix('alert-response:'),
       getCronStateByPrefix('poolNav:peak:'),
       getCronStateByPrefix('stale-dust-flag:'),
       getActiveHedges(undefined, 'sui').catch(() => []),
     ]);
     const now = Date.now();
-    const activeHalts = [...halts.entries()].filter(([, v]) => Number(v) > now).length;
+    const activeHaltEntries = [...halts.entries()].filter(([, v]) => Number(v) > now);
+    const activeHalts = activeHaltEntries.map(([key, until]) => {
+      // key shape: cron:haltUntil:<scope> — derive matching reason key
+      const scope = key.replace(/^cron:haltUntil:/, '');
+      const reasonRaw = haltReasons.get(`cron:haltReason:${scope}`);
+      const reason = reasonRaw ? String(reasonRaw).replace(/^"|"$/g, '').slice(0, 120) : undefined;
+      return { name: scope, untilIso: new Date(Number(until)).toISOString(), reason };
+    });
     const activeIds = new Set<number | string>(activeHedges.map((h) => h.id));
     const entries = [
       ...[...halts.entries()].map(([key, value]) => ({ key, value })),
@@ -421,6 +441,7 @@ async function getDefenseSection(): Promise<RiskOverviewResponse['defense']> {
       ...[...peaks.entries()].map(([key, value]) => ({ key, value })),
       ...[...dustFlags.entries()].map(([key, value]) => ({ key, value })),
     ];
+    const violations = findIntegrityViolations(entries, activeIds, now);
     return {
       gates: {
         portfolioDriverExecute: envFlagOnByDefault('PORTFOLIO_DRIVER_EXECUTE'),
@@ -431,8 +452,10 @@ async function getDefenseSection(): Promise<RiskOverviewResponse['defense']> {
         suiAutoHedgeDisable: envFlag('SUI_AUTO_HEDGE_DISABLE'),
       },
       dustFlagsCount: dustFlags.size,
-      activeHaltsCount: activeHalts,
-      integrityDriftCount: findIntegrityViolations(entries, activeIds, now).length,
+      activeHaltsCount: activeHalts.length,
+      integrityDriftCount: violations.length,
+      activeHalts,
+      integrityDriftKeys: violations.slice(0, 20).map((v) => `${v.category}:${v.key}`),
     };
   } catch (e) {
     logger.warn('[Risk Overview] defense section failed', { error: String(e).slice(0, 200) });
