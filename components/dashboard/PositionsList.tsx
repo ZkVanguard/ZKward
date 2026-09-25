@@ -28,6 +28,7 @@ import PortfolioDetailModal from './PortfolioDetailModal';
 import { AdvancedPortfolioCreator } from './AdvancedPortfolioCreator';
 import { PositionsLoadingSkeleton } from './positions-list/LoadingSkeleton';
 import { TokenIcon } from './positions-list/TokenIcon';
+import { AgentRecommendationModal } from './positions-list/AgentRecommendationModal';
 import {
   DelphiMarketService,
   type PredictionMarket,
@@ -1414,196 +1415,14 @@ export function PositionsList({ address, onOpenHedge }: PositionsListProps) {
 
       {/* Agent Recommendation Modal */}
       {showRecommendationModal && agentRecommendation && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-[20px] max-w-2xl w-full border border-black/5 shadow-2xl">
-            <div className="p-6 border-b border-black/5">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-[#AF52DE] rounded-[12px] flex items-center justify-center">
-                    <Sparkles className="w-5 h-5 text-white" />
-                  </div>
-                  <h3 className="text-[20px] font-bold text-[#1d1d1f]">AI Analysis</h3>
-                </div>
-                <button
-                  onClick={() => setShowRecommendationModal(false)}
-                  className="w-8 h-8 flex items-center justify-center bg-[#f5f5f7] hover:bg-[#e8e8ed] rounded-full transition-colors"
-                >
-                  <svg
-                    className="w-4 h-4 text-[#86868b]"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M6 18L18 6M6 6l12 12"
-                    />
-                  </svg>
-                </button>
-              </div>
-            </div>
-
-            <div className="p-6 space-y-6">
-              {/* Action Recommendation */}
-              <div
-                className={`p-4 rounded-lg border-2 ${
-                  agentRecommendation.action === 'WITHDRAW'
-                    ? 'bg-red-500/10 border-red-500/50'
-                    : agentRecommendation.action === 'HEDGE'
-                      ? 'bg-orange-500/10 border-orange-500/50'
-                      : agentRecommendation.action === 'ADD_FUNDS'
-                        ? 'bg-green-500/10 border-green-500/50'
-                        : 'bg-blue-500/10 border-blue-500/50'
-                }`}
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <div className="text-2xl font-bold text-[#1d1d1f]">
-                    {agentRecommendation.action === 'WITHDRAW' && '🚨 WITHDRAW'}
-                    {agentRecommendation.action === 'HEDGE' && '🛡️ HEDGE'}
-                    {agentRecommendation.action === 'ADD_FUNDS' && '✅ ADD FUNDS'}
-                    {agentRecommendation.action === 'HOLD' && '📊 HOLD'}
-                  </div>
-                  <div className="text-sm text-[#86868b]">
-                    Confidence:{' '}
-                    <span className="font-semibold text-[#1d1d1f]">
-                      {(agentRecommendation.confidence * 100).toFixed(0)}%
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Multi-Agent Reasoning */}
-              <div>
-                <div className="text-sm font-semibold text-[#AF52DE] mb-3">Agent Reasoning:</div>
-                <div className="space-y-2">
-                  {agentRecommendation.reasoning.map((reason: string, idx: number) => (
-                    <div key={idx} className="flex items-start gap-2 text-sm text-[#1d1d1f]">
-                      <span className="text-[#AF52DE] mt-1">•</span>
-                      <span className="text-[#86868b]">{reason}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Risk Score */}
-              <div className="bg-[#f5f5f7] rounded-lg p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-[#86868b]">Portfolio Risk Score</span>
-                  <span
-                    className={`text-lg font-bold ${
-                      agentRecommendation.riskScore > 70
-                        ? 'text-[#FF3B30]'
-                        : agentRecommendation.riskScore > 40
-                          ? 'text-[#FF9500]'
-                          : 'text-[#34C759]'
-                    }`}
-                  >
-                    {agentRecommendation.riskScore}/100
-                  </span>
-                </div>
-                <div className="w-full bg-[#e8e8ed] rounded-full h-2">
-                  <div
-                    className={`h-2 rounded-full transition-all ${
-                      agentRecommendation.riskScore > 70
-                        ? 'bg-[#FF3B30]'
-                        : agentRecommendation.riskScore > 40
-                          ? 'bg-[#FF9500]'
-                          : 'bg-[#34C759]'
-                    }`}
-                    style={{ width: `${agentRecommendation.riskScore}%` }}
-                  />
-                </div>
-              </div>
-
-              {/* Agent Analysis Details */}
-              <div>
-                <div className="text-sm font-semibold text-[#AF52DE] mb-3">
-                  Multi-Agent Analysis:
-                </div>
-                <div className="space-y-2">
-                  <div className="bg-[#f5f5f7] rounded-lg p-3">
-                    <div className="text-xs text-[#86868b] mb-1">Risk Agent</div>
-                    <div className="text-sm text-[#1d1d1f]">
-                      {agentRecommendation.agentAnalysis.riskAgent}
-                    </div>
-                  </div>
-                  <div className="bg-[#f5f5f7] rounded-lg p-3">
-                    <div className="text-xs text-[#86868b] mb-1">Hedging Agent</div>
-                    <div className="text-sm text-[#1d1d1f]">
-                      {agentRecommendation.agentAnalysis.hedgingAgent}
-                    </div>
-                  </div>
-                  <div className="bg-[#f5f5f7] rounded-lg p-3">
-                    <div className="text-xs text-[#86868b] mb-1">Lead Agent</div>
-                    <div className="text-sm text-[#1d1d1f]">
-                      {agentRecommendation.agentAnalysis.leadAgent}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Recommendations */}
-              {agentRecommendation.recommendations.length > 0 && (
-                <div>
-                  <div className="text-sm font-semibold text-[#AF52DE] mb-3">
-                    Additional Recommendations:
-                  </div>
-                  <div className="space-y-1">
-                    {agentRecommendation.recommendations.map((rec: string, idx: number) => (
-                      <div key={idx} className="text-sm text-[#86868b]">
-                        • {rec}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div className="p-6 border-t border-black/5 flex gap-3">
-              <button
-                onClick={() => setShowRecommendationModal(false)}
-                className="flex-1 px-4 py-2 bg-[#f5f5f7] hover:bg-[#e8e8ed] text-[#1d1d1f] rounded-[12px] text-sm font-semibold transition-colors"
-              >
-                Close
-              </button>
-              <button
-                onClick={() => {
-                  setShowRecommendationModal(false);
-                  // Act on recommendation
-                  if (agentRecommendation.action === 'ADD_FUNDS' && analyzedPortfolio) {
-                    openDepositModal(analyzedPortfolio);
-                  } else if (agentRecommendation.action === 'WITHDRAW' && analyzedPortfolio) {
-                    openWithdrawModal(analyzedPortfolio);
-                  } else if (
-                    agentRecommendation.action === 'HEDGE' &&
-                    onOpenHedge &&
-                    analyzedPortfolio?.predictions?.[0]
-                  ) {
-                    // Call the hedge handler with the portfolio's prediction
-                    onOpenHedge(analyzedPortfolio.predictions[0]);
-                  }
-                  // HOLD just closes (user is informed)
-                }}
-                className={`flex-1 px-4 py-2 rounded-[12px] text-sm font-semibold text-white transition-colors ${
-                  agentRecommendation.action === 'WITHDRAW'
-                    ? 'bg-[#FF3B30] hover:bg-[#FF3B30]/90'
-                    : agentRecommendation.action === 'ADD_FUNDS'
-                      ? 'bg-[#34C759] hover:bg-[#34C759]/90'
-                      : agentRecommendation.action === 'HEDGE'
-                        ? 'bg-[#FF9500] hover:bg-[#FF9500]/90'
-                        : 'bg-[#007AFF] hover:bg-[#007AFF]/90'
-                }`}
-              >
-                {agentRecommendation.action === 'WITHDRAW' && '🚨 Withdraw Funds'}
-                {agentRecommendation.action === 'ADD_FUNDS' && '✅ Add More Funds'}
-                {agentRecommendation.action === 'HEDGE' && '🛡️ Open Hedge Position'}
-                {agentRecommendation.action === 'HOLD' && '📊 Continue Holding'}
-              </button>
-            </div>
-          </div>
-        </div>
+        <AgentRecommendationModal
+          recommendation={agentRecommendation}
+          analyzedPortfolio={analyzedPortfolio}
+          onClose={() => setShowRecommendationModal(false)}
+          onDeposit={openDepositModal}
+          onWithdraw={openWithdrawModal}
+          onOpenHedge={onOpenHedge}
+        />
       )}
 
       {/* Portfolio Detail Modal */}
