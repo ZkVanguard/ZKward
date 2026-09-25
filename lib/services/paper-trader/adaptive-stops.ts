@@ -8,13 +8,15 @@
  *     legitimate small loss is allowed to run to -1.2% when 0.5%
  *     would have cut it clean.
  *
- * Fix: express stop and trailing-arm in units of expected 20-min move.
+ * Fix: express stop and trailing-arm in units of expected move over the
+ * hold window (45 min, matching config's base max-hold).
  *
- *   expected_move_pct_20min = annualized_vol / sqrt(365 * 24 * 3)
+ *   expected_move_frac = annualized_vol / sqrt(windows_per_year)
  *
- * Stop-loss target ≈ 1.2× that expected move (loses only when the
- * signal is meaningfully wrong). Trailing-arm at 1.5× (triggers only
- * on genuinely directional moves, not chop).
+ * Stop-loss target = 2.0× expected move (survives typical mean-reversion
+ * before the trend plays), trailing-arm = 1.5× (triggers only on genuinely
+ * directional moves, not chop). Per-asset floor for micro-caps that
+ * mean-revert wide (DOGE/XRP default 1.8%).
  *
  * Uses the existing Deribit / Binance vol reader from volatility-gate.
  * Falls back to the env-configured static value if vol fetch fails —
@@ -23,24 +25,45 @@
 
 import { logger } from '@/lib/utils/logger';
 import { errMsg } from '@/lib/utils/error-handler';
-import { getRealizedVolPct, lowVolatilityRejection } from './volatility-gate';
+import { getRealizedVolPct, getBinanceRealizedVolPct } from './volatility-gate';
 
 // Static config from env, used as fallback when vol data is unavailable.
 const STATIC_STOP_LOSS_PCT = Number(process.env.PAPER_TRADER_STOP_LOSS_PCT || 0.012);
 const STATIC_TRAILING_ARM_PCT = Number(process.env.PAPER_TRADER_TRAILING_ARM_PCT || 0.006);
 
 // Scale factors — how many "expected moves" the stop/arm should be.
-const STOP_MULTIPLE = Number(process.env.PAPER_TRADER_ADAPTIVE_STOP_MULT || 1.2);
+// 2026-09-25 (Fix D): stop mult 1.2 → 2.0 and window 20 → 45 min. DOGE
+// SHORT was picked off for -$528 by 1.2% noise inside its 45-min hold.
+// 20-min expected-move × 1.2 underestimates the max adverse excursion
+// a 45-min hold has to survive; 45-min window × 2.0 gives the position
+// room to breathe through typical mean-reversion before the trend plays.
+const STOP_MULTIPLE = Number(process.env.PAPER_TRADER_ADAPTIVE_STOP_MULT || 2.0);
 const TRAILING_ARM_MULTIPLE = Number(process.env.PAPER_TRADER_ADAPTIVE_ARM_MULT || 1.5);
 
 // Safety clamps — never let the adaptive stop go absurd in either direction.
-const MIN_STOP_PCT = 0.004; // 0.4% — anything tighter is inside fee noise
+// MIN raised 0.4% → 1.0% so no asset gets picked off inside fee-noise band.
+const MIN_STOP_PCT = 0.01;  // 1.0%
 const MAX_STOP_PCT = 0.05;  // 5% — anything wider is a stop-loss in name only
 const MIN_ARM_PCT = 0.003;
 const MAX_ARM_PCT = 0.04;
 
-const HOLD_WINDOW_MIN = 20; // reference window; expected-move calc is proportional
-const MIN_PER_YEAR_20MIN = 365 * 24 * 3; // 3 × 20-min windows per hour
+const HOLD_WINDOW_MIN = 45; // matches base max-hold in config.ts
+const WINDOWS_PER_YEAR = (365 * 24 * 60) / HOLD_WINDOW_MIN;
+
+// Per-asset stop floor overrides for micro-caps that mean-revert wide.
+// DOGE @ 80-120% annual vol has intra-hour excursions that swallow a
+// 1.2% stop; XRP behaves similarly. Env override:
+// PAPER_ASSET_STOP_FLOOR_PCT_DOGE=0.02
+function assetStopFloor(asset: string): number {
+  const upper = asset.toUpperCase();
+  const raw = process.env[`PAPER_ASSET_STOP_FLOOR_PCT_${upper}`];
+  if (raw) {
+    const n = Number(raw);
+    if (Number.isFinite(n) && n > 0) return n;
+  }
+  if (upper === 'DOGE' || upper === 'XRP') return 0.018;
+  return MIN_STOP_PCT;
+}
 
 interface AdaptiveThresholds {
   stopLossPct: number;
@@ -53,15 +76,7 @@ async function annualVolFor(asset: string): Promise<number | null> {
   if (upper === 'BTC' || upper === 'ETH') {
     return getRealizedVolPct(upper);
   }
-  // For SOL/XRP/DOGE — reuse volatility-gate's Binance klines fetcher by
-  // calling the rejection check and inspecting the internal cache. Simpler
-  // to just call the same public fetcher via lowVolatilityRejection which
-  // populates the cache. The internal per-asset getBinanceRealizedVolPct
-  // isn't exported; re-implement inline here would double the API load.
-  // Not ideal, but adaptive stops fail-open so a null result just falls
-  // back to the static threshold — no correctness impact.
-  await lowVolatilityRejection(asset).catch(() => null);
-  return null;
+  return getBinanceRealizedVolPct(upper);
 }
 
 /**
@@ -78,13 +93,12 @@ export async function computeAdaptiveThresholds(asset: string): Promise<Adaptive
     let trailingArmPct = STATIC_TRAILING_ARM_PCT;
     let src: AdaptiveThresholds['source'] = 'static-fallback';
 
+    const floor = assetStopFloor(asset);
     if (annualPct && annualPct > 0) {
-      // annualPct is a percentage (e.g. 34 means 34%). Convert to fraction
-      // for the sqrt scaling.
       const annualFrac = annualPct / 100;
-      const expectedMoveFrac = annualFrac / Math.sqrt(MIN_PER_YEAR_20MIN);
+      const expectedMoveFrac = annualFrac / Math.sqrt(WINDOWS_PER_YEAR);
       stopLossPct = Math.max(
-        MIN_STOP_PCT,
+        floor,
         Math.min(MAX_STOP_PCT, expectedMoveFrac * STOP_MULTIPLE),
       );
       trailingArmPct = Math.max(
@@ -92,6 +106,8 @@ export async function computeAdaptiveThresholds(asset: string): Promise<Adaptive
         Math.min(MAX_ARM_PCT, expectedMoveFrac * TRAILING_ARM_MULTIPLE),
       );
       src = 'adaptive';
+    } else {
+      stopLossPct = Math.max(floor, stopLossPct);
     }
 
     // L10 — apply the active regime's stop multiplier on top of the
@@ -101,7 +117,7 @@ export async function computeAdaptiveThresholds(asset: string): Promise<Adaptive
       const { getCurrentRegime, getRegimeMultipliers } = await import('./regime');
       const { regime } = await getCurrentRegime();
       const mults = getRegimeMultipliers(regime);
-      stopLossPct = Math.max(MIN_STOP_PCT, Math.min(MAX_STOP_PCT, stopLossPct * mults.stopLossMult));
+      stopLossPct = Math.max(floor, Math.min(MAX_STOP_PCT, stopLossPct * mults.stopLossMult));
       // Trailing arm not regime-scaled — it's about winning-move detection,
       // regime primarily affects loss tolerance.
     } catch { /* regime lookup optional */ }
@@ -112,7 +128,7 @@ export async function computeAdaptiveThresholds(asset: string): Promise<Adaptive
       asset, error: errMsg(e),
     });
     return {
-      stopLossPct: STATIC_STOP_LOSS_PCT,
+      stopLossPct: Math.max(assetStopFloor(asset), STATIC_STOP_LOSS_PCT),
       trailingArmPct: STATIC_TRAILING_ARM_PCT,
       source: 'static-fallback',
     };

@@ -76,7 +76,7 @@ export async function getRealizedVolPct(currency: 'BTC' | 'ETH'): Promise<number
 /** Realized volatility for SOL/XRP/DOGE — computed from Binance's
  *  1h klines (last 24h). Free public API. Returns annualized vol %.
  *  Cache 5min TTL to match Deribit's cadence. */
-async function getBinanceRealizedVolPct(asset: string): Promise<number | null> {
+export async function getBinanceRealizedVolPct(asset: string): Promise<number | null> {
   const now = Date.now();
   const cacheKey = `binance:${asset}`;
   const cached = cache.get(cacheKey);
