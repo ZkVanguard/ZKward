@@ -85,6 +85,58 @@ for (const name of Object.keys(RUNTIME_DEPS)) {
   }
 }
 
+// ── Check 3.5: install-scripts baseline ──────────────────────────────────
+// npm 11's install-scripts warning prints when packages have pre/post/
+// install hooks that aren't in an allowlist. We silence that warning via
+// .npmrc loglevel=error (see docs/SUPPLY_CHAIN_POLICY.md), but silencing
+// alone would hide the case where a NEW dep quietly gains install scripts.
+// Programmatic replacement: walk package-lock.json, extract every package
+// with hasInstallScript=true, diff against .install-scripts-baseline.json.
+// Fail on new entries so the addition is reviewed + approved.
+(function checkInstallScripts() {
+  const baselinePath = path.join(ROOT, '.install-scripts-baseline.json');
+  const lockPath = path.join(ROOT, 'package-lock.json');
+  if (!fs.existsSync(baselinePath) || !fs.existsSync(lockPath)) return;
+
+  let authorized;
+  try {
+    authorized = new Set(JSON.parse(fs.readFileSync(baselinePath, 'utf8')).authorized || []);
+  } catch {
+    report('warning', '.install-scripts-baseline.json is present but invalid — skipping check');
+    return;
+  }
+
+  let lock;
+  try { lock = JSON.parse(fs.readFileSync(lockPath, 'utf8')); }
+  catch { return; }
+
+  const found = new Set();
+  for (const [p, meta] of Object.entries(lock.packages || {})) {
+    if (!p || !p.startsWith('node_modules/')) continue;
+    if (!meta || !meta.hasInstallScript) continue;
+    const name = p.split('node_modules/').slice(-1)[0];
+    found.add(name);
+  }
+
+  const newEntries = [...found].filter((n) => !authorized.has(n)).sort();
+  const removed = [...authorized].filter((n) => !found.has(n)).sort();
+
+  if (newEntries.length > 0) {
+    report(
+      'error',
+      `${newEntries.length} package(s) added install scripts not in baseline:\n` +
+        newEntries.map((n) => `      + ${n}`).join('\n') +
+        '\n    Review each — if trusted, add to .install-scripts-baseline.json authorized[].\n' +
+        '    If unexpected, investigate before authorizing (potential supply-chain attack surface).',
+    );
+  } else if (removed.length > 0) {
+    // Stale baseline — informational, not blocking.
+    console.log(`ℹ️  install-scripts baseline has ${removed.length} stale entry(ies) (no longer used): ${removed.join(', ')}`);
+  } else {
+    console.log(`✅ install-scripts baseline verified (${found.size} authorized package(s))`);
+  }
+})();
+
 // ── Check 4: npm audit ────────────────────────────────────────────────────
 // Blocking policy: CRITICAL always blocks; HIGH blocks only when
 // SUPPLY_CHAIN_BLOCK_HIGH=1. Otherwise HIGH surfaces as warnings so the

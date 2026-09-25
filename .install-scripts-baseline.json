@@ -1,0 +1,18 @@
+{
+  "_readme": "Packages authorized to run install scripts (preinstall / install / postinstall hooks). Enumerated from package-lock.json 'hasInstallScript' field on 2026-09-25. See scripts/verify-supply-chain.cjs check #5. If a new dep is added that runs install scripts, the build fails until you review + add it here (or drop the dep). This is the programmatic replacement for the npm 11 install-scripts CLI warning that .npmrc loglevel=error hides.",
+  "authorized": [
+    "@firefly-exchange/library-sui",
+    "@parcel/watcher",
+    "@reown/appkit",
+    "@swc/core",
+    "bi-fraction",
+    "bufferutil",
+    "esbuild",
+    "fsevents",
+    "keccak",
+    "secp256k1",
+    "unrs-resolver",
+    "utf-8-validate",
+    "yarn"
+  ]
+}
