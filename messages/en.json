@@ -26,7 +26,7 @@
     "hero": {
       "headline1": "The signal layer",
       "headline2": "for digital assets.",
-      "subtitle": "Every prediction market, every funding rate, every on-chain signal — scored against real outcomes. Autonomous execution when the winners align."
+      "subtitle": "ZKward is autonomous trading infrastructure that fuses 20+ prediction, orderbook, and on-chain signals per asset, scores every source against realized outcomes, and executes only when calibrated conviction aligns — with every decision provable on-chain."
     },
     "stats": {
       "eyebrow": "Right now, in production",
@@ -59,15 +59,15 @@
     "composition": {
       "eyebrow": "Live now",
       "title": "Live signal, per asset.",
-      "body": "20 sources fused per asset across BTC, ETH, SUI. Refreshes every 30 seconds."
+      "body": "A 20-source signal pipeline running on BTC, ETH, SOL, XRP, and DOGE, refreshed every 30 seconds. Every source is calibrated against realized outcomes and weighted by its live hit rate."
     },
     "howItWorks": {
       "eyebrow": "How it works",
       "title": "Aggregate. Calibrate. Execute.",
-      "body": "Runs every five minutes. All day. Without you.",
+      "body": "A three-stage loop that runs autonomously every five minutes, without operator input, since 2026-06-12.",
       "step1": {
         "title": "Fuse 20 sources per asset",
-        "body": "Polymarket, Kalshi, Delphi, Manifold, funding rates, orderbook depth, options skew, cross-asset correlation. Every tick, every asset."
+        "body": "Polymarket, Kalshi, Delphi, Manifold, funding rates, orderbook depth, options skew, cross-asset correlation. 20+ sources per asset, refreshed every 30 seconds."
       },
       "step2": {
         "title": "Score each source against real outcomes",
@@ -75,12 +75,12 @@
       },
       "step3": {
         "title": "Execute when winners align",
-        "body": "Multi-agent safety guard. Adaptive stops. Every trade STARK-attested and written on-chain. Verifiable. Unfakeable."
+        "body": "Multi-agent consensus. Adaptive stops. Every trade STARK-attested on the Goldilocks field with 180-bit soundness."
       }
     },
     "trust": {
       "title": "Trust minimized, by design.",
-      "body": "Not a policy on our website. The pipeline itself refuses bad signals, bad venues, and stale data.",
+      "body": "Every safeguard is enforced by code, not policy. Stale oracle data, un-calibrated sources, or a venue that fails a fill check gets rejected before any capital moves.",
       "poolCap": {
         "title": "Sources tracked",
         "value": "111",
@@ -110,7 +110,7 @@
     "surfaces": {
       "eyebrow": "Explore",
       "title": "Transparent by default.",
-      "body": "Signals, sources, trades, proofs. Nothing behind a login except your wallet.",
+      "body": "Every signal, every source hit rate, every trade, and every proof is public. The only thing behind a login is your own wallet.",
       "dashboard": {
         "eyebrow": "Dashboard",
         "title": "Live capital, one screen.",
@@ -119,27 +119,27 @@
       "rwa": {
         "eyebrow": "Real-world assets",
         "title": "Off-chain assets. On-chain proof.",
-        "body": "Custodian signatures bind portfolios to real assets. Holdings stay private."
+        "body": "Custodian signatures bind portfolios to real-world assets. Holdings remain private; verification is public."
       },
       "agents": {
         "eyebrow": "The seven agents",
         "title": "Seven specialists. One loop.",
-        "body": "Lead, Risk, Hedging, Settlement, Reporting, Price Monitor, SUI Pool. Big trades need 2-of-3."
+        "body": "Lead, Risk, Hedging, Settlement, Reporting, Price Monitor, SUI Pool. Trades above $100K require 2-of-3 consensus."
       },
       "zk": {
         "eyebrow": "Zero-knowledge proofs",
         "title": "Not screenshots. Math.",
-        "body": "Post-quantum STARK proofs, verifiable in your browser. 180-bit soundness."
+        "body": "Post-quantum STARK proofs on the Goldilocks field, verifiable in the browser. 180-bit soundness."
       },
       "story": {
         "eyebrow": "Our story",
         "title": "Origins.",
-        "body": "A five-minute read. We tell you when we lose money, too."
+        "body": "The full arc, including the losses. A five-minute read."
       },
       "whitepaper": {
         "eyebrow": "Whitepaper",
         "title": "Technical whitepaper.",
-        "body": "20-source signal fusion, per-source calibration, AI-graded prediction market interpretation, STARK-attested execution."
+        "body": "20-source signal fusion, per-source calibration, AI-graded prediction-market interpretation, STARK-attested execution."
       }
     },
     "finalCta": {
