@@ -1118,10 +1118,6 @@ Be concise and actionable.`;
     const params = task.parameters as Record<string, unknown>;
     const chain = (params.chain as string) || task.chain || 'cronos';
 
-    // ── Chain-specific hedge routing ──
-    // For SUI: use BlueFin-based SuiAutoHedgingAdapter
-    // For Oasis: use OasisAutoHedgingAdapter
-    // For Cronos: use default Moonlander/HedgeExecutor path
     if (chain === 'sui') {
       try {
         const { getSuiAutoHedgingAdapter } =
@@ -1150,37 +1146,9 @@ Be concise and actionable.`;
       } catch (error) {
         logger.warn('SUI hedge adapter failed, using generic strategy', { error });
       }
-    } else if (chain === 'oasis-sapphire' || chain === 'oasis') {
-      try {
-        const { getOasisAutoHedgingAdapter } =
-          await import('../../lib/services/oasis/OasisAutoHedgingAdapter');
-        const oasisAdapter = getOasisAutoHedgingAdapter();
-        const riskResult = await oasisAdapter.assessRisk(
-          (params.portfolioId as string) || 'community-pool'
-        );
-        logger.info('Oasis hedge strategy created via OasisAutoHedgingAdapter', {
-          chain,
-          recommendations: riskResult.recommendations?.length || 0,
-        });
-        return {
-          success: true,
-          data: {
-            strategyId: `oasis-strategy-${Date.now()}`,
-            chain: 'oasis-sapphire',
-            riskScore: riskResult.riskScore,
-            recommendations: riskResult.recommendations,
-            active: true,
-          },
-          error: null,
-          executionTime: Date.now() - startTime,
-          agentId: this.agentId,
-        };
-      } catch (error) {
-        logger.warn('Oasis hedge adapter failed, using generic strategy', { error });
-      }
     }
 
-    // ── Default: Cronos / generic strategy ──
+    // ── Default: generic strategy ──
     const strategy: HedgeStrategy = {
       strategyId: `strategy-${Date.now()}`,
       ...(params as Omit<HedgeStrategy, 'strategyId' | 'active'>),

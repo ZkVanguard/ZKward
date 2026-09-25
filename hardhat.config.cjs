@@ -38,55 +38,7 @@ const config = {
   networks: {
     hardhat: {
       chainId: 31337,
-      allowUnlimitedContractSize: true,  // Enable for testing large contracts
-      forking: process.env.FORK_CRONOS
-        ? {
-            url: process.env.CRONOS_MAINNET_RPC || 'https://evm.cronos.org/',
-            blockNumber: parseInt(process.env.FORK_BLOCK_NUMBER || '0'),
-          }
-        : undefined,
-    },
-    'cronos-testnet': {
-      chainId: 338,
-      url: process.env.CRONOS_TESTNET_RPC || 'https://evm-t3.cronos.org/',
-      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
-      gasPrice: 500000000000, // 500 gwei (minimum for testnet)
-      timeout: 60000,
-    },
-    'cronos-mainnet': {
-      chainId: 25,
-      url: process.env.CRONOS_MAINNET_RPC || 'https://evm.cronos.org/',
-      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
-      gasPrice: 'auto',
-      timeout: 60000,
-    },
-    'oasis-emerald-testnet': {
-      chainId: 42261,
-      url: process.env.OASIS_EMERALD_TESTNET_RPC || 'https://testnet.emerald.oasis.io',
-      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
-      gasPrice: 'auto',
-      timeout: 60000,
-    },
-    'oasis-emerald-mainnet': {
-      chainId: 42262,
-      url: process.env.OASIS_EMERALD_MAINNET_RPC || 'https://emerald.oasis.io',
-      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
-      gasPrice: 'auto',
-      timeout: 60000,
-    },
-    'oasis-sapphire-testnet': {
-      chainId: 23295,
-      url: process.env.OASIS_SAPPHIRE_TESTNET_RPC || 'https://testnet.sapphire.oasis.io',
-      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
-      gasPrice: 'auto',
-      timeout: 60000,
-    },
-    'oasis-sapphire-mainnet': {
-      chainId: 23294,
-      url: process.env.OASIS_SAPPHIRE_MAINNET_RPC || 'https://sapphire.oasis.io',
-      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
-      gasPrice: 'auto',
-      timeout: 60000,
+      allowUnlimitedContractSize: true,
     },
     'hedera-testnet': {
       chainId: 296,
@@ -102,84 +54,13 @@ const config = {
       gasPrice: 'auto',
       timeout: 120000,
     },
-    'sepolia': {
-      chainId: 11155111,
-      url: process.env.SEPOLIA_RPC || 'https://sepolia.drpc.org',
-      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
-      gasPrice: 'auto',
-      timeout: 120000,
-    },
-    'ethereum': {
-      chainId: 1,
-      url: process.env.ETHEREUM_RPC || 'https://eth.drpc.org',
-      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
-      gasPrice: 'auto',
-      timeout: 120000,
-    },
-    // duplicate hedera entries removed — using earlier definitions (line ~79)
   },
   etherscan: {
     apiKey: {
-      'cronos-testnet': process.env.CRONOSCAN_API_KEY || '',
-      'cronos-mainnet': process.env.CRONOSCAN_API_KEY || '',
-      'oasis-emerald-testnet': 'no-api-key-needed',
-      'oasis-emerald-mainnet': 'no-api-key-needed',
-      'oasis-sapphire-testnet': 'no-api-key-needed',
-      'oasis-sapphire-mainnet': 'no-api-key-needed',
       'hedera-testnet': process.env.HASHSCAN_API_KEY || '',
       'hedera-mainnet': process.env.HASHSCAN_API_KEY || '',
-      'sepolia': process.env.ETHERSCAN_API_KEY || '',
-      'ethereum': process.env.ETHERSCAN_API_KEY || '',
     },
     customChains: [
-      {
-        network: 'cronos-testnet',
-        chainId: 338,
-        urls: {
-          apiURL: 'https://api-testnet.cronoscan.com/api',
-          browserURL: 'https://explorer.cronos.org/testnet/',
-        },
-      },
-      {
-        network: 'cronos-mainnet',
-        chainId: 25,
-        urls: {
-          apiURL: 'https://api.cronoscan.com/api',
-          browserURL: 'https://explorer.cronos.org/',
-        },
-      },
-      {
-        network: 'oasis-emerald-testnet',
-        chainId: 42261,
-        urls: {
-          apiURL: 'https://explorer.oasis.io/testnet/emerald/api',
-          browserURL: 'https://explorer.oasis.io/testnet/emerald/',
-        },
-      },
-      {
-        network: 'oasis-emerald-mainnet',
-        chainId: 42262,
-        urls: {
-          apiURL: 'https://explorer.oasis.io/mainnet/emerald/api',
-          browserURL: 'https://explorer.oasis.io/mainnet/emerald/',
-        },
-      },
-      {
-        network: 'oasis-sapphire-testnet',
-        chainId: 23295,
-        urls: {
-          apiURL: 'https://explorer.oasis.io/testnet/sapphire/api',
-          browserURL: 'https://explorer.oasis.io/testnet/sapphire/',
-        },
-      },
-      {
-        network: 'oasis-sapphire-mainnet',
-        chainId: 23294,
-        urls: {
-          apiURL: 'https://explorer.oasis.io/mainnet/sapphire/api',
-          browserURL: 'https://explorer.oasis.io/mainnet/sapphire/',
-        },
-      },
       {
         network: 'hedera-testnet',
         chainId: 296,
@@ -194,14 +75,6 @@ const config = {
         urls: {
           apiURL: 'https://server-verify.hashscan.io/api',
           browserURL: 'https://hashscan.io/mainnet/',
-        },
-      },
-      {
-        network: 'sepolia',
-        chainId: 11155111,
-        urls: {
-          apiURL: 'https://api-sepolia.etherscan.io/api',
-          browserURL: 'https://sepolia.etherscan.io/',
         },
       },
     ],
