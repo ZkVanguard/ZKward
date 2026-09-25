@@ -39,7 +39,7 @@ ZKward is distributed under the terms of the Apache License, Version 2.0 ([LICEN
 - [Website](https://www.zkward.com)
 - [Shadow trader](https://www.zkward.com/paper)
 - [Health](https://www.zkward.com/api/health/production)
-- [X](https://x.com/ZkVanguardWeb3)
+- [X](https://x.com/ZKward_Official)
 - [Telegram](https://t.me/ZkVanguardOfficial)
 
 ## Disclaimer
