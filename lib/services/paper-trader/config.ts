@@ -65,6 +65,27 @@ export const PAPER_MAX_CONSECUTIVE_LOSSES = Number(
 );
 export const PAPER_HALT_HOURS = Number(process.env.PAPER_TRADER_HALT_HOURS || 4);
 
+// Fix G (2026-09-25) — short-window rolling-loss halt.
+// The existing consecutive-loss halt resets on any interspersed win,
+// so a chop regime that lands one $10 win between 8 losers won't fire
+// it. This tracks losses in a rolling minutes-window (default 90m) and
+// halts when EITHER loss count OR cumulative loss magnitude crosses a
+// threshold. Complements the 7d rolling-DD halt (too slow to catch a
+// same-day regime break) and the daily profit-lock (needs a NAV drop
+// meaningful vs the whole book).
+export const PAPER_ROLLING_LOSS_WINDOW_MIN = Number(
+  process.env.PAPER_TRADER_ROLLING_LOSS_WINDOW_MIN || 90,
+);
+export const PAPER_ROLLING_LOSS_COUNT_TRIP = Number(
+  process.env.PAPER_TRADER_ROLLING_LOSS_COUNT_TRIP || 5,
+);
+export const PAPER_ROLLING_LOSS_USD_TRIP = Number(
+  process.env.PAPER_TRADER_ROLLING_LOSS_USD_TRIP || 500,
+);
+export const PAPER_ROLLING_LOSS_HALT_HOURS = Number(
+  process.env.PAPER_TRADER_ROLLING_LOSS_HALT_HOURS || 4,
+);
+
 /**
  * Max stake per trade as a fraction of NAV, applied AFTER all sizing
  * multipliers (signalScalar × volMult × calibrationBoost).
