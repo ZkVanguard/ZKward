@@ -22,11 +22,10 @@
     "url": "https://github.com/ZkVanguard/ZkVanguard.git"
   },
   "engines": {
-    "node": ">=22.0.0",
-    "bun": ">=1.0.0"
+    "node": "22.x"
   },
   "scripts": {
-    "prepare": "husky install",
+    "prepare": "test -d .git && husky install || true",
     "security:scan": "node scripts/security-scan.cjs",
     "security:supply-chain": "node scripts/verify-supply-chain.cjs",
     "verify:frontend": "node scripts/verify-frontend.cjs",
