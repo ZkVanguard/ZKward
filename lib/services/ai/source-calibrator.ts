@@ -31,6 +31,28 @@
 import { getCronState, getCronStateOr, setCronState } from '@/lib/db/cron-state';
 import { logger } from '@/lib/utils/logger';
 
+/** Fix H (2026-09-25) — hard-filter mode.
+ *
+ *  The soft-multiplier approach (Bayesian shrink → weight scaling) still
+ *  lets 15+ near-coin-flip sources contribute to every aggregation. When
+ *  we averaged 20 sources with hit rates 45-55%, the aggregator output
+ *  converged to a coin flip regardless of what any individual source
+ *  said. Confidence bucket 60-64 came in at 23.2% win rate (n=56); even
+ *  bucket 80-84 was only 23.8% (n=21). Confidence stopped meaning
+ *  anything.
+ *
+ *  Hard filter: once a source has enough data (n >= MIN_TRADES), REMOVE
+ *  it entirely from the aggregation if its calibrated hit rate is below
+ *  MIN_HIT_RATE. Cold sources (n < MIN_TRADES) still pass through with
+ *  Bayesian-shrunk multipliers so new sources can bootstrap.
+ *
+ *  Tunable so we can back off if the filter starves the aggregator of
+ *  data. Off by default; enable via env until we confirm behavior.
+ */
+const HARD_FILTER_ENABLED = ((process.env.SOURCE_HARD_FILTER_ENABLED || 'true') !== 'false');
+const HARD_FILTER_MIN_TRADES = Number(process.env.SOURCE_HARD_FILTER_MIN_TRADES || 20);
+const HARD_FILTER_MIN_HIT_RATE = Number(process.env.SOURCE_HARD_FILTER_MIN_HIT_RATE || 0.52);
+
 /** Prior "phantom trades" credited to the neutral hit rate before empirical
  *  outcomes take over.
  *
@@ -198,6 +220,26 @@ export async function getCalibratedMultiplier(sourceKey: string): Promise<number
 }
 
 /**
+ * Fix H — hard-filter check. Returns true if this source has ENOUGH DATA
+ * (n >= HARD_FILTER_MIN_TRADES) AND its empirical hit rate is BELOW the
+ * accept threshold — meaning the source should be REMOVED from
+ * aggregation entirely, not just weight-shrunk.
+ *
+ * Cold sources (insufficient data) return false so they can bootstrap.
+ */
+export async function shouldHardFilterSource(sourceKey: string): Promise<boolean> {
+  if (!HARD_FILTER_ENABLED) return false;
+  try {
+    const bucket = await getCronState<SourceCalibrationBucket>(stateKey(sourceKey));
+    if (!bucket || bucket.n < HARD_FILTER_MIN_TRADES) return false;
+    const empirical = bucket.wins / bucket.n;
+    return empirical < HARD_FILTER_MIN_HIT_RATE;
+  } catch {
+    return false; // fail-open — if calibration read errors, keep source
+  }
+}
+
+/**
  * Apply calibrated multipliers to a source list, then re-normalize so
  * weights still sum to 1. If total falls to 0 (defensive), fall back to
  * the input list unchanged.
@@ -211,8 +253,23 @@ export async function applyCalibrationToSources<
   // stays zero even after Bayesian shrinkage kicks it back toward 0.5:
   // decay is a hard kill, calibrator is a soft weight.
   const decayMults = await getCronState<Record<string, number>>('source-decay:weight-multipliers') ?? {};
-  const withMults = await Promise.all(
+
+  // Fix H — hard-filter pass first. Any source with n >= MIN_TRADES and
+  // hit_rate < MIN_HIT_RATE is REMOVED entirely, not down-weighted.
+  const skipFlags: boolean[] = await Promise.all(
     sources.map(async (s) => {
+      const key = normalizeSourceKey(s.name, s.type ?? '');
+      return await shouldHardFilterSource(key);
+    }),
+  );
+  const survivors: S[] = sources.filter((_, i) => !skipFlags[i]);
+  // Defensive floor — never leave the aggregator with < 2 sources.
+  // If we filtered too aggressively, fall back to the unfiltered set
+  // so we don't produce degenerate predictions.
+  const filteredSources: S[] = survivors.length >= 2 ? survivors : sources;
+
+  const withMults = await Promise.all(
+    filteredSources.map(async (s) => {
       const key = normalizeSourceKey(s.name, s.type ?? '');
       const bayes = await getCalibratedMultiplier(key);
       const decay = decayMults[key] ?? 1;
