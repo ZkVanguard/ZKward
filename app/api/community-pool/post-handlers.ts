@@ -14,7 +14,12 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { timingSafeEqual } from 'crypto';
 import { logger } from '@/lib/utils/logger';
-import { deposit, withdraw } from '@/lib/services/cronos/CommunityPoolService';
+// Cronos community pool retired 2026-09-25. Deposit/withdraw for the SUI
+// pool go through /api/community-pool/deposit-usdt + the Move contract via
+// useCommunityPool; these stubs fail if any legacy Cronos path is hit.
+const cronosRetired = () => { throw new Error('Cronos pool retired'); };
+const deposit = (..._args: unknown[]) => cronosRetired() as any;
+const withdraw = (..._args: unknown[]) => cronosRetired() as any;
 import { clearCaches as clearStatsCaches } from '@/lib/services/CommunityPoolStatsService';
 import {
   resetNavHistory,

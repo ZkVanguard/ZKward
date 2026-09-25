@@ -1,28 +1,21 @@
 /**
  * Reserved portfolio IDs for community pools.
  *
- * RWAManager.sol assigns user portfolios starting at 0 (uint256), so any
- * negative sentinel is guaranteed not to collide. One reservation per chain
- * so multi-chain pools can coexist in the same DB.
+ * Negative sentinels never collide with RWAManager-assigned uint256 IDs.
+ * One reservation per chain so pools coexist in the same DB.
  *
- *   -1  EVM community pool (Cronos, legacy)
+ *   -1  Legacy EVM community pool (retained for historic rows)
  *   -2  SUI USDC community pool
  *   -3  Hedera community pool
- *   -4  Sepolia community pool
- *   -5  Reserved for the next EVM chain (Arbitrum / Base / Plasma / Stable)
  */
 export const COMMUNITY_POOL_PORTFOLIO_ID = -1;
 export const SUI_COMMUNITY_POOL_PORTFOLIO_ID = -2;
 export const HEDERA_COMMUNITY_POOL_PORTFOLIO_ID = -3;
-export const SEPOLIA_COMMUNITY_POOL_PORTFOLIO_ID = -4;
-export const RESERVED_POOL_PORTFOLIO_ID_5 = -5;
 
 const RESERVED_POOL_IDS: ReadonlySet<number> = new Set([
   COMMUNITY_POOL_PORTFOLIO_ID,
   SUI_COMMUNITY_POOL_PORTFOLIO_ID,
   HEDERA_COMMUNITY_POOL_PORTFOLIO_ID,
-  SEPOLIA_COMMUNITY_POOL_PORTFOLIO_ID,
-  RESERVED_POOL_PORTFOLIO_ID_5,
 ]);
 
 /**
@@ -33,14 +26,14 @@ export function isCommunityPoolPortfolio(portfolioId: number | null | undefined)
   return typeof portfolioId === 'number' && RESERVED_POOL_IDS.has(portfolioId);
 }
 
+export const SUI_COMMUNITY_POOL_STATE = '0xb9b9c58c8c023723f631455c95c21ad3d3b00ba0fef91e42a90c9f648fa68f56';
+
 /**
- * Community Pool contract address on Cronos Testnet (legacy/deprecated).
- * For chain-specific addresses, use getCommunityPoolAddress(chain, network)
- * from lib/contracts/community-pool-config.ts instead.
+ * @deprecated Cronos community pool retired 2026-09-25. Only referenced by
+ * dead code paths (Cronos-only functions never invoked post-nuke). Kept so
+ * those paths still compile; delete after the dead-code sweep.
  */
 export const COMMUNITY_POOL_ADDRESS = '0xC25A8D76DDf946C376c9004F5192C7b2c27D5d30';
-
-export const SUI_COMMUNITY_POOL_STATE = '0xb9b9c58c8c023723f631455c95c21ad3d3b00ba0fef91e42a90c9f648fa68f56';
 
 export function isSuiCommunityPool(poolId: string | number | null | undefined): boolean {
   return poolId === SUI_COMMUNITY_POOL_PORTFOLIO_ID || poolId === 'sui-usdc-pool';
@@ -61,11 +54,6 @@ export function chainToPortfolioId(chain: string | null | undefined): number {
       return SUI_COMMUNITY_POOL_PORTFOLIO_ID;
     case 'hedera':
       return HEDERA_COMMUNITY_POOL_PORTFOLIO_ID;
-    case 'sepolia':
-      return SEPOLIA_COMMUNITY_POOL_PORTFOLIO_ID;
-    case 'cronos':
-    case 'cronos-testnet':
-    case 'cronos-mainnet':
     default:
       return COMMUNITY_POOL_PORTFOLIO_ID;
   }

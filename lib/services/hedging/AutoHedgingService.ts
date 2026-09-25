@@ -33,7 +33,6 @@ import {
   SUI_COMMUNITY_POOL_PORTFOLIO_ID,
   isCommunityPoolPortfolio,
 } from '@/lib/constants';
-import { calculatePoolNAV } from '../cronos/CommunityPoolService';
 import { getPoolStats as getUnifiedPoolStats } from '../CommunityPoolStatsService';
 import { getCentralizedHedgeManager } from './CentralizedHedgeManager';
 import {
@@ -49,10 +48,7 @@ import {
   generateHedgeRecommendations,
 } from './hedge-risk-math';
 import { SIZING_LIMITS, isPriceFreshEnough, safeLeverage, buildDecisionToken } from './calibration';
-import {
-  assessCommunityPoolRisk as assessCommunityPoolRiskPure,
-  assessSuiCommunityPoolRisk as assessSuiCommunityPoolRiskPure,
-} from './community-pool-risk-assessor';
+import { assessSuiCommunityPoolRisk as assessSuiCommunityPoolRiskPure } from './community-pool-risk-assessor';
 // Re-export shared types for existing consumers
 export type { AutoHedgeConfig, RiskAssessment, HedgeRecommendation } from './hedge-types';
 
@@ -522,13 +518,9 @@ class AutoHedgingService {
     walletAddress: string,
     chain?: string
   ): Promise<RiskAssessment> {
-    // Special handling for CommunityPool (portfolioId = COMMUNITY_POOL_PORTFOLIO_ID or SUI_COMMUNITY_POOL_PORTFOLIO_ID)
+    // SUI is the only supported community-pool chain.
     if (isCommunityPoolPortfolio(portfolioId)) {
-      // SUI pool uses dedicated SUI risk assessment path
-      if (chain === 'sui' || portfolioId === SUI_COMMUNITY_POOL_PORTFOLIO_ID) {
-        return this.assessSuiCommunityPoolRisk();
-      }
-      return this.assessCommunityPoolRisk();
+      return this.assessSuiCommunityPoolRisk();
     }
 
     try {
@@ -616,18 +608,6 @@ class AutoHedgingService {
   }
 
 
-  /**
-   * Assess risk for the Cronos community pool. Implementation lives in
-   * community-pool-risk-assessor.ts (extracted 2026-08-30).
-   */
-  private assessCommunityPoolRisk(): Promise<RiskAssessment> {
-    return assessCommunityPoolRiskPure();
-  }
-
-  /**
-   * Assess risk for the SUI USDC community pool. Implementation lives in
-   * community-pool-risk-assessor.ts (extracted 2026-08-30).
-   */
   private assessSuiCommunityPoolRisk(): Promise<RiskAssessment> {
     return assessSuiCommunityPoolRiskPure();
   }

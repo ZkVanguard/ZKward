@@ -19,11 +19,12 @@ import {
   LiquidationRisk,
 } from '@integrations/moonlander/MoonlanderClient';
 import { MCPClient } from '@integrations/mcp/MCPClient';
-import {
-  HedgeExecutorClient,
-  HedgeExecutorConfig,
-  OnChainHedgeResult,
-} from '@integrations/hedge-executor/HedgeExecutorClient';
+// HedgeExecutor (Cronos on-chain execution) retired 2026-09-25. Types kept
+// as any placeholders so the dead code paths below still compile — they
+// never execute at runtime (useOnChainExecution stays false).
+type HedgeExecutorClient = any;
+type HedgeExecutorConfig = any;
+type OnChainHedgeResult = { hedgeId: string; [k: string]: any };
 import { DelphiMarketService } from '../../lib/services/market-data/DelphiMarketService';
 import {
   PredictionAggregatorService,
@@ -95,14 +96,9 @@ export class HedgingAgent extends BaseAgent {
     this.moonlanderClient = new MoonlanderClient(provider, signer);
     this.mcpClient = new MCPClient();
 
-    // Enable on-chain execution if config provided
-    if (hedgeExecutorConfig) {
-      this.hedgeExecutorClient = new HedgeExecutorClient(hedgeExecutorConfig);
-      this.useOnChainExecution = true;
-      logger.info('HedgingAgent: On-chain execution enabled via HedgeExecutor', {
-        contract: hedgeExecutorConfig.contractAddress,
-      });
-    }
+    // On-chain execution retired 2026-09-25 with Cronos nuke; constructor
+    // still accepts the config for backwards compat but ignores it.
+    void hedgeExecutorConfig;
   }
 
   /**
