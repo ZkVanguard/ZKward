@@ -82,6 +82,23 @@ function VaultTiltScene({ children }: { children: React.ReactNode }) {
 // to grow from the current 60k without pinning at 100%.
 const TVL_CAP_USD = 100_000;
 
+// Signal-source strip — real providers the aggregator reads every tick.
+// Colors are each brand's public-facing accent, used only as a small dot
+// (nominative fair use — describing which services we consume, not
+// asserting endorsement). Ordered by weight class: prediction markets
+// first, then venues, then options.
+const DATA_SOURCES: Array<{ name: string; color: string }> = [
+  { name: 'Polymarket',  color: '#2D9CDB' },
+  { name: 'Kalshi',      color: '#00B87A' },
+  { name: 'Manifold',    color: '#4F46E5' },
+  { name: 'Delphi',      color: '#FF6B00' },
+  { name: 'Binance',     color: '#F3BA2F' },
+  { name: 'Bybit',       color: '#F7A600' },
+  { name: 'BlueFin',     color: '#3B82F6' },
+  { name: 'Deribit',     color: '#00D4AA' },
+  { name: 'Crypto.com',  color: '#003CDA' },
+];
+
 // ───────────────────────────────────────────────────────────────────────────
 // Live SUI Community Pool landing page. Apple-themed, single focus.
 //
@@ -565,32 +582,33 @@ export const SuiPoolLanding = memo(function SuiPoolLanding() {
           </div>
 
           {/* ─── READS FROM: data-source row ─── */}
-          {/* Text-only source strip — cleaner + no third-party logo
-              licensing risk. These are the REAL data providers the
-              aggregator consumes every tick; genuine social proof. */}
-          <div className="mx-auto max-w-[1000px] mb-12 sm:mb-16">
-            <p className="text-center text-[10px] sm:text-caption-2 font-semibold uppercase tracking-[0.14em] text-label-tertiary mb-3 sm:mb-4">
-              Reads from
+          {/* Brand chip strip — each source rendered as a bordered tile
+              with a brand-colored dot. Real "trusted by" lockup pattern
+              (Stripe, Vercel etc use it when raw logos aren't sourced).
+              Genuine social proof — these are the actual providers the
+              aggregator consumes every tick. */}
+          <div className="mx-auto max-w-[1100px] mb-12 sm:mb-16">
+            <p className="text-center text-[10px] sm:text-caption-2 font-semibold uppercase tracking-[0.14em] text-label-tertiary mb-4 sm:mb-5">
+              Signal sources
             </p>
-            <div className="flex flex-wrap items-center justify-center gap-x-5 sm:gap-x-8 gap-y-2 text-label-secondary font-medium text-[13px] sm:text-[15px] tracking-[-0.005em]">
-              <span>Polymarket</span>
-              <span className="text-label-quaternary">·</span>
-              <span>Kalshi</span>
-              <span className="text-label-quaternary">·</span>
-              <span>Delphi</span>
-              <span className="text-label-quaternary">·</span>
-              <span>Manifold</span>
-              <span className="text-label-quaternary">·</span>
-              <span>Binance</span>
-              <span className="text-label-quaternary">·</span>
-              <span>Bybit</span>
-              <span className="text-label-quaternary">·</span>
-              <span>Deribit</span>
-              <span className="text-label-quaternary">·</span>
-              <span>BlueFin</span>
-              <span className="text-label-quaternary">·</span>
-              <span>Crypto.com</span>
+            <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-2.5">
+              {DATA_SOURCES.map((s) => (
+                <span
+                  key={s.name}
+                  className="group inline-flex items-center gap-2 h-9 sm:h-10 pl-3 pr-4 rounded-full border border-separator-opaque/40 bg-white/60 backdrop-blur-sm text-label-secondary text-[13px] sm:text-[14px] font-medium tracking-[-0.005em] hover:border-separator-opaque hover:bg-white transition-colors"
+                >
+                  <span
+                    aria-hidden
+                    className="w-1.5 h-1.5 rounded-full shrink-0 group-hover:scale-125 transition-transform"
+                    style={{ backgroundColor: s.color }}
+                  />
+                  {s.name}
+                </span>
+              ))}
             </div>
+            <p className="text-center text-[11px] sm:text-caption-1 text-label-tertiary mt-3 sm:mt-4">
+              Prediction markets · orderbook microstructure · funding · options implied vol
+            </p>
           </div>
 
           {/* CTAs — promoted to sit directly under the credibility strip
