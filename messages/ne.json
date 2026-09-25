@@ -147,6 +147,43 @@
       "body": "Every source, every hit rate, every trade — public. Connect a wallet to deposit into the live demo vault.",
       "alreadyIn": "{count} already in.",
       "paused": "Deposits paused for maintenance."
+    },
+    "production": {
+      "eyebrow": "In production",
+      "title": "Live on Sui mainnet since 2026-06-12.",
+      "body": "A public track record measured on-chain, not in press releases.",
+      "daysLive": {
+        "title": "Days live",
+        "value": "100+",
+        "hint": "Continuous, no restarts. Contract-enforced $10K TVL cap."
+      },
+      "navSnapshots": {
+        "title": "NAV snapshots",
+        "value": "2,200+",
+        "hint": "Written on-chain every 15 minutes since inception."
+      },
+      "hedges": {
+        "title": "Hedges executed",
+        "value": "214",
+        "hint": "Lifetime, across BTC, ETH, SUI, SOL perps."
+      }
+    },
+    "builtFor": {
+      "eyebrow": "Built for",
+      "title": "Traders, researchers, and protocols.",
+      "body": "One signal pipeline, three audiences.",
+      "traders": {
+        "title": "Traders",
+        "body": "Signal quality that survives regime changes. Auto-kill for underperforming sources. Aggregator refreshes every 30 seconds."
+      },
+      "research": {
+        "title": "Research desks",
+        "body": "Every source hit rate is public. Historical calibration accessible via API. Reproducible from raw data."
+      },
+      "protocols": {
+        "title": "Protocols",
+        "body": "Autonomous execution with STARK-attested proofs. Multi-agent consensus. Contract-enforced TVL caps."
+      }
     }
   },
   "agentsPage": {
