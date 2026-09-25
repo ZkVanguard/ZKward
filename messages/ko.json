@@ -257,12 +257,6 @@
         "label": "sources with mature track records"
       }
     },
-    "vault": {
-      "poolNav": "Live capital",
-      "sharePrice": "Per share",
-      "capacity": "Capacity",
-      "capacityOf": "{current} of {cap}"
-    },
     "cta": {
       "depositUsdc": "See live signals",
       "howItWorks": "How it works",
