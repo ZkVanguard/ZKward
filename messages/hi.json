@@ -15,50 +15,6 @@
     "signals": "Signals",
     "sources": "Sources"
   },
-  "hero": {
-    "eyebrow": "SUI Mainnet",
-    "quantumProof": "क्वांटम-प्रूफ",
-    "headline1": "आपका पोर्टफोलियो।",
-    "headline2": "सुरक्षित।",
-    "subtitle": "AI एजेंट जोखिम का प्रबंधन करते हैं। ज़ीरो-नॉलेज प्रूफ गोपनीयता की रक्षा करते हैं।",
-    "ctaDashboard": "डैशबोर्ड लॉन्च करें",
-    "ctaLearnMore": "और जानें",
-    "ctaArrow": "→"
-  },
-  "features": {
-    "title": "उन्नत सुरक्षा",
-    "subtitle": "एंटरप्राइज़-ग्रेड सुरक्षा स्वायत्त बुद्धिमत्ता से मिलती है",
-    "zkProofs": {
-      "title": "ZK-STARK प्रमाण",
-      "description": "पोस्ट-क्वांटम सुरक्षा पारदर्शी प्रमाणों के साथ, बिना विश्वास सेटअप के"
-    },
-    "aiAgents": {
-      "title": "AI एजेंट",
-      "description": "स्मार्ट हेज ट्रिगर्स के साथ 24/7 स्वायत्त जोखिम प्रबंधन"
-    },
-    "liveAnalytics": {
-      "title": "लाइव एनालिटिक्स",
-      "description": "प्रेडिक्टिव रिस्क स्कोरिंग के साथ रीयल-टाइम पोर्टफोलियो ट्रैकिंग"
-    },
-    "quantumProof": {
-      "title": "क्वांटम सुरक्षा",
-      "description": "BLS12-381 वक्रों के साथ पोस्ट-क्वांटम क्रिप्टोग्राफी तैयार"
-    }
-  },
-  "stats": {
-    "aiAgents": "AI एजेंट",
-    "gasSavings": "गैस बचत",
-    "zkProofs": "ZK प्रमाण",
-    "responseTime": "प्रतिक्रिया समय",
-    "batchingNote": "SUI Mainnet पर AI ट्रेडिंग एजेंट",
-    "chainsSupported": "समर्थित चेन"
-  },
-  "cta": {
-    "title": "अपनी संपत्ति सुरक्षित करने के लिए तैयार हैं?",
-    "subtitle": "ZK-STARK गोपनीयता के साथ AI-संचालित जोखिम प्रबंधन का उपयोग करने वाले हजारों निवेशकों से जुड़ें।",
-    "button": "डैशबोर्ड लॉन्च करें",
-    "learnMore": "सुरक्षा के बारे में और जानें"
-  },
   "footer": {
     "product": "प्रोडक्ट",
     "platform": "प्लेटफॉर्म",
@@ -373,26 +329,6 @@
         "eyebrow": "Dashboard",
         "title": "Live capital, one screen.",
         "body": "Balance, hedges, drawdown, proofs. Refreshed every minute."
-      },
-      "rwa": {
-        "eyebrow": "Real-world assets",
-        "title": "Off-chain assets. On-chain proof.",
-        "body": "Custodian signatures bind portfolios to real assets. Holdings stay private."
-      },
-      "agents": {
-        "eyebrow": "The seven agents",
-        "title": "Seven specialists. One loop.",
-        "body": "Lead, Risk, Hedging, Settlement, Reporting, Price Monitor, SUI Pool. Big trades need 2-of-3."
-      },
-      "zk": {
-        "eyebrow": "Zero-knowledge proofs",
-        "title": "Not screenshots. Math.",
-        "body": "Post-quantum STARK proofs, verifiable in your browser. 180-bit soundness."
-      },
-      "story": {
-        "eyebrow": "Our story",
-        "title": "How we got here.",
-        "body": "A five-minute read. We tell you when we lose money, too."
       },
       "whitepaper": {
         "eyebrow": "Whitepaper",

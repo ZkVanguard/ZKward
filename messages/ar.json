@@ -15,50 +15,6 @@
     "signals": "Signals",
     "sources": "Sources"
   },
-  "hero": {
-    "eyebrow": "SUI Mainnet",
-    "quantumProof": "مقاومة الكم",
-    "headline1": "محفظتك.",
-    "headline2": "محمية.",
-    "subtitle": "وكلاء الذكاء الاصطناعي يديرون المخاطر. إثباتات المعرفة الصفرية تحمي الخصوصية.",
-    "ctaDashboard": "تشغيل لوحة التحكم",
-    "ctaLearnMore": "معرفة المزيد",
-    "ctaArrow": "←"
-  },
-  "features": {
-    "title": "حماية متقدمة",
-    "subtitle": "أمان على مستوى المؤسسات مع ذكاء مستقل",
-    "zkProofs": {
-      "title": "إثباتات ZK-STARK",
-      "description": "أمان ما بعد الكم مع إثباتات شفافة، بدون إعداد موثوق"
-    },
-    "aiAgents": {
-      "title": "وكلاء الذكاء الاصطناعي",
-      "description": "إدارة مخاطر مستقلة على مدار الساعة مع محفزات تحوط ذكية"
-    },
-    "liveAnalytics": {
-      "title": "التحليلات المباشرة",
-      "description": "تتبع المحفظة في الوقت الفعلي مع تسجيل المخاطر التنبؤي"
-    },
-    "quantumProof": {
-      "title": "الأمان الكمي",
-      "description": "جاهز للتشفير ما بعد الكم مع منحنيات BLS12-381"
-    }
-  },
-  "stats": {
-    "aiAgents": "وكلاء الذكاء الاصطناعي",
-    "gasSavings": "توفير الغاز",
-    "zkProofs": "إثباتات ZK",
-    "responseTime": "وقت الاستجابة",
-    "batchingNote": "وكلاء تداول AI على SUI Mainnet",
-    "chainsSupported": "السلاسل المدعومة"
-  },
-  "cta": {
-    "title": "هل أنت مستعد لتأمين أصولك؟",
-    "subtitle": "انضم إلى آلاف المستثمرين الذين يستخدمون إدارة المخاطر المدعومة بالذكاء الاصطناعي مع خصوصية ZK-STARK.",
-    "button": "تشغيل لوحة التحكم",
-    "learnMore": "اعرف المزيد عن الأمان"
-  },
   "footer": {
     "product": "المنتج",
     "platform": "المنصة",
@@ -373,26 +329,6 @@
         "eyebrow": "Dashboard",
         "title": "Live capital, one screen.",
         "body": "Balance, hedges, drawdown, proofs. Refreshed every minute."
-      },
-      "rwa": {
-        "eyebrow": "Real-world assets",
-        "title": "Off-chain assets. On-chain proof.",
-        "body": "Custodian signatures bind portfolios to real assets. Holdings stay private."
-      },
-      "agents": {
-        "eyebrow": "The seven agents",
-        "title": "Seven specialists. One loop.",
-        "body": "Lead, Risk, Hedging, Settlement, Reporting, Price Monitor, SUI Pool. Big trades need 2-of-3."
-      },
-      "zk": {
-        "eyebrow": "Zero-knowledge proofs",
-        "title": "Not screenshots. Math.",
-        "body": "Post-quantum STARK proofs, verifiable in your browser. 180-bit soundness."
-      },
-      "story": {
-        "eyebrow": "Our story",
-        "title": "How we got here.",
-        "body": "A five-minute read. We tell you when we lose money, too."
       },
       "whitepaper": {
         "eyebrow": "Whitepaper",

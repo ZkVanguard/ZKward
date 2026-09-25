@@ -140,26 +140,6 @@
         "title": "$100K notional, full stack, public receipts.",
         "body": "The same signals + agents + execution stack running against a live $100K paper book. Verify PnL before you fund anything."
       },
-      "rwa": {
-        "eyebrow": "Real-world assets",
-        "title": "Off-chain assets. On-chain proof.",
-        "body": "Custodian signatures bind portfolios to real-world assets. Holdings remain private; verification is public."
-      },
-      "agents": {
-        "eyebrow": "The seven agents",
-        "title": "Seven specialists. One loop.",
-        "body": "Lead, Risk, Hedging, Settlement, Reporting, Price Monitor, SUI Pool. Trades above $100K require 2-of-3 consensus."
-      },
-      "zk": {
-        "eyebrow": "Zero-knowledge proofs",
-        "title": "Not screenshots. Math.",
-        "body": "Post-quantum STARK proofs on the Goldilocks field, verifiable in the browser. 180-bit soundness."
-      },
-      "story": {
-        "eyebrow": "Our story",
-        "title": "Origins.",
-        "body": "The full arc, including the losses. A five-minute read."
-      },
       "whitepaper": {
         "eyebrow": "Whitepaper",
         "title": "Technical whitepaper.",
@@ -452,50 +432,6 @@
   "whitepaperMeta": {
     "title": "Whitepaper",
     "description": "The full ZKward thesis: prediction-market alpha, 7-agent architecture, STARK-attested execution, tokenomics, roadmap."
-  },
-  "hero": {
-    "eyebrow": "Live on SUI Mainnet",
-    "quantumProof": "Quantum-Proof",
-    "headline1": "A vault that shows",
-    "headline2": "its work.",
-    "subtitle": "AI trades your crypto. We publish the math. You never have to trust us.",
-    "ctaDashboard": "Open the app",
-    "ctaLearnMore": "Read the story",
-    "ctaArrow": "→"
-  },
-  "features": {
-    "title": "What makes it different",
-    "subtitle": "Four things you rarely find in one place.",
-    "zkProofs": {
-      "title": "Proofs, not promises",
-      "description": "Every hedge decision closes with a cryptographic receipt anyone can verify on-chain. Not a screenshot. A proof."
-    },
-    "aiAgents": {
-      "title": "Seven AI specialists",
-      "description": "Not one big model. Seven small agents that argue with each other before any real money moves. Trades above $100K need a 2-of-3 vote."
-    },
-    "liveAnalytics": {
-      "title": "Public receipts",
-      "description": "Every trade, win or loss, is on the dashboard. When we lost $68K last week, you saw it. That is the deal."
-    },
-    "quantumProof": {
-      "title": "Post-quantum by default",
-      "description": "STARK proofs on the Goldilocks field. No elliptic curves. Nothing that a future quantum computer breaks."
-    }
-  },
-  "stats": {
-    "aiAgents": "AI agents",
-    "gasSavings": "Sub-cent gas",
-    "zkProofs": "Proofs per hedge",
-    "responseTime": "Signal to execution",
-    "batchingNote": "Running today on SUI Mainnet",
-    "chainsSupported": "Chains supported"
-  },
-  "cta": {
-    "title": "Small on purpose. Real on purpose.",
-    "subtitle": "The pool is capped at $10,000 by the contract. We wanted to prove it works before scaling. Slow is the point.",
-    "button": "Open the app",
-    "learnMore": "Read the whitepaper"
   },
   "footer": {
     "product": "PRODUCT",

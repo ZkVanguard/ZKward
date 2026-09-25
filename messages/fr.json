@@ -15,50 +15,6 @@
     "signals": "Signals",
     "sources": "Sources"
   },
-  "hero": {
-    "eyebrow": "SUI Mainnet",
-    "quantumProof": "Résistant au quantique",
-    "headline1": "Votre portefeuille.",
-    "headline2": "Protégé.",
-    "subtitle": "Les agents IA gèrent les risques. Les preuves ZK protègent la confidentialité.",
-    "ctaDashboard": "Accéder au tableau de bord",
-    "ctaLearnMore": "En savoir plus",
-    "ctaArrow": "→"
-  },
-  "features": {
-    "title": "Protection avancée",
-    "subtitle": "Sécurité de niveau entreprise et intelligence autonome",
-    "zkProofs": {
-      "title": "Preuves ZK-STARK",
-      "description": "Sécurité post-quantique avec preuves transparentes, sans installation de confiance"
-    },
-    "aiAgents": {
-      "title": "Agents IA",
-      "description": "Gestion autonome des risques 24h/24 et 7j/7 avec déclencheurs de couverture intelligents"
-    },
-    "liveAnalytics": {
-      "title": "Analyse en direct",
-      "description": "Suivi de portefeuille en temps réel avec scoring de risque prédictif"
-    },
-    "quantumProof": {
-      "title": "Sécurité quantique",
-      "description": "Prêt pour la cryptographie post-quantique avec courbes BLS12-381"
-    }
-  },
-  "stats": {
-    "aiAgents": "Agents IA",
-    "gasSavings": "Économies de gaz",
-    "zkProofs": "Preuves ZK",
-    "responseTime": "Temps de réponse",
-    "batchingNote": "Agents de trading IA sur SUI Mainnet",
-    "chainsSupported": "Blockchains supportées"
-  },
-  "cta": {
-    "title": "Prêt à sécuriser vos actifs ?",
-    "subtitle": "Rejoignez des milliers d'investisseurs utilisant la gestion des risques pilotée par IA avec confidentialité ZK-STARK.",
-    "button": "Lancer le tableau de bord",
-    "learnMore": "En savoir plus sur la sécurité"
-  },
   "footer": {
     "product": "PRODUIT",
     "platform": "PLATEFORME",
@@ -373,26 +329,6 @@
         "eyebrow": "Dashboard",
         "title": "Live capital, one screen.",
         "body": "Balance, hedges, drawdown, proofs. Refreshed every minute."
-      },
-      "rwa": {
-        "eyebrow": "Real-world assets",
-        "title": "Off-chain assets. On-chain proof.",
-        "body": "Custodian signatures bind portfolios to real assets. Holdings stay private."
-      },
-      "agents": {
-        "eyebrow": "The seven agents",
-        "title": "Seven specialists. One loop.",
-        "body": "Lead, Risk, Hedging, Settlement, Reporting, Price Monitor, SUI Pool. Big trades need 2-of-3."
-      },
-      "zk": {
-        "eyebrow": "Zero-knowledge proofs",
-        "title": "Not screenshots. Math.",
-        "body": "Post-quantum STARK proofs, verifiable in your browser. 180-bit soundness."
-      },
-      "story": {
-        "eyebrow": "Our story",
-        "title": "How we got here.",
-        "body": "A five-minute read. We tell you when we lose money, too."
       },
       "whitepaper": {
         "eyebrow": "Whitepaper",

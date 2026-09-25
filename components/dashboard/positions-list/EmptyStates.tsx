@@ -1,6 +1,6 @@
 import { Wallet, Sparkles, Plus, Target, Shield, Zap, BarChart2 } from 'lucide-react';
 import { ConnectPromptButton } from '@/components/ui/ConnectPromptButton';
-import { AdvancedPortfolioCreator } from '../AdvancedPortfolioCreator';
+import { AdvancedPortfolioCreator } from '../portfolio-creator';
 
 export function NotConnectedState() {
   return (

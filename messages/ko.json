@@ -15,50 +15,6 @@
     "signals": "Signals",
     "sources": "Sources"
   },
-  "hero": {
-    "eyebrow": "SUI Mainnet",
-    "quantumProof": "양자 내성",
-    "headline1": "귀하의 포트폴리오.",
-    "headline2": "보호됩니다.",
-    "subtitle": "AI 에이전트가 리스크를 관리합니다. 영지식 증명이 프라이버시를 보호합니다.",
-    "ctaDashboard": "대시보드 접속",
-    "ctaLearnMore": "자세히 알아보기",
-    "ctaArrow": "→"
-  },
-  "features": {
-    "title": "고급 보호",
-    "subtitle": "엔터프라이즈급 보안과 자율 지능의 만남",
-    "zkProofs": {
-      "title": "ZK-STARK 증명",
-      "description": "신뢰 설정 없이 투명한 증명으로 포스트 양자 보안"
-    },
-    "aiAgents": {
-      "title": "AI 에이전트",
-      "description": "스마트 헤지 트리거가 있는 24/7 자율 위험 관리"
-    },
-    "liveAnalytics": {
-      "title": "실시간 분석",
-      "description": "예측 위험 점수가 있는 실시간 포트폴리오 추적"
-    },
-    "quantumProof": {
-      "title": "양자 보안",
-      "description": "BLS12-381 곡선으로 포스트 양자 암호화 준비"
-    }
-  },
-  "stats": {
-    "aiAgents": "AI 에이전트",
-    "gasSavings": "가스 절약",
-    "zkProofs": "ZK 증명",
-    "responseTime": "응답 시간",
-    "batchingNote": "SUI Mainnet의 AI 트레이딩 에이전트",
-    "chainsSupported": "지원되는 체인"
-  },
-  "cta": {
-    "title": "자산을 보호할 준비가 되셨나요?",
-    "subtitle": "ZK-STARK 프라이버시와 AI 기반 위험 관리를 사용하는 수천 명의 투자자와 함께하세요.",
-    "button": "대시보드 실행",
-    "learnMore": "보안에 대해 자세히 알아보기"
-  },
   "footer": {
     "product": "제품",
     "platform": "플랫폼",
@@ -373,26 +329,6 @@
         "eyebrow": "Dashboard",
         "title": "Live capital, one screen.",
         "body": "Balance, hedges, drawdown, proofs. Refreshed every minute."
-      },
-      "rwa": {
-        "eyebrow": "Real-world assets",
-        "title": "Off-chain assets. On-chain proof.",
-        "body": "Custodian signatures bind portfolios to real assets. Holdings stay private."
-      },
-      "agents": {
-        "eyebrow": "The seven agents",
-        "title": "Seven specialists. One loop.",
-        "body": "Lead, Risk, Hedging, Settlement, Reporting, Price Monitor, SUI Pool. Big trades need 2-of-3."
-      },
-      "zk": {
-        "eyebrow": "Zero-knowledge proofs",
-        "title": "Not screenshots. Math.",
-        "body": "Post-quantum STARK proofs, verifiable in your browser. 180-bit soundness."
-      },
-      "story": {
-        "eyebrow": "Our story",
-        "title": "How we got here.",
-        "body": "A five-minute read. We tell you when we lose money, too."
       },
       "whitepaper": {
         "eyebrow": "Whitepaper",
