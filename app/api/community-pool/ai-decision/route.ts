@@ -15,11 +15,13 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { logger } from '@/lib/utils/logger';
-import {
-  applyAIDecision,
-  getPoolSummary,
-  fetchExtendedMarketData,
-} from '@/lib/services/cronos/CommunityPoolService';
+// Cronos community pool retired 2026-09-25. Hedera flows short-circuit
+// above these callers; SUI has its own path. Stubs fail if a Cronos code
+// path is hit.
+const cronosRetired = () => { throw new Error('Cronos pool retired'); };
+const applyAIDecision = (..._args: unknown[]) => cronosRetired() as any;
+const getPoolSummary = (_chain?: string) => cronosRetired() as any;
+const fetchExtendedMarketData = () => cronosRetired() as any;
 import { SUPPORTED_ASSETS, SupportedAsset } from '@/lib/storage/community-pool-storage';
 import { requireAdminAuth } from '@/lib/security/auth-middleware';
 import { readLimiter, heavyLimiter } from '@/lib/security/rate-limiter';

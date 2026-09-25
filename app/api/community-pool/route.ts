@@ -15,11 +15,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { timingSafeEqual } from 'crypto';
 import { logger } from '@/lib/utils/logger';
-import {
-  getPoolSummary,
-  fetchLivePrices,
-  calculatePoolNAV,
-} from '@/lib/services/cronos/CommunityPoolService';
+// Cronos community pool retired 2026-09-25. These stubs preserve the route
+// surface; any Cronos code path now fails loudly. SUI + Hedera paths in this
+// file don't hit these functions.
+const cronosRetired = () => { throw new Error('Cronos pool retired'); };
+const getPoolSummary = (_chainKey?: string) => cronosRetired() as any;
+const fetchLivePrices = () => cronosRetired() as any;
+const calculatePoolNAV = (_chainKey?: string) => cronosRetired() as any;
 import {
   getUserShares,
   getPoolHistory,
@@ -496,7 +498,7 @@ export async function GET(request: NextRequest) {
 
       // Reset with market-adjusted values
       const allocPct: Record<string, number> = {};
-      for (const [asset, data] of Object.entries(marketNAV.allocations)) {
+      for (const [asset, data] of Object.entries(marketNAV.allocations as Record<string, { percentage: number }>)) {
         allocPct[asset] = data.percentage;
       }
       const result = await resetNavHistory(nav, sharePrice, totalShares, memberCount, allocPct);
