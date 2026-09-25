@@ -11,14 +11,18 @@ import { logger } from '@/lib/utils/logger';
 import { useWalletClient, useChainId } from '@/lib/evm-wallet/hooks';
 import { getContractAddresses } from '@/lib/contracts/addresses';
 import { getExplorerUrl, getNetworkName, CHAIN_IDS } from '@/lib/utils/network';
-import type { PriceRow } from '@/lib/hooks/useLivePrices';
 import {
   HedgeDetailModal,
   CloseConfirmModal,
   CloseReceiptModal,
   AIRecommendationsSection,
+  EmptyHedgesState,
+  ActiveHedgeDetailRow,
+  ActivePositionCard,
+  PerformanceOverviewCard,
 } from './active-hedges';
 import type { HedgePosition, CloseReceipt, PerformanceStats, AIRecommendation } from './active-hedges';
+import { mapOnChainHedge, computeStats, resolveAssetPriceUsd, pairIndexOf } from './active-hedges/helpers';
 
 interface ActiveHedgesProps {
   address?: string;
@@ -197,7 +201,7 @@ export const ActiveHedges = memo(function ActiveHedges({ address, compact = fals
 
     try {
       processingRef.current = true;
-      
+
       // Fetch on-chain hedges from HedgeExecutor contract
       let onChainHedges: HedgePosition[] = [];
 
@@ -209,34 +213,9 @@ export const ActiveHedges = memo(function ActiveHedges({ address, compact = fals
           const onChainData = await onChainResponse.json();
           if (onChainData.success && onChainData.summary?.details) {
             logger.debug('🔗 On-chain hedges loaded', { component: 'ActiveHedges', count: onChainData.summary.details.length });
-            onChainHedges = onChainData.summary.details.map((h: { orderId: string; hedgeId: string; side: 'SHORT' | 'LONG'; asset: string; size: number; leverage: number; entryPrice: number; currentPrice: number; capitalUsed: number; notionalValue: number; unrealizedPnL: number; pnlPercentage: number; createdAt: string; reason: string; walletAddress: string; txHash: string | null; proxyWallet: string; proxyVault: string; commitmentHash: string; zkVerified: boolean; onChain: boolean }) => ({
-              id: `onchain-${h.orderId}`,
-              type: h.side as 'SHORT' | 'LONG',
-              asset: h.asset,
-              size: h.size,
-              leverage: h.leverage,
-              entryPrice: h.entryPrice,
-              currentPrice: h.currentPrice,
-              targetPrice: 0,
-              stopLoss: 0,
-              capitalUsed: h.capitalUsed || h.size,
-              pnl: h.unrealizedPnL || 0,
-              pnlPercent: h.pnlPercentage || 0,
-              status: 'active' as const,
-              openedAt: h.createdAt ? new Date(h.createdAt) : new Date(),
-              reason: h.reason || `${h.leverage}x ${h.side} ${h.asset} on-chain hedge`,
-              walletAddress: h.walletAddress,
-              txHash: h.txHash || undefined,
-              zkVerified: h.zkVerified,
-              walletVerified: true,
-              onChain: true,
-              chain: 'cronos-testnet',
-              hedgeId: h.hedgeId || h.orderId,
-              contractAddress: contractAddresses.hedgeExecutor,
-              proxyWallet: h.proxyWallet,
-              proxyVault: h.proxyVault,
-              commitmentHash: h.commitmentHash,
-            }));
+            onChainHedges = onChainData.summary.details.map((h: Parameters<typeof mapOnChainHedge>[0]) =>
+              mapOnChainHedge(h, contractAddresses.hedgeExecutor)
+            );
           }
         }
       } catch (onChainErr) {
@@ -244,40 +223,8 @@ export const ActiveHedges = memo(function ActiveHedges({ address, compact = fals
       }
 
       // Use on-chain hedges only (DB cleared)
-      const allHedges = [...onChainHedges];
-      
-      if (allHedges.length > 0) {
-        const totalPnL = allHedges.reduce((sum, h) => sum + (h.pnl || 0), 0);
-        const profitable = allHedges.filter(h => h.pnl > 0).length;
-        const _unprofitable = allHedges.filter(h => h.pnl <= 0).length;
-        const winRate = allHedges.length > 0 ? (profitable / allHedges.length) * 100 : 0;
-        const pnlValues = allHedges.map(h => h.pnl || 0);
-        const bestTrade = pnlValues.length > 0 ? Math.max(...pnlValues) : 0;
-        const worstTrade = pnlValues.length > 0 ? Math.min(...pnlValues) : 0;
-
-        setStats({
-          totalHedges: allHedges.length,
-          activeHedges: allHedges.length,
-          winRate: Math.round(winRate),
-          totalPnL,
-          avgHoldTime: '24h',
-          bestTrade,
-          worstTrade,
-        });
-        setHedges(allHedges);
-      } else {
-        // No hedges found - clear state and show empty UI
-        setHedges([]);
-        setStats({
-          totalHedges: 0,
-          activeHedges: 0,
-          winRate: 0,
-          totalPnL: 0,
-          avgHoldTime: '0h',
-          bestTrade: 0,
-          worstTrade: 0,
-        });
-      }
+      setHedges(onChainHedges);
+      setStats(computeStats(onChainHedges));
       setLoading(false);
 
     } catch (error) {
@@ -323,36 +270,13 @@ export const ActiveHedges = memo(function ActiveHedges({ address, compact = fals
 
     // Determine collateral and leverage
     const actionLeverage = action.leverage || 5;
-    
+
     // action.size is in ASSET units (e.g. 0.125 BTC), but the gasless endpoint
     // expects collateralAmount in USDC. Convert: collateral = size * price / leverage.
-    //
-    // Try the shared useLivePrices React Query cache first. Pool tab
-    // pre-warms it with BTC/ETH/SUI on mount, so we usually hit for free.
-    // Falls back to a fresh imperative fetch if the asset isn't in cache.
-    let currentPrice = 1000;
-    try {
-      const symbol = action.asset.toUpperCase();
-      const cached = queryClient.getQueriesData<Record<string, PriceRow>>({ queryKey: ['live-prices'] });
-      for (const [, data] of cached) {
-        const hit = data?.[symbol]?.price;
-        if (typeof hit === 'number' && hit > 0) { currentPrice = hit; break; }
-      }
-      if (currentPrice === 1000) {
-        const priceResponse = await fetch(`/api/prices?symbol=${action.asset}`);
-        const priceData = await priceResponse.json();
-        if (priceData.success && priceData.data?.price) {
-          currentPrice = priceData.data.price;
-        }
-      }
-    } catch {
-      logger.warn('Failed to fetch price for collateral calc, using fallback', { component: 'ActiveHedges' });
-    }
-    
-    // Notional value = asset_qty * price, collateral = notional / leverage
+    const currentPrice = await resolveAssetPriceUsd(action.asset, queryClient);
     const notionalValue = action.size * currentPrice;
     const collateral = Math.round((notionalValue / actionLeverage) * 100) / 100; // USDC (2dp)
-    
+
     logger.info('💰 Hedge collateral calculation', {
       component: 'ActiveHedges',
       assetSize: action.size,
@@ -361,10 +285,8 @@ export const ActiveHedges = memo(function ActiveHedges({ address, compact = fals
       collateral,
       leverage: actionLeverage,
     });
-    
-    // Map asset to pairIndex for on-chain execution
-    const pairIndexMap: Record<string, number> = { BTC: 0, ETH: 1, CRO: 2, ATOM: 3, DOGE: 4, SOL: 5 };
-    const pairIndex = pairIndexMap[action.asset.toUpperCase()] ?? 0;
+
+    const pairIndex = pairIndexOf(action.asset);
     const isLong = action.action === 'LONG';
     
     // Step 1: Request EIP-712 wallet signature (user must approve)
@@ -640,37 +562,7 @@ export const ActiveHedges = memo(function ActiveHedges({ address, compact = fals
     <div className="px-4 sm:px-6 pb-4 sm:pb-6">
       {/* No Hedges State - Compact for Overview */}
       {hedges.length === 0 ? (
-        <div className="flex flex-col items-center justify-center text-center py-6">
-          <div className="w-12 h-12 sm:w-14 sm:h-14 bg-[#f5f5f7] rounded-[14px] sm:rounded-[16px] flex items-center justify-center mb-3 sm:mb-4">
-            <Shield className="w-6 h-6 sm:w-7 sm:h-7 text-[#007AFF]" strokeWidth={2} />
-          </div>
-          <h3 className="text-[15px] sm:text-[17px] font-semibold text-[#1d1d1f] mb-1.5 sm:mb-2 tracking-[-0.01em]">
-            No Active Hedges
-          </h3>
-          <p className="text-[13px] sm:text-[14px] text-[#86868b] leading-[1.4] max-w-[240px] mb-3 sm:mb-4">
-            Create manual hedges or wait for AI recommendations to protect your portfolio
-          </p>
-          <button
-            onClick={() => onCreateHedge?.()}
-            className="mb-3 px-4 py-2 bg-[#007AFF] text-white rounded-[12px] text-[13px] sm:text-[14px] font-semibold hover:opacity-90 active:scale-[0.98] transition-all flex items-center gap-2"
-          >
-            <Shield className="w-4 h-4" />
-            Create Manual Hedge
-          </button>
-          <div className="flex items-center gap-2 text-[12px] sm:text-[13px] text-[#86868b]">
-            <button
-              onClick={() => onOpenChat?.()}
-              className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1 sm:py-1.5 bg-[#007AFF]/10 hover:bg-[#007AFF]/20 rounded-full transition-colors cursor-pointer"
-            >
-              <span>💬</span>
-              <span className="font-medium text-[#007AFF]">Chat with AI</span>
-            </button>
-            <span className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1 sm:py-1.5 bg-[#34C759]/10 rounded-full">
-              <Shield className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-[#34C759]" />
-              <span className="font-medium text-[#34C759]">Auto-protect</span>
-            </span>
-          </div>
-        </div>
+        <EmptyHedgesState onCreateHedge={onCreateHedge} onOpenChat={onOpenChat} />
       ) : compact ? (
         /* Compact view for Overview - show summary with clear status */
         <div>
@@ -826,50 +718,7 @@ export const ActiveHedges = memo(function ActiveHedges({ address, compact = fals
       ) : (
         <div className="space-y-3 sm:space-y-4">
           {/* Performance Overview Card */}
-          {stats.totalHedges > 0 && (
-            <div className="bg-white rounded-[16px] sm:rounded-[20px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-black/5 p-3 sm:p-5">
-              <div className="flex items-center justify-between mb-3 sm:mb-4">
-                <div className="flex items-center gap-1.5 sm:gap-2">
-                  <span className="text-[9px] sm:text-[11px] font-semibold text-[#34C759] uppercase tracking-[0.06em] px-2 sm:px-2.5 py-0.5 sm:py-1 bg-[#34C759]/10 rounded-full">
-                    {stats.activeHedges} Active
-                  </span>
-                  {activeHedges.some(h => h.onChain) && (
-                    <span className="text-[9px] sm:text-[10px] font-bold text-[#FF9500] uppercase tracking-[0.04em] px-2 py-0.5 bg-[#FF9500]/10 rounded-full">
-                      ⛓ {activeHedges.filter(h => h.onChain).length} On-Chain
-                    </span>
-                  )}
-                  <span className="text-[11px] sm:text-[13px] text-[#86868b]">
-                    of {stats.totalHedges} total
-                  </span>
-                </div>
-                <div className={`text-[18px] sm:text-[24px] font-bold leading-none ${stats.totalPnL >= 0 ? 'text-[#34C759]' : 'text-[#FF3B30]'}`}>
-                  {stats.totalPnL >= 0 ? '+' : ''}{stats.totalPnL.toFixed(2)} USDC
-                </div>
-              </div>
-
-              {/* Compact Stats Grid — 2×2 on ≤ 375px (readable labels), 1×4 on
-                  sm+ (dense info bar). 8px labels are unreadable on small
-                  screens; we lift to 11px baseline. */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                <div className="p-3 bg-[#34C759]/10 rounded-[12px]">
-                  <div className="text-[11px] font-semibold text-[#86868b] uppercase tracking-[0.04em] mb-1">Win Rate</div>
-                  <div className="text-[18px] sm:text-[20px] font-bold text-[#34C759] leading-none tabular-nums">{stats.winRate.toFixed(0)}%</div>
-                </div>
-                <div className="p-3 bg-[#f5f5f7] rounded-[12px]">
-                  <div className="text-[11px] font-semibold text-[#86868b] uppercase tracking-[0.04em] mb-1">Total</div>
-                  <div className="text-[18px] sm:text-[20px] font-bold text-[#1d1d1f] leading-none tabular-nums">{stats.totalHedges}</div>
-                </div>
-                <div className="p-3 bg-[#34C759]/10 rounded-[12px]">
-                  <div className="text-[11px] font-semibold text-[#86868b] uppercase tracking-[0.04em] mb-1">Best</div>
-                  <div className="text-[15px] sm:text-[17px] font-bold text-[#34C759] leading-none tabular-nums">+{stats.bestTrade.toFixed(0)}</div>
-                </div>
-                <div className="p-3 bg-[#007AFF]/10 rounded-[12px]">
-                  <div className="text-[11px] font-semibold text-[#86868b] uppercase tracking-[0.04em] mb-1">Avg</div>
-                  <div className="text-[15px] sm:text-[17px] font-bold text-[#007AFF] leading-none tabular-nums">{stats.avgHoldTime}</div>
-                </div>
-              </div>
-            </div>
-          )}
+          <PerformanceOverviewCard stats={stats} activeHedges={activeHedges} />
 
           {/* Active Positions - Preview or Full View */}
           {activeHedges.length > 0 ? (
@@ -891,100 +740,15 @@ export const ActiveHedges = memo(function ActiveHedges({ address, compact = fals
                   </div>
                   <div className="flex gap-2 sm:gap-3 overflow-x-auto pb-2 scrollbar-hide -mx-3 sm:-mx-5 px-3 sm:px-5">
                     {activeHedges.slice(0, 5).map((hedge) => (
-                      <div
+                      <ActivePositionCard
                         key={hedge.id}
-                        className="flex-shrink-0 w-[240px] sm:w-[280px] p-3 sm:p-4 bg-[#f5f5f7] rounded-[12px] sm:rounded-[14px] border border-[#e8e8ed] cursor-pointer hover:border-[#007AFF]/30 hover:shadow-md transition-all"
-                        onClick={() => setDetailHedge(hedge)}
-                      >
-                        <div className="flex items-center gap-2 mb-2 sm:mb-3">
-                          <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-[8px] sm:rounded-[10px] flex items-center justify-center ${
-                            hedge.type === 'SHORT' ? 'bg-[#FF3B30]/10' : 'bg-[#34C759]/10'
-                          }`}>
-                            {hedge.type === 'SHORT' ? (
-                              <TrendingDown className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#FF3B30]" strokeWidth={2.5} />
-                            ) : (
-                              <TrendingUp className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#34C759]" strokeWidth={2.5} />
-                            )}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-1.5">
-                              <div className="text-[13px] sm:text-[15px] font-semibold text-[#1d1d1f] tracking-[-0.01em] truncate">
-                                {hedge.type} {hedge.asset}
-                              </div>
-                              <span className="inline-flex items-center px-1.5 py-0.5 bg-[#007AFF]/10 text-[#007AFF] rounded-[4px] text-[9px] sm:text-[10px] font-bold">
-                                {hedge.leverage}x
-                              </span>
-                              {hedge.zkVerified && (
-                                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-[#5856D6]/10 text-[#5856D6] rounded-[4px] text-[9px] font-bold" title="ZK-verified ownership">
-                                  <Lock className="w-2.5 h-2.5" />ZK
-                                </span>
-                              )}
-                              {hedge.walletVerified && (
-                                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-[#5856D6]/10 text-[#5856D6] rounded-[4px] text-[9px] font-bold" title="Wallet ownership verified">
-                                  <Wallet className="w-2.5 h-2.5" />
-                                  <span>✓</span>
-                                </span>
-                              )}
-                              {hedge.onChain && (
-                                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-[#FF9500]/10 text-[#FF9500] rounded-[4px] text-[9px] font-bold" title="On-chain verified position">
-                                  ⛓ ON-CHAIN
-                                </span>
-                              )}
-                            </div>
-                            {/* Reason text hidden - not needed for display */}
-                            {hedge.onChain && (
-                              <div className="text-[9px] sm:text-[11px] space-y-0.5">
-                              <div className="flex items-center gap-1">
-                                <span className="text-[9px] sm:text-[10px] uppercase tracking-wider text-[#86868b]">TX:</span>
-                                <a
-                                  href={hedge.txHash ? `${explorerUrl}/tx/${hedge.txHash}` : `${explorerUrl}/address/${hedge.contractAddress || contractAddresses.hedgeExecutor}`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="flex items-center gap-0.5 text-[#007AFF] hover:underline"
-                                  title={hedge.txHash ? 'View transaction on Cronos Explorer' : 'View contract on Cronos Explorer'}
-                                  onClick={(e) => e.stopPropagation()}
-                                >
-                                  <span className="font-mono text-[9px] sm:text-[10px]">{hedge.txHash ? `${hedge.txHash.slice(0, 8)}...${hedge.txHash.slice(-6)}` : 'View on Explorer'}</span>
-                                  <ExternalLink className="w-2 h-2 sm:w-2.5 sm:h-2.5" />
-                                </a>
-                              </div>
-                            </div>
-                            )}
-                          </div>
-                        </div>
-                        
-                        <div className="text-right mb-2 sm:mb-3">
-                          <div className={`text-[18px] sm:text-[22px] font-bold leading-none mb-0.5 sm:mb-1 ${
-                            hedge.pnl >= 0 ? 'text-[#34C759]' : 'text-[#FF3B30]'
-                          }`}>
-                            {hedge.pnl >= 0 ? '+' : ''}{hedge.pnl.toFixed(2)}
-                          </div>
-                          <div className={`text-[11px] sm:text-[13px] font-medium ${
-                            hedge.pnlPercent >= 0 ? 'text-[#34C759]' : 'text-[#FF3B30]'
-                          }`}>
-                            {hedge.pnlPercent >= 0 ? '+' : ''}{hedge.pnlPercent.toFixed(1)}%
-                          </div>
-                        </div>
-
-                        <div className="pt-2 sm:pt-3 border-t border-[#e8e8ed] space-y-1.5 sm:space-y-2">
-                          <div className="flex justify-between text-[10px] sm:text-[11px]">
-                            <span className="text-[#86868b] font-medium">Entry</span>
-                            <span className="text-[#1d1d1f] font-semibold">${hedge.entryPrice.toLocaleString()}</span>
-                          </div>
-                          <div className="flex justify-between text-[10px] sm:text-[11px]">
-                            <span className="text-[#86868b] font-medium">Current</span>
-                            <span className="text-[#1d1d1f] font-semibold">${hedge.currentPrice.toLocaleString('en-US', { maximumFractionDigits: 0 })}</span>
-                          </div>
-                        </div>
-
-                        <button
-                          onClick={(e) => { e.stopPropagation(); handleClosePosition(hedge); }}
-                          disabled={closingPosition === hedge.id}
-                          className="w-full mt-2 sm:mt-3 px-2.5 sm:px-3 py-1.5 sm:py-2 bg-[#FF3B30]/10 hover:bg-[#FF3B30]/20 text-[#FF3B30] rounded-[8px] sm:rounded-[10px] text-[11px] sm:text-[13px] font-semibold transition-colors disabled:opacity-50 active:scale-[0.98]"
-                        >
-                          {closingPosition === hedge.id ? 'Closing...' : 'Close'}
-                        </button>
-                      </div>
+                        hedge={hedge}
+                        explorerUrl={explorerUrl}
+                        contractAddresses={contractAddresses}
+                        closingPosition={closingPosition}
+                        onOpenDetail={setDetailHedge}
+                        onClose={handleClosePosition}
+                      />
                     ))}
                   </div>
                   {activeHedges.length > 5 && (
@@ -1006,225 +770,15 @@ export const ActiveHedges = memo(function ActiveHedges({ address, compact = fals
                   </h3>
                   <AnimatePresence>
                     {activeHedges.map((hedge) => (
-                      <motion.div
+                      <ActiveHedgeDetailRow
                         key={hedge.id}
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, x: -100 }}
-                        className="p-4 bg-[#f5f5f7] rounded-[14px] border border-[#e8e8ed]"
-                      >
-                    <div className="flex items-start justify-between mb-3">
-                      <div className="flex items-center gap-3">
-                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-                          hedge.type === 'SHORT' ? 'bg-[#FF3B30]/10' : 'bg-[#34C759]/10'
-                        }`}>
-                          {hedge.type === 'SHORT' ? (
-                            <TrendingDown className="w-5 h-5 text-[#FF3B30]" />
-                          ) : (
-                            <TrendingUp className="w-5 h-5 text-[#34C759]" />
-                          )}
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-[15px] font-semibold text-[#1d1d1f]">{hedge.type} {hedge.asset}</span>
-                            <span className="inline-flex items-center px-2 py-0.5 bg-[#007AFF]/10 text-[#007AFF] rounded-[6px] text-[10px] font-bold">
-                              {hedge.leverage}x
-                            </span>
-                            <span className="text-[11px] px-2 py-0.5 bg-[#34C759]/20 text-[#34C759] rounded-full font-medium">
-                              Active
-                            </span>
-                            {hedge.zkVerified && (
-                              <span className="inline-flex items-center gap-0.5 px-2 py-0.5 bg-[#5856D6]/10 text-[#5856D6] rounded-full text-[10px] font-bold" title="ZK-verified ownership">
-                                <Lock className="w-3 h-3" />ZK
-                              </span>
-                            )}
-                            {hedge.onChain && (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-[#FF9500]/10 text-[#FF9500] rounded-full text-[10px] font-bold" title="On-chain verified position on Cronos testnet">
-                                ⛓ ON-CHAIN
-                              </span>
-                            )}
-                          </div>
-                          <div className="text-[11px] text-[#86868b] mt-0.5 space-y-0.5">
-                            <div className="text-[13px] font-medium text-[#1d1d1f]">{hedge.reason}</div>
-                            {hedge.onChain && hedge.contractAddress && (
-                              <div className="flex items-center gap-1">
-                                <span className="text-[10px] uppercase tracking-wider text-[#FF9500]">CONTRACT:</span>
-                                <a
-                                  href={`${explorerUrl}/address/${hedge.contractAddress}`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="flex items-center gap-0.5 text-[#007AFF] hover:underline"
-                                  title="View HedgeExecutor on Cronos Explorer"
-                                >
-                                  <span className="font-mono">{hedge.contractAddress.slice(0, 10)}...{hedge.contractAddress.slice(-6)}</span>
-                                  <ExternalLink className="w-2.5 h-2.5" />
-                                </a>
-                              </div>
-                            )}
-                            {hedge.onChain && (
-                              <div className="flex items-center gap-1">
-                                <span className="text-[10px] uppercase tracking-wider">TRANSACTION:</span>
-                                <a
-                                  href={hedge.txHash ? `${explorerUrl}/tx/${hedge.txHash}` : `${explorerUrl}/address/${hedge.contractAddress || contractAddresses.hedgeExecutor}`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="flex items-center gap-0.5 text-[#007AFF] hover:underline"
-                                  title={hedge.txHash ? 'View collateral transfer transaction' : 'View HedgeExecutor contract'}
-                                >
-                                  <span className="font-mono">{hedge.txHash ? `${hedge.txHash.slice(0, 10)}...${hedge.txHash.slice(-8)}` : 'View Contract'}</span>
-                                  <ExternalLink className="w-2.5 h-2.5" />
-                                </a>
-                              </div>
-                            )}
-                            {hedge.proxyWallet && (
-                              <div className="flex items-center gap-1">
-                                <span className="text-[10px] uppercase tracking-wider text-[#5856D6]">ZK PRIVACY ID:</span>
-                                <a
-                                  href={`${explorerUrl}/address/${hedge.proxyWallet}`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="flex items-center gap-0.5 text-[#007AFF] hover:underline"
-                                  title="ZK Privacy Address. Identity obfuscation via PDA derivation"
-                                >
-                                  <span className="font-mono">{hedge.proxyWallet.slice(0, 10)}...{hedge.proxyWallet.slice(-6)}</span>
-                                  <ExternalLink className="w-2.5 h-2.5" />
-                                </a>
-                                <span className="inline-flex items-center gap-0.5 px-1 py-0.5 bg-[#5856D6]/10 text-[#5856D6] rounded text-[8px] font-bold">
-                                  <Lock className="w-2 h-2" />ZK ID
-                                </span>
-                              </div>
-                            )}
-                            {hedge.commitmentHash && hedge.commitmentHash !== '0x0000000000000000000000000000000000000000000000000000000000000000' && (
-                              <div className="flex items-center gap-1">
-                                <span className="text-[10px] uppercase tracking-wider text-[#5856D6]">ZK COMMITMENT:</span>
-                                <span className="font-mono text-[10px] text-[#86868b]">{hedge.commitmentHash.slice(0, 14)}...{hedge.commitmentHash.slice(-8)}</span>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <div className={`text-[20px] font-bold ${hedge.pnl >= 0 ? 'text-[#34C759]' : 'text-[#FF3B30]'}`}>
-                          {hedge.pnl >= 0 ? '+' : ''}{hedge.pnl.toFixed(2)} USDC
-                        </div>
-                        <div className={`text-[13px] font-medium ${hedge.pnlPercent >= 0 ? 'text-[#34C759]' : 'text-[#FF3B30]'}`}>
-                          {hedge.pnlPercent >= 0 ? '+' : ''}{hedge.pnlPercent.toFixed(1)}%
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Position Details */}
-                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 pt-4 border-t border-[#e8e8ed]">
-                      <div>
-                        <div className="text-[11px] font-semibold text-[#86868b] uppercase tracking-wider">Size</div>
-                        <div className="text-[15px] font-bold text-[#1d1d1f]">{hedge.size} {hedge.asset.replace('-PERP', '')}</div>
-                        <div className="text-[11px] font-medium text-[#007AFF]">{hedge.leverage}x leverage</div>
-                      </div>
-                      <div>
-                        <div className="text-[11px] font-semibold text-[#86868b] uppercase tracking-wider">Entry</div>
-                        <div className="text-[15px] font-bold text-[#1d1d1f]">${hedge.entryPrice.toLocaleString()}</div>
-                        <div className="text-[11px] font-medium text-[#1d1d1f]">Now: ${hedge.currentPrice.toFixed(0)}</div>
-                      </div>
-                      <div>
-                        <div className="text-[11px] font-semibold text-[#86868b] uppercase tracking-wider">Target</div>
-                        <div className="text-[15px] font-bold text-[#34C759]">${hedge.targetPrice.toLocaleString()}</div>
-                        <div className="text-[11px] font-medium text-[#1d1d1f]">
-                          {((hedge.currentPrice - hedge.targetPrice) / hedge.targetPrice * 100).toFixed(1)}% away
-                        </div>
-                      </div>
-                      <div>
-                        <div className="text-[11px] font-semibold text-[#86868b] uppercase tracking-wider">Stop Loss</div>
-                        <div className="text-[15px] font-bold text-[#FF3B30]">${hedge.stopLoss.toLocaleString()}</div>
-                        <div className="text-[11px] text-[#86868b]">
-                          {((hedge.stopLoss - hedge.currentPrice) / hedge.currentPrice * 100).toFixed(1)}% away
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* ZK Privacy & Proxy Wallet Section */}
-                    {hedge.onChain && hedge.zkVerified && (
-                      <div className="mt-4 pt-4 border-t border-[#e8e8ed]">
-                        <div className="flex items-center gap-2 mb-3">
-                          <div className="w-6 h-6 rounded-lg bg-[#5856D6]/10 flex items-center justify-center">
-                            <Shield className="w-3.5 h-3.5 text-[#5856D6]" />
-                          </div>
-                          <span className="text-[12px] font-semibold text-[#5856D6] uppercase tracking-wider">ZK Privacy Shield</span>
-                        </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                          <div className="p-2.5 bg-[#5856D6]/5 rounded-lg border border-[#5856D6]/10">
-                            <div className="text-[9px] font-bold text-[#5856D6] uppercase tracking-wider mb-1">ZK Privacy Address</div>
-                            {hedge.proxyWallet ? (
-                              <a
-                                href={`${explorerUrl}/address/${hedge.proxyWallet}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="flex items-center gap-1 text-[#007AFF] hover:underline"
-                              >
-                                <span className="font-mono text-[11px]">{hedge.proxyWallet.slice(0, 8)}...{hedge.proxyWallet.slice(-6)}</span>
-                                <ExternalLink className="w-2.5 h-2.5" />
-                              </a>
-                            ) : (
-                              <span className="font-mono text-[11px] text-[#86868b]">Deriving...</span>
-                            )}
-                            <div className="text-[9px] text-[#86868b] mt-0.5">Privacy ID. Not a fund holder</div>
-                          </div>
-                          <div className="p-2.5 bg-[#5856D6]/5 rounded-lg border border-[#5856D6]/10">
-                            <div className="text-[9px] font-bold text-[#5856D6] uppercase tracking-wider mb-1">ZK Verification</div>
-                            <div className="flex items-center gap-1">
-                              <CheckCircle className="w-3.5 h-3.5 text-[#34C759]" />
-                              <span className="text-[12px] font-semibold text-[#34C759]">Verified</span>
-                            </div>
-                            <div className="text-[9px] text-[#86868b] mt-0.5">STARK proof on-chain</div>
-                          </div>
-                          <div className="p-2.5 bg-[#5856D6]/5 rounded-lg border border-[#5856D6]/10">
-                            <div className="text-[9px] font-bold text-[#5856D6] uppercase tracking-wider mb-1">Funds Location</div>
-                            <a
-                              href="${explorerUrl}/address/0x090b6221137690EbB37667E4644287487CE462B9"
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="flex items-center gap-1 text-[#007AFF] hover:underline"
-                            >
-                              <span className="font-mono text-[11px]">HedgeExecutor</span>
-                              <ExternalLink className="w-2.5 h-2.5" />
-                            </a>
-                            <div className="text-[9px] text-[#86868b] mt-0.5">
-                              Withdraw → {hedge.walletAddress ? `${hedge.walletAddress.slice(0, 6)}...${hedge.walletAddress.slice(-4)}` : 'your wallet'}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Footer */}
-                    <div className="flex items-center justify-between mt-4 pt-4 border-t border-[#e8e8ed] text-[11px] text-[#86868b]">
-                      <div className="flex items-center gap-4">
-                        <div className="flex items-center gap-1">
-                          <Clock className="w-3 h-3" />
-                          <span>{new Date(hedge.openedAt).toLocaleString()}</span>
-                        </div>
-                        <div>Capital: ${hedge.capitalUsed?.toLocaleString()} USDC</div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {hedge.onChain && (
-                          <span className="text-[9px] text-[#5856D6] font-medium">
-                            <Lock className="w-2.5 h-2.5 inline mr-0.5" />Funds return to your wallet on close
-                          </span>
-                        )}
-                        <button
-                          onClick={() => handleClosePosition(hedge)}
-                          disabled={closingPosition === hedge.id}
-                          className="px-4 py-1.5 bg-[#FF3B30]/10 hover:bg-[#FF3B30]/20 text-[#FF3B30] rounded-lg text-[11px] font-semibold transition-colors disabled:opacity-50 flex items-center gap-1.5"
-                        >
-                          {closingPosition === hedge.id ? (
-                            <><RefreshCw className="w-3 h-3 animate-spin" />Closing &amp; Withdrawing...</>
-                          ) : (
-                            <>{hedge.onChain ? '⚡ Close & Withdraw (Gasless)' : 'Close Position'}</>
-                          )}
-                        </button>
-                      </div>
-                    </div>
-                  </motion.div>
-                ))}
+                        hedge={hedge}
+                        explorerUrl={explorerUrl}
+                        contractAddresses={contractAddresses}
+                        closingPosition={closingPosition}
+                        onClose={handleClosePosition}
+                      />
+                    ))}
                   </AnimatePresence>
                 </div>
               )}

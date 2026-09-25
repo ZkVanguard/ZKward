@@ -1,13 +1,10 @@
 'use client';
 
-import { useState, useEffect, useMemo, memo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   TrendingUp,
   TrendingDown,
-  Wallet,
-  Bitcoin,
   Coins,
-  DollarSign,
   RefreshCw,
   ArrowDownToLine,
   Sparkles,
@@ -22,13 +19,15 @@ import {
   BarChart2,
 } from 'lucide-react';
 import { useWallet } from '@/lib/hooks/useWallet';
-import { ConnectPromptButton } from '@/components/ui/ConnectPromptButton';
 import { useUserPortfolios } from '../../lib/contracts/hooks';
 import { DepositModal } from './DepositModal';
 import { WithdrawModal } from './WithdrawModal';
 import PortfolioDetailModal from './PortfolioDetailModal';
-import { AdvancedPortfolioCreator } from './AdvancedPortfolioCreator';
 import { PositionsLoadingSkeleton } from './positions-list/LoadingSkeleton';
+import { AgentRecommendationModal } from './positions-list/AgentRecommendationModal';
+import { NotConnectedState, NoPortfoliosEmptyState } from './positions-list/EmptyStates';
+import { WalletBalancesList } from './positions-list/WalletBalancesList';
+import { buildPortfolioDetail } from './positions-list/helpers';
 import {
   DelphiMarketService,
   type PredictionMarket,
@@ -37,83 +36,12 @@ import { usePositions } from '@/contexts/PositionsContext';
 import { usePortfolioAction, type CustomActionPayload } from '@/contexts/AIDecisionsContext';
 import { logger } from '@/lib/utils/logger';
 import type {
-  Position,
   AgentRecommendation,
   SettlementBatch,
-  PortfolioTransaction,
   PortfolioDetail,
   PositionsListProps,
   OnChainPortfolio,
 } from './positions-types';
-
-// Memoized token icon component for better performance
-const TokenIcon = memo(({ symbol }: { symbol: string }) => {
-  const iconClasses = 'w-6 h-6';
-  switch (symbol.toUpperCase()) {
-    case 'BTC':
-    case 'WBTC':
-      return <Bitcoin className={`${iconClasses} text-orange-500`} />;
-    case 'ETH':
-    case 'WETH':
-      return <Coins className={`${iconClasses} text-blue-400`} />;
-    case 'USDC':
-    case 'USDT':
-      return <DollarSign className={`${iconClasses} text-green-400`} />;
-    case 'CRO':
-      return <Coins className={`${iconClasses} text-[#007AFF]`} />;
-    default:
-      return <Coins className={`${iconClasses} text-[#86868b]`} />;
-  }
-});
-TokenIcon.displayName = 'TokenIcon';
-
-// Memoized position row component
-const PositionRow = memo(({ position, idx }: { position: Position; idx: number }) => (
-  <div key={idx} className="px-3 sm:px-4 py-3 sm:py-4 hover:bg-white/50 transition-colors">
-    <div className="flex items-center justify-between">
-      <div className="flex items-center gap-3 sm:gap-4">
-        <div className="w-9 h-9 sm:w-11 sm:h-11 bg-white rounded-[10px] sm:rounded-[12px] flex items-center justify-center flex-shrink-0">
-          <TokenIcon symbol={position.symbol} />
-        </div>
-        <div className="min-w-0">
-          <div className="text-[14px] sm:text-[15px] font-semibold text-[#1d1d1f]">
-            {position.symbol}
-          </div>
-          <div className="text-[11px] sm:text-[13px] text-[#86868b] truncate">
-            {parseFloat(position.balance).toLocaleString(undefined, { maximumFractionDigits: 4 })}
-          </div>
-        </div>
-      </div>
-      <div className="text-right flex-shrink-0">
-        <div className="text-[15px] sm:text-[17px] font-bold text-[#1d1d1f]">
-          $
-          {parseFloat(position.balanceUSD || '0').toLocaleString(undefined, {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
-          })}
-        </div>
-        <div className="flex items-center gap-1.5 justify-end">
-          <span className="text-[11px] sm:text-[12px] text-[#86868b]">
-            @${parseFloat(position.price || '0').toFixed(4)}
-          </span>
-          {position.change24h !== 0 && (
-            <span
-              className={`text-[11px] sm:text-[12px] font-medium flex items-center ${position.change24h >= 0 ? 'text-[#34C759]' : 'text-[#FF3B30]'}`}
-            >
-              {position.change24h >= 0 ? (
-                <TrendingUp className="w-3 h-3 mr-0.5" />
-              ) : (
-                <TrendingDown className="w-3 h-3 mr-0.5" />
-              )}
-              {Math.abs(position.change24h).toFixed(1)}%
-            </span>
-          )}
-        </div>
-      </div>
-    </div>
-  </div>
-));
-PositionRow.displayName = 'PositionRow';
 
 export function PositionsList({ address, onOpenHedge }: PositionsListProps) {
   const { isConnected, evmAddress } = useWallet();
@@ -499,33 +427,7 @@ export function PositionsList({ address, onOpenHedge }: PositionsListProps) {
 
   // First check if wallet is connected - before any loading checks
   if (!isConnected) {
-    return (
-      <div className="bg-white rounded-[20px] shadow-sm border border-black/5 p-12 text-center">
-        <div className="w-20 h-20 bg-[#f5f5f7] rounded-[22px] flex items-center justify-center mx-auto mb-5">
-          <Wallet className="w-10 h-10 text-[#86868b]" />
-        </div>
-        <h3 className="text-[22px] font-semibold text-[#1d1d1f] mb-2 tracking-[-0.02em]">
-          Connect Your Wallet
-        </h3>
-        <p className="text-[15px] text-[#86868b] max-w-[280px] mx-auto mb-6">
-          Connect your wallet to view your token positions and portfolio strategies
-        </p>
-
-        <ConnectPromptButton />
-
-        {/* AI Assistant CTA - available even without wallet */}
-        <div className="mt-6 pt-6 border-t border-[#e8e8ed]">
-          <div className="flex items-center justify-center gap-2 text-[#007AFF] mb-3">
-            <Sparkles className="w-5 h-5" />
-            <span className="text-[15px] font-semibold">AI Portfolio Assistant Available</span>
-          </div>
-          <p className="text-[13px] text-[#86868b] max-w-[320px] mx-auto">
-            While you connect, feel free to chat with our AI assistant to learn about portfolio
-            strategies and DeFi concepts
-          </p>
-        </div>
-      </div>
-    );
+    return <NotConnectedState />;
   }
 
   if (loading || !positionsData || portfolioLoading || !hasInitiallyLoaded) {
@@ -796,278 +698,18 @@ export function PositionsList({ address, onOpenHedge }: PositionsListProps) {
                       : 'bg-[#f5f5f7] border-2 border-dashed border-[#d1d1d6]'
                   }`}
                   onClick={async () => {
-                    logger.info(
-                      `Opening portfolio #${portfolio.id} detail - Fetching fresh data...`,
-                      { component: 'PositionsList' }
-                    );
-                    logger.debug(`Current portfolio.assets: ${JSON.stringify(portfolio.assets)}`, {
-                      component: 'PositionsList',
-                    });
-                    logger.debug(
-                      `Current portfolio.assetBalances: ${JSON.stringify(portfolio.assetBalances)}`,
-                      { component: 'PositionsList' }
-                    );
-
-                    // Force refresh portfolio data from API (bypass cache)
-                    try {
-                      const freshRes = await fetch(`/api/portfolio/${portfolio.id}?refresh=true`);
-                      if (freshRes.ok) {
-                        const freshData = await freshRes.json();
-                        logger.debug(`Fresh API data received for portfolio ${portfolio.id}`, {
-                          component: 'PositionsList',
-                        });
-                        portfolio.assets = freshData.assets || [];
-                        portfolio.assetBalances = freshData.assetBalances || [];
-                        portfolio.calculatedValueUSD = freshData.calculatedValueUSD || 0;
-                      }
-                    } catch (err) {
-                      logger.warn('Failed to fetch fresh portfolio data', {
-                        component: 'PositionsList',
-                        error: String(err),
-                      });
-                    }
-
-                    // Calculate real allocation percentages
-                    const totalPortfolioValue = portfolio.calculatedValueUSD || valueUSD;
-
-                    // Build assets with allocation from assetBalances
-                    let assetsWithAllocation: Array<{
-                      symbol: string;
-                      address: string;
-                      allocation: number;
-                      value: number;
-                      change24h: number;
-                      price?: number;
-                      chain?: string;
-                    }> = [];
-
-                    if (portfolio.assetBalances && portfolio.assetBalances.length > 0) {
-                      // Use virtual allocations from API
-                      assetsWithAllocation = portfolio.assetBalances.map((ab) => {
-                        const assetAllocation =
-                          (ab as { percentage?: number }).percentage ??
-                          (totalPortfolioValue > 0
-                            ? Math.round((ab.valueUSD / totalPortfolioValue) * 100)
-                            : 0);
-                        return {
-                          symbol: ab.symbol,
-                          address: ab.token,
-                          allocation: assetAllocation,
-                          value: ab.valueUSD,
-                          change24h: (ab as { pnlPercentage?: number }).pnlPercentage ?? 0,
-                          price: (ab as { price?: number }).price,
-                          chain: (ab as { chain?: string }).chain,
-                        };
-                      });
-                    } else if (totalPortfolioValue > 1000000) {
-                      // Institutional portfolio fallback - create virtual allocations
-                      logger.info(
-                        `Creating fallback virtual allocations for institutional portfolio #${portfolio.id}`,
-                        { component: 'PositionsList' }
-                      );
-                      const allocations = [
-                        { symbol: 'BTC', percentage: 35, chain: 'cronos' },
-                        { symbol: 'ETH', percentage: 30, chain: 'cronos' },
-                        { symbol: 'CRO', percentage: 20, chain: 'cronos' },
-                        { symbol: 'SUI', percentage: 15, chain: 'sui' },
-                      ];
-                      assetsWithAllocation = allocations.map((alloc) => ({
-                        symbol: alloc.symbol,
-                        address: alloc.symbol,
-                        allocation: alloc.percentage,
-                        value: totalPortfolioValue * (alloc.percentage / 100),
-                        change24h: 0,
-                        chain: alloc.chain,
-                      }));
-                    }
-
-                    logger.debug(`Assets with allocation for portfolio ${portfolio.id}`, {
-                      component: 'PositionsList',
-                      data: assetsWithAllocation,
-                    });
-
-                    // Fetch real transaction history (include wallet address for ERC20 transfer scanning)
-                    let transactions: PortfolioTransaction[] = [];
-                    try {
-                      const txUrl = address
-                        ? `/api/portfolio/${portfolio.id}/transactions?address=${encodeURIComponent(address)}`
-                        : `/api/portfolio/${portfolio.id}/transactions`;
-                      const txRes = await fetch(txUrl);
-                      if (txRes.ok) {
-                        const txData = await txRes.json();
-                        transactions = txData.transactions || [];
-                        logger.debug(
-                          `Fetched ${transactions.length} transactions for portfolio ${portfolio.id}`,
-                          { component: 'PositionsList' }
-                        );
-                      }
-                    } catch (err) {
-                      logger.warn('Failed to fetch transactions', {
-                        component: 'PositionsList',
-                        error: String(err),
-                      });
-                    }
-
-                    // Fetch real AI analysis from auto-hedging service and hedges
-                    let aiAnalysis = {
-                      summary: 'Analyzing portfolio...',
-                      recommendations: [] as string[],
-                      riskAssessment: '',
-                    };
-                    try {
-                      // Fetch active hedges for this portfolio
-                      const hedgesRes = await fetch(`/api/portfolio/${portfolio.id}/hedges`);
-                      const autoHedgeRes = await fetch(
-                        `/api/agents/auto-hedge?portfolioId=${portfolio.id}`
-                      );
-
-                      let activeHedges: {
-                        asset: string;
-                        side: string;
-                        current_pnl: number;
-                        notional_value: number;
-                      }[] = [];
-                      let autoHedgeStatus = {
-                        isRunning: false,
-                        riskAssessment: null as {
-                          riskScore: number;
-                          drawdownPercent: number;
-                          recommendations: { asset: string; reason: string }[];
-                        } | null,
-                      };
-
-                      if (hedgesRes.ok) {
-                        const hedgesData = await hedgesRes.json();
-                        activeHedges = hedgesData.hedges || [];
-                      }
-                      if (autoHedgeRes.ok) {
-                        autoHedgeStatus = await autoHedgeRes.json();
-                      }
-
-                      // Calculate total hedge PnL
-                      const totalHedgePnL = activeHedges.reduce(
-                        (sum, h) => sum + (Number(h.current_pnl) || 0),
-                        0
-                      );
-                      const totalHedgeNotional = activeHedges.reduce(
-                        (sum, h) => sum + (Number(h.notional_value) || 0),
-                        0
-                      );
-
-                      // Generate dynamic summary
-                      const summaryParts: string[] = [];
-                      if (activeHedges.length > 0) {
-                        const hedgePnLStr =
-                          totalHedgePnL >= 0
-                            ? `+$${totalHedgePnL.toLocaleString(undefined, { maximumFractionDigits: 2 })}`
-                            : `-$${Math.abs(totalHedgePnL).toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
-                        summaryParts.push(
-                          `${activeHedges.length} active hedge${activeHedges.length > 1 ? 's' : ''} protecting $${totalHedgeNotional.toLocaleString(undefined, { maximumFractionDigits: 0 })} with ${hedgePnLStr} unrealized PnL.`
-                        );
-                      }
-                      if (autoHedgeStatus.isRunning) {
-                        summaryParts.push('Auto-hedging service is active and monitoring risk.');
-                      }
-                      if (hasFunds) {
-                        const topAsset = assetsWithAllocation.reduce(
-                          (max, a) => (a.allocation > max.allocation ? a : max),
-                          { symbol: '', allocation: 0 }
-                        );
-                        summaryParts.push(
-                          `Portfolio allocation: ${topAsset.symbol} (${topAsset.allocation}%), diversified across ${assetsWithAllocation.length} assets.`
-                        );
-                      }
-
-                      aiAnalysis.summary =
-                        summaryParts.join(' ') || 'No active positions or hedges detected.';
-
-                      // Generate dynamic recommendations
-                      const recommendations: string[] = [];
-                      if (activeHedges.length > 0) {
-                        const profitableHedges = activeHedges.filter(
-                          (h) => Number(h.current_pnl) > 0
-                        );
-                        const losingHedges = activeHedges.filter((h) => Number(h.current_pnl) < 0);
-                        if (profitableHedges.length > 0) {
-                          recommendations.push(
-                            `Consider taking profits on ${profitableHedges.length} profitable hedge${profitableHedges.length > 1 ? 's' : ''}`
-                          );
-                        }
-                        if (
-                          losingHedges.length > 0 &&
-                          Math.abs(totalHedgePnL) > totalHedgeNotional * 0.05
-                        ) {
-                          recommendations.push(
-                            `Review losing hedges - current drawdown exceeds 5% of hedge value`
-                          );
-                        }
-                      }
-                      if (autoHedgeStatus.riskAssessment?.recommendations) {
-                        autoHedgeStatus.riskAssessment.recommendations.forEach(
-                          (rec: { asset: string; reason: string }) => {
-                            recommendations.push(`${rec.asset}: ${rec.reason}`);
-                          }
-                        );
-                      }
-                      if (!autoHedgeStatus.isRunning && hasFunds) {
-                        recommendations.push('Enable auto-hedging for continuous risk monitoring');
-                      }
-                      if (hasFunds && assetsWithAllocation.some((a) => a.change24h < -3)) {
-                        const decliningAssets = assetsWithAllocation.filter(
-                          (a) => a.change24h < -3
-                        );
-                        recommendations.push(
-                          `Monitor ${decliningAssets.map((a) => a.symbol).join(', ')} - down more than 3% in 24h`
-                        );
-                      }
-                      if (recommendations.length === 0) {
-                        recommendations.push(
-                          'Portfolio is well-balanced with no immediate actions required'
-                        );
-                        recommendations.push('Continue monitoring market conditions');
-                      }
-                      aiAnalysis.recommendations = recommendations.slice(0, 4);
-
-                      // Generate dynamic risk assessment
-                      const riskScore = autoHedgeStatus.riskAssessment?.riskScore || 1;
-                      const riskLabel = riskScore <= 3 ? 'low' : riskScore <= 6 ? 'medium' : 'high';
-                      const hedgeProtection =
-                        activeHedges.length > 0
-                          ? ` Protected by ${activeHedges.length} active hedge${activeHedges.length > 1 ? 's' : ''} with ${activeHedges.filter((h) => h.side === 'SHORT').length} SHORT and ${activeHedges.filter((h) => h.side === 'LONG').length} LONG positions.`
-                          : '';
-                      aiAnalysis.riskAssessment = `Risk score: ${riskScore}/10 (${riskLabel}). This ${riskLevel.toLowerCase()} risk portfolio maintains diversification across ${registeredAssets.length} assets.${hedgeProtection}`;
-                    } catch (err) {
-                      logger.warn('Failed to fetch AI analysis data', {
-                        component: 'PositionsList',
-                        error: String(err),
-                      });
-                      // Fallback to static analysis
-                      aiAnalysis = {
-                        summary:
-                          'Your portfolio is performing well with balanced asset allocation across stable and growth assets.',
-                        recommendations: [
-                          'Consider rebalancing if market volatility increases',
-                          'Current asset mix aligns with your risk tolerance',
-                          'Monitor yield performance against target APY',
-                        ],
-                        riskAssessment: `This ${riskLevel.toLowerCase()} risk portfolio maintains diversification across ${registeredAssets.length} assets with automated rebalancing.`,
-                      };
-                    }
-
-                    // Open detail modal with portfolio data
-                    setSelectedDetailPortfolio({
-                      id: portfolio.id,
-                      name: `Portfolio #${portfolio.id}`,
-                      totalValue: totalPortfolioValue,
-                      status: hasFunds ? 'FUNDED' : hasRegisteredAssets ? 'EMPTY' : 'NEW',
-                      targetAPY: yieldPercent,
+                    const detail = await buildPortfolioDetail({
+                      portfolio,
+                      valueUSD,
+                      yieldPercent,
                       riskLevel,
-                      currentYield: yieldPercent, // Use same for now
-                      assets: assetsWithAllocation,
-                      lastRebalanced: lastRebalanceTime,
-                      transactions,
-                      aiAnalysis,
+                      hasFunds,
+                      hasRegisteredAssets,
+                      registeredAssetsCount: registeredAssets.length,
+                      lastRebalanceTime,
+                      address,
                     });
+                    setSelectedDetailPortfolio(detail);
                     setPortfolioDetailOpen(true);
                   }}
                 >
@@ -1298,166 +940,15 @@ export function PositionsList({ address, onOpenHedge }: PositionsListProps) {
 
       {/* Empty State - No Portfolios (show even if wallet has balances) */}
       {onChainPortfolios.length === 0 && (
-        <div className="bg-gradient-to-br from-white to-[#f5f5f7] rounded-2xl shadow-sm border border-black/5 p-6 sm:p-8">
-          <div className="max-w-lg mx-auto text-center">
-            {/* Icon */}
-            <div className="w-16 h-16 bg-gradient-to-br from-[#007AFF] to-[#AF52DE] rounded-2xl flex items-center justify-center mx-auto mb-5 shadow-lg">
-              <Plus className="w-8 h-8 text-white" />
-            </div>
-
-            {/* Title */}
-            <h3 className="text-[22px] font-bold text-[#1d1d1f] mb-2 tracking-[-0.02em]">
-              Create Your First Portfolio
-            </h3>
-
-            {/* Description - Context-aware */}
-            <p className="text-[15px] text-[#86868b] mb-6 leading-relaxed">
-              {positions.length > 0 && totalValue > 0
-                ? `You have $${totalValue.toFixed(2)} in wallet balances. Create an AI-managed portfolio to optimize your holdings with automated hedging and yield strategies.`
-                : 'Start building your AI-managed portfolio with custom risk settings, automated hedging, and ZK-protected strategies.'}
-            </p>
-
-            {/* Features Grid */}
-            <div className="grid grid-cols-2 gap-3 mb-6 text-left">
-              <div className="flex items-start gap-3 p-3 bg-white rounded-xl border border-black/5">
-                <Target className="w-5 h-5 text-[#007AFF] flex-shrink-0 mt-0.5" />
-                <div>
-                  <p className="text-[13px] font-semibold text-[#1d1d1f]">AI Strategy</p>
-                  <p className="text-[11px] text-[#86868b]">Optimized allocation</p>
-                </div>
-              </div>
-              <div className="flex items-start gap-3 p-3 bg-white rounded-xl border border-black/5">
-                <Shield className="w-5 h-5 text-[#34C759] flex-shrink-0 mt-0.5" />
-                <div>
-                  <p className="text-[13px] font-semibold text-[#1d1d1f]">Auto Hedging</p>
-                  <p className="text-[11px] text-[#86868b]">Risk protection</p>
-                </div>
-              </div>
-              <div className="flex items-start gap-3 p-3 bg-white rounded-xl border border-black/5">
-                <Zap className="w-5 h-5 text-[#FF9500] flex-shrink-0 mt-0.5" />
-                <div>
-                  <p className="text-[13px] font-semibold text-[#1d1d1f]">Yield Farming</p>
-                  <p className="text-[11px] text-[#86868b]">Maximize returns</p>
-                </div>
-              </div>
-              <div className="flex items-start gap-3 p-3 bg-white rounded-xl border border-black/5">
-                <BarChart2 className="w-5 h-5 text-[#AF52DE] flex-shrink-0 mt-0.5" />
-                <div>
-                  <p className="text-[13px] font-semibold text-[#1d1d1f]">Analytics</p>
-                  <p className="text-[11px] text-[#86868b]">Real-time insights</p>
-                </div>
-              </div>
-            </div>
-
-            {/* CTA - Create Portfolio Button */}
-            <div className="flex flex-col items-center gap-3">
-              <AdvancedPortfolioCreator />
-              <p className="text-[12px] text-[#86868b]">
-                Or ask the AI Assistant for help getting started
-              </p>
-            </div>
-          </div>
-        </div>
+        <NoPortfoliosEmptyState positionsCount={positions.length} totalValue={totalValue} />
       )}
 
       {/* Token Holdings - Wallet Balances - REDESIGNED */}
-      {positions.length > 0 && positions.some((p) => parseFloat(p.balanceUSD || '0') > 0) && (
-        <div className="space-y-3">
-          {/* Wallet Section Header - Compact */}
-          <div className="flex items-center justify-between px-1">
-            <div className="flex items-center gap-2">
-              <Wallet className="w-4 h-4 text-[#FF9500]" />
-              <h3 className="text-[15px] font-semibold text-[#1d1d1f]">Wallet Balances</h3>
-              <span className="text-[12px] text-[#86868b]">
-                ({positions.filter((p) => parseFloat(p.balanceUSD || '0') > 0).length})
-              </span>
-            </div>
-            {/* Contextual hint when no portfolios exist */}
-            {onChainPortfolios.length === 0 && (
-              <span className="text-[11px] text-[#86868b] bg-[#f5f5f7] px-2 py-1 rounded-full">
-                Available to fund portfolios
-              </span>
-            )}
-          </div>
-
-          {/* Token Cards */}
-          <div className="bg-white rounded-xl shadow-sm border border-black/5 overflow-hidden">
-            {positions
-              .filter((p) => parseFloat(p.balanceUSD || '0') > 0)
-              .map((position, idx, filteredPositions) => {
-                const positionValue = parseFloat(position.balanceUSD || '0');
-                const percentOfTotal = totalValue > 0 ? (positionValue / totalValue) * 100 : 0;
-
-                return (
-                  <div
-                    key={`${position.symbol}-${idx}`}
-                    className={`px-3 sm:px-4 py-3 hover:bg-[#f5f5f7]/50 transition-all ${
-                      idx !== filteredPositions.length - 1 ? 'border-b border-black/5' : ''
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      {/* Token Icon */}
-                      <div
-                        className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                          position.symbol === 'CRO'
-                            ? 'bg-[#007AFF]'
-                            : position.symbol.includes('USD')
-                              ? 'bg-[#34C759]'
-                              : 'bg-[#FF9500]'
-                        }`}
-                      >
-                        <TokenIcon symbol={position.symbol} />
-                      </div>
-
-                      {/* Token Info */}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="text-[14px] sm:text-[15px] font-semibold text-[#1d1d1f]">
-                            {position.symbol}
-                          </span>
-                          {position.change24h !== 0 && (
-                            <span
-                              className={`flex items-center gap-0.5 text-[10px] sm:text-[11px] font-semibold ${
-                                position.change24h >= 0 ? 'text-[#34C759]' : 'text-[#FF3B30]'
-                              }`}
-                            >
-                              {position.change24h >= 0 ? '+' : ''}
-                              {Math.abs(position.change24h).toFixed(1)}%
-                            </span>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2 text-[11px] sm:text-[12px] text-[#86868b]">
-                          <span>
-                            {parseFloat(position.balance).toLocaleString(undefined, {
-                              maximumFractionDigits: 4,
-                            })}
-                          </span>
-                          <span className="text-[#86868b]/50">
-                            @${parseFloat(position.price || '0').toFixed(4)}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Value + Allocation */}
-                      <div className="text-right flex-shrink-0">
-                        <div className="text-[16px] sm:text-[18px] font-bold text-[#1d1d1f]">
-                          $
-                          {positionValue.toLocaleString(undefined, {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2,
-                          })}
-                        </div>
-                        <div className="text-[10px] font-medium text-[#86868b]">
-                          {percentOfTotal.toFixed(1)}%
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-          </div>
-        </div>
-      )}
+      <WalletBalancesList
+        positions={positions}
+        totalValue={totalValue}
+        hasPortfolios={onChainPortfolios.length > 0}
+      />
 
       {/* Deposit Modal */}
       {selectedPortfolio && (
@@ -1485,196 +976,14 @@ export function PositionsList({ address, onOpenHedge }: PositionsListProps) {
 
       {/* Agent Recommendation Modal */}
       {showRecommendationModal && agentRecommendation && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-[20px] max-w-2xl w-full border border-black/5 shadow-2xl">
-            <div className="p-6 border-b border-black/5">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-[#AF52DE] rounded-[12px] flex items-center justify-center">
-                    <Sparkles className="w-5 h-5 text-white" />
-                  </div>
-                  <h3 className="text-[20px] font-bold text-[#1d1d1f]">AI Analysis</h3>
-                </div>
-                <button
-                  onClick={() => setShowRecommendationModal(false)}
-                  className="w-8 h-8 flex items-center justify-center bg-[#f5f5f7] hover:bg-[#e8e8ed] rounded-full transition-colors"
-                >
-                  <svg
-                    className="w-4 h-4 text-[#86868b]"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M6 18L18 6M6 6l12 12"
-                    />
-                  </svg>
-                </button>
-              </div>
-            </div>
-
-            <div className="p-6 space-y-6">
-              {/* Action Recommendation */}
-              <div
-                className={`p-4 rounded-lg border-2 ${
-                  agentRecommendation.action === 'WITHDRAW'
-                    ? 'bg-red-500/10 border-red-500/50'
-                    : agentRecommendation.action === 'HEDGE'
-                      ? 'bg-orange-500/10 border-orange-500/50'
-                      : agentRecommendation.action === 'ADD_FUNDS'
-                        ? 'bg-green-500/10 border-green-500/50'
-                        : 'bg-blue-500/10 border-blue-500/50'
-                }`}
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <div className="text-2xl font-bold text-[#1d1d1f]">
-                    {agentRecommendation.action === 'WITHDRAW' && '🚨 WITHDRAW'}
-                    {agentRecommendation.action === 'HEDGE' && '🛡️ HEDGE'}
-                    {agentRecommendation.action === 'ADD_FUNDS' && '✅ ADD FUNDS'}
-                    {agentRecommendation.action === 'HOLD' && '📊 HOLD'}
-                  </div>
-                  <div className="text-sm text-[#86868b]">
-                    Confidence:{' '}
-                    <span className="font-semibold text-[#1d1d1f]">
-                      {(agentRecommendation.confidence * 100).toFixed(0)}%
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Multi-Agent Reasoning */}
-              <div>
-                <div className="text-sm font-semibold text-[#AF52DE] mb-3">Agent Reasoning:</div>
-                <div className="space-y-2">
-                  {agentRecommendation.reasoning.map((reason: string, idx: number) => (
-                    <div key={idx} className="flex items-start gap-2 text-sm text-[#1d1d1f]">
-                      <span className="text-[#AF52DE] mt-1">•</span>
-                      <span className="text-[#86868b]">{reason}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Risk Score */}
-              <div className="bg-[#f5f5f7] rounded-lg p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-[#86868b]">Portfolio Risk Score</span>
-                  <span
-                    className={`text-lg font-bold ${
-                      agentRecommendation.riskScore > 70
-                        ? 'text-[#FF3B30]'
-                        : agentRecommendation.riskScore > 40
-                          ? 'text-[#FF9500]'
-                          : 'text-[#34C759]'
-                    }`}
-                  >
-                    {agentRecommendation.riskScore}/100
-                  </span>
-                </div>
-                <div className="w-full bg-[#e8e8ed] rounded-full h-2">
-                  <div
-                    className={`h-2 rounded-full transition-all ${
-                      agentRecommendation.riskScore > 70
-                        ? 'bg-[#FF3B30]'
-                        : agentRecommendation.riskScore > 40
-                          ? 'bg-[#FF9500]'
-                          : 'bg-[#34C759]'
-                    }`}
-                    style={{ width: `${agentRecommendation.riskScore}%` }}
-                  />
-                </div>
-              </div>
-
-              {/* Agent Analysis Details */}
-              <div>
-                <div className="text-sm font-semibold text-[#AF52DE] mb-3">
-                  Multi-Agent Analysis:
-                </div>
-                <div className="space-y-2">
-                  <div className="bg-[#f5f5f7] rounded-lg p-3">
-                    <div className="text-xs text-[#86868b] mb-1">Risk Agent</div>
-                    <div className="text-sm text-[#1d1d1f]">
-                      {agentRecommendation.agentAnalysis.riskAgent}
-                    </div>
-                  </div>
-                  <div className="bg-[#f5f5f7] rounded-lg p-3">
-                    <div className="text-xs text-[#86868b] mb-1">Hedging Agent</div>
-                    <div className="text-sm text-[#1d1d1f]">
-                      {agentRecommendation.agentAnalysis.hedgingAgent}
-                    </div>
-                  </div>
-                  <div className="bg-[#f5f5f7] rounded-lg p-3">
-                    <div className="text-xs text-[#86868b] mb-1">Lead Agent</div>
-                    <div className="text-sm text-[#1d1d1f]">
-                      {agentRecommendation.agentAnalysis.leadAgent}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Recommendations */}
-              {agentRecommendation.recommendations.length > 0 && (
-                <div>
-                  <div className="text-sm font-semibold text-[#AF52DE] mb-3">
-                    Additional Recommendations:
-                  </div>
-                  <div className="space-y-1">
-                    {agentRecommendation.recommendations.map((rec: string, idx: number) => (
-                      <div key={idx} className="text-sm text-[#86868b]">
-                        • {rec}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div className="p-6 border-t border-black/5 flex gap-3">
-              <button
-                onClick={() => setShowRecommendationModal(false)}
-                className="flex-1 px-4 py-2 bg-[#f5f5f7] hover:bg-[#e8e8ed] text-[#1d1d1f] rounded-[12px] text-sm font-semibold transition-colors"
-              >
-                Close
-              </button>
-              <button
-                onClick={() => {
-                  setShowRecommendationModal(false);
-                  // Act on recommendation
-                  if (agentRecommendation.action === 'ADD_FUNDS' && analyzedPortfolio) {
-                    openDepositModal(analyzedPortfolio);
-                  } else if (agentRecommendation.action === 'WITHDRAW' && analyzedPortfolio) {
-                    openWithdrawModal(analyzedPortfolio);
-                  } else if (
-                    agentRecommendation.action === 'HEDGE' &&
-                    onOpenHedge &&
-                    analyzedPortfolio?.predictions?.[0]
-                  ) {
-                    // Call the hedge handler with the portfolio's prediction
-                    onOpenHedge(analyzedPortfolio.predictions[0]);
-                  }
-                  // HOLD just closes (user is informed)
-                }}
-                className={`flex-1 px-4 py-2 rounded-[12px] text-sm font-semibold text-white transition-colors ${
-                  agentRecommendation.action === 'WITHDRAW'
-                    ? 'bg-[#FF3B30] hover:bg-[#FF3B30]/90'
-                    : agentRecommendation.action === 'ADD_FUNDS'
-                      ? 'bg-[#34C759] hover:bg-[#34C759]/90'
-                      : agentRecommendation.action === 'HEDGE'
-                        ? 'bg-[#FF9500] hover:bg-[#FF9500]/90'
-                        : 'bg-[#007AFF] hover:bg-[#007AFF]/90'
-                }`}
-              >
-                {agentRecommendation.action === 'WITHDRAW' && '🚨 Withdraw Funds'}
-                {agentRecommendation.action === 'ADD_FUNDS' && '✅ Add More Funds'}
-                {agentRecommendation.action === 'HEDGE' && '🛡️ Open Hedge Position'}
-                {agentRecommendation.action === 'HOLD' && '📊 Continue Holding'}
-              </button>
-            </div>
-          </div>
-        </div>
+        <AgentRecommendationModal
+          recommendation={agentRecommendation}
+          analyzedPortfolio={analyzedPortfolio}
+          onClose={() => setShowRecommendationModal(false)}
+          onDeposit={openDepositModal}
+          onWithdraw={openWithdrawModal}
+          onOpenHedge={onOpenHedge}
+        />
       )}
 
       {/* Portfolio Detail Modal */}
