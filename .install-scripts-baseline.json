@@ -5,7 +5,6 @@
     "@parcel/watcher",
     "@reown/appkit",
     "@swc/core",
-    "bi-fraction",
     "bufferutil",
     "esbuild",
     "fsevents",
