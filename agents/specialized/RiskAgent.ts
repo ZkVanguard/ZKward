@@ -677,31 +677,9 @@ REC3: [third recommendation]`;
         } catch (e) {
           logger.warn('SUI portfolio data unavailable, falling back to Cronos', { error: e });
         }
-      } else if (chain === 'oasis-sapphire' || chain === 'oasis') {
-        // ── Oasis Sapphire: fetch from Oasis community pool service ──
-        try {
-          const { getOasisPoolStats } = await import('../../lib/services/oasis/OasisCommunityPoolService');
-          const stats = await getOasisPoolStats();
-          const totalValue = parseFloat(stats.totalNAV) || 0;
-          // Oasis pool returns allocation percentages per asset
-          const alloc = stats.allocations;
-          if (totalValue > 0) {
-            portfolio = {
-              totalValue,
-              positions: [
-                { symbol: 'BTC', value: totalValue * (alloc.BTC / 100) },
-                { symbol: 'ETH', value: totalValue * (alloc.ETH / 100) },
-                { symbol: 'SUI', value: totalValue * (alloc.SUI / 100) },
-                { symbol: 'CRO', value: totalValue * (alloc.CRO / 100) },
-              ].filter(p => p.value > 0),
-            };
-          }
-          logger.info('Using Oasis Sapphire on-chain pool data for exposures', { chain, totalValue, allocations: alloc });
-        } catch (e) {
-          logger.warn('Oasis portfolio data unavailable, falling back to Cronos', { error: e });
-        }
       }
-      
+
+
       // ── Default / Cronos: use standard portfolio service ──
       if (!portfolio.positions || portfolio.positions.length === 0) {
         const { getPortfolioData } = await import('../../lib/services/portfolio-actions');
