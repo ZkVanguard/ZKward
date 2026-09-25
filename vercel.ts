@@ -16,6 +16,15 @@ export const config: VercelConfig = {
   // 20-conn plan-wide DB limit makes locality especially important.
   regions: ['sin1'],
 
+  // Only auto-deploy production (main). Every other branch skips
+  // Vercel's preview build via ignoreCommand — exit 0 (skip) when the
+  // pushed branch is NOT main, exit 1 (proceed) when it IS main.
+  // (`git.deploymentEnabled` doesn't support wildcards; `ignoreCommand`
+  // is Vercel's documented per-branch skip mechanism.)
+  // Manual deploys still available via the main-manual deploy hook or
+  // `vercel deploy --prod`.
+  ignoreCommand: 'sh -c \'[ "$VERCEL_GIT_COMMIT_REF" = "main" ]\'',
+
   installCommand: 'npm install --legacy-peer-deps',
 
   build: {
