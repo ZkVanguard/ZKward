@@ -498,7 +498,7 @@ git log --format='%an <%ae>  %ci' -1 6ea125ea
 git show 9b6711ce --stat        # the first introduction
 
 # did it arrive via the fork remote?
-git remote -v                   # note the 'fork' remote (kyu36003-source/ZkWard)
+git remote -v                   # note the 'fork' remote (kyu36003-source/ZKward)
 ```
 
 Checklist:

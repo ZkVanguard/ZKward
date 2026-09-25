@@ -2,7 +2,7 @@
 /**
  * SUI Move Contract Deployment Script
  * 
- * Deploys ZkWard Move modules to SUI testnet/devnet/mainnet
+ * Deploys ZKward Move modules to SUI testnet/devnet/mainnet
  * 
  * Prerequisites:
  * 1. Install Sui CLI: cargo install --locked --git https://github.com/MystenLabs/sui.git --branch testnet sui
@@ -291,7 +291,7 @@ async function main() {
   }
 
   console.log('═'.repeat(50));
-  console.log(`  ZkWard SUI Deployment - ${network.toUpperCase()}`);
+  console.log(`  ZKward SUI Deployment - ${network.toUpperCase()}`);
   console.log('═'.repeat(50));
 
   // Check prerequisites

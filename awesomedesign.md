@@ -1,8 +1,8 @@
-# ZkWard Design System Analysis
+# ZKward Design System Analysis
 
 ## Executive Summary
 
-ZkWard's design language is calibrated to serve two audiences at once — institutional evaluators (SUI Foundation grant reviewers, LPs, security researchers) and retail depositors — through a single **truth-forward** posture: every marketing surface shows real product state instead of aspirational copy. The system centers on a single accent color (iOS Blue `#007AFF`) deployed exclusively for CTAs, focus rings, and brand links, paired with one distinctive display face (Space Grotesk) reserved for hero and section headlines. Layout rhythm alternates between white canvas sections and soft-gray elevation bands, with one signature visual moment — the **Vault Meter** hero card — carrying live NAV, composition, and capacity data that verifies the product's claims in-page. Density belongs behind /dashboard; marketing surfaces stay editorial-airy.
+ZKward's design language is calibrated to serve two audiences at once — institutional evaluators (SUI Foundation grant reviewers, LPs, security researchers) and retail depositors — through a single **truth-forward** posture: every marketing surface shows real product state instead of aspirational copy. The system centers on a single accent color (iOS Blue `#007AFF`) deployed exclusively for CTAs, focus rings, and brand links, paired with one distinctive display face (Space Grotesk) reserved for hero and section headlines. Layout rhythm alternates between white canvas sections and soft-gray elevation bands, with one signature visual moment — the **Vault Meter** hero card — carrying live NAV, composition, and capacity data that verifies the product's claims in-page. Density belongs behind /dashboard; marketing surfaces stay editorial-airy.
 
 Format follows the [voltagent/awesome-design-md](https://github.com/voltagent/awesome-design-md) DESIGN.md spec. This document governs the marketing surface only (`/`, `/agents`, `/zk`, `/rwa`, `/whitepaper`, `Navbar`, `Footer`). Dashboard, admin, and simulator are out of scope.
 

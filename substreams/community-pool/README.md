@@ -89,7 +89,7 @@ substreams gui substreams.yaml map_vault_events --start-block 5700000 --stop-blo
 
 ## Consumer pattern — subgraph replacement for pool-nav-monitor
 
-Instead of the QStash-triggered polling cron in the ZkWard repo (`pool-nav-monitor` every 15 min) writing to Aiven Postgres, a subgraph in [`../../subgraph/`](../../subgraph/) can ingest this Substreams module as its data source. Result: one contract → one module → one subgraph → every downstream reader gets sub-block latency.
+Instead of the QStash-triggered polling cron in the ZKward repo (`pool-nav-monitor` every 15 min) writing to Aiven Postgres, a subgraph in [`../../subgraph/`](../../subgraph/) can ingest this Substreams module as its data source. Result: one contract → one module → one subgraph → every downstream reader gets sub-block latency.
 
 ## Standards leverage
 

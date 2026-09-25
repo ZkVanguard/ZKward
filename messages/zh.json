@@ -81,7 +81,7 @@
     "rights": "版权所有。",
     "testnet": "SUI主网",
     "stage": "主网上线",
-    "migrationNotice": "Formerly zkvanguard.xyz — zkward.com is our new home.",
+    "migrationNotice": "Formerly zkward.xyz — zkward.com is our new home.",
     "builtWith": "基于ZK-STARK构建",
     "story": "我们的故事"
   },
@@ -217,7 +217,7 @@
   },
   "zkVerification": {
     "title": "ZK-STARK数学证明",
-    "subtitle": "正式验证ZkWard按照Ben-Sasson等人的学术规范实现了真正的ZK-STARK",
+    "subtitle": "正式验证ZKward按照Ben-Sasson等人的学术规范实现了真正的ZK-STARK",
     "auditorSummary": "审计师快速摘要",
     "implementation": "实现",
     "securityLevel": "安全级别",
@@ -688,7 +688,7 @@
     "description": "ZKward 完整论述：预测市场 alpha、7 代理架构、STARK 证明执行、代币经济学、路线图。"
   },
   "legacyBanner": {
-    "message": "<strong>zkvanguard.xyz 即将下线</strong> — 我们现在在 <link>zkward.com</link>。",
+    "message": "<strong>zkward.xyz 即将下线</strong> — 我们现在在 <link>zkward.com</link>。",
     "dismiss": "关闭"
   }
 }

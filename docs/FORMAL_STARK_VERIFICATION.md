@@ -2,7 +2,7 @@
 
 ## Executive Summary
 
-This document provides **mathematical proof** that the ZkWard ZK-STARK implementation (`zkp/core/cuda_true_stark.py`) is a TRUE ZK-STARK according to the academic definitions in:
+This document provides **mathematical proof** that the ZKward ZK-STARK implementation (`zkp/core/cuda_true_stark.py`) is a TRUE ZK-STARK according to the academic definitions in:
 
 1. **ePrint 2018/046**: "Scalable, transparent, and post-quantum secure computational integrity" (Ben-Sasson et al.)
 2. **ePrint 2018/828**: "Fast Reed-Solomon Interactive Oracle Proofs of Proximity" (FRI Protocol)
@@ -245,7 +245,7 @@ python -m pytest zkp/tests/test_cuda_true_stark.py -v
 
 ## Conclusion
 
-This document provides **mathematical proof** that ZkWard's ZK-STARK implementation:
+This document provides **mathematical proof** that ZKward's ZK-STARK implementation:
 
 1. **IS TRANSPARENT** - No trusted setup, all parameters public
 2. **IS POST-QUANTUM SECURE** - No reliance on DLP/factoring

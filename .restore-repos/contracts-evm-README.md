@@ -47,7 +47,7 @@ npx hardhat run scripts/deploy.js --network cronos-testnet
 
 ## Security
 
-All contracts undergo security review before mainnet deployment. Report vulnerabilities to security@zkvanguard.io.
+All contracts undergo security review before mainnet deployment. Report vulnerabilities to security@zkward.io.
 
 ## License
 

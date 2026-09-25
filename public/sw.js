@@ -1,4 +1,4 @@
-// ZkWard service worker.
+// ZKward service worker.
 // Purpose: satisfy Chrome's PWA install-eligibility rules (registered SW with a
 // fetch handler) and provide a minimal offline fallback.
 // Strategy: network-first for HTML documents; passthrough for everything else.

@@ -41,7 +41,7 @@ async function runDeployDriftCheck(now: number): Promise<Pick<WatchdogResult, 'r
     }),
     fetch(`https://api.github.com/repos/${REPO}/branches/main`, {
       signal: AbortSignal.timeout(15_000),
-      headers: { 'User-Agent': 'zkvanguard-deploy-watchdog' },
+      headers: { 'User-Agent': 'zkward-deploy-watchdog' },
       cache: 'no-store',
     }),
   ]);

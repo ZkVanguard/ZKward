@@ -81,7 +81,7 @@
     "rights": "جميع الحقوق محفوظة.",
     "testnet": "SUI Mainnet",
     "stage": "الشبكة الرئيسية مباشرة",
-    "migrationNotice": "Formerly zkvanguard.xyz — zkward.com is our new home.",
+    "migrationNotice": "Formerly zkward.xyz — zkward.com is our new home.",
     "builtWith": "مبني على ZK-STARK",
     "story": "قصتنا"
   },
@@ -217,7 +217,7 @@
   },
   "zkVerification": {
     "title": "الإثبات الرياضي ZK-STARK",
-    "subtitle": "التحقق الرسمي من أن ZkWard ينفذ ZK-STARK حقيقي وفقًا لمواصفات Ben-Sasson وآخرين",
+    "subtitle": "التحقق الرسمي من أن ZKward ينفذ ZK-STARK حقيقي وفقًا لمواصفات Ben-Sasson وآخرين",
     "auditorSummary": "ملخص سريع للمدققين",
     "implementation": "التنفيذ",
     "securityLevel": "مستوى الأمان",
@@ -688,7 +688,7 @@
     "description": "أطروحة ZKward الكاملة: ألفا أسواق التنبؤ، معمارية 7 وكلاء، تنفيذ مصادَق بـ STARK، اقتصاديات الرمز، خريطة الطريق."
   },
   "legacyBanner": {
-    "message": "<strong>zkvanguard.xyz على وشك الإغلاق</strong> — نحن الآن على <link>zkward.com</link>.",
+    "message": "<strong>zkward.xyz على وشك الإغلاق</strong> — نحن الآن على <link>zkward.com</link>.",
     "dismiss": "إغلاق"
   }
 }

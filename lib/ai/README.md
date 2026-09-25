@@ -2,7 +2,7 @@
 
 ## Overview
 
-ZkWard now integrates **Crypto.com AI Agent Client** for intelligent portfolio analysis, risk assessment, and natural language intent parsing. This enhances the multi-agent system with advanced AI capabilities.
+ZKward now integrates **Crypto.com AI Agent Client** for intelligent portfolio analysis, risk assessment, and natural language intent parsing. This enhances the multi-agent system with advanced AI capabilities.
 
 ## Features
 

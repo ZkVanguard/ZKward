@@ -8,10 +8,10 @@ docker pull postgres:16-alpine
 
 # Run PostgreSQL container
 docker run -d `
-  --name zkvanguard-postgres `
+  --name zkward-postgres `
   -e POSTGRES_PASSWORD=postgres `
   -e POSTGRES_USER=postgres `
-  -e POSTGRES_DB=zkvanguard `
+  -e POSTGRES_DB=zkward `
   -p 5432:5432 `
   postgres:16-alpine
 
@@ -27,7 +27,7 @@ Download from: https://www.postgresql.org/download/windows/
 
 ```powershell
 # Connect to PostgreSQL
-psql -U postgres -d zkvanguard
+psql -U postgres -d zkward
 
 # Run schema (paste content from scripts/database/hedges-schema.sql)
 \i scripts/database/hedges-schema.sql
@@ -43,8 +43,8 @@ psql -U postgres -d zkvanguard
 
 1. Go to https://neon.tech
 2. Create account (free tier: 512MB, 3GB transfer/month)
-3. Create project "zkvanguard"
-4. Create database "zkvanguard"
+3. Create project "zkward"
+4. Create database "zkward"
 5. Copy connection string
 
 ## Environment Variables
@@ -53,10 +53,10 @@ Add to `.env.local`:
 
 ```bash
 # Local PostgreSQL
-DATABASE_URL=postgresql://postgres:postgres@localhost:5432/zkvanguard
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/zkward
 
 # OR Neon Cloud
-DATABASE_URL=postgresql://user:password@ep-xxx.us-east-2.aws.neon.tech/zkvanguard?sslmode=require
+DATABASE_URL=postgresql://user:password@ep-xxx.us-east-2.aws.neon.tech/zkward?sslmode=require
 ```
 
 ## Initialize Schema

@@ -1,4 +1,4 @@
-# ZkWard — Setup & Quick Start
+# ZKward — Setup & Quick Start
 
 This guide covers **local development** and the fastest way to interact with the live product.
 For architecture + deep-dive docs, see `ARCHITECTURE.md`. For the demo flow, see `../demo/README.md`.

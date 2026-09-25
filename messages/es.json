@@ -81,7 +81,7 @@
     "rights": "Todos los derechos reservados.",
     "testnet": "SUI Mainnet",
     "stage": "Mainnet Activo",
-    "migrationNotice": "Formerly zkvanguard.xyz — zkward.com is our new home.",
+    "migrationNotice": "Formerly zkward.xyz — zkward.com is our new home.",
     "builtWith": "Desarrollado con ZK-STARK",
     "story": "Nuestra historia"
   },
@@ -217,7 +217,7 @@
   },
   "zkVerification": {
     "title": "Prueba matemática ZK-STARK",
-    "subtitle": "Verificación formal de que ZkWard implementa un verdadero ZK-STARK según las especificaciones académicas de Ben-Sasson et al.",
+    "subtitle": "Verificación formal de que ZKward implementa un verdadero ZK-STARK según las especificaciones académicas de Ben-Sasson et al.",
     "auditorSummary": "Resumen rápido para auditores",
     "implementation": "Implementación",
     "securityLevel": "Nivel de seguridad",
@@ -688,7 +688,7 @@
     "description": "La tesis completa de ZKward: alpha de mercados de predicción, arquitectura de 7 agentes, ejecución con atestación STARK, tokenomics, hoja de ruta."
   },
   "legacyBanner": {
-    "message": "<strong>zkvanguard.xyz se retira</strong> — ahora estamos en <link>zkward.com</link>.",
+    "message": "<strong>zkward.xyz se retira</strong> — ahora estamos en <link>zkward.com</link>.",
     "dismiss": "Cerrar"
   }
 }

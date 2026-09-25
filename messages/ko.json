@@ -81,7 +81,7 @@
     "rights": "모든 권리 보유.",
     "testnet": "SUI Mainnet",
     "stage": "메인넷 라이브",
-    "migrationNotice": "Formerly zkvanguard.xyz — zkward.com is our new home.",
+    "migrationNotice": "Formerly zkward.xyz — zkward.com is our new home.",
     "builtWith": "ZK-STARK로 구축",
     "story": "우리 이야기"
   },
@@ -217,7 +217,7 @@
   },
   "zkVerification": {
     "title": "ZK-STARK 수학적 증명",
-    "subtitle": "ZkWard가 Ben-Sasson 등의 학술 사양에 따른 진정한 ZK-STARK를 구현함을 공식 검증",
+    "subtitle": "ZKward가 Ben-Sasson 등의 학술 사양에 따른 진정한 ZK-STARK를 구현함을 공식 검증",
     "auditorSummary": "감사자 빠른 요약",
     "implementation": "구현",
     "securityLevel": "보안 레벨",
@@ -688,7 +688,7 @@
     "description": "ZKward 완전 논고: 예측 시장 alpha, 7 에이전트 아키텍처, STARK 인증 실행, 토크노믹스, 로드맵."
   },
   "legacyBanner": {
-    "message": "<strong>zkvanguard.xyz는 곧 종료됩니다</strong> — 이제 <link>zkward.com</link>입니다.",
+    "message": "<strong>zkward.xyz는 곧 종료됩니다</strong> — 이제 <link>zkward.com</link>입니다.",
     "dismiss": "닫기"
   }
 }

@@ -24,7 +24,7 @@ export function getPool(): Pool {
     let connectionString =
       process.env.DATABASE_POOL_URL ||
       process.env.DATABASE_URL ||
-      'postgresql://postgres:postgres@localhost:5432/zkvanguard';
+      'postgresql://postgres:postgres@localhost:5432/zkward';
 
     // 2026-09-23: stale DATABASE_POOL_URL pointing at the retired Aiven DB
     // silently routed every query to a dead endpoint. The AI-interpretation

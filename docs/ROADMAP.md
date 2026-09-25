@@ -1,4 +1,4 @@
-# ZkWard Roadmap
+# ZKward Roadmap
 
 Canonical roadmap. Mirrors the [main README](../README.md#roadmap) but with more context. Cap ratchets are contract-gated via `admin_set_tvl_cap` and unlock only against a specific evidence bundle — not aspirational.
 

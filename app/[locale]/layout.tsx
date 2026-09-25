@@ -162,7 +162,7 @@ export default async function LocaleLayout(
   // accepted by some crawlers but not shown in the knowledge panel.
   //
   // `alternateName` covers legacy casings the domain has been mentioned
-  // under (ZkVanguard, ZkWard). Brand-query searches for any variant
+  // under (ZkVanguard, ZKward). Brand-query searches for any variant
   // should route back to this Organization entity.
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://zkward.com';
   const ldJson = {
@@ -172,7 +172,7 @@ export default async function LocaleLayout(
         '@type': 'Organization',
         '@id': `${baseUrl}/#org`,
         name: 'ZKward',
-        alternateName: ['ZkWard', 'zkward', 'ZkVanguard'],
+        alternateName: ['ZKward', 'zkward', 'ZkVanguard'],
         url: baseUrl,
         logo: {
           '@type': 'ImageObject',

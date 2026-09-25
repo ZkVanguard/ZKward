@@ -97,7 +97,7 @@ export default function AgentsPage() {
                       </ul>
                       <div className="flex flex-wrap gap-2 text-caption-1 font-mono">
                         <a
-                          href={`https://github.com/ZkVanguard/ZkWard/blob/main/${agent.implementation}`}
+                          href={`https://github.com/ZkVanguard/ZKward/blob/main/${agent.implementation}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="text-ios-blue hover:underline break-all"

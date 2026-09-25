@@ -723,7 +723,7 @@ export function useCommunityPool(propAddress?: string) {
     async (action: 'deposit' | 'withdraw', amount: string) => {
       if (!address) return null;
       const timestamp = Math.floor(Date.now() / 1000);
-      const message = `ZkWard Community Pool\n\nAction: ${action.toUpperCase()}\nAmount: $${amount}\nWallet: ${address}\ntimestamp:${timestamp}`;
+      const message = `ZKward Community Pool\n\nAction: ${action.toUpperCase()}\nAmount: $${amount}\nWallet: ${address}\ntimestamp:${timestamp}`;
       try {
         const signature = await signMessageAsync({ message });
         return { signature, message };

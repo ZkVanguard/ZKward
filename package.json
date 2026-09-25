@@ -1,8 +1,8 @@
 {
-  "name": "zkvanguard",
+  "name": "zkward",
   "version": "0.2.0",
   "description": "Signal intelligence platform for algorithmic trading. 20 sources fused per asset - prediction markets (Polymarket, Kalshi, Delphi, Manifold), funding rates, orderbook depth, options skew, cross-asset correlation. Every source has a Bayesian-shrunk hit rate against real outcomes; sources below 40% auto-kill. Fine-tuned model reads every new market and extracts direction, horizon, confidence (82.8% resolved accuracy). Autonomous multi-agent execution with STARK-attested settlement. Live demo vault on SUI mainnet.",
-  "author": "ZkWard Team",
+  "author": "ZKward Team",
   "license": "Apache-2.0",
   "keywords": [
     "signal-intelligence",
@@ -108,6 +108,7 @@
   "dependencies": {
     "@bluefin-exchange/bluefin7k-aggregator-sdk": "^5.5.1",
     "@bluefin-exchange/pro-sdk": "^1.13.0",
+    "@crypto.com/ai-agent-client": "^1.0.2",
     "@crypto.com/developer-platform-client": "^1.1.2",
     "@hashgraph/sdk": "^2.81.0",
     "@mysten/dapp-kit": "^0.14.0",
@@ -117,9 +118,11 @@
     "@privy-io/react-auth": "^3.40.0",
     "@privy-io/server-auth": "^1.32.5",
     "@privy-io/wagmi": "^4.0.17",
+    "@pythnetwork/pyth-sui-js": "^3.0.0",
     "@tanstack/react-query": "^5.101.4",
     "@upstash/ratelimit": "^2.0.8",
     "@upstash/redis": "^1.38.1",
+    "@vercel/config": "^0.5.6",
     "chart.js": "^4.5.1",
     "dotenv": "^16.3.1",
     "framer-motion": "^11.18.2",

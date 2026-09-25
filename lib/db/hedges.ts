@@ -26,7 +26,7 @@ import { ensureHedgesTable, type Hedge, type CreateHedgeParams } from './hedges-
  * This hash cryptographically binds a hedge to a wallet without revealing the wallet address
  */
 export function generateWalletBindingHash(walletAddress: string, hedgeId: string, secret?: string): string {
-  const data = `zk-binding:${walletAddress.toLowerCase()}:${hedgeId}:${secret || 'zkvanguard'}`;
+  const data = `zk-binding:${walletAddress.toLowerCase()}:${hedgeId}:${secret || 'zkward'}`;
   return crypto.createHash('sha256').update(data).digest('hex');
 }
 

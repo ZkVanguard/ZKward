@@ -129,8 +129,8 @@ export default function PrivacyPage() {
             <h2 className="text-2xl font-semibold mb-4 text-[#1D1D1F]">10. Contact & Data Protection Officer</h2>
             <p>
               For privacy concerns or data requests, contact us at:{' '}
-              <a href="mailto:privacy@zkvanguard.io" className="text-[#007AFF] hover:underline">
-                privacy@zkvanguard.io
+              <a href="mailto:privacy@zkward.io" className="text-[#007AFF] hover:underline">
+                privacy@zkward.io
               </a>
             </p>
             <p className="mt-2">

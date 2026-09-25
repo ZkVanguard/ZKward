@@ -466,7 +466,7 @@ async function fetchRealZKProofs() {
 
 **0:00-0:30 - Hook**
 ```
-"This is ZkWard. Everything you're about to see is REAL.
+"This is ZKward. Everything you're about to see is REAL.
 Real blockchain transactions. Real ZK proofs. Real gasless execution.
 All verifiable on Cronos testnet explorer. Watch..."
 

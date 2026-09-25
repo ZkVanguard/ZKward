@@ -212,7 +212,7 @@ Depends on Phase B (Rust prover).
 
 - Add `wasm-bindgen` bindings to `zkp-rust/`.
 - Compile to `wasm32-unknown-unknown`.
-- Publish as npm package `@zkvanguard/prover-wasm`.
+- Publish as npm package `@zkward/prover-wasm`.
 
 ### Phase C.2 — Browser JS integration (~300 TS LOC)
 

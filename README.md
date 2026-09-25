@@ -1,8 +1,8 @@
-# ZkWard: Signal Intelligence For Algorithmic Trading
+# ZKward: Signal Intelligence For Algorithmic Trading
 
 [![Logo](public/logo-official.svg)](https://www.zkward.com)
 
-ZkWard aggregates prediction markets, funding rates, orderbook microstructure, options skew, and cross-asset
+ZKward aggregates prediction markets, funding rates, orderbook microstructure, options skew, and cross-asset
 correlation into a single per-asset signal every 30 seconds. Each source's directional call is scored against realized
 outcomes; sources below a 40% hit rate over 15+ observations are auto-killed. A fine-tuned language model reads every
 new prediction-market title and extracts direction, horizon, and confidence at 82.8% resolved accuracy.
@@ -31,7 +31,7 @@ Sui mainnet USDC pool — v0.2.0 on-chain, v0.4.2 off-chain (2026-09-21):
 
 ## License
 
-ZkWard is distributed under the terms of the Apache License, Version 2.0 ([LICENSE](LICENSE) or
+ZKward is distributed under the terms of the Apache License, Version 2.0 ([LICENSE](LICENSE) or
 <http://www.apache.org/licenses/LICENSE-2.0>).
 
 ## Official Links
@@ -45,6 +45,6 @@ ZkWard is distributed under the terms of the Apache License, Version 2.0 ([LICEN
 
 ## Disclaimer
 
-ZkWard operates real capital on Sui mainnet under a contract-enforced TVL cap. On-chain contracts are v0.2.0; the
+ZKward operates real capital on Sui mainnet under a contract-enforced TVL cap. On-chain contracts are v0.2.0; the
 off-chain system has been through 15 internal audit phases but no external audit has been completed. Forks and
 independent deployments miss ongoing security updates and calibration — use at your own risk.

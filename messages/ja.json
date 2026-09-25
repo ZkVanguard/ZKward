@@ -81,7 +81,7 @@
     "rights": "全著作権所有。",
     "testnet": "SUI Mainnet",
     "stage": "Mainnet ライブ",
-    "migrationNotice": "Formerly zkvanguard.xyz — zkward.com is our new home.",
+    "migrationNotice": "Formerly zkward.xyz — zkward.com is our new home.",
     "builtWith": "ZK-STARKで構築",
     "story": "私たちのストーリー"
   },
@@ -217,7 +217,7 @@
   },
   "zkVerification": {
     "title": "ZK-STARK数学的証明",
-    "subtitle": "ZkWardがBen-Sassonらの学術仕様に基づく本物のZK-STARKを実装していることの正式な検証",
+    "subtitle": "ZKwardがBen-Sassonらの学術仕様に基づく本物のZK-STARKを実装していることの正式な検証",
     "auditorSummary": "監査人向けクイックサマリー",
     "implementation": "実装",
     "securityLevel": "セキュリティレベル",
@@ -688,7 +688,7 @@
     "description": "ZKward の完全な論考：予測市場 alpha、7 エージェント・アーキテクチャ、STARK 認証付き実行、トークノミクス、ロードマップ。"
   },
   "legacyBanner": {
-    "message": "<strong>zkvanguard.xyz は間もなく終了</strong> — 現在は <link>zkward.com</link> です。",
+    "message": "<strong>zkward.xyz は間もなく終了</strong> — 現在は <link>zkward.com</link> です。",
     "dismiss": "閉じる"
   }
 }

@@ -1,6 +1,6 @@
 # Bug Bounty Program
 
-ZkWard runs a continuous bug bounty for security researchers and white-hat
+ZKward runs a continuous bug bounty for security researchers and white-hat
 hackers. We pay for verified, reproducible vulnerabilities in our deployed
 mainnet contracts and the production infrastructure that touches user capital.
 
@@ -102,7 +102,7 @@ We will not pursue legal action against researchers who:
 |---|---|---|---|
 | _Your name could be here_ | — | — | — |
 
-## Why bug bounty matters for ZkWard
+## Why bug bounty matters for ZKward
 
 - We hold real user capital (currently $57, capped at $10K, growing post-audit)
 - Our risk engine and ZK attestation infrastructure are positioned as B2B SDK
