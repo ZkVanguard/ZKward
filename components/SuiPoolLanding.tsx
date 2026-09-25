@@ -761,6 +761,71 @@ export const SuiPoolLanding = memo(function SuiPoolLanding() {
       </section>
 
       {/* ─────────────────────────────────────────────────────────────── */}
+      {/* IN PRODUCTION — real numbers from live SUI mainnet deploy       */}
+      {/* ─────────────────────────────────────────────────────────────── */}
+      <section className="py-12 sm:py-20 md:py-24 px-4 sm:px-5 lg:px-8 bg-system-bg-secondary min-w-0">
+        <Reveal className="max-w-[1100px] mx-auto">
+          <div className="text-center mb-8 sm:mb-12">
+            <p className="text-caption-1 font-medium uppercase tracking-wide text-label-tertiary mb-2 sm:mb-3">
+              {t('production.eyebrow')}
+            </p>
+            <h2 className="text-[24px] sm:text-[28px] md:text-[36px] lg:text-[44px] font-display font-semibold tracking-[-0.03em] leading-[1.05] text-label-primary mb-3 sm:mb-4 break-words">
+              {t('production.title')}
+            </h2>
+            <p className="text-sm sm:text-callout text-label-secondary max-w-[560px] mx-auto leading-relaxed">
+              {t('production.body')}
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-4 min-w-0">
+            <TrustBadge
+              icon={<Zap className="w-5 h-5" />}
+              title={t('production.daysLive.title')}
+              value={t('production.daysLive.value')}
+              hint={t('production.daysLive.hint')}
+            />
+            <TrustBadge
+              icon={<BarChart3 className="w-5 h-5" />}
+              title={t('production.navSnapshots.title')}
+              value={t('production.navSnapshots.value')}
+              hint={t('production.navSnapshots.hint')}
+            />
+            <TrustBadge
+              icon={<Layers className="w-5 h-5" />}
+              title={t('production.hedges.title')}
+              value={t('production.hedges.value')}
+              hint={t('production.hedges.hint')}
+            />
+          </div>
+        </Reveal>
+      </section>
+
+      {/* ─────────────────────────────────────────────────────────────── */}
+      {/* BUILT FOR — audience triplet                                    */}
+      {/* ─────────────────────────────────────────────────────────────── */}
+      <section className="py-12 sm:py-20 md:py-24 px-4 sm:px-5 lg:px-8 bg-system-bg-primary min-w-0">
+        <Reveal className="max-w-[1100px] mx-auto">
+          <div className="text-center mb-8 sm:mb-12">
+            <p className="text-caption-1 font-medium uppercase tracking-wide text-label-tertiary mb-2 sm:mb-3">
+              {t('builtFor.eyebrow')}
+            </p>
+            <h2 className="text-[24px] sm:text-[28px] md:text-[36px] lg:text-[44px] font-display font-semibold tracking-[-0.03em] leading-[1.05] text-label-primary mb-3 sm:mb-4 break-words">
+              {t('builtFor.title')}
+            </h2>
+            <p className="text-sm sm:text-callout text-label-secondary max-w-[560px] mx-auto leading-relaxed">
+              {t('builtFor.body')}
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4 min-w-0">
+            <BuiltForCard title={t('builtFor.traders.title')} body={t('builtFor.traders.body')} />
+            <BuiltForCard title={t('builtFor.research.title')} body={t('builtFor.research.body')} />
+            <BuiltForCard title={t('builtFor.protocols.title')} body={t('builtFor.protocols.body')} />
+          </div>
+        </Reveal>
+      </section>
+
+      {/* ─────────────────────────────────────────────────────────────── */}
       {/* TRUST STRIP — safety guarantees on chain                        */}
       {/* ─────────────────────────────────────────────────────────────── */}
       <section className="py-12 sm:py-20 md:py-24 px-4 sm:px-5 lg:px-8 bg-system-bg-secondary min-w-0">
@@ -1099,5 +1164,18 @@ function SurfaceCard({
       </h3>
       <p className="text-xs sm:text-subheadline text-label-secondary leading-relaxed sm:leading-[1.5] break-words">{body}</p>
     </Link>
+  );
+}
+
+function BuiltForCard({ title, body }: { title: string; body: string }) {
+  return (
+    <div className="bg-system-bg-secondary rounded-ios-xl p-5 sm:p-6 md:p-7 border border-separator-opaque/30 min-w-0">
+      <h3 className="text-headline sm:text-title-3 font-display font-semibold text-label-primary mb-2 sm:mb-3 leading-tight break-words">
+        {title}
+      </h3>
+      <p className="text-sm sm:text-callout text-label-secondary leading-relaxed break-words">
+        {body}
+      </p>
+    </div>
   );
 }
