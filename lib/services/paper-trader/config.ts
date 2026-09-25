@@ -33,7 +33,17 @@ export const PAPER_STAKE_PCT = Number(process.env.PAPER_TRADER_STAKE_PCT || 0.02
 // converges to ~50% predictor. Tighter gates trade N-per-hour for
 // per-trade edge; expected to lift win rate 5-10pct with same source
 // pool. Env-tunable if further tuning proves productive.
-export const PAPER_MIN_CONFIDENCE = Number(process.env.PAPER_TRADER_MIN_CONFIDENCE || 62);
+//
+// Fix J (2026-09-25): raised 62 → 70 after confidence-bucket audit.
+// Historical win rates by opening confidence:
+//   60-64 conf: 23.2% (n=56) ← WORST
+//   65-69 conf: 32.1% (n=106)
+//   70-74 conf: 38.4% (n=125) ← best
+//   75-79 conf: 33.9% (n=56)
+//   80-84 conf: 23.8% (n=21) ← higher confidence = worse
+// Cuts the two worst buckets. Trade frequency roughly halves; expected
+// win-rate lift ~5-8pp from removing the 62-69 tail.
+export const PAPER_MIN_CONFIDENCE = Number(process.env.PAPER_TRADER_MIN_CONFIDENCE || 70);
 export const PAPER_MIN_CONSENSUS = Number(process.env.PAPER_TRADER_MIN_CONSENSUS || 60);
 export const PAPER_MIN_SOURCES = Number(process.env.PAPER_TRADER_MIN_SOURCES || 3);
 
