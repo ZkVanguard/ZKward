@@ -75,6 +75,18 @@ interface HedgeHistoryState {
   }>;
 }
 
+interface PaperTraderState {
+  navUsd: number;
+  startingNavUsd: number;
+  cumRealizedUsd: number;
+  trades: number;
+  wins: number;
+  losses: number;
+  winRatePct: number;
+  lastTickIso: string | null;
+  activePositionsCount: number;
+}
+
 interface RiskOverview {
   asOf: string;
   platform: {
@@ -104,14 +116,12 @@ interface RiskOverview {
     last24hCount: number;
     recentFeed: ZkAttestationRow[];
   };
-  signals: {
-    BTC?: { direction: string; confidence: number };
-    ETH?: { direction: string; confidence: number };
-  };
+  signals: Record<string, { direction: string; confidence: number }>;
   defense?: DefenseState;
   incidents?: IncidentsState;
   composition?: CompositionState;
   hedgeHistory?: HedgeHistoryState;
+  paperTrader?: PaperTraderState;
 }
 
 function fmtUsd(n: number, decimals = 2): string {
@@ -413,6 +423,67 @@ function HedgeHistoryPanel({ h }: { h: HedgeHistoryState }) {
   );
 }
 
+function PaperTraderPanel({ p }: { p: PaperTraderState }) {
+  const cumReturn = p.startingNavUsd > 0 ? ((p.navUsd - p.startingNavUsd) / p.startingNavUsd) * 100 : 0;
+  const lastTickMins = p.lastTickIso
+    ? Math.round((Date.now() - new Date(p.lastTickIso).getTime()) / 60000)
+    : null;
+  const pnlPositive = p.cumRealizedUsd >= 0;
+  return (
+    <section className="bg-white border border-black/5 rounded-2xl p-3 sm:p-5 min-w-0">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3 sm:mb-4">
+        <div className="flex items-center gap-2">
+          <Activity className="w-4 h-4 text-[#1d1d1f] flex-shrink-0" />
+          <h2 className="text-base sm:text-[17px] font-semibold text-[#1d1d1f]">Shadow trader</h2>
+          <span className="text-[11px] text-[#86868b] hidden sm:inline">
+            /paper — full stack against ${p.startingNavUsd.toLocaleString()} notional
+          </span>
+        </div>
+        {lastTickMins != null && (
+          <span className="text-[11px] text-[#86868b] tabular-nums">
+            last tick {fmtAge(lastTickMins)} ago
+          </span>
+        )}
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+        <StatCard
+          label="NAV"
+          value={fmtUsd(p.navUsd)}
+          sub={`${fmtPct(cumReturn)} since inception`}
+          icon={cumReturn >= 0 ? TrendingUp : TrendingDown}
+          tone={cumReturn >= 0 ? 'positive' : 'negative'}
+        />
+        <StatCard
+          label="Realized PnL"
+          value={fmtUsd(p.cumRealizedUsd)}
+          sub={`${p.trades} trades · ${p.winRatePct.toFixed(1)}% win`}
+          icon={pnlPositive ? TrendingUp : TrendingDown}
+          tone={pnlPositive ? 'positive' : 'negative'}
+        />
+        <StatCard
+          label="Win / loss"
+          value={`${p.wins} / ${p.losses}`}
+          sub="lifetime"
+          icon={Activity}
+        />
+        <StatCard
+          label="Active positions"
+          value={String(p.activePositionsCount)}
+          sub={p.activePositionsCount > 0 ? 'live now' : 'flat'}
+          icon={Shield}
+        />
+      </div>
+
+      <p className="text-[11px] text-[#86868b] mt-3 leading-relaxed">
+        Same signal pipeline, agent guards, and stop/take-profit machinery as the live pool — running against
+        a simulated ${p.startingNavUsd.toLocaleString()} book on Bakchodi every 5 minutes. Public receipts at{' '}
+        <a href="/paper" className="text-ios-blue hover:underline">/paper</a>.
+      </p>
+    </section>
+  );
+}
+
 function HedgePositionRow({ h }: { h: HedgeRow }) {
   const pnlPositive = h.unrealizedPnlUsd >= 0;
   return (
@@ -659,31 +730,32 @@ export function RiskTab() {
             </section>
           </div>
 
-          {/* Signals strip */}
-          {(data.signals.BTC || data.signals.ETH) && (
+          {/* Paper trader — mirror of the pool section but for the shadow book */}
+          {data.paperTrader && <PaperTraderPanel p={data.paperTrader} />}
+
+          {/* Signals strip — all assets in the trader universe, not just BTC/ETH */}
+          {Object.keys(data.signals).length > 0 && (
             <section className="bg-white border border-black/5 rounded-2xl p-5">
               <div className="flex items-center gap-2 mb-3">
                 <Clock className="w-4 h-4 text-[#1d1d1f]" />
                 <h2 className="text-[17px] font-semibold text-[#1d1d1f]">Live prediction signal</h2>
-                <span className="text-[11px] text-[#86868b]">fused: Polymarket + Manifold + funding + momentum</span>
+                <span className="text-[11px] text-[#86868b]">per asset · fused: Polymarket + Manifold + funding + momentum</span>
               </div>
-              <div className="flex flex-wrap gap-3">
-                {data.signals.BTC && (
-                  <div className="bg-[#f5f5f7] rounded-xl px-4 py-3">
-                    <div className="text-[11px] text-[#86868b]">BTC</div>
-                    <div className="text-[15px] font-semibold text-[#1d1d1f]">
-                      {data.signals.BTC.direction} <span className="text-[12px] text-[#86868b]">· {data.signals.BTC.confidence}% conf</span>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+                {Object.entries(data.signals).map(([asset, s]) => {
+                  const dirColor = s.direction === 'UP' ? 'text-green-700'
+                    : s.direction === 'DOWN' ? 'text-red-700'
+                    : 'text-[#1d1d1f]';
+                  return (
+                    <div key={asset} className="bg-[#f5f5f7] rounded-xl px-4 py-3">
+                      <div className="text-[11px] text-[#86868b] font-mono">{asset}</div>
+                      <div className={`text-[15px] font-semibold ${dirColor}`}>
+                        {s.direction}
+                        <span className="text-[12px] text-[#86868b] font-normal"> · {s.confidence}%</span>
+                      </div>
                     </div>
-                  </div>
-                )}
-                {data.signals.ETH && (
-                  <div className="bg-[#f5f5f7] rounded-xl px-4 py-3">
-                    <div className="text-[11px] text-[#86868b]">ETH</div>
-                    <div className="text-[15px] font-semibold text-[#1d1d1f]">
-                      {data.signals.ETH.direction} <span className="text-[12px] text-[#86868b]">· {data.signals.ETH.confidence}% conf</span>
-                    </div>
-                  </div>
-                )}
+                  );
+                })}
               </div>
             </section>
           )}
