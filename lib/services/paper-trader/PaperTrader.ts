@@ -934,6 +934,7 @@ export class PaperTrader {
     const r = rawReason.toLowerCase();
     if (r.includes('stop-loss')) return 'stop-loss';
     if (r.includes('trailing-stop')) return 'trailing-stop';
+    if (r.includes('underwater-tighten')) return 'underwater-tighten';
     if (r.includes('max-hold')) return 'max-hold';
     if (r.includes('signal flipped') || r.includes('signal-flip')) return 'signal-flip';
     if (r.includes('liquidation')) return 'liquidation';
