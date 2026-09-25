@@ -7,9 +7,15 @@ import { proofGenerator } from '@/zk/prover/ProofGenerator';
 import { proofValidator } from '@/zk/verifier/ProofValidator';
 import { logger } from '@shared/utils/logger';
 
-// Skip all tests if ZK server is not available
+// Skip all tests if ZK server is not available.
+// URL must match zk/prover/ProofGenerator.ts which uses ZK_API_URL ||
+// NEXT_PUBLIC_ZK_API_URL || 'http://localhost:8000'. Test used to default
+// to a dead starknova.xyz URL — health check would fail even when the
+// local Python prover was running, and unguarded tests would then hang
+// 120s each waiting on the actual generateProof call to timeout.
 let zkServerAvailable = false;
-const ZK_API_URL = process.env.ZK_API_URL || 'https://zk-api.starknova.xyz';
+const ZK_API_URL =
+  process.env.ZK_API_URL || process.env.NEXT_PUBLIC_ZK_API_URL || 'http://localhost:8000';
 
 beforeAll(async () => {
   try {
@@ -199,6 +205,10 @@ describe('ZK-STARK Integration Tests', () => {
 
   describe('STARK Protocol Features', () => {
     it('should generate AIR-compliant trace', async () => {
+      if (!zkServerAvailable) {
+        logger.warn('Skipping test: ZK server not available');
+        return;
+      }
       const statement = { claim: 'AIR test', threshold: 100 };
       const witness = { secret_value: 55 };
 
@@ -214,6 +224,10 @@ describe('ZK-STARK Integration Tests', () => {
     }, 120000);
 
     it('should include FRI query responses', async () => {
+      if (!zkServerAvailable) {
+        logger.warn('Skipping test: ZK server not available');
+        return;
+      }
       const statement = { claim: 'FRI test', threshold: 100 };
       const witness = { secret_value: 70 };
 
@@ -224,6 +238,10 @@ describe('ZK-STARK Integration Tests', () => {
     }, 120000);
 
     it('should use NIST P-521 prime', async () => {
+      if (!zkServerAvailable) {
+        logger.warn('Skipping test: ZK server not available');
+        return;
+      }
       const statement = { claim: 'Prime test', threshold: 100 };
       const witness = { secret_value: 45 };
 
@@ -238,6 +256,10 @@ describe('ZK-STARK Integration Tests', () => {
 
   describe('Performance', () => {
     it('should generate proof within reasonable time', async () => {
+      if (!zkServerAvailable) {
+        logger.warn('Skipping test: ZK server not available');
+        return;
+      }
       const statement = { claim: 'Performance test', threshold: 100 };
       const witness = { secret_value: 88 };
 
@@ -256,6 +278,10 @@ describe('ZK-STARK Integration Tests', () => {
     }, 120000);
 
     it('should verify proof quickly', async () => {
+      if (!zkServerAvailable) {
+        logger.warn('Skipping test: ZK server not available');
+        return;
+      }
       const statement = { claim: 'Verify performance', threshold: 100 };
       const witness = { secret_value: 92 };
 
@@ -280,6 +306,10 @@ describe('ZK-STARK Integration Tests', () => {
 
   describe('Error Handling', () => {
     it('should handle missing witness gracefully', async () => {
+      if (!zkServerAvailable) {
+        logger.warn('Skipping test: ZK server not available');
+        return;
+      }
       const statement = { claim: 'Error test', threshold: 100 };
       const witness = {}; // Empty witness
 
