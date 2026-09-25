@@ -9,6 +9,7 @@ import { useTranslations } from 'next-intl';
 import { Send, Bot, User, Loader2, Wrench, AlertCircle, ChevronDown } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { ThinkingIndicator } from '@/components/chat/ThinkingIndicator';
 
 interface ToolCall {
   tool: string;
@@ -467,10 +468,7 @@ export function AgentLiveChat() {
                   <>
                     {m.content ? <AssistantMarkdown content={m.content} /> : null}
                     {m.streaming && !m.content && (
-                      <span className="inline-flex items-center gap-2 text-label-tertiary text-body">
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        <span>{t('thinking')}</span>
-                      </span>
+                      <ThinkingIndicator phases={[t('thinking').replace(/[…\.]+$/, ''), 'Checking signals', 'Consulting sources', 'Cross-referencing']} />
                     )}
                     {m.streaming && m.content && (
                       <span className="inline-block w-2 h-4 bg-ios-blue ml-0.5 align-middle animate-pulse" />
