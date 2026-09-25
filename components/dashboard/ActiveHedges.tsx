@@ -11,7 +11,6 @@ import { logger } from '@/lib/utils/logger';
 import { useWalletClient, useChainId } from '@/lib/evm-wallet/hooks';
 import { getContractAddresses } from '@/lib/contracts/addresses';
 import { getExplorerUrl, getNetworkName, CHAIN_IDS } from '@/lib/utils/network';
-import type { PriceRow } from '@/lib/hooks/useLivePrices';
 import {
   HedgeDetailModal,
   CloseConfirmModal,
@@ -22,6 +21,7 @@ import {
   ActivePositionCard,
 } from './active-hedges';
 import type { HedgePosition, CloseReceipt, PerformanceStats, AIRecommendation } from './active-hedges';
+import { mapOnChainHedge, computeStats, resolveAssetPriceUsd, pairIndexOf } from './active-hedges/helpers';
 
 interface ActiveHedgesProps {
   address?: string;
@@ -200,7 +200,7 @@ export const ActiveHedges = memo(function ActiveHedges({ address, compact = fals
 
     try {
       processingRef.current = true;
-      
+
       // Fetch on-chain hedges from HedgeExecutor contract
       let onChainHedges: HedgePosition[] = [];
 
@@ -212,34 +212,9 @@ export const ActiveHedges = memo(function ActiveHedges({ address, compact = fals
           const onChainData = await onChainResponse.json();
           if (onChainData.success && onChainData.summary?.details) {
             logger.debug('🔗 On-chain hedges loaded', { component: 'ActiveHedges', count: onChainData.summary.details.length });
-            onChainHedges = onChainData.summary.details.map((h: { orderId: string; hedgeId: string; side: 'SHORT' | 'LONG'; asset: string; size: number; leverage: number; entryPrice: number; currentPrice: number; capitalUsed: number; notionalValue: number; unrealizedPnL: number; pnlPercentage: number; createdAt: string; reason: string; walletAddress: string; txHash: string | null; proxyWallet: string; proxyVault: string; commitmentHash: string; zkVerified: boolean; onChain: boolean }) => ({
-              id: `onchain-${h.orderId}`,
-              type: h.side as 'SHORT' | 'LONG',
-              asset: h.asset,
-              size: h.size,
-              leverage: h.leverage,
-              entryPrice: h.entryPrice,
-              currentPrice: h.currentPrice,
-              targetPrice: 0,
-              stopLoss: 0,
-              capitalUsed: h.capitalUsed || h.size,
-              pnl: h.unrealizedPnL || 0,
-              pnlPercent: h.pnlPercentage || 0,
-              status: 'active' as const,
-              openedAt: h.createdAt ? new Date(h.createdAt) : new Date(),
-              reason: h.reason || `${h.leverage}x ${h.side} ${h.asset} on-chain hedge`,
-              walletAddress: h.walletAddress,
-              txHash: h.txHash || undefined,
-              zkVerified: h.zkVerified,
-              walletVerified: true,
-              onChain: true,
-              chain: 'cronos-testnet',
-              hedgeId: h.hedgeId || h.orderId,
-              contractAddress: contractAddresses.hedgeExecutor,
-              proxyWallet: h.proxyWallet,
-              proxyVault: h.proxyVault,
-              commitmentHash: h.commitmentHash,
-            }));
+            onChainHedges = onChainData.summary.details.map((h: Parameters<typeof mapOnChainHedge>[0]) =>
+              mapOnChainHedge(h, contractAddresses.hedgeExecutor)
+            );
           }
         }
       } catch (onChainErr) {
@@ -247,40 +222,8 @@ export const ActiveHedges = memo(function ActiveHedges({ address, compact = fals
       }
 
       // Use on-chain hedges only (DB cleared)
-      const allHedges = [...onChainHedges];
-      
-      if (allHedges.length > 0) {
-        const totalPnL = allHedges.reduce((sum, h) => sum + (h.pnl || 0), 0);
-        const profitable = allHedges.filter(h => h.pnl > 0).length;
-        const _unprofitable = allHedges.filter(h => h.pnl <= 0).length;
-        const winRate = allHedges.length > 0 ? (profitable / allHedges.length) * 100 : 0;
-        const pnlValues = allHedges.map(h => h.pnl || 0);
-        const bestTrade = pnlValues.length > 0 ? Math.max(...pnlValues) : 0;
-        const worstTrade = pnlValues.length > 0 ? Math.min(...pnlValues) : 0;
-
-        setStats({
-          totalHedges: allHedges.length,
-          activeHedges: allHedges.length,
-          winRate: Math.round(winRate),
-          totalPnL,
-          avgHoldTime: '24h',
-          bestTrade,
-          worstTrade,
-        });
-        setHedges(allHedges);
-      } else {
-        // No hedges found - clear state and show empty UI
-        setHedges([]);
-        setStats({
-          totalHedges: 0,
-          activeHedges: 0,
-          winRate: 0,
-          totalPnL: 0,
-          avgHoldTime: '0h',
-          bestTrade: 0,
-          worstTrade: 0,
-        });
-      }
+      setHedges(onChainHedges);
+      setStats(computeStats(onChainHedges));
       setLoading(false);
 
     } catch (error) {
@@ -326,36 +269,13 @@ export const ActiveHedges = memo(function ActiveHedges({ address, compact = fals
 
     // Determine collateral and leverage
     const actionLeverage = action.leverage || 5;
-    
+
     // action.size is in ASSET units (e.g. 0.125 BTC), but the gasless endpoint
     // expects collateralAmount in USDC. Convert: collateral = size * price / leverage.
-    //
-    // Try the shared useLivePrices React Query cache first. Pool tab
-    // pre-warms it with BTC/ETH/SUI on mount, so we usually hit for free.
-    // Falls back to a fresh imperative fetch if the asset isn't in cache.
-    let currentPrice = 1000;
-    try {
-      const symbol = action.asset.toUpperCase();
-      const cached = queryClient.getQueriesData<Record<string, PriceRow>>({ queryKey: ['live-prices'] });
-      for (const [, data] of cached) {
-        const hit = data?.[symbol]?.price;
-        if (typeof hit === 'number' && hit > 0) { currentPrice = hit; break; }
-      }
-      if (currentPrice === 1000) {
-        const priceResponse = await fetch(`/api/prices?symbol=${action.asset}`);
-        const priceData = await priceResponse.json();
-        if (priceData.success && priceData.data?.price) {
-          currentPrice = priceData.data.price;
-        }
-      }
-    } catch {
-      logger.warn('Failed to fetch price for collateral calc, using fallback', { component: 'ActiveHedges' });
-    }
-    
-    // Notional value = asset_qty * price, collateral = notional / leverage
+    const currentPrice = await resolveAssetPriceUsd(action.asset, queryClient);
     const notionalValue = action.size * currentPrice;
     const collateral = Math.round((notionalValue / actionLeverage) * 100) / 100; // USDC (2dp)
-    
+
     logger.info('💰 Hedge collateral calculation', {
       component: 'ActiveHedges',
       assetSize: action.size,
@@ -364,10 +284,8 @@ export const ActiveHedges = memo(function ActiveHedges({ address, compact = fals
       collateral,
       leverage: actionLeverage,
     });
-    
-    // Map asset to pairIndex for on-chain execution
-    const pairIndexMap: Record<string, number> = { BTC: 0, ETH: 1, CRO: 2, ATOM: 3, DOGE: 4, SOL: 5 };
-    const pairIndex = pairIndexMap[action.asset.toUpperCase()] ?? 0;
+
+    const pairIndex = pairIndexOf(action.asset);
     const isLong = action.action === 'LONG';
     
     // Step 1: Request EIP-712 wallet signature (user must approve)
