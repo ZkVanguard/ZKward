@@ -98,6 +98,10 @@ import {
   PAPER_STOP_LOSS_PCT,
   PAPER_MAX_CONSECUTIVE_LOSSES,
   PAPER_HALT_HOURS,
+  PAPER_ROLLING_LOSS_WINDOW_MIN,
+  PAPER_ROLLING_LOSS_COUNT_TRIP,
+  PAPER_ROLLING_LOSS_USD_TRIP,
+  PAPER_ROLLING_LOSS_HALT_HOURS,
   PAPER_DISABLE_HALTS,
   PAPER_MIN_FLIP_AGE_SEC,
   PAPER_MIN_FLIP_CONFIDENCE,
@@ -266,6 +270,15 @@ export class PaperTrader {
         const rollingHalt = await PaperTrader.rollingDrawdownCheck(now);
         if (rollingHalt) {
           result = { action: 'skipped', reason: rollingHalt };
+          return result;
+        }
+        // Fix G — short-window loss halt (loss count OR magnitude in a
+        // rolling 90-min window). Catches the "8/8 losses in 3h" pattern
+        // that the interspersed-win-resistant consecutive-loss counter
+        // silently walks around.
+        const shortWindowHalt = await PaperTrader.shortWindowLossCheck(now);
+        if (shortWindowHalt) {
+          result = { action: 'skipped', reason: shortWindowHalt };
           return result;
         }
       }
@@ -924,6 +937,81 @@ export class PaperTrader {
       return null;
     } catch (e) {
       logger.debug('[PaperTrader] rolling-dd check failed (non-fatal)', { error: errMsg(e) });
+      return null;
+    }
+  }
+
+  /**
+   * Fix G — short-window rolling-loss halt.
+   *
+   * Counts losses in the trailing PAPER_ROLLING_LOSS_WINDOW_MIN minutes.
+   * Halts if EITHER:
+   *   - loss count ≥ PAPER_ROLLING_LOSS_COUNT_TRIP (default 5), OR
+   *   - cumulative loss magnitude ≥ PAPER_ROLLING_LOSS_USD_TRIP (default $500)
+   *
+   * Different from the existing consecutive-loss halt (which resets on
+   * any interspersed win) and the 7-day rolling-DD (which needs 14 days
+   * of data). Designed for the "8/8 losses in 3h during a chop regime"
+   * pattern observed 2026-09-25 17:00 UTC.
+   *
+   * Fires at most once per hour (gated by check key) and halts for
+   * PAPER_ROLLING_LOSS_HALT_HOURS (default 4h) or until UTC midnight,
+   * whichever comes first.
+   */
+  private static async shortWindowLossCheck(now: number): Promise<string | null> {
+    const CHECK_KEY = 'paper-trader:short-window-loss-last-check';
+    const HALT_KEY = 'paper-trader:short-window-loss-halt-until';
+    try {
+      const haltUntil = (await getCronState<number>(HALT_KEY)) ?? 0;
+      if (haltUntil > now) {
+        const minsLeft = Math.round((haltUntil - now) / 60_000);
+        return `short-window-loss halt (${minsLeft}min remaining)`;
+      }
+      const lastCheck = (await getCronState<number>(CHECK_KEY)) ?? 0;
+      // Re-check every 5 min so a fresh bad streak trips within one tick,
+      // not up to an hour later like the 7-day check.
+      if (now - lastCheck < 5 * 60_000) return null;
+      await setCronState(CHECK_KEY, now);
+
+      const windowStartMs = now - PAPER_ROLLING_LOSS_WINDOW_MIN * 60_000;
+      const rows = await query<{ loss_count: string; loss_sum: string }>(
+        `SELECT COUNT(*) FILTER (WHERE realized_pnl < 0)::text AS loss_count,
+                COALESCE(SUM(realized_pnl) FILTER (WHERE realized_pnl < 0), 0)::text AS loss_sum
+         FROM hedges
+         WHERE portfolio_id = $1
+           AND order_id LIKE 'paper_%'
+           AND status = 'closed'
+           AND closed_at >= to_timestamp($2 / 1000.0)`,
+        [PAPER_PORTFOLIO_ID, windowStartMs],
+      );
+      const lossCount = Number(rows[0]?.loss_count ?? 0);
+      const lossSum = Number(rows[0]?.loss_sum ?? 0); // negative
+      const countTrip = lossCount >= PAPER_ROLLING_LOSS_COUNT_TRIP;
+      const usdTrip = Math.abs(lossSum) >= PAPER_ROLLING_LOSS_USD_TRIP;
+      if (!countTrip && !usdTrip) return null;
+
+      const utcMidnight = new Date(now);
+      utcMidnight.setUTCHours(24, 0, 0, 0);
+      const haltMs = Math.min(
+        utcMidnight.getTime() - now,
+        PAPER_ROLLING_LOSS_HALT_HOURS * 60 * 60_000,
+      );
+      await setCronState(HALT_KEY, now + haltMs);
+      const trippedBy = countTrip && usdTrip ? 'count + usd'
+        : countTrip ? 'count'
+        : 'usd';
+      const msg = `short-window-loss halt (${trippedBy}): ${lossCount} losses / $${lossSum.toFixed(0)} in ${PAPER_ROLLING_LOSS_WINDOW_MIN}min — halted ${Math.round(haltMs / 60_000)}min`;
+      try {
+        const { notifyDiscord } = await import('@/lib/utils/discord-notify');
+        await notifyDiscord(msg, 'KILL', {
+          component: 'paper-trader',
+          lossCount, lossSumUsd: lossSum,
+          windowMin: PAPER_ROLLING_LOSS_WINDOW_MIN,
+        });
+      } catch { /* discord failure non-fatal */ }
+      return msg;
+    } catch (e) {
+      logger.debug('[PaperTrader] short-window-loss check failed (non-fatal)', { error: errMsg(e) });
       return null;
     }
   }
