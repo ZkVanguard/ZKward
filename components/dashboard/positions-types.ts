@@ -37,6 +37,8 @@ export interface PortfolioAssetDetail {
   allocation: number;
   value: number;
   change24h: number;
+  price?: number;
+  chain?: string;
 }
 
 export interface PortfolioTransaction {
