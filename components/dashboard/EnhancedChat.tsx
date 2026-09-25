@@ -12,6 +12,7 @@ import { Send, Bot, User, Sparkles, TrendingUp, Shield, Zap, Copy, Check } from 
 import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { ThinkingIndicator } from '@/components/chat/ThinkingIndicator';
 
 interface ChatAction {
   id: string;
@@ -466,12 +467,7 @@ export function EnhancedChat({ address, onActionTrigger, hideHeader = false }: E
                 <Bot className="w-4 h-4 text-white" />
               </div>
               <div className="bg-[#f5f5f7] rounded-2xl rounded-tl-sm px-4 py-3">
-                <div className="flex gap-1 items-center">
-                  <span className="w-1.5 h-1.5 bg-violet-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                  <span className="w-1.5 h-1.5 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                  <span className="w-1.5 h-1.5 bg-fuchsia-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
-                  <span className="ml-2 text-[11px] text-[#86868b]">Thinking...</span>
-                </div>
+                <ThinkingIndicator className="text-[11px]" />
               </div>
             </div>
           </motion.div>
