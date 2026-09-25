@@ -12,32 +12,18 @@ export interface ChainParam {
 }
 
 export const EVM_CHAIN_PARAMS: Record<number, ChainParam> = {
-  11155111: { // Sepolia
-    chainId: '0xaa36a7',
-    chainName: 'Sepolia',
-    rpcUrls: ['https://sepolia.drpc.org', 'https://rpc.sepolia.org'],
-    blockExplorerUrls: ['https://sepolia.etherscan.io'],
-    nativeCurrency: { name: 'Sepolia Ether', symbol: 'ETH', decimals: 18 },
-  },
-  25: { // Cronos Mainnet
-    chainId: '0x19',
-    chainName: 'Cronos',
-    rpcUrls: ['https://evm.cronos.org', 'https://cronos-evm-rpc.publicnode.com'],
-    blockExplorerUrls: ['https://explorer.cronos.org'],
-    nativeCurrency: { name: 'Cronos', symbol: 'CRO', decimals: 18 },
-  },
-  338: { // Cronos Testnet
-    chainId: '0x152',
-    chainName: 'Cronos Testnet',
-    rpcUrls: ['https://evm-t3.cronos.org'],
-    blockExplorerUrls: ['https://explorer.cronos.org/testnet'],
-    nativeCurrency: { name: 'Test Cronos', symbol: 'tCRO', decimals: 18 },
-  },
   296: { // Hedera Testnet
     chainId: '0x128',
     chainName: 'Hedera Testnet',
     rpcUrls: ['https://testnet.hashio.io/api'],
     blockExplorerUrls: ['https://hashscan.io/testnet'],
+    nativeCurrency: { name: 'HBAR', symbol: 'HBAR', decimals: 18 },
+  },
+  295: { // Hedera Mainnet
+    chainId: '0x127',
+    chainName: 'Hedera',
+    rpcUrls: ['https://mainnet.hashio.io/api'],
+    blockExplorerUrls: ['https://hashscan.io/mainnet'],
     nativeCurrency: { name: 'HBAR', symbol: 'HBAR', decimals: 18 },
   },
 };
