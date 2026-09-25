@@ -28,11 +28,14 @@
 import { SUPPORTED_ASSETS as TRADER_ASSETS } from './trader-assets';
 
 /**
- * Pool asset symbols — derived from the Move contract's known struct field
- * names via `parseTargetAllocation`. Update this only when the on-chain
- * struct is upgraded to add/remove asset slots.
+ * Pool asset symbols the agents actively signal on. Was 4 (BTC/ETH/SUI/CRO)
+ * matching the Move struct field names `btc_bps / eth_bps / sui_bps /
+ * cro_bps`; CRO was dropped from the signalling universe when Cronos got
+ * nuked (task #13) — the on-chain `cro_bps` field is a dead slot pending a
+ * Move upgrade and always reads 0, so producing signals for it just added
+ * noise to the dashboard "Live signals" table.
  */
-export const POOL_ASSETS = ['BTC', 'ETH', 'SUI', 'CRO'] as const;
+export const POOL_ASSETS = ['BTC', 'ETH', 'SUI'] as const;
 export type PoolAsset = (typeof POOL_ASSETS)[number];
 
 /**

@@ -377,7 +377,7 @@ REC3: [third recommendation]`;
    * Get comprehensive AI market context for risk assessment
    * Uses AIMarketIntelligence service for multi-source, multi-timeframe analysis
    */
-  async getEnhancedRiskContext(assets: string[] = ['BTC', 'ETH', 'CRO', 'SUI']): Promise<{
+  async getEnhancedRiskContext(assets: string[] = ['BTC', 'ETH', 'SUI']): Promise<{
     context: AIMarketContext;
     riskAssessment: {
       overallRisk: 'HIGH' | 'MODERATE' | 'LOW';
@@ -662,14 +662,15 @@ REC3: [third recommendation]`;
           // SUI pool tracks 4 assets — derive positions from target allocations
           // The pool's NAV is SUI-denominated; totalNAVUsd gives USD value
           if (totalValue > 0) {
-            // Default target: 30% BTC, 30% ETH, 25% SUI, 15% CRO
+            // Default target: 35% BTC, 35% ETH, 30% SUI. CRO's former 15%
+            // slot was redistributed after Cronos removal (task #13); the
+            // on-chain cro_bps struct field is a dead slot.
             portfolio = {
               totalValue,
               positions: [
-                { symbol: 'BTC', value: totalValue * 0.30 },
-                { symbol: 'ETH', value: totalValue * 0.30 },
-                { symbol: 'SUI', value: totalValue * 0.25 },
-                { symbol: 'CRO', value: totalValue * 0.15 },
+                { symbol: 'BTC', value: totalValue * 0.35 },
+                { symbol: 'ETH', value: totalValue * 0.35 },
+                { symbol: 'SUI', value: totalValue * 0.30 },
               ],
             };
           }

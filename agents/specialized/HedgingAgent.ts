@@ -621,7 +621,7 @@ Be concise and actionable.`;
    * Get comprehensive AI market context for hedging decisions
    * Uses AIMarketIntelligence service for multi-source, multi-timeframe analysis
    */
-  async getEnhancedMarketContext(assets: string[] = ['BTC', 'ETH', 'CRO', 'SUI']): Promise<{
+  async getEnhancedMarketContext(assets: string[] = ['BTC', 'ETH', 'SUI']): Promise<{
     context: AIMarketContext;
     hedgingRecommendation: {
       shouldHedge: boolean;
