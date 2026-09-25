@@ -48,10 +48,9 @@ export async function generateMetadata(
   const t = await getTranslations({ locale, namespace: 'hero' });
 
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://zkward.com';
-  // Homepage title puts the brand FIRST so branded searches (zkward,
-  // ZKward, "zkward vault") get a strong exact-match signal. Descriptive
-  // tail explains what the product does in a single line.
-  const title = 'ZKward — 20 signal sources, ranked by track record';
+  // Tab title is brand-only per 2026-09-25 direction. Description meta
+  // still carries the positioning copy for SERP snippets + social cards.
+  const title = 'ZKward';
   const description = t('subtitle');
 
   return {
