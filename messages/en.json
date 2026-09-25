@@ -26,7 +26,26 @@
     "hero": {
       "headline1": "The signal layer",
       "headline2": "for digital assets.",
-      "subtitle": "ZKward is autonomous trading infrastructure that fuses 20+ prediction, orderbook, and on-chain signals per asset, scores every source against realized outcomes, and executes only when calibrated conviction aligns — with every decision provable on-chain."
+      "subtitle": "20+ market signals per asset. Every source calibrated against real outcomes. Every trade provable on-chain."
+    },
+    "startHere": {
+      "eyebrow": "Start here",
+      "body": "Three ways to try the platform. No wallet required to explore.",
+      "watchShadow": {
+        "title": "Watch the shadow trader",
+        "body": "$100K live demo running the full stack. Public receipts.",
+        "cta": "Open shadow trader"
+      },
+      "seeSignals": {
+        "title": "Read live signals",
+        "body": "Per-asset aggregator output, refreshed every 30 seconds.",
+        "cta": "Open dashboard"
+      },
+      "tryDemo": {
+        "title": "Deposit into the demo vault",
+        "body": "$10K contract-capped. Withdraw anytime.",
+        "cta": "Open vault"
+      }
     },
     "stats": {
       "eyebrow": "Right now, in production",
@@ -115,6 +134,11 @@
         "eyebrow": "Dashboard",
         "title": "Live capital, one screen.",
         "body": "Balance, hedges, drawdown, proofs. Refreshed every minute."
+      },
+      "paper": {
+        "eyebrow": "Shadow trader",
+        "title": "$100K notional, full stack, public receipts.",
+        "body": "The same signals + agents + execution stack running against a live $100K paper book. Verify PnL before you fund anything."
       },
       "rwa": {
         "eyebrow": "Real-world assets",

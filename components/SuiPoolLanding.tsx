@@ -611,36 +611,41 @@ export const SuiPoolLanding = memo(function SuiPoolLanding() {
             </p>
           </div>
 
-          {/* CTAs — promoted to sit directly under the credibility strip
-              so the primary action follows the pitch, not the vault card. */}
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 mb-10 sm:mb-14">
-            {/* Magnetic button-in-button (soft-skill pattern) — the
-                trailing arrow lives in its own nested circle instead of
-                sitting naked next to the label. On hover the entire
-                pair reacts as one: bg darkens, whole button pushes
-                down slightly, arrow circle translates + scales. Custom
-                cubic-bezier so the motion has real mass. */}
-            <Link
-              href="/dashboard"
-              className="group inline-flex items-center justify-center gap-3 pl-6 pr-2.5 h-[52px] sm:h-[56px] bg-ios-blue text-white text-headline font-semibold rounded-ios-xl hover:bg-ios-blueHover active:scale-[0.97] shadow-ios-2 w-full sm:w-auto"
-              style={{ transition: `all 500ms ${SPRING}` }}
-            >
-              {t('cta.depositUsdc')}
-              <span
-                aria-hidden
-                className="w-9 h-9 rounded-full bg-white/15 flex items-center justify-center group-hover:translate-x-1 group-hover:-translate-y-[1px] group-hover:scale-105"
-                style={{ transition: `transform 500ms ${SPRING}` }}
-              >
-                <ArrowRight className="w-4 h-4" strokeWidth={2.5} />
-              </span>
-            </Link>
-            <a
-              href="#how-it-works"
-              className="inline-flex items-center gap-1 h-[52px] sm:h-[56px] px-2 text-headline font-medium text-label-secondary hover:text-ios-blue transition-colors"
-            >
-              {t('cta.howItWorks')}
-              <ArrowRight className="w-4 h-4" strokeWidth={2.25} />
-            </a>
+          {/* Start-here — 3 clear entry paths. Fixes the mismatch where
+              the hero CTA said "See live signals" but the footer CTA asked
+              for a deposit. Now visitors get three ranked ways to try the
+              platform right after the pitch: safest first (shadow trader —
+              no wallet), then research, then capital. */}
+          <div className="mx-auto max-w-[1100px] mb-10 sm:mb-14">
+            <div className="text-center mb-5 sm:mb-6">
+              <p className="text-[10px] sm:text-caption-2 font-semibold uppercase tracking-[0.14em] text-label-tertiary mb-2">
+                {t('startHere.eyebrow')}
+              </p>
+              <p className="text-sm sm:text-callout text-label-secondary">
+                {t('startHere.body')}
+              </p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4">
+              <StartHereCard
+                href="/paper"
+                title={t('startHere.watchShadow.title')}
+                body={t('startHere.watchShadow.body')}
+                cta={t('startHere.watchShadow.cta')}
+                primary
+              />
+              <StartHereCard
+                href="/dashboard"
+                title={t('startHere.seeSignals.title')}
+                body={t('startHere.seeSignals.body')}
+                cta={t('startHere.seeSignals.cta')}
+              />
+              <StartHereCard
+                href="/dashboard#deposit"
+                title={t('startHere.tryDemo.title')}
+                body={t('startHere.tryDemo.body')}
+                cta={t('startHere.tryDemo.cta')}
+              />
+            </div>
           </div>
 
           {/* Install-as-app row — renders nothing when already installed or the
@@ -908,36 +913,24 @@ export const SuiPoolLanding = memo(function SuiPoolLanding() {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 min-w-0">
+          {/* Cut from 6 → 3 cards. Explore paralysis — 6 equal-weight
+              tiles at the bottom of the page meant no clear next click.
+              Kept the three that map to the "Start here" hierarchy: safe
+              proof (paper), live capital (dashboard), technical depth
+              (whitepaper). RWA / Agents / ZK / Story remain reachable
+              via the top nav. */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4 min-w-0">
+            <SurfaceCard
+              href="/paper"
+              eyebrow={t('surfaces.paper.eyebrow')}
+              title={t('surfaces.paper.title')}
+              body={t('surfaces.paper.body')}
+            />
             <SurfaceCard
               href="/dashboard"
               eyebrow={t('surfaces.dashboard.eyebrow')}
               title={t('surfaces.dashboard.title')}
               body={t('surfaces.dashboard.body')}
-            />
-            <SurfaceCard
-              href="/rwa"
-              eyebrow={t('surfaces.rwa.eyebrow')}
-              title={t('surfaces.rwa.title')}
-              body={t('surfaces.rwa.body')}
-            />
-            <SurfaceCard
-              href="/agents"
-              eyebrow={t('surfaces.agents.eyebrow')}
-              title={t('surfaces.agents.title')}
-              body={t('surfaces.agents.body')}
-            />
-            <SurfaceCard
-              href="/zk"
-              eyebrow={t('surfaces.zk.eyebrow')}
-              title={t('surfaces.zk.title')}
-              body={t('surfaces.zk.body')}
-            />
-            <SurfaceCard
-              href="/story"
-              eyebrow={t('surfaces.story.eyebrow')}
-              title={t('surfaces.story.title')}
-              body={t('surfaces.story.body')}
             />
             <SurfaceCard
               href="/whitepaper"
@@ -1181,6 +1174,33 @@ function SurfaceCard({
         {title}
       </h3>
       <p className="text-xs sm:text-subheadline text-label-secondary leading-relaxed sm:leading-[1.5] break-words">{body}</p>
+    </Link>
+  );
+}
+
+function StartHereCard({
+  href, title, body, cta, primary,
+}: {
+  href: string; title: string; body: string; cta: string; primary?: boolean;
+}) {
+  const base = 'group flex flex-col justify-between h-full rounded-ios-xl p-5 sm:p-6 border transition-all duration-300 min-w-0 active:scale-[0.99]';
+  const style = primary
+    ? 'bg-gradient-to-br from-ios-blue to-ios-blueHover text-white border-ios-blue/40 hover:shadow-ios-3'
+    : 'bg-white/70 backdrop-blur-sm text-label-primary border-separator-opaque/40 hover:border-ios-blue/40 hover:shadow-ios-2';
+  return (
+    <Link href={href} className={`${base} ${style}`}>
+      <div className="mb-4">
+        <h3 className={`text-headline sm:text-title-3 font-display font-semibold mb-2 leading-tight break-words ${primary ? 'text-white' : 'text-label-primary'}`}>
+          {title}
+        </h3>
+        <p className={`text-sm sm:text-callout leading-relaxed break-words ${primary ? 'text-white/85' : 'text-label-secondary'}`}>
+          {body}
+        </p>
+      </div>
+      <div className={`inline-flex items-center gap-1.5 text-sm font-semibold ${primary ? 'text-white' : 'text-ios-blue'}`}>
+        {cta}
+        <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" strokeWidth={2.25} />
+      </div>
     </Link>
   );
 }

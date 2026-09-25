@@ -140,6 +140,11 @@
         "eyebrow": "Whitepaper",
         "title": "The technical version.",
         "body": "20-source signal fusion, per-source calibration, AI-graded prediction market interpretation, STARK-attested execution."
+      },
+      "paper": {
+        "eyebrow": "Shadow trader",
+        "title": "$100K notional, full stack, public receipts.",
+        "body": "The same signals + agents + execution stack running against a live $100K paper book. Verify PnL before you fund anything."
       }
     },
     "finalCta": {
@@ -183,6 +188,25 @@
       "protocols": {
         "title": "Protocols",
         "body": "Autonomous execution with STARK-attested proofs. Multi-agent consensus. Contract-enforced TVL caps."
+      }
+    },
+    "startHere": {
+      "eyebrow": "Start here",
+      "body": "Three ways to try the platform. No wallet required to explore.",
+      "watchShadow": {
+        "title": "Watch the shadow trader",
+        "body": "$100K live demo running the full stack. Public receipts.",
+        "cta": "Open shadow trader"
+      },
+      "seeSignals": {
+        "title": "Read live signals",
+        "body": "Per-asset aggregator output, refreshed every 30 seconds.",
+        "cta": "Open dashboard"
+      },
+      "tryDemo": {
+        "title": "Deposit into the demo vault",
+        "body": "$10K contract-capped. Withdraw anytime.",
+        "cta": "Open vault"
       }
     }
   },
