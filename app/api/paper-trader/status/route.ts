@@ -30,7 +30,12 @@ import { getLivePrice } from '@/lib/services/market-data/unified-price-provider'
 import { PredictionAggregatorService } from '@/lib/services/market-data/PredictionAggregatorService';
 
 export const runtime = 'nodejs';
-export const dynamic = 'force-dynamic';
+// 15s edge/browser cache + 30s stale-while-revalidate — the aggregator
+// call internally caches for 20s but the wrapping route was force-dynamic
+// so every /paper request paid the 1.5-2.5s aggregator + per-position
+// price fetches. Frontend polls every 30s; caching for 15s means at most
+// 1 uncached fetch per user per 30s.
+export const revalidate = 15;
 
 interface BanditArm {
   key: string;
@@ -140,29 +145,32 @@ export async function GET(_req: NextRequest): Promise<NextResponse> {
 
     // Mark every active position to market so the dashboard shows a
     // live-ish NAV summing unrealized PnL across all open positions.
+    // PRICES FETCHED IN PARALLEL — sequential await in a loop was
+    // ~200-500ms × N positions on cold cache. Promise.all cuts that
+    // to the max single latency.
     let unrealizedNav = currentNavRealized;
-    const activePositionsOut: any[] = [];
-    for (const entry of activePositions) {
-      const p = entry.position;
-      const markPrice = await getLivePrice(p.asset).catch(() => 0);
-      if (markPrice > 0) {
-        const mtm = markToMarket(p, markPrice, Date.now());
-        unrealizedNav += mtm.unrealizedPnlUsd;
-        activePositionsOut.push({
-          asset: p.asset,
-          side: p.side,
-          entryPrice: p.entryPrice,
-          markPrice,
-          notionalUsd: p.notionalUsd,
-          leverage: p.leverage,
-          openedAt: p.openedAt,
-          holdSeconds: Math.round((Date.now() - p.openedAt) / 1000),
-          unrealizedPnlUsd: mtm.unrealizedPnlUsd,
-          fundingAccruedUsd: mtm.fundingAccruedUsd,
-          orderId: entry.orderId,
-        });
-      } else {
-        activePositionsOut.push({
+    const activePositionsOut = await Promise.all(
+      activePositions.map(async (entry) => {
+        const p = entry.position;
+        const markPrice = await getLivePrice(p.asset).catch(() => 0);
+        if (markPrice > 0) {
+          const mtm = markToMarket(p, markPrice, Date.now());
+          unrealizedNav += mtm.unrealizedPnlUsd;
+          return {
+            asset: p.asset,
+            side: p.side,
+            entryPrice: p.entryPrice,
+            markPrice,
+            notionalUsd: p.notionalUsd,
+            leverage: p.leverage,
+            openedAt: p.openedAt,
+            holdSeconds: Math.round((Date.now() - p.openedAt) / 1000),
+            unrealizedPnlUsd: mtm.unrealizedPnlUsd,
+            fundingAccruedUsd: mtm.fundingAccruedUsd,
+            orderId: entry.orderId,
+          };
+        }
+        return {
           asset: p.asset,
           side: p.side,
           entryPrice: p.entryPrice,
@@ -172,9 +180,9 @@ export async function GET(_req: NextRequest): Promise<NextResponse> {
           openedAt: p.openedAt,
           holdSeconds: Math.round((Date.now() - p.openedAt) / 1000),
           orderId: entry.orderId,
-        });
-      }
-    }
+        };
+      }),
+    );
     // Back-compat: keep activePosition as the newest single entry so
     // existing UI code that reads .activePosition continues to work.
     const activePosOut = activePositionsOut[0] ?? null;
@@ -237,7 +245,7 @@ export async function GET(_req: NextRequest): Promise<NextResponse> {
       lastRealizedUsd: 0,
     };
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       generatedAt: new Date().toISOString(),
       lastTickAt: lastRun ? new Date(lastRun).toISOString() : null,
@@ -286,6 +294,14 @@ export async function GET(_req: NextRequest): Promise<NextResponse> {
       navSeries: series ?? [],
       learning: await loadLearningSnapshot(),
     });
+    // Edge + browser cache: 15s fresh, 30s stale-while-revalidate.
+    // Frontend polls every 30s so cache hits ~50% of loads at zero
+    // aggregator cost.
+    response.headers.set(
+      'Cache-Control',
+      'public, s-maxage=15, stale-while-revalidate=30',
+    );
+    return response;
   } catch (e) {
     logger.error('[paper-trader/status] failed', { error: errMsg(e) });
     return NextResponse.json(
