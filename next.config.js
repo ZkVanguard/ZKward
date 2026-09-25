@@ -131,15 +131,10 @@ const nextConfig = {
   // Security + caching headers
   async headers() {
     return [
-      {
-        // Static build assets — hashed URLs, safe to cache forever.
-        // Chrome DevTools flagged repeat visits paying full download
-        // cost because the default Cache-Control was too short.
-        source: '/_next/static/:path*',
-        headers: [
-          { key: 'Cache-Control', value: 'public, max-age=31536000, immutable' },
-        ],
-      },
+      // _next/static Cache-Control removed 2026-09-25 — Vercel + Next.js
+      // set 'public, max-age=31536000, immutable' by default for hashed
+      // build assets. Overriding it triggered the "Custom Cache-Control
+      // headers detected" warning without changing behavior.
       {
         // Generated icons served from ImageResponse — content is a
         // build-time constant, safe to cache aggressively at the edge.
