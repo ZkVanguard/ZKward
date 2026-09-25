@@ -1,11 +1,24 @@
 # Bug Bounty Program
 
-ZKward runs a continuous bug bounty for security researchers and white-hat
-hackers. We pay for verified, reproducible vulnerabilities in our deployed
-mainnet contracts and the production infrastructure that touches user capital.
+> **⏸ PAUSED — External audit in progress (as of 2026-09-25).**
+>
+> The bounty is temporarily paused while an external firm conducts a full
+> audit of the mainnet Move contracts and off-chain defense stack. Payouts
+> resume once the audit report closes and the recommended mitigations ship
+> to mainnet. Reports received during the pause will still be **triaged and
+> acknowledged**, but no bounty is payable until the program reopens —
+> please save non-critical findings for the reopen window if you'd like the
+> reward.
+>
+> **Critical findings that would let an attacker move user capital** — file
+> them anyway via the security policy below. Those get paid retroactively
+> once the program reopens, and we'll fast-track fixes regardless.
+>
+> ---
 
-> **Grant note:** This bug bounty is a Tranche 2 deliverable of the SUI Foundation
-> grant. The bounty pool scales with TVL — see the payout table below.
+ZKward runs a bug bounty for security researchers and white-hat hackers.
+We pay for verified, reproducible vulnerabilities in our deployed mainnet
+contracts and the production infrastructure that touches user capital.
 
 ## In scope
 
