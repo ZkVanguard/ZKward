@@ -228,7 +228,11 @@ export class PaperGatedTrader {
         if (passesFlipGates) {
           const liveSide = recToSide(live.recommendation);
           const isStrong = live.recommendation?.startsWith('STRONG_') ?? false;
-          if (liveSide && liveSide !== pos.side && !(PAPER_SKIP_STRONG_SIGNALS && isStrong)) {
+          // Fix B (2026-09-25): skip flip-close on winning positions. See
+          // PaperTrader.ts for the data. Applies here too — gated trader
+          // has the same premature-cut problem.
+          const wasWinning = (pos.peakUnrealizedPnl ?? 0) > 0;
+          if (liveSide && liveSide !== pos.side && !(PAPER_SKIP_STRONG_SIGNALS && isStrong) && !wasWinning) {
             return PaperGatedTrader.closeAtMark(
               pos, markPrice, nav, now,
               `signal flipped to ${live.recommendation} (age ${Math.round(posAgeSec)}s, conf ${Math.round(live.confidence)})`,

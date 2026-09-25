@@ -566,7 +566,15 @@ export class PaperTrader {
           // If we refuse to OPEN on STRONG_, we shouldn't let STRONG_ force
           // a CLOSE either (2026-09-18 asymmetry fix).
           const { PAPER_SKIP_STRONG_SIGNALS } = await import('./config');
-          if (liveSide && liveSide !== pos.side && !(PAPER_SKIP_STRONG_SIGNALS && isStrong)) {
+          // Fix B (2026-09-25): skip flip-close on winning positions.
+          // 7d data: flip-close 47 trades / 25min avg hold / 45% wins / -$4 avg,
+          // vs max-hold 26 trades / 130min avg hold / 50% wins / +$115 avg.
+          // Half the flip-closed trades were profitable at some point (peak > 0)
+          // — cutting them early cost the strategy. If already positive, ride
+          // to max-hold; the winning direction has already been validated by
+          // the market for this position.
+          const wasWinning = (pos.peakUnrealizedPnl ?? 0) > 0;
+          if (liveSide && liveSide !== pos.side && !(PAPER_SKIP_STRONG_SIGNALS && isStrong) && !wasWinning) {
             return PaperTrader.closeAtMark(
               pos,
               markPrice,
