@@ -28,7 +28,11 @@ import { readLimiter } from '@/lib/security/rate-limiter';
 import { query } from '@/lib/db/postgres';
 
 export const runtime = 'nodejs';
-export const dynamic = 'force-dynamic';
+// 30s ISR — matches the underlying NAV cron cadence (30min) and the
+// frontend's 60s polling. force-dynamic was neutralising the existing
+// Cache-Control header, so every /dashboard load hit the DB. With
+// revalidate, N users → 1 DB query per 30s window.
+export const revalidate = 30;
 export const maxDuration = 15;
 
 interface CronHealth {
