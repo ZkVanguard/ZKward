@@ -86,9 +86,17 @@ interface RiskOverviewResponse {
     last24hCount: number;
     recentFeed: ZkAttestationRow[];
   };
-  signals: {
-    BTC?: { direction: string; confidence: number };
-    ETH?: { direction: string; confidence: number };
+  signals: Record<string, { direction: string; confidence: number }>;
+  paperTrader?: {
+    navUsd: number;
+    startingNavUsd: number;
+    cumRealizedUsd: number;
+    trades: number;
+    wins: number;
+    losses: number;
+    winRatePct: number;
+    lastTickIso: string | null;
+    activePositionsCount: number;
   };
   agents: {
     cycle: {
@@ -610,22 +618,53 @@ async function getHedgeHistorySection(): Promise<RiskOverviewResponse['hedgeHist
   }
 }
 
+async function getPaperTraderSection(): Promise<RiskOverviewResponse['paperTrader']> {
+  try {
+    const [{ getCronState }, { KEY_NAV, KEY_STATS, KEY_LAST_RUN, PAPER_STARTING_NAV }, { loadActivePositions }] = await Promise.all([
+      import('@/lib/db/cron-state'),
+      import('@/lib/services/paper-trader/config'),
+      import('@/lib/services/paper-trader/concurrent'),
+    ]);
+    const [nav, stats, lastRun, positions] = await Promise.all([
+      getCronState<number>(KEY_NAV),
+      getCronState<{ trades: number; wins: number; losses: number; cumRealizedUsd: number }>(KEY_STATS),
+      getCronState<number>(KEY_LAST_RUN),
+      loadActivePositions().catch(() => []),
+    ]);
+    const trades = stats?.trades ?? 0;
+    const wins = stats?.wins ?? 0;
+    return {
+      navUsd: Number(nav ?? PAPER_STARTING_NAV),
+      startingNavUsd: PAPER_STARTING_NAV,
+      cumRealizedUsd: Number(stats?.cumRealizedUsd ?? 0),
+      trades,
+      wins,
+      losses: stats?.losses ?? 0,
+      winRatePct: trades > 0 ? Math.round((wins / trades) * 1000) / 10 : 0,
+      lastTickIso: lastRun ? new Date(lastRun).toISOString() : null,
+      activePositionsCount: positions.length,
+    };
+  } catch {
+    return undefined;
+  }
+}
+
 async function getLatestSignals(): Promise<RiskOverviewResponse['signals']> {
   try {
-    // The aggregator returns one fused cross-asset prediction; BTC and ETH
-    // share it for the dashboard summary (per-asset breakdown lives at
-    // /api/predictions/per-asset for users who want the deeper view).
-    const { PredictionAggregatorService } = await import(
-      '@/lib/services/market-data/PredictionAggregatorService'
-    );
-    const p = await PredictionAggregatorService.getAggregatedPrediction();
-    if (!p) return {};
-    const direction = String(p.direction || 'NEUTRAL');
-    const confidence = Math.round(Number(p.confidence) || 0);
-    return {
-      BTC: { direction, confidence },
-      ETH: { direction, confidence },
-    };
+    // Real per-asset signals from the aggregator, one row per asset the
+    // trader watches. Was previously duplicating a single cross-asset
+    // prediction across BTC + ETH.
+    const [{ PredictionAggregatorService }, { PAPER_UNIVERSE }] = await Promise.all([
+      import('@/lib/services/market-data/PredictionAggregatorService'),
+      import('@/lib/services/paper-trader/config'),
+    ]);
+    const preds = await PredictionAggregatorService.getPerAssetPredictions(PAPER_UNIVERSE);
+    const out: RiskOverviewResponse['signals'] = {};
+    for (const [asset, p] of Object.entries(preds ?? {})) {
+      const dir = String(p.direction || 'NEUTRAL');
+      out[asset] = { direction: dir, confidence: Math.round(Number(p.confidence) || 0) };
+    }
+    return out;
   } catch {
     return {};
   }
@@ -636,7 +675,7 @@ export async function GET(request: NextRequest): Promise<NextResponse<RiskOvervi
   if (limited) return limited as NextResponse<RiskOverviewResponse | { error: string }>;
 
   try {
-    const [pool, hedges, cronHealth, zkAttestations, signals, defense, incidents, composition, hedgeHistory] = await Promise.all([
+    const [pool, hedges, cronHealth, zkAttestations, signals, defense, incidents, composition, hedgeHistory, paperTrader] = await Promise.all([
       getPoolMetrics(),
       getActiveHedges(),
       getCronHealth(),
@@ -646,6 +685,7 @@ export async function GET(request: NextRequest): Promise<NextResponse<RiskOvervi
       getIncidentsSection(),
       getCompositionSection(),
       getHedgeHistorySection(),
+      getPaperTraderSection(),
     ]);
     const netCapital = pool.netCapital;
 
@@ -687,6 +727,7 @@ export async function GET(request: NextRequest): Promise<NextResponse<RiskOvervi
       incidents,
       composition,
       hedgeHistory,
+      paperTrader,
     };
 
     return NextResponse.json(response, {
