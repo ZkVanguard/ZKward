@@ -81,7 +81,7 @@
     "rights": "Все права защищены.",
     "testnet": "SUI Mainnet",
     "stage": "Mainnet Запущен",
-    "migrationNotice": "Formerly zkvanguard.xyz — zkward.com is our new home.",
+    "migrationNotice": "Formerly zkward.xyz — zkward.com is our new home.",
     "builtWith": "Построено на ZK-STARK",
     "story": "Наша история"
   },
@@ -217,7 +217,7 @@
   },
   "zkVerification": {
     "title": "Математическое доказательство ZK-STARK",
-    "subtitle": "Формальная верификация того, что ZkWard реализует настоящий ZK-STARK в соответствии с академическими спецификациями Ben-Sasson и др.",
+    "subtitle": "Формальная верификация того, что ZKward реализует настоящий ZK-STARK в соответствии с академическими спецификациями Ben-Sasson и др.",
     "auditorSummary": "Краткое резюме для аудиторов",
     "implementation": "Реализация",
     "securityLevel": "Уровень безопасности",
@@ -688,7 +688,7 @@
     "description": "Полный тезис ZKward: alpha предсказательных рынков, архитектура на 7 агентов, STARK-заверенное исполнение, tokenomics, roadmap."
   },
   "legacyBanner": {
-    "message": "<strong>zkvanguard.xyz закрывается</strong> — мы теперь на <link>zkward.com</link>.",
+    "message": "<strong>zkward.xyz закрывается</strong> — мы теперь на <link>zkward.com</link>.",
     "dismiss": "Закрыть"
   }
 }

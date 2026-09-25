@@ -1,6 +1,6 @@
-# Contributing to ZkWard
+# Contributing to ZKward
 
-Thank you for your interest in contributing to ZkWard! This document provides guidelines and instructions for contributing.
+Thank you for your interest in contributing to ZKward! This document provides guidelines and instructions for contributing.
 
 ## 🚀 Quick Start
 
@@ -94,7 +94,7 @@ Then create a Pull Request on GitHub with:
 ## 🏗️ Project Structure
 
 ```
-zkvanguard/
+zkward/
 ├── agents/           # AI agent implementations
 │   ├── core/        # Core agent logic
 │   ├── specialized/ # Specialized agents (Risk, Hedging, etc.)
@@ -228,4 +228,4 @@ By contributing, you agree that your contributions will be licensed under the MI
 
 ---
 
-Thank you for contributing to ZkWard! 🚀
+Thank you for contributing to ZKward! 🚀

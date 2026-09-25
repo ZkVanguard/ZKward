@@ -136,7 +136,7 @@ The Sui mainnet pool is the system's primary product. A fleet of QStash-driven c
   `0x99a3a0fd45bb6b467547430b8efab77eb64218ab098428297a7a3be77329ac93`
 - **MSafe multisig** (holds `FeeManagerCap` after `d4dfe9d0`):
   set via `SUI_MSAFE_ADDRESS`
-- **Live application**: https://www.zkvanguard.xyz
+- **Live application**: https://www.zkward.xyz
 
 ### Live QStash schedules (snapshot 2026-05-31; all SUCCESS)
 

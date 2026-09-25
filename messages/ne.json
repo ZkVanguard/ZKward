@@ -495,7 +495,7 @@
     "rights": "सर्वाधिकार सुरक्षित।",
     "testnet": "SUI Mainnet",
     "stage": "Mainnet प्रत्यक्ष",
-    "migrationNotice": "पहिले zkvanguard.xyz। Zkward.com हाम्रो नयाँ घर हो।",
+    "migrationNotice": "पहिले zkward.xyz। Zkward.com हाम्रो नयाँ घर हो।",
     "builtWith": "ZK-STARK सँग निर्मित",
     "story": "हाम्रो कथा"
   },
@@ -688,7 +688,7 @@
     "savePreferences": "प्राथमिकताहरू सेभ गर्नुहोस्"
   },
   "legacyBanner": {
-    "message": "<strong>zkvanguard.xyz बन्द हुँदैछ</strong> — हामी अहिले <link>zkward.com</link> मा छौं।",
+    "message": "<strong>zkward.xyz बन्द हुँदैछ</strong> — हामी अहिले <link>zkward.com</link> मा छौं।",
     "dismiss": "बन्द गर्नुहोस्"
   }
 }

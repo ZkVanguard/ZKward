@@ -244,7 +244,7 @@ export const config = {
   dbHost: process.env.DB_HOST || 'localhost',
   dbPort: parseInt(process.env.DB_PORT || '5432', 10),
   dbName: process.env.DB_NAME || 'zk_vanguard',
-  dbUser: process.env.DB_USER || 'zkvanguard_user',
+  dbUser: process.env.DB_USER || 'zkward_user',
   dbPassword: process.env.DB_PASSWORD || '',
 
   // Redis

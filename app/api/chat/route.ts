@@ -20,7 +20,7 @@ export const maxDuration = 30;
 export const dynamic = 'force-dynamic';
 
 // CORS + OPTIONS handled centrally by middleware.ts (allowlist covers both
-// zkvanguard.xyz and zkward.com during the rebrand transition).
+// zkward.xyz and zkward.com during the rebrand transition).
 
 // Keywords that indicate the user wants agent orchestration
 const AGENT_KEYWORDS = [

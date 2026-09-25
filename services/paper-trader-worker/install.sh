@@ -2,7 +2,7 @@
 # ZKward paper-trader worker — idempotent installer for Bakchodi (or
 # any modern Linux with systemd + bun). Run as root or with sudo.
 #
-#   curl -fsSL https://raw.githubusercontent.com/ZkVanguard/ZkWard/main/services/paper-trader-worker/install.sh | sudo bash
+#   curl -fsSL https://raw.githubusercontent.com/ZkVanguard/ZKward/main/services/paper-trader-worker/install.sh | sudo bash
 #
 # Or checkout the repo first and run:
 #
@@ -85,7 +85,7 @@ if [ ! -f "$INSTALL_DIR/.env" ]; then
 [install]
 [install] Add any other env the trader needs (aggregator API keys,
 [install] BLUEFIN_* if BluefinService is imported transitively, etc).
-[install] Match what was set in Vercel prod for zkvanguard.
+[install] Match what was set in Vercel prod for zkward.
 [install]
 [install] Then re-run this installer OR just:
 [install]     sudo systemctl enable --now paper-trader-worker.timer

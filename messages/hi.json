@@ -81,7 +81,7 @@
     "rights": "सर्वाधिकार सुरक्षित।",
     "testnet": "SUI Mainnet",
     "stage": "Mainnet लाइव",
-    "migrationNotice": "Formerly zkvanguard.xyz — zkward.com is our new home.",
+    "migrationNotice": "Formerly zkward.xyz — zkward.com is our new home.",
     "builtWith": "ZK-STARK के साथ निर्मित",
     "story": "हमारी कहानी"
   },
@@ -217,7 +217,7 @@
   },
   "zkVerification": {
     "title": "ZK-STARK गणितीय प्रमाण",
-    "subtitle": "औपचारिक सत्यापन कि ZkWard Ben-Sasson आदि की अकादमिक विशिष्टताओं के अनुसार एक सच्चा ZK-STARK लागू करता है",
+    "subtitle": "औपचारिक सत्यापन कि ZKward Ben-Sasson आदि की अकादमिक विशिष्टताओं के अनुसार एक सच्चा ZK-STARK लागू करता है",
     "auditorSummary": "ऑडिटर क्विक सारांश",
     "implementation": "कार्यान्वयन",
     "securityLevel": "सुरक्षा स्तर",
@@ -688,7 +688,7 @@
     "description": "पूर्ण ZKward thesis: prediction-market alpha, 7-एजेंट आर्किटेक्चर, STARK-प्रमाणित निष्पादन, tokenomics, roadmap।"
   },
   "legacyBanner": {
-    "message": "<strong>zkvanguard.xyz बंद हो रहा है</strong> — अब हम <link>zkward.com</link> पर हैं।",
+    "message": "<strong>zkward.xyz बंद हो रहा है</strong> — अब हम <link>zkward.com</link> पर हैं।",
     "dismiss": "बंद करें"
   }
 }

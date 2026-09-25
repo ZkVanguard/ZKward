@@ -39,7 +39,7 @@ Upload `public/logo.png` from the repo (PNG, ≤3 MB, recommended 1000×600).
 >
 > Sui & Bluefin services: SuiCommunityPoolService, SuiOnChainHedgeService, SuiPrivateHedgeService (stealth addresses + ZK commitments), SuiAutoHedgingAdapter, SuiPortfolioManager, SuiHedgeReconciler, SuiExplorerService, BluefinService (perps SDK), BluefinAggregatorService (multi-DEX quotes & rebalance planner), and BluefinTreasuryService. Sponsored transactions are exposed via `/api/sui/sponsor-gas` and `/api/sui/sponsor-execute`. Coverage: 9-suite, 72/72 E2E pass.
 >
-> Live: https://zkvanguard.xyz
+> Live: https://zkward.xyz
 
 ---
 
@@ -55,12 +55,12 @@ Upload `public/logo.png` from the repo (PNG, ≤3 MB, recommended 1000×600).
 ---
 
 ## 8. Project Website URL
-**https://zkvanguard.xyz**
+**https://zkward.xyz**
 
 ---
 
 ## 9. Project Email
-**security@zkvanguard.io**
+**security@zkward.io**
 
 ---
 
@@ -128,8 +128,8 @@ Supporting on-chain identifiers (paste into the same field on a new line if mult
 | Field | Value |
 |-------|-------|
 | Primary Contact Name | ZkVanguard Founder |
-| Primary Contact Email | security@zkvanguard.io |
-| Primary Contact LinkedIn | https://www.linkedin.com/in/zkvanguard |
+| Primary Contact Email | security@zkward.io |
+| Primary Contact LinkedIn | https://www.linkedin.com/in/zkward |
 | Primary Contact Telegram | https://t.me/ZkVanguard |
 
 ---
@@ -140,7 +140,7 @@ Supporting on-chain identifiers (paste into the same field on a new line if mult
 |-------|-------|
 | Name | ZkVanguard Founder |
 | Twitter | https://twitter.com/ZkVanguard |
-| LinkedIn | https://www.linkedin.com/in/zkvanguard |
+| LinkedIn | https://www.linkedin.com/in/zkward |
 | Role | Founder & Lead Engineer |
 
 **Background / Experience:**

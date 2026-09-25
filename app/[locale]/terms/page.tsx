@@ -121,8 +121,8 @@ export default function TermsPage() {
             <h2 className="text-2xl font-semibold mb-4 text-[#1D1D1F]">12. Contact Information</h2>
             <p>
               For questions about these Terms, contact:{' '}
-              <a href="mailto:legal@zkvanguard.io" className="text-[#007AFF] hover:underline">
-                legal@zkvanguard.io
+              <a href="mailto:legal@zkward.io" className="text-[#007AFF] hover:underline">
+                legal@zkward.io
               </a>
             </p>
           </section>

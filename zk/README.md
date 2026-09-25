@@ -1,6 +1,6 @@
 # ZK-STARK System Integration
 
-This directory contains the integration of an authentic ZK-STARK (Zero-Knowledge Scalable Transparent ARgument of Knowledge) proof system into ZkWard.
+This directory contains the integration of an authentic ZK-STARK (Zero-Knowledge Scalable Transparent ARgument of Knowledge) proof system into ZKward.
 
 ## Overview
 

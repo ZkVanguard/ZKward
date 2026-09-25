@@ -1,4 +1,4 @@
-# Vision — Where ZkWard is going
+# Vision — Where ZKward is going
 
 > **Today:** AI-managed Polymarket-alpha vault on Sui mainnet.
 > **Trajectory:** Autonomous, transparent, programmable asset management on Sui.
@@ -26,13 +26,13 @@ BlackRock's competitive moat is *not* the assets it holds. It's three things:
 2. **iShares fund family** — multi-product surface (ETFs across asset classes), one shared operational backbone
 3. **Trust posture** — board governance, audit, compliance, regulated wrapper, fiduciary discipline
 
-We are not claiming to replicate BlackRock's $10T AUM, its regulated-investment-advisor status, or its multi-asset-class breadth (equities, bonds, alternatives, commodities). The phrase **"BlackRock for Web3"** in ZkWard's context means specifically:
+We are not claiming to replicate BlackRock's $10T AUM, its regulated-investment-advisor status, or its multi-asset-class breadth (equities, bonds, alternatives, commodities). The phrase **"BlackRock for Web3"** in ZKward's context means specifically:
 
-> **An autonomous, transparent, programmable asset-management platform on Sui — where the risk engine, fund family, and trust posture are productized into one infrastructure stack that ZkWard runs its own funds on AND sells as B2B SDK to other Sui builders.**
+> **An autonomous, transparent, programmable asset-management platform on Sui — where the risk engine, fund family, and trust posture are productized into one infrastructure stack that ZKward runs its own funds on AND sells as B2B SDK to other Sui builders.**
 
 That framing is defensible because each component maps to shipped code.
 
-| BlackRock pillar | ZkWard mapping | Status |
+| BlackRock pillar | ZKward mapping | Status |
 |---|---|---|
 | **Aladdin (risk engine)** | `SafeExecutionGuard` + `ProductionGuard` + `PriceCircuitBreaker` + `LiquidationGuard` + `PositionRiskScorer` + `HedgeRiskMath` + multi-agent consensus | ✅ Shipped, per-product. Platform-wide aggregation = Phase 2. |
 | **iShares (fund family)** | 3 live products (Community Pool · Private Hedges · Private Portfolio) on shared engine. Multi-pool variants = Phase 3. | ✅ 3 of N |
@@ -94,7 +94,7 @@ These endpoints exist as internal calls. Productizing them is the actual B2B moa
 
 New Move contract `rwa_custody_attestor.move` (~250 LOC) that extends the existing ed25519 prover system. Enrolled institutional custodians sign attestations binding `(portfolio_id, asset_list, nonce)`. Lets a wallet prove off-chain backing without revealing what it holds.
 
-This is the first primitive that bridges into RWA territory. Not "RWA platform" yet — but the foundation that any institutional partner needs before tokenizing real-world assets into a ZkWard pool.
+This is the first primitive that bridges into RWA territory. Not "RWA platform" yet — but the foundation that any institutional partner needs before tokenizing real-world assets into a ZKward pool.
 
 ### Phase 6 — Regulated wrapper (legal, 6-12 months)
 

@@ -81,7 +81,7 @@
     "rights": "Alle Rechte vorbehalten.",
     "testnet": "SUI Mainnet",
     "stage": "Mainnet Live",
-    "migrationNotice": "Formerly zkvanguard.xyz — zkward.com is our new home.",
+    "migrationNotice": "Formerly zkward.xyz — zkward.com is our new home.",
     "builtWith": "Entwickelt mit ZK-STARK",
     "story": "Unsere Story"
   },
@@ -217,7 +217,7 @@
   },
   "zkVerification": {
     "title": "ZK-STARK Mathematischer Beweis",
-    "subtitle": "Formale Verifizierung, dass ZkWard einen echten ZK-STARK gemäß den akademischen Spezifikationen von Ben-Sasson et al. implementiert",
+    "subtitle": "Formale Verifizierung, dass ZKward einen echten ZK-STARK gemäß den akademischen Spezifikationen von Ben-Sasson et al. implementiert",
     "auditorSummary": "Kurzfassung für Prüfer",
     "implementation": "Implementierung",
     "securityLevel": "Sicherheitsstufe",
@@ -688,7 +688,7 @@
     "description": "Die vollständige ZKward-These: Prediction-Market-Alpha, 7-Agenten-Architektur, STARK-attestierte Ausführung, Tokenomics, Roadmap."
   },
   "legacyBanner": {
-    "message": "<strong>zkvanguard.xyz wird abgeschaltet</strong> — wir sind jetzt auf <link>zkward.com</link>.",
+    "message": "<strong>zkward.xyz wird abgeschaltet</strong> — wir sind jetzt auf <link>zkward.com</link>.",
     "dismiss": "Schließen"
   }
 }

@@ -3,20 +3,20 @@
 /**
  * Rebrand transition banner.
  *
- * Shown only when the current hostname is a zkvanguard.xyz variant.
+ * Shown only when the current hostname is a zkward.xyz variant.
  * Client-side check so a single build serves both origins without
  * SSR needing to know the request host. Dismissible per-session
  * (sessionStorage) so it doesn't nag users who saw it once.
  *
  * Remove this component entirely (and its import in [locale]/layout.tsx)
- * once zkvanguard.xyz is fully retired (planned ≥12 months after cutover
+ * once zkward.xyz is fully retired (planned ≥12 months after cutover
  * per proxy.ts ALLOWED_ORIGINS comment).
  */
 
 import { useEffect, useState } from 'react';
 import { useTranslations } from 'next-intl';
 
-const LEGACY_HOSTS = new Set(['zkvanguard.xyz', 'www.zkvanguard.xyz']);
+const LEGACY_HOSTS = new Set(['zkward.xyz', 'www.zkward.xyz']);
 const DISMISS_KEY = 'legacy-domain-banner-dismissed';
 
 export function LegacyDomainBanner() {

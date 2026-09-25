@@ -83,9 +83,9 @@ The `community_pool_usdc` Move contract on Sui mainnet manages a multi-asset com
 - **USDC type**: `0xdba34672e30cb065b1f93e3ab55318768fd6fef66c15942c9f7cb846e2f900e7::usdc::USDC`
 - **Bluefin Pro operator wallet** (live SUI-PERP SHORT, +$0.178 unrealized PnL at submission):
   `0x99a3a0fd45bb6b467547430b8efab77eb64218ab098428297a7a3be77329ac93`
-- **Live application**: https://www.zkvanguard.xyz
+- **Live application**: https://www.zkward.xyz
 - **Cron endpoint** (QStash schedule `scd_74megHcwNQpFTScvqsMgGTQzZnCc`, every 30 min):
-  `https://www.zkvanguard.xyz/api/cron/sui-community-pool`
+  `https://www.zkward.xyz/api/cron/sui-community-pool`
 
 ### Verifier output (re-run today)
 

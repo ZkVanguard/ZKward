@@ -5,7 +5,7 @@ What ships in the repo, and the two or three things you still need to do by hand
 ## What's already wired
 
 - **File-based icons** — `app/icon.tsx` (512×512 PNG) and `app/apple-icon.tsx` (180×180). Next serves them at `/icon` and `/apple-icon`. `<link rel="icon">` is injected automatically.
-- **JSON-LD `Organization` + `WebSite`** — emitted on every page in `app/[locale]/layout.tsx`. Logo points to `/icon` (raster PNG, ≥ 512×512), so Google Search Console picks it up for the knowledge panel. `alternateName` covers old casings (ZkWard, ZkVanguard) so branded searches for legacy variants route back to the same entity.
+- **JSON-LD `Organization` + `WebSite`** — emitted on every page in `app/[locale]/layout.tsx`. Logo points to `/icon` (raster PNG, ≥ 512×512), so Google Search Console picks it up for the knowledge panel. `alternateName` covers old casings (ZKward, ZkVanguard) so branded searches for legacy variants route back to the same entity.
 - **JSON-LD `TechArticle`** on `/whitepaper` and `AboutPage` on `/story`.
 - **Sitemap** at `/sitemap.xml` — every marketing route × 12 locales as hreflang siblings, with per-route priority and change frequency.
 - **Robots** at `/robots.txt` — allows all crawlers, disallows `/api/`, `/dashboard`, `/paper`, `/_next/`, points to the sitemap.

@@ -495,7 +495,7 @@
     "rights": "All rights reserved.",
     "testnet": "SUI Mainnet",
     "stage": "Mainnet Live",
-    "migrationNotice": "Formerly zkvanguard.xyz. Zkward.com is our new home.",
+    "migrationNotice": "Formerly zkward.xyz. Zkward.com is our new home.",
     "builtWith": "Built with ZK-STARK",
     "story": "Our story"
   },
@@ -688,7 +688,7 @@
     "savePreferences": "Save Preferences"
   },
   "legacyBanner": {
-    "message": "<strong>zkvanguard.xyz is retiring</strong> — we're now at <link>zkward.com</link>.",
+    "message": "<strong>zkward.xyz is retiring</strong> — we're now at <link>zkward.com</link>.",
     "dismiss": "Dismiss"
   }
 }

@@ -1,4 +1,4 @@
-# ZkWard Documentation
+# ZKward Documentation
 
 Living reference for the platform. All docs listed here are under active maintenance — historical / point-in-time material has been moved to [`docs/history/`](./history/) or removed.
 

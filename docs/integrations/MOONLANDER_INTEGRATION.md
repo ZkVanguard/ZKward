@@ -2,7 +2,7 @@
 
 ## Overview
 
-ZkWard integrates with [Moonlander.trade](https://moonlander.trade) to provide **automated perpetual futures hedging** on Cronos EVM. When the AI agents detect high-risk market conditions, they can automatically open SHORT or LONG positions to protect your portfolio.
+ZKward integrates with [Moonlander.trade](https://moonlander.trade) to provide **automated perpetual futures hedging** on Cronos EVM. When the AI agents detect high-risk market conditions, they can automatically open SHORT or LONG positions to protect your portfolio.
 
 ## What is Moonlander?
 
@@ -12,7 +12,7 @@ Moonlander is a decentralized perpetual trading platform on Cronos EVM that offe
 - **Wide range of markets**: BTC, ETH, CRO, and 100+ assets
 - **Advanced features**: Stop-loss, take-profit, reduce-only orders
 
-## How ZkWard Uses Moonlander
+## How ZKward Uses Moonlander
 
 ### 1. AI-Driven Hedge Recommendations
 

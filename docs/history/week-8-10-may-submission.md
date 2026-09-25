@@ -24,7 +24,7 @@ Registered the polymarket-edge-trader AI cron endpoint with Upstash QStash for r
 
 **Specific implementation:**
 - **Schedule**: Every 5 minutes (`*/5 * * * *`) = 288 executions per day on SUI Mainnet
-- **Endpoint**: `https://www.zkvanguard.xyz/api/cron/polymarket-edge-trader` (Next.js route)
+- **Endpoint**: `https://www.zkward.xyz/api/cron/polymarket-edge-trader` (Next.js route)
 - **QStash Schedule ID**: `scd_838u4Sv3jtrbfZAerwxdi1JyaQ4c` (Upstash account, us-east-1 region)
 - **Trading target**: Bluefin Pro mainnet (BTC/ETH perpetual futures on SUI)
 - **Market signals**: Real-time Polymarket binary predictions aggregated with Delphi long-term forecasts and Bluefin funding rates
@@ -91,7 +91,7 @@ Added SUI Mainnet's primary AI trading loop to QStash scheduler:
 ```
 {
   name: 'Polymarket Edge Trader',
-  destination: 'https://www.zkvanguard.xyz/api/cron/polymarket-edge-trader',
+  destination: 'https://www.zkward.xyz/api/cron/polymarket-edge-trader',
   cron: '*/5 * * * *',           // 288 executions/day
   retries: 2
 }
@@ -139,7 +139,7 @@ Together, these commits represent **full transition from testnet branding to SUI
 - TypeScript: `npx tsc --noEmit` = 0 errors
 - JSON validation: All 12 locale files parse and conform to schema
 - Git: Rebased cleanly against remote, pushed both commits successfully
-- Vercel production deploy: `npx vercel --prod --yes` = ✅ live at https://www.zkvanguard.xyz
+- Vercel production deploy: `npx vercel --prod --yes` = ✅ live at https://www.zkward.xyz
 
 **Operational status on SUI Mainnet:**
 - CommunityPool smart contract: ✅ Deployed to mainnet (pkg `0x9ccbabbdca72c5c0b5d6e01765b578ae37dc33946dd80d6c9b984cd83e598c88`), verified, objects created
