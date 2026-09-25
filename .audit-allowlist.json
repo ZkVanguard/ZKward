@@ -1,74 +1,123 @@
 {
-  "_readme": "Vulnerabilities documented + risk-accepted. See docs/SUPPLY_CHAIN_POLICY.md for waiver process. Each entry MUST have: reason, reviewedBy, reviewedAt (ISO date), expires (ISO date, max 90 days out).",
+  "_readme": "Vulnerabilities documented + risk-accepted. See docs/SUPPLY_CHAIN_POLICY.md for waiver process. Each entry MUST have: reason (with reachability analysis), reviewedBy, reviewedAt (ISO date), expires (ISO date, max 90 days out). All entries below were reviewed + renewed 2026-09-25.",
   "waived": {
     "@firefly-exchange/library-sui": {
-      "reason": "Bundled with BluefinService for order signing. Server-only. Same risk profile as parent SDK.",
+      "reason": "BlueFin order-signing SDK. Server-only (BluefinService in /lib/services/sui/bluefin/). REACHABILITY: SDK signs orders using our own admin private key; inputs are typed BigInt/string from our own code, never user input. Vulnerable code paths are in the SDK's WebSocket/HTTP client which we don't invoke — we use only the signing primitives.",
       "reviewedBy": "ashishregmi2017@gmail.com",
-      "reviewedAt": "2026-06-30",
-      "expires": "2026-09-28",
+      "reviewedAt": "2026-09-25",
+      "expires": "2026-12-24",
       "ticket": null
     },
     "@mysten/sui": {
-      "reason": "Core SUI SDK — no upstream fix path exists for the listed CVEs at 1.x. Server-only; we control all inputs. Track upstream at https://github.com/MystenLabs/ts-sdks",
+      "reason": "Core SUI SDK. Server-only for transaction building + client-only for wallet detection. REACHABILITY: TX-building path takes typed args from our code; wallet-detection path runs in the user's browser against their own extension (self-attack). No untrusted server-side input reaches SDK parsers. Track upstream at https://github.com/MystenLabs/ts-sdks.",
       "reviewedBy": "ashishregmi2017@gmail.com",
-      "reviewedAt": "2026-06-30",
-      "expires": "2026-09-28",
+      "reviewedAt": "2026-09-25",
+      "expires": "2026-12-24",
       "ticket": null
     },
     "@mysten/dapp-kit": {
-      "reason": "Frontend-only; no server exposure. Same version constraint as @mysten/sui.",
+      "reason": "Frontend wallet-connect UI. REACHABILITY: client-side only; runs in user browser. Vulnerable code paths require attacker-controlled wallet extension which is under user's own control (self-attack pattern).",
       "reviewedBy": "ashishregmi2017@gmail.com",
-      "reviewedAt": "2026-06-30",
-      "expires": "2026-09-28",
+      "reviewedAt": "2026-09-25",
+      "expires": "2026-12-24",
       "ticket": null
     },
     "@mysten/wallet-standard": {
-      "reason": "Transitive of @mysten/dapp-kit. Client-side wallet detection.",
+      "reason": "Transitive of @mysten/dapp-kit. Client-side wallet-standard adapter for browser extension discovery. Same self-attack reachability as parent.",
       "reviewedBy": "ashishregmi2017@gmail.com",
-      "reviewedAt": "2026-06-30",
-      "expires": "2026-09-28",
+      "reviewedAt": "2026-09-25",
+      "expires": "2026-12-24",
+      "ticket": null
+    },
+    "@mysten/window-wallet-core": {
+      "reason": "Transitive of @mysten/dapp-kit. window.postMessage-based wallet connector. Client-only; runs in user's browser against their own extension.",
+      "reviewedBy": "ashishregmi2017@gmail.com",
+      "reviewedAt": "2026-09-25",
+      "expires": "2026-12-24",
+      "ticket": null
+    },
+    "@mysten/slush-wallet": {
+      "reason": "Transitive of @mysten/dapp-kit. Slush wallet connector (SUI's official web wallet). Client-only browser code.",
+      "reviewedBy": "ashishregmi2017@gmail.com",
+      "reviewedAt": "2026-09-25",
+      "expires": "2026-12-24",
       "ticket": null
     },
     "@mysten/zklogin": {
-      "reason": "Used only in optional zkLogin flow (unused by community pool). If we activate zkLogin at scale, re-review.",
+      "reason": "Used only in optional zkLogin flow (not activated in production community pool). If we activate zkLogin at scale, re-review.",
       "reviewedBy": "ashishregmi2017@gmail.com",
-      "reviewedAt": "2026-06-30",
-      "expires": "2026-09-28",
+      "reviewedAt": "2026-09-25",
+      "expires": "2026-12-24",
       "ticket": null
     },
     "@mysten/zksend": {
-      "reason": "Transitive; not directly invoked. Track upstream fix.",
+      "reason": "Transitive; not directly invoked in our code. Track upstream fix in @mysten/sui.",
       "reviewedBy": "ashishregmi2017@gmail.com",
-      "reviewedAt": "2026-06-30",
-      "expires": "2026-09-28",
+      "reviewedAt": "2026-09-25",
+      "expires": "2026-12-24",
+      "ticket": null
+    },
+    "@suiet/wallet-kit": {
+      "reason": "Transitive of @firefly-exchange/library-sui (BlueFin). We do NOT import @suiet/* directly (verified via grep across app+components+lib+agents). The kit's vulnerable paths are client-side wallet UI code that never runs in our bundle since we bundle only the BluefinService signing primitives.",
+      "reviewedBy": "ashishregmi2017@gmail.com",
+      "reviewedAt": "2026-09-25",
+      "expires": "2026-12-24",
+      "ticket": null
+    },
+    "@suiet/wallet-sdk": {
+      "reason": "Transitive of @suiet/wallet-kit. Same reachability as parent — no direct import; unused code paths.",
+      "reviewedBy": "ashishregmi2017@gmail.com",
+      "reviewedAt": "2026-09-25",
+      "expires": "2026-12-24",
+      "ticket": null
+    },
+    "lodash-es": {
+      "reason": "Transitive from multiple wallet SDKs. CVEs are prototype-pollution family. REACHABILITY: our code never passes untrusted input to lodash methods; SDK callers pass typed values from their own code. No server-side user input reaches lodash-processing code.",
+      "reviewedBy": "ashishregmi2017@gmail.com",
+      "reviewedAt": "2026-09-25",
+      "expires": "2026-12-24",
+      "ticket": null
+    },
+    "valibot": {
+      "reason": "Transitive schema validator from @suiet/@reown packages. REACHABILITY: validates typed messages from our own code paths; no untrusted external schema input.",
+      "reviewedBy": "ashishregmi2017@gmail.com",
+      "reviewedAt": "2026-09-25",
+      "expires": "2026-12-24",
+      "ticket": null
+    },
+    "ws": {
+      "reason": "Transitive WebSocket client from wagmi/@reown/@mysten packages. REACHABILITY: outbound-only WS connections to controlled RPC/wallet endpoints; no inbound WS server exposure in our stack.",
+      "reviewedBy": "ashishregmi2017@gmail.com",
+      "reviewedAt": "2026-09-25",
+      "expires": "2026-12-24",
       "ticket": null
     },
     "@modelcontextprotocol/sdk": {
-      "reason": "Anthropic MCP SDK — ReDoS in the pattern parser. We do not accept untrusted MCP input at runtime.",
+      "reason": "Anthropic MCP SDK. ReDoS in the pattern parser. We do not accept untrusted MCP input at runtime — MCP servers are configured locally by the operator.",
       "reviewedBy": "ashishregmi2017@gmail.com",
-      "reviewedAt": "2026-06-30",
-      "expires": "2026-09-28",
+      "reviewedAt": "2026-09-25",
+      "expires": "2026-12-24",
       "ticket": null
     },
     "@hashgraph/sdk": {
-      "reason": "Hedera SDK — required for x402/HCS audit trail submits (Hedera prize track). CVEs are in transitive protobufjs/grpc-js; upstream fix pending in @hashgraph/sdk v3.x. Server-only usage in route handlers; no user input reaches the SDK's message parsers.",
+      "reason": "Hedera SDK — required for HCS audit trail submits. CVEs are in transitive protobufjs/grpc-js; upstream fix pending in @hashgraph/sdk v3.x. Server-only usage; no user input reaches the SDK's message parsers.",
       "reviewedBy": "ashishregmi2017@gmail.com",
-      "reviewedAt": "2026-09-06",
-      "expires": "2026-12-05",
+      "reviewedAt": "2026-09-25",
+      "expires": "2026-12-24",
       "ticket": null
     },
     "protobufjs": {
       "reason": "Transitive of @hashgraph/sdk and @grpc/grpc-js. CVE is the prototype-pollution family — server-only; no untrusted proto messages parsed.",
       "reviewedBy": "ashishregmi2017@gmail.com",
-      "reviewedAt": "2026-09-06",
-      "expires": "2026-12-05",
+      "reviewedAt": "2026-09-25",
+      "expires": "2026-12-24",
       "ticket": null
     },
     "@grpc/grpc-js": {
       "reason": "Transitive of @hashgraph/sdk. gRPC client used only against Hedera consensus nodes; no server exposure.",
       "reviewedBy": "ashishregmi2017@gmail.com",
-      "reviewedAt": "2026-09-06",
-      "expires": "2026-12-05",
+      "reviewedAt": "2026-09-25",
+      "expires": "2026-12-24",
       "ticket": null
     }
   }
