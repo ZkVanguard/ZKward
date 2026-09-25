@@ -27,7 +27,6 @@ import {
   useSwitchChain,
   useSignTypedData,
 } from '@/lib/evm-wallet/hooks';
-import { useSmartAccount } from '@/lib/evm-wallet/smart-account';
 import { parseUnits, formatUnits } from 'viem';
 import { ethers } from 'ethers';
 import { logger } from '@/lib/utils/logger';
@@ -42,6 +41,7 @@ import {
   COMMUNITY_POOL_ABI,
 } from '@/lib/contracts/community-pool-config';
 import { getNetworkFromChainId, getValidChainIds } from './utils';
+import { switchChainNative } from './chain-params';
 import type { ChainKey, TxStatus } from './types';
 import { poolReducer, txReducer, initialPoolState, initialTxState } from './reducers';
 import { mapApiToPoolSummary, mapApiToUserPosition } from './mappers'; // ============================================================================
@@ -180,8 +180,6 @@ export function useCommunityPool(propAddress?: string) {
   // Typed data signing hook for EIP-2612 permit
   const { signTypedDataAsync } = useSignTypedData();
 
-  // Account Abstraction (Gasless) support
-  const { depositWithGasless } = useSmartAccount();
 
   // First-deposit gate: assumed false. API enforces the $100 inflation-attack
   // minimum server-side, so the client can render without an extra RPC round-trip.
@@ -193,7 +191,7 @@ export function useCommunityPool(propAddress?: string) {
       try {
         const { ethers } = await import('ethers');
         const chainConfig = POOL_CHAIN_CONFIGS[selectedChain];
-        const rpcUrl = chainConfig?.rpcUrls[network] || 'https://rpc.sepolia.org';
+        const rpcUrl = chainConfig?.rpcUrls[network] || 'https://testnet.hashio.io/api';
         const provider = new ethers.JsonRpcProvider(rpcUrl);
 
         const erc20 = new ethers.Contract(
@@ -232,7 +230,7 @@ export function useCommunityPool(propAddress?: string) {
       try {
         const { ethers } = await import('ethers');
         const chainConfig = POOL_CHAIN_CONFIGS[selectedChain];
-        const rpcUrl = chainConfig?.rpcUrls[network] || 'https://rpc.sepolia.org';
+        const rpcUrl = chainConfig?.rpcUrls[network] || 'https://testnet.hashio.io/api';
         const provider = new ethers.JsonRpcProvider(rpcUrl);
         const erc20 = new ethers.Contract(
           tokenAddress,
@@ -277,19 +275,13 @@ export function useCommunityPool(propAddress?: string) {
         dispatchPool({ type: 'SET_CHAIN', payload: 'sui' });
       }
     } else if (evmWalletConnected && !suiWalletConnected) {
-      // Only EVM wallet connected - prefer Sepolia (WDK USDT) demo
-      // Only switch if user is actually on Sepolia, otherwise keep default
-      if (chainId === 11155111 && selectedChain !== 'sepolia') {
-        dispatchPool({ type: 'SET_CHAIN', payload: 'sepolia' });
+      // Only EVM wallet connected — Hedera is the only supported EVM.
+      if ((chainId === 296 || chainId === 295) && selectedChain !== 'hedera') {
+        dispatchPool({ type: 'SET_CHAIN', payload: 'hedera' });
       }
-      // Don't auto-switch away from Sepolia if user is on another chain
     } else if (suiWalletConnected && evmWalletConnected) {
-      // Both wallets connected. Prefer Sepolia (official WDK USDT)
-      if (selectedChain !== 'sepolia') {
-        dispatchPool({ type: 'SET_CHAIN', payload: 'sepolia' });
-      }
+      // Both wallets connected. Keep current selection.
     }
-    // If no wallet connected, keep current selection (defaults to 'sepolia' for WDK)
   }, [chainId, selectedChain, suiIsConnected, suiAddress, isConnected, address]);
 
   const handleChainSelect = useCallback((key: ChainKey) => {
@@ -784,50 +776,10 @@ export function useCommunityPool(propAddress?: string) {
       dispatchPool({ type: 'SET_ERROR', payload: `Switching to ${chainConfig?.name}...` });
       pendingChainSwitchRef.current = { action: 'deposit', targetChainId };
 
-      // Chain parameters for adding to wallet
-      const chainParams: Record<
-        number,
-        {
-          chainId: string;
-          chainName: string;
-          rpcUrls: string[];
-          blockExplorerUrls: string[];
-          nativeCurrency: { name: string; symbol: string; decimals: number };
-        }
-      > = {
-        11155111: {
-          // Sepolia
-          chainId: '0xaa36a7',
-          chainName: 'Sepolia',
-          rpcUrls: ['https://sepolia.drpc.org', 'https://rpc.sepolia.org'],
-          blockExplorerUrls: ['https://sepolia.etherscan.io'],
-          nativeCurrency: { name: 'Sepolia Ether', symbol: 'ETH', decimals: 18 },
-        },
-        338: {
-          // Cronos Testnet
-          chainId: '0x152',
-          chainName: 'Cronos Testnet',
-          rpcUrls: ['https://evm-t3.cronos.org'],
-          blockExplorerUrls: ['https://explorer.cronos.org/testnet'],
-          nativeCurrency: { name: 'Test Cronos', symbol: 'tCRO', decimals: 18 },
-        },
-        421614: {
-          // Arbitrum Sepolia
-          chainId: '0x66eee',
-          chainName: 'Arbitrum Sepolia',
-          rpcUrls: ['https://sepolia-rollup.arbitrum.io/rpc'],
-          blockExplorerUrls: ['https://sepolia.arbiscan.io'],
-          nativeCurrency: { name: 'Ethereum', symbol: 'ETH', decimals: 18 },
-        },
-      };
-
-      // Use WDK switchChainAsync - this properly syncs state
       logger.info('[CommunityPool] Switching chain (WDK)', { targetChainId });
 
-      // Set timeout for user feedback
       const timeoutId = setTimeout(() => {
         if (pendingChainSwitchRef.current?.action === 'deposit') {
-          console.log('[CommunityPool] Switch timeout');
           dispatchPool({
             type: 'SET_ERROR',
             payload: `Please switch to ${chainConfig?.name} in your wallet, then click Deposit again.`,
@@ -836,98 +788,35 @@ export function useCommunityPool(propAddress?: string) {
         }
       }, 20000);
 
-      // Try WDK switchChainAsync (syncs state properly)
       switchChainAsync({ chainId: targetChainId })
         .then(() => {
-          logger.info('[CommunityPool] Chain switch success (WDK)');
           clearTimeout(timeoutId);
           pendingChainSwitchRef.current = null;
           dispatchPool({ type: 'SET_ERROR', payload: null });
-
-          // State is now synced, proceed immediately
-          logger.info('[CommunityPool] Proceeding with deposit (synced)');
-          setTimeout(() => {
-            handleDeposit();
-          }, 100);
+          setTimeout(() => handleDeposit(), 100);
         })
         .catch(async (switchError: any) => {
           logger.warn('[CommunityPool] WDK switch failed, trying native', {
             error: switchError?.message,
           });
-          // Fallback to native API if WDK fails (e.g., chain not in config)
-          const ethereum = (window as any).ethereum;
-          if (!ethereum) {
-            clearTimeout(timeoutId);
-            dispatchPool({ type: 'SET_ERROR', payload: 'No wallet detected.' });
-            return;
-          }
-
-          const params = chainParams[targetChainId];
-          if (!params) {
-            clearTimeout(timeoutId);
-            dispatchPool({ type: 'SET_ERROR', payload: `Chain ${targetChainId} not supported` });
-            return;
-          }
-
           try {
-            logger.info('[CommunityPool] Falling back to native API');
-            await ethereum.request({
-              method: 'wallet_switchEthereumChain',
-              params: [{ chainId: params.chainId }],
-            });
-
-            logger.info('[CommunityPool] Native switch success');
+            await switchChainNative(targetChainId);
             clearTimeout(timeoutId);
             skipChainCheckRef.current = true;
             pendingChainSwitchRef.current = null;
             dispatchPool({ type: 'SET_ERROR', payload: null });
-
-            // Wait a bit longer for WDK to sync via chainChanged event
-            setTimeout(() => {
-              logger.info('[CommunityPool] Retrying deposit after native switch');
-              handleDeposit();
-            }, 1000);
+            // WDK syncs via chainChanged event — give it a beat before retry
+            setTimeout(() => handleDeposit(), 1000);
           } catch (nativeError: any) {
-            logger.error('[CommunityPool] Native switch failed', {
-              code: nativeError?.code,
-              message: nativeError?.message,
-            });
-            if (nativeError?.code === 4902) {
-              // Chain not added - try to add it
-              try {
-                await ethereum.request({
-                  method: 'wallet_addEthereumChain',
-                  params: [params],
-                });
-                logger.info('[CommunityPool] Chain added');
-                clearTimeout(timeoutId);
-                skipChainCheckRef.current = true;
-                pendingChainSwitchRef.current = null;
-                dispatchPool({ type: 'SET_ERROR', payload: null });
-                setTimeout(() => handleDeposit(), 1000);
-              } catch (addError: any) {
-                clearTimeout(timeoutId);
-                pendingChainSwitchRef.current = null;
-                dispatchPool({
-                  type: 'SET_ERROR',
-                  payload: `Please add ${chainConfig?.name} to your wallet manually.`,
-                });
-              }
-            } else if (nativeError?.code === 4001) {
-              clearTimeout(timeoutId);
-              pendingChainSwitchRef.current = null;
-              dispatchPool({
-                type: 'SET_ERROR',
-                payload: 'Chain switch rejected. Please switch manually.',
-              });
-            } else {
-              clearTimeout(timeoutId);
-              pendingChainSwitchRef.current = null;
-              dispatchPool({
-                type: 'SET_ERROR',
-                payload: nativeError?.message || 'Chain switch failed',
-              });
-            }
+            clearTimeout(timeoutId);
+            pendingChainSwitchRef.current = null;
+            const msg =
+              nativeError?.code === 4001
+                ? 'Chain switch rejected. Please switch manually.'
+                : nativeError?.message?.includes('not configured')
+                  ? `Please add ${chainConfig?.name} to your wallet manually.`
+                  : nativeError?.message || 'Chain switch failed';
+            dispatchPool({ type: 'SET_ERROR', payload: msg });
           }
         });
       return;
@@ -957,53 +846,6 @@ export function useCommunityPool(propAddress?: string) {
     // =========================================
     // TRY GASLESS (AA) FLOW
     // =========================================
-    // Sepolia supports AA/Gasless. Try this first if available to save gas (USDT paid).
-    if (validChainIds.includes(11155111)) {
-      console.log('Attempting Gasless (Account Abstraction) flow...');
-      try {
-        dispatchTx({ type: 'SET_TX_STATUS', payload: 'signing_permit' }); // Reusing status for signing
-        const tx = await depositWithGasless(amount.toString());
-
-        console.log('Gasless Deposit Success:', tx);
-        dispatchTx({ type: 'SET_TX_STATUS', payload: 'depositing' }); // Show depositing spinner
-
-        // Wait a bit for indexing/propagation (simplified for now)
-        await new Promise((r) => setTimeout(r, 5000));
-
-        dispatchTx({ type: 'SET_TX_STATUS', payload: 'complete' });
-        dispatchPool({
-          type: 'SET_SUCCESS',
-          payload: `Gasless Deposit Submitted! Tx: ${tx.slice(0, 10)}...`,
-        });
-        dispatchTx({ type: 'SET_DEPOSIT_AMOUNT', payload: '' });
-        dispatchTx({ type: 'SET_SHOW_DEPOSIT', payload: false });
-        dispatchTx({ type: 'SET_ACTION_LOADING', payload: false });
-
-        // Refresh
-        setTimeout(() => {
-          fetchPoolData(true);
-          dispatchPool({ type: 'SET_SUCCESS', payload: null });
-          dispatchTx({ type: 'SET_TX_STATUS', payload: 'idle' });
-        }, 3000);
-        return;
-      } catch (err: any) {
-        console.warn('Gasless flow failed/skipped:', err.message);
-        // Only fall back if it wasn't a user rejection or if it's explicitly "Not a smart account"
-        if (err.message?.includes('User rejected')) {
-          dispatchPool({ type: 'SET_ERROR', payload: 'Transaction cancelled' });
-          dispatchTx({ type: 'SET_ACTION_LOADING', payload: false });
-          dispatchTx({ type: 'SET_TX_STATUS', payload: 'idle' });
-          return;
-        }
-
-        // If failed because not a smart account, fall back to EOA flow
-        // Otherwise, show error?
-        // For now, let's assume we fall back to EOA flow for robustness.
-        console.log('Falling back to standard EOA deposit...');
-        dispatchTx({ type: 'SET_TX_STATUS', payload: 'idle' }); // Reset for standard flow
-      }
-    }
-
     // =========================================
     // CHECK & FUND GAS FOR WDK EOA WALLETS
     // =========================================
@@ -1035,7 +877,7 @@ export function useCommunityPool(propAddress?: string) {
             type: 'SET_ERROR',
             payload:
               fundResult.error ||
-              'Failed to obtain gas funding. Please get Sepolia ETH from a faucet.',
+              'Failed to obtain gas funding. Please get HBAR from a Hedera faucet.',
           });
           dispatchTx({ type: 'SET_TX_STATUS', payload: 'idle' });
           dispatchTx({ type: 'SET_ACTION_LOADING', payload: false });
@@ -1194,7 +1036,7 @@ export function useCommunityPool(propAddress?: string) {
           dispatchPool({
             type: 'SET_ERROR',
             payload:
-              'Insufficient ETH for gas. Please get Sepolia ETH from a faucet (e.g. Google Cloud faucet or Alchemy faucet).',
+              'Insufficient HBAR for gas. Please get HBAR from a Hedera faucet.',
           });
           dispatchTx({ type: 'SET_TX_STATUS', payload: 'idle' });
           dispatchTx({ type: 'SET_ACTION_LOADING', payload: false });
@@ -1343,7 +1185,7 @@ export function useCommunityPool(propAddress?: string) {
         dispatchPool({
           type: 'SET_ERROR',
           payload:
-            'Insufficient ETH for gas. Please get Sepolia ETH from a faucet (e.g. Google Cloud faucet or Alchemy faucet).',
+            'Insufficient HBAR for gas. Please get HBAR from a Hedera faucet.',
         });
       } else {
         dispatchPool({ type: 'SET_ERROR', payload: msg });
@@ -1394,83 +1236,8 @@ export function useCommunityPool(propAddress?: string) {
       dispatchPool({ type: 'SET_ERROR', payload: `Switching to ${chainConfig?.name}...` });
       pendingChainSwitchRef.current = { action: 'withdraw', targetChainId };
 
-      // Chain parameters for adding to wallet (same as deposit)
-      const chainParams: Record<
-        number,
-        {
-          chainId: string;
-          chainName: string;
-          rpcUrls: string[];
-          blockExplorerUrls: string[];
-          nativeCurrency: { name: string; symbol: string; decimals: number };
-        }
-      > = {
-        11155111: {
-          // Sepolia
-          chainId: '0xaa36a7',
-          chainName: 'Sepolia',
-          rpcUrls: ['https://sepolia.drpc.org', 'https://rpc.sepolia.org'],
-          blockExplorerUrls: ['https://sepolia.etherscan.io'],
-          nativeCurrency: { name: 'Sepolia Ether', symbol: 'ETH', decimals: 18 },
-        },
-        338: {
-          // Cronos Testnet
-          chainId: '0x152',
-          chainName: 'Cronos Testnet',
-          rpcUrls: ['https://evm-t3.cronos.org'],
-          blockExplorerUrls: ['https://explorer.cronos.org/testnet'],
-          nativeCurrency: { name: 'Test Cronos', symbol: 'tCRO', decimals: 18 },
-        },
-        421614: {
-          // Arbitrum Sepolia
-          chainId: '0x66eee',
-          chainName: 'Arbitrum Sepolia',
-          rpcUrls: ['https://sepolia-rollup.arbitrum.io/rpc'],
-          blockExplorerUrls: ['https://sepolia.arbiscan.io'],
-          nativeCurrency: { name: 'Ethereum', symbol: 'ETH', decimals: 18 },
-        },
-      };
-
-      // Try to add and switch chain using native wallet API
-      const addAndSwitchChain = async () => {
-        const ethereum = (window as any).ethereum;
-        if (!ethereum) {
-          throw new Error('No wallet detected');
-        }
-
-        const params = chainParams[targetChainId];
-        if (!params) {
-          throw new Error(`Chain ${targetChainId} not configured`);
-        }
-
-        try {
-          // First try to just switch (chain might already be added)
-          await ethereum.request({
-            method: 'wallet_switchEthereumChain',
-            params: [{ chainId: params.chainId }],
-          });
-        } catch (switchError: any) {
-          // 4902 = Chain not added, try to add it
-          if (switchError.code === 4902) {
-            await ethereum.request({
-              method: 'wallet_addEthereumChain',
-              params: [params],
-            });
-            // After adding, switch to it
-            await ethereum.request({
-              method: 'wallet_switchEthereumChain',
-              params: [{ chainId: params.chainId }],
-            });
-          } else {
-            throw switchError;
-          }
-        }
-      };
-
-      // Set a timeout to show manual switch message if wallet doesn't respond
       const timeoutId = setTimeout(() => {
         if (pendingChainSwitchRef.current?.action === 'withdraw') {
-          console.log('[CommunityPool] Switch timeout - showing manual message');
           dispatchPool({
             type: 'SET_ERROR',
             payload: `Please add ${chainConfig?.name} to your wallet and switch to it, then click Withdraw again.`,
@@ -1479,27 +1246,16 @@ export function useCommunityPool(propAddress?: string) {
         }
       }, 15000);
 
-      console.log('[CommunityPool] Adding and switching chain for withdraw...');
-      addAndSwitchChain()
-        .then(() => {
-          console.log('[CommunityPool] Chain switch successful for withdraw!');
-          clearTimeout(timeoutId);
-        })
+      switchChainNative(targetChainId)
+        .then(() => clearTimeout(timeoutId))
         .catch((err: any) => {
-          console.error('[CommunityPool] Chain switch failed:', err);
           clearTimeout(timeoutId);
           pendingChainSwitchRef.current = null;
-          if (err?.code === 4001 || err?.message?.includes('rejected')) {
-            dispatchPool({
-              type: 'SET_ERROR',
-              payload: 'Chain switch rejected. Please add the chain manually in your wallet.',
-            });
-          } else {
-            dispatchPool({
-              type: 'SET_ERROR',
-              payload: `Please add ${chainConfig?.name} to your wallet and switch to it manually.`,
-            });
-          }
+          const msg =
+            err?.code === 4001 || err?.message?.includes('rejected')
+              ? 'Chain switch rejected. Please add the chain manually in your wallet.'
+              : `Please add ${chainConfig?.name} to your wallet and switch to it manually.`;
+          dispatchPool({ type: 'SET_ERROR', payload: msg });
         });
       return;
     }
