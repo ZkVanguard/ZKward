@@ -14,7 +14,7 @@
  * Modes:
  *   - Default (dry-run): computes the intent, anchors it on HCS with
  *     source: 'hedera-pool-hedge-intent', returns the intent payload.
- *     No BluFin call. Safe for demo + judges.
+ *     No BluFin call.
  *   - HEDERA_HEDGE_EXECUTE=1: also fires bluefinService.openHedge with
  *     the computed intent. Real position on SUI perps. Only flip when
  *     the operator wallet has funded margin.

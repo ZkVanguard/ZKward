@@ -8,8 +8,6 @@ For architecture + deep-dive docs, see `ARCHITECTURE.md`. For the demo flow, see
 **No setup needed.** The whole platform is live:
 
 - App: <https://www.zkward.com>
-- Live judge dashboard: <https://www.zkward.com/judges>
-- Public GraphQL playground (Sepolia subgraph): <https://api.studio.thegraph.com/query/1758819/zkward/v0.2.0/graphql>
 
 Sign in with email or Google — Privy auto-provisions a Hedera-testnet embedded wallet. Use the in-app Faucet button to mint 100 test USDC, then deposit.
 

@@ -22,10 +22,9 @@ import { useState } from 'react';
 // and SimpleUsdcVault (0x68ee…111b). v0.1.1 was subgraph-only-schema (empty).
 const STUDIO_URL = 'https://api.studio.thegraph.com/query/1758819/zkward/v0.2.0';
 
-// GraphiQL landing URL with a pre-populated query that shows off the whole
-// schema in one click — judges see live data + derived relationships without
-// having to type anything. Empty ?query= drops them into an empty playground
-// (bad first impression); this shows _meta health + pools + derived txs.
+// GraphiQL landing URL pre-populated so visitors see _meta health + pools +
+// derived txs on first load. Empty ?query= drops them into an empty
+// playground (bad first impression).
 const STUDIO_PLAYGROUND_URL = `${STUDIO_URL}/graphql?query=${encodeURIComponent(
 `# ZKward AI-Vault subgraph on Sepolia — Studio deployment 1758819/zkward/v0.2.0
 # Same schema is also served by @zkward/hedera-graphql-adapter (npm) for Hedera.

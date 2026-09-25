@@ -24,8 +24,8 @@ export function buildPrivyClientConfig(): Record<string, unknown> {
       accentColor: '#0069D9',
       theme: 'light',
       // Email primary; wallet-connect list appears in the same modal as
-      // a secondary section. Gives judges the "hide onchain complexity"
-      // story AND lets power users on Hedera Testnet bring MetaMask.
+      // a secondary section. Keeps new users on the "hide onchain
+      // complexity" path while power users can still bring MetaMask.
       showWalletLoginFirst: false,
       walletChainType: 'ethereum-only',
       logo: 'https://www.zkward.com/logo-official.svg',
