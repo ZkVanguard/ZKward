@@ -16,11 +16,7 @@
 
 import { logger } from '@/lib/utils/logger';
 import { cache } from '../../utils/cache';
-import {
-  scoreTradeOpportunity,
-  determineRecommendation as determineRecommendationPure,
-  calculateSizeMultiplier as calculateSizeMultiplierPure,
-} from '@/lib/services/market-data/opportunity-scoring';
+import { scoreTradeOpportunity } from '@/lib/services/market-data/opportunity-scoring';
 import type { FiveMinBTCSignal } from './Polymarket5MinService';
 import type { PredictionMarket } from './DelphiMarketService';
 import type { MultiAssetSignal } from './MultiAssetSignalService';
@@ -49,6 +45,16 @@ import {
 } from './PolymarketMomentumService';
 import { getCronStateOr } from '@/lib/db/cron-state';
 import { query as dbQuery } from '@/lib/db/postgres';
+import {
+  fetchPolymarketSignal,
+  fetchDelphiPredictions,
+  fetchCryptoComData,
+  fetchBinancePositioning,
+  fetchBybitPositioning,
+  fetchBluefinFundingRates,
+  approximateFundingRateSentiment,
+} from './aggregator-fetchers';
+import { calculateAggregation } from './aggregator-math';
 
 // ─── Types ───────────────────────────────────────────────────────────
 
@@ -122,9 +128,9 @@ export class PredictionAggregatorService {
       delphiPredictions,
       cryptoComData,
     ] = await Promise.all([
-      this.fetchPolymarketSignal(),
-      this.fetchDelphiPredictions(),
-      this.fetchCryptoComData(),
+      fetchPolymarketSignal(),
+      fetchDelphiPredictions(),
+      fetchCryptoComData(),
     ]);
 
     // Build source array
@@ -196,7 +202,7 @@ export class PredictionAggregatorService {
     }
 
     // 5. Funding rate approximation (weight: 10% - market sentiment proxy)
-    const fundingSignal = this.approximateFundingRateSentiment(sources);
+    const fundingSignal = approximateFundingRateSentiment(sources);
     if (fundingSignal) {
       sources.push(fundingSignal);
     }
@@ -206,7 +212,7 @@ export class PredictionAggregatorService {
     sources.forEach(s => { s.weight = s.weight / totalWeight; });
 
     // Calculate aggregated metrics
-    const aggregation = this.calculateAggregation(sources);
+    const aggregation = calculateAggregation(sources);
     
     logger.info('[PredictionAggregator] Computed aggregated prediction', {
       direction: aggregation.direction,
@@ -220,447 +226,6 @@ export class PredictionAggregatorService {
     cache.set(CACHE_KEY, aggregation, CACHE_TTL_MS);
     
     return aggregation;
-  }
-
-  /**
-   * Calculate weighted aggregation from all sources
-   */
-  private static calculateAggregation(sources: PredictionSource[]): AggregatedPrediction {
-    if (sources.length === 0) {
-      return {
-        direction: 'NEUTRAL',
-        confidence: 0,
-        probability: 50,
-        consensus: 0,
-        recommendation: 'WAIT',
-        sizeMultiplier: 1.0,
-        sources: [],
-        reasoning: 'No prediction data available',
-        timestamp: Date.now(),
-      };
-    }
-
-    // Calculate weighted direction score (-1 = DOWN, +1 = UP)
-    let directionScore = 0;
-    let totalConfidenceWeight = 0;
-    let upCount = 0;
-    let downCount = 0;
-
-    for (const source of sources) {
-      const dirValue = source.direction === 'UP' ? 1 : source.direction === 'DOWN' ? -1 : 0;
-      const effectiveWeight = source.weight * (source.confidence / 100);
-      directionScore += dirValue * effectiveWeight;
-      totalConfidenceWeight += effectiveWeight;
-      
-      if (source.direction === 'UP') upCount++;
-      else if (source.direction === 'DOWN') downCount++;
-    }
-
-    // Normalize direction score
-    const normalizedDirection = totalConfidenceWeight > 0 
-      ? directionScore / totalConfidenceWeight 
-      : 0;
-
-    // Determine overall direction
-    const direction: 'UP' | 'DOWN' | 'NEUTRAL' =
-      normalizedDirection > 0.15 ? 'UP' :
-      normalizedDirection < -0.15 ? 'DOWN' : 'NEUTRAL';
-
-    // Consensus = fraction of sources that AGREE with the chosen direction.
-    // Previously computed as max(upCount, downCount) / total, which returned
-    // majority-dominance regardless of whether that majority matched the
-    // aggregate direction. That let the aggregator return direction=UP with
-    // consensus=57% while the 57% majority actually pointed DOWN — the exact
-    // root cause of the 22% paper-trader win rate diagnosed 2026-09-18.
-    // Live snapshot: ETH aggregate=UP, sources 3 UP / 4 DOWN, old consensus
-    // reported 57% (down-majority), new consensus reports 43% (up-agreement).
-    // Downstream gates (PAPER_MIN_CONSENSUS, live trader effectiveCons) now
-    // filter on the correct metric.
-    const totalSources = sources.length;
-    let agreeCount = 0;
-    if (direction === 'UP') agreeCount = upCount;
-    else if (direction === 'DOWN') agreeCount = downCount;
-    // For NEUTRAL, consensus is 0 (no directional call to agree with).
-    const consensus = totalSources > 0 && direction !== 'NEUTRAL'
-      ? (agreeCount / totalSources) * 100
-      : 0;
-
-    // Calculate weighted confidence
-    const weightedConfidence = sources.reduce((sum, s) => 
-      sum + s.confidence * s.weight, 0);
-
-    // Calculate weighted probability
-    const weightedProbability = sources.reduce((sum, s) => 
-      sum + s.probability * s.weight, 0);
-
-    // Determine recommendation based on direction + confidence + consensus
-    const recommendation = this.determineRecommendation(
-      direction, 
-      weightedConfidence, 
-      consensus, 
-      Math.abs(normalizedDirection)
-    );
-
-    // Calculate size multiplier (1.0 = normal, 0.5 = small, 2.0 = large)
-    const sizeMultiplier = this.calculateSizeMultiplier(
-      weightedConfidence, 
-      consensus, 
-      Math.abs(normalizedDirection)
-    );
-
-    // Build reasoning
-    const reasoning = this.buildReasoning(sources, direction, consensus, recommendation);
-
-    return {
-      direction,
-      confidence: weightedConfidence,
-      probability: weightedProbability,
-      consensus,
-      recommendation,
-      sizeMultiplier,
-      sources,
-      reasoning,
-      timestamp: Date.now(),
-    };
-  }
-
-  /**
-   * Determine hedge recommendation
-   */
-  private static determineRecommendation(
-    direction: 'UP' | 'DOWN' | 'NEUTRAL',
-    confidence: number,
-    consensus: number,
-    directionStrength: number
-  ): AggregatedPrediction['recommendation'] {
-    return determineRecommendationPure(direction, confidence, consensus, directionStrength);
-  }
-
-  /**
-   * Calculate position size multiplier
-   */
-  private static calculateSizeMultiplier(
-    confidence: number,
-    consensus: number,
-    directionStrength: number
-  ): number {
-    return calculateSizeMultiplierPure(confidence, consensus, directionStrength);
-  }
-
-  /**
-   * Build human-readable reasoning
-   */
-  private static buildReasoning(
-    sources: PredictionSource[],
-    direction: 'UP' | 'DOWN' | 'NEUTRAL',
-    consensus: number,
-    recommendation: AggregatedPrediction['recommendation']
-  ): string {
-    const parts: string[] = [];
-
-    // Direction summary
-    if (direction === 'NEUTRAL') {
-      parts.push('Mixed signals from prediction markets - no clear direction.');
-    } else {
-      const upSources = sources.filter(s => s.direction === 'UP').map(s => s.name.split(':')[0]);
-      const downSources = sources.filter(s => s.direction === 'DOWN').map(s => s.name.split(':')[0]);
-      
-      if (direction === 'DOWN') {
-        parts.push(`Bearish signals from ${downSources.length} sources (${downSources.slice(0, 3).join(', ')}).`);
-      } else {
-        parts.push(`Bullish signals from ${upSources.length} sources (${upSources.slice(0, 3).join(', ')}).`);
-      }
-    }
-
-    // Consensus
-    if (consensus >= 75) {
-      parts.push('High consensus among prediction sources.');
-    } else if (consensus >= 50) {
-      parts.push('Moderate consensus - some disagreement between sources.');
-    } else {
-      parts.push('Low consensus - sources are divergent.');
-    }
-
-    // Recommendation explanation
-    if (recommendation.includes('STRONG')) {
-      parts.push('Strong hedge recommended due to aligned high-confidence signals.');
-    } else if (recommendation === 'WAIT') {
-      parts.push('Recommend waiting - signals are too weak or mixed.');
-    }
-
-    return parts.join(' ');
-  }
-
-  // ─── Data Fetchers ─────────────────────────────────────────────────
-
-  private static async fetchPolymarketSignal(): Promise<FiveMinBTCSignal | null> {
-    try {
-      const { Polymarket5MinService } = await import('./Polymarket5MinService');
-      return await Polymarket5MinService.getLatest5MinSignal();
-    } catch (error) {
-      logger.debug('[PredictionAggregator] Polymarket fetch failed', { error });
-      return null;
-    }
-  }
-
-  private static async fetchDelphiPredictions(): Promise<PredictionMarket[]> {
-    try {
-      const { DelphiMarketService } = await import('./DelphiMarketService');
-      const { resolveAgentUniverse } = await import('@/lib/config/agent-universe');
-      const assets = await resolveAgentUniverse();
-      const predictions = await DelphiMarketService.getRelevantMarkets(assets);
-      // Only return high-impact predictions
-      return predictions.filter(p => p.impact === 'HIGH' || p.impact === 'MODERATE').slice(0, 5);
-    } catch (error) {
-      logger.debug('[PredictionAggregator] Delphi fetch failed', { error });
-      return [];
-    }
-  }
-
-  private static async fetchCryptoComData(assets: string[] = ['BTC', 'ETH']): Promise<{
-    btc: { price: number; change24h: number; volume: number } | null;
-    eth: { price: number; change24h: number; volume: number } | null;
-    perAsset: Record<string, { price: number; change24h: number; volume: number }>;
-  }> {
-    try {
-      // Next.js data cache: 30s revalidate + tag for on-demand invalidation.
-      // Ticker is public + moves slowly enough at 30s cadence; caching across
-      // Vercel instances significantly reduces external API load when
-      // trader (5min) + autohedge (30min) crons both call this hot.
-      const response = await fetch('https://api.crypto.com/exchange/v1/public/get-tickers', {
-        signal: AbortSignal.timeout(5000),
-        next: { revalidate: 30, tags: [CACHE_TAG_CRYPTOCOM_TICKER] },
-      });
-
-      if (!response.ok) throw new Error('Crypto.com API unavailable');
-
-      const data = await response.json();
-      const tickers: Array<Record<string, string>> = data.result?.data || [];
-
-      // Build a per-asset map. Crypto.com instrument names are SYMBOL_USDT.
-      const perAsset: Record<string, { price: number; change24h: number; volume: number }> = {};
-      const tickerMap: Record<string, Record<string, string>> = {};
-      for (const t of tickers) tickerMap[String(t.i || '')] = t;
-
-      for (const rawAsset of assets) {
-        const asset = rawAsset.toUpperCase();
-        const t = tickerMap[`${asset}_USDT`];
-        if (!t) continue;
-        // Use bid+ask MID for drift tracking. `t.a` (ask) alone goes stale
-        // between updates on quiet pairs — multiple consecutive fetches
-        // return the identical ask even when bid moved, producing
-        // zero-delta drift samples. Midpoint averages both sides so any
-        // real book movement registers.
-        const ask = parseFloat(t.a || '0');
-        const bid = parseFloat(t.b || '0');
-        const price = (ask > 0 && bid > 0) ? (ask + bid) / 2 : (ask || bid);
-        if (!Number.isFinite(price) || price <= 0) continue;
-        perAsset[asset] = {
-          price,
-          change24h: parseFloat(t.c || '0') * 100,
-          volume: parseFloat(t.v || '0') * (ask || price),
-        };
-      }
-
-      const btcTicker = tickerMap['BTC_USDT'];
-      const ethTicker = tickerMap['ETH_USDT'];
-
-      return {
-        btc: btcTicker ? {
-          price: parseFloat(btcTicker.a || '0'),
-          change24h: parseFloat(btcTicker.c || '0') * 100,
-          volume: parseFloat(btcTicker.v || '0') * parseFloat(btcTicker.a || '0'),
-        } : null,
-        eth: ethTicker ? {
-          price: parseFloat(ethTicker.a || '0'),
-          change24h: parseFloat(ethTicker.c || '0') * 100,
-          volume: parseFloat(ethTicker.v || '0') * parseFloat(ethTicker.a || '0'),
-        } : null,
-        perAsset,
-      };
-    } catch (error) {
-      logger.debug('[PredictionAggregator] Crypto.com fetch failed', { error });
-      return { btc: null, eth: null, perAsset: {} };
-    }
-  }
-
-  /**
-   * Binance perpetual funding + long/short account ratio.
-   *
-   * Added 2026-09-19 to diversify beyond BlueFin (much smaller
-   * volume) for retail-positioning signal. Both are contrarian:
-   *   - funding > +0.03% per 8h (~30% APR) → longs crowded → SHORT
-   *   - long/short ratio > 1.5 or < 0.67 → extreme retail positioning
-   *
-   * Endpoints are public + free. Returns sparse map on any error.
-   */
-  private static async fetchBinancePositioning(
-    assets: string[],
-  ): Promise<Record<string, { funding: number; longShortRatio: number }>> {
-    const out: Record<string, { funding: number; longShortRatio: number }> = {};
-    const symbolFor = (asset: string) => `${asset.toUpperCase()}USDT`;
-    await Promise.all(
-      assets.map(async (rawAsset) => {
-        const asset = rawAsset.toUpperCase();
-        const symbol = symbolFor(asset);
-        try {
-          const [premiumResp, ratioResp] = await Promise.all([
-            fetch(`https://fapi.binance.com/fapi/v1/premiumIndex?symbol=${symbol}`, {
-              signal: AbortSignal.timeout(4000),
-              next: { revalidate: 60 },
-            }).catch(() => null),
-            fetch(
-              `https://fapi.binance.com/futures/data/globalLongShortAccountRatio?symbol=${symbol}&period=5m&limit=1`,
-              { signal: AbortSignal.timeout(4000), next: { revalidate: 300 } },
-            ).catch(() => null),
-          ]);
-          if (!premiumResp?.ok || !ratioResp?.ok) return;
-          const premiumJson = (await premiumResp.json()) as { lastFundingRate?: string };
-          const ratioJson = (await ratioResp.json()) as Array<{ longShortRatio?: string }>;
-          const funding = parseFloat(premiumJson.lastFundingRate ?? '');
-          const ratio = parseFloat(ratioJson[0]?.longShortRatio ?? '');
-          if (Number.isFinite(funding) && Number.isFinite(ratio) && ratio > 0) {
-            out[asset] = { funding, longShortRatio: ratio };
-          }
-        } catch (e) {
-          logger.debug('[PredictionAggregator] Binance fetch failed', {
-            asset, error: e instanceof Error ? e.message : String(e),
-          });
-        }
-      }),
-    );
-    return out;
-  }
-
-  /**
-   * Bybit perpetual funding rate + open interest.
-   *
-   * Added 2026-09-19 to give SOL/XRP/DOGE the same signal richness as
-   * BTC/ETH. Bybit has deep liquidity in the small-caps (XRP OI ~$212M,
-   * DOGE OI ~$1.5B) so their funding + OI are meaningful retail-
-   * positioning signals for those assets specifically.
-   *
-   * OI change (delta from prior fetch) is the interesting signal:
-   *   - OI RISING with price → new longs entering → potential top
-   *   - OI FALLING with stable price → shorts closing → bullish
-   *   - OI FALLING with dropping price → longs capitulating → bottom
-   */
-  private static async fetchBybitPositioning(
-    assets: string[],
-  ): Promise<Record<string, { funding: number; openInterest: number }>> {
-    const out: Record<string, { funding: number; openInterest: number }> = {};
-    const symbolFor = (asset: string) => `${asset.toUpperCase()}USDT`;
-    await Promise.all(
-      assets.map(async (rawAsset) => {
-        const asset = rawAsset.toUpperCase();
-        const symbol = symbolFor(asset);
-        try {
-          const resp = await fetch(
-            `https://api.bybit.com/v5/market/tickers?category=linear&symbol=${symbol}`,
-            { signal: AbortSignal.timeout(4000), next: { revalidate: 60 } },
-          ).catch(() => null);
-          if (!resp?.ok) return;
-          const json = (await resp.json()) as {
-            result?: { list?: Array<{ fundingRate?: string; openInterest?: string }> };
-          };
-          const t = json.result?.list?.[0];
-          if (!t) return;
-          const funding = parseFloat(t.fundingRate ?? '');
-          const oi = parseFloat(t.openInterest ?? '');
-          if (Number.isFinite(funding) && Number.isFinite(oi) && oi > 0) {
-            out[asset] = { funding, openInterest: oi };
-          }
-        } catch (e) {
-          logger.debug('[PredictionAggregator] Bybit fetch failed', {
-            asset, error: e instanceof Error ? e.message : String(e),
-          });
-        }
-      }),
-    );
-    return out;
-  }
-
-  /**
-   * Fetch the LIVE funding rate per asset from Bluefin's market ticker.
-   * Decimal per 8-hour funding interval (e.g. 0.0001 ≈ 11% APR).
-   * Returns a sparse map — assets with no data are simply omitted.
-   *
-   * Uses a public, unsigned ticker endpoint so this works without the
-   * Bluefin admin key being initialized in this service.
-   */
-  private static async fetchBluefinFundingRates(
-    assets: string[],
-  ): Promise<Record<string, number>> {
-    const out: Record<string, number> = {};
-    const network = (process.env.SUI_NETWORK as 'mainnet' | 'testnet') === 'testnet'
-      ? 'testnet' : 'mainnet';
-    // Exchange API base (matches BluefinService.NETWORK_CONFIG).
-    const base = network === 'mainnet'
-      ? 'https://api.sui-prod.bluefin.io'
-      : 'https://api.sui-staging.bluefin.io';
-    await Promise.all(assets.map(async (rawAsset) => {
-      const asset = rawAsset.toUpperCase();
-      const symbol = `${asset}-PERP`;
-      try {
-        // Funding rate ticker: 60s revalidate. BlueFin updates funding
-        // every ~1min; more frequent fetches waste requests + risk rate limits.
-        const res = await fetch(
-          `${base}/v1/exchange/ticker?symbol=${encodeURIComponent(symbol)}`,
-          {
-            signal: AbortSignal.timeout(4000),
-            next: { revalidate: 60, tags: [CACHE_TAG_BLUEFIN_FUNDING] },
-          },
-        );
-        if (!res.ok) return;
-        const data = await res.json() as {
-          lastFundingRateE9?: string;
-          fundingRate?: string;
-        };
-        let fr = NaN;
-        if (data?.lastFundingRateE9) fr = parseFloat(data.lastFundingRateE9) / 1e9;
-        else if (data?.fundingRate) fr = parseFloat(data.fundingRate);
-        if (Number.isFinite(fr)) out[asset] = fr;
-      } catch (e) {
-        logger.debug(`[PredictionAggregator] Bluefin funding fetch failed for ${symbol}`, {
-          error: e instanceof Error ? e.message : String(e),
-        });
-      }
-    }));
-    return out;
-  }
-
-  /**
-   * Approximate funding rate sentiment from existing signals
-   * In a real system, this would fetch from perpetual exchanges
-   */
-  private static approximateFundingRateSentiment(
-    existingSources: PredictionSource[]
-  ): PredictionSource | null {
-    if (existingSources.length < 2) return null;
-
-    // Average direction from short-term sources
-    const shortTermSources = existingSources.filter(s => s.type === 'short_term');
-    if (shortTermSources.length === 0) return null;
-
-    const avgDirection = shortTermSources.reduce((sum, s) => {
-      return sum + (s.direction === 'UP' ? 1 : s.direction === 'DOWN' ? -1 : 0);
-    }, 0) / shortTermSources.length;
-
-    // Strong bullish sentiment = likely positive funding (shorts pay longs)
-    // Strong bearish sentiment = likely negative funding (longs pay shorts)
-    const direction: 'UP' | 'DOWN' | 'NEUTRAL' = 
-      avgDirection > 0.3 ? 'UP' : avgDirection < -0.3 ? 'DOWN' : 'NEUTRAL';
-
-    return {
-      name: 'Funding Rate Proxy',
-      type: 'on_chain',
-      direction,
-      confidence: 50 + Math.abs(avgDirection) * 30,
-      probability: 50 + avgDirection * 25,
-      weight: 0.10,
-      rawData: { avgDirection, sourceCount: shortTermSources.length },
-      fetchedAt: Date.now(),
-    };
   }
 
   // ─── Multi-asset scanning ────────────────────────────────────────
@@ -709,14 +274,14 @@ export class PredictionAggregatorService {
     // Options skew: Deribit series only exist for BTC + ETH.
     const optionsAssets = upperAssets.filter((a): a is 'BTC' | 'ETH' => a === 'BTC' || a === 'ETH');
     const [polymarketSignal, delphiPredictions, cryptoComData, fundingRates, multiAssetSignals, manifoldMarkets, binancePositioning, bybitPositioning, broadMarkets, orderbookImbalance, optionsSkew] = await Promise.all([
-      this.fetchPolymarketSignal(),
-      this.fetchDelphiPredictions(),
-      this.fetchCryptoComData(upperAssets),
-      this.fetchBluefinFundingRates(assets),
+      fetchPolymarketSignal(),
+      fetchDelphiPredictions(),
+      fetchCryptoComData(upperAssets),
+      fetchBluefinFundingRates(assets),
       MultiAssetSignalService.getLatestSignals(alignmentUniverse).catch(() => ({} as Record<string, MultiAssetSignal | null>)),
       ManifoldMarketService.getCryptoMarkets(upperAssets).catch(() => [] as PredictionMarket[]),
-      this.fetchBinancePositioning(upperAssets).catch(() => ({} as Record<string, { funding: number; longShortRatio: number }>)),
-      this.fetchBybitPositioning(upperAssets).catch(() => ({} as Record<string, { funding: number; openInterest: number }>)),
+      fetchBinancePositioning(upperAssets).catch(() => ({} as Record<string, { funding: number; longShortRatio: number }>)),
+      fetchBybitPositioning(upperAssets).catch(() => ({} as Record<string, { funding: number; openInterest: number }>)),
       fetchBroadCryptoMarkets({}).catch(() => [] as BroadMarket[]),
       // NEW 2026-09-23: orderbook microstructure — top-20 L2 depth imbalance
       // from Binance perp. Independent short-term signal beyond prediction
@@ -1117,7 +682,7 @@ export class PredictionAggregatorService {
       // 5) Funding-rate proxy from this asset's short-term sources (kept as
       //    a low-weight backstop for assets with no live Bluefin funding).
       if (fundingRate === undefined) {
-        const funding = this.approximateFundingRateSentiment(sources);
+        const funding = approximateFundingRateSentiment(sources);
         if (funding) sources.push(funding);
       }
 
@@ -1368,7 +933,7 @@ export class PredictionAggregatorService {
         });
       }
 
-      out[asset] = this.calculateAggregation(sources);
+      out[asset] = calculateAggregation(sources);
     }
 
     cache.set(cacheKey, out, CACHE_TTL_MS);
