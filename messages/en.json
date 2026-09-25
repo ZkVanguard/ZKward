@@ -24,8 +24,8 @@
       "members": "members"
     },
     "hero": {
-      "headline1": "20 signal sources.",
-      "headline2": "Ranked by track record.",
+      "headline1": "The signal layer",
+      "headline2": "for digital assets.",
       "subtitle": "Every prediction market, every funding rate, every on-chain signal — scored against real outcomes. Autonomous execution when the winners align."
     },
     "stats": {
@@ -57,13 +57,13 @@
       "installIosHint": "To install: tap the Share icon in Safari, scroll down, and tap \"Add to Home Screen\"."
     },
     "composition": {
-      "eyebrow": "Live signal",
-      "title": "What the aggregator says right now.",
+      "eyebrow": "Live now",
+      "title": "Live signal, per asset.",
       "body": "20 sources fused per asset across BTC, ETH, SUI. Refreshes every 30 seconds."
     },
     "howItWorks": {
-      "eyebrow": "The loop",
-      "title": "Aggregate. Score. Execute.",
+      "eyebrow": "How it works",
+      "title": "Aggregate. Calibrate. Execute.",
       "body": "Runs every five minutes. All day. Without you.",
       "step1": {
         "title": "Fuse 20 sources per asset",
@@ -79,7 +79,7 @@
       }
     },
     "trust": {
-      "title": "Signal integrity, enforced by the code.",
+      "title": "Trust minimized, by design.",
       "body": "Not a policy on our website. The pipeline itself refuses bad signals, bad venues, and stale data.",
       "poolCap": {
         "title": "Sources tracked",
@@ -108,8 +108,8 @@
       }
     },
     "surfaces": {
-      "eyebrow": "Look around",
-      "title": "Every layer of ZKward is public.",
+      "eyebrow": "Explore",
+      "title": "Transparent by default.",
       "body": "Signals, sources, trades, proofs. Nothing behind a login except your wallet.",
       "dashboard": {
         "eyebrow": "Dashboard",
@@ -133,12 +133,12 @@
       },
       "story": {
         "eyebrow": "Our story",
-        "title": "How we got here.",
+        "title": "Origins.",
         "body": "A five-minute read. We tell you when we lose money, too."
       },
       "whitepaper": {
         "eyebrow": "Whitepaper",
-        "title": "The technical version.",
+        "title": "Technical whitepaper.",
         "body": "20-source signal fusion, per-source calibration, AI-graded prediction market interpretation, STARK-attested execution."
       }
     },
