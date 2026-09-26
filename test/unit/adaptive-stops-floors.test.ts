@@ -21,19 +21,19 @@ describe('adaptive-stops per-asset floor', () => {
     delete process.env.PAPER_ASSET_STOP_FLOOR_PCT_BTC;
   });
 
-  it('DOGE static-fallback stop >= 1.8% default floor', async () => {
+  it('DOGE static-fallback stop >= 2.5% default floor', async () => {
     const t = await computeAdaptiveThresholds('DOGE');
-    expect(t.stopLossPct).toBeGreaterThanOrEqual(0.018);
+    expect(t.stopLossPct).toBeGreaterThanOrEqual(0.025);
   });
 
-  it('XRP static-fallback stop >= 1.8% default floor', async () => {
+  it('XRP static-fallback stop >= 2.5% default floor', async () => {
     const t = await computeAdaptiveThresholds('XRP');
-    expect(t.stopLossPct).toBeGreaterThanOrEqual(0.018);
+    expect(t.stopLossPct).toBeGreaterThanOrEqual(0.025);
   });
 
-  it('BTC static-fallback stop >= 1.0% base floor (no per-asset override)', async () => {
+  it('BTC static-fallback stop >= 2.5% base floor (no per-asset override)', async () => {
     const t = await computeAdaptiveThresholds('BTC');
-    expect(t.stopLossPct).toBeGreaterThanOrEqual(0.01);
+    expect(t.stopLossPct).toBeGreaterThanOrEqual(0.025);
   });
 
   it('env override wins', async () => {

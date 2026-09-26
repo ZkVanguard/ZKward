@@ -41,8 +41,12 @@ const STOP_MULTIPLE = Number(process.env.PAPER_TRADER_ADAPTIVE_STOP_MULT || 2.0)
 const TRAILING_ARM_MULTIPLE = Number(process.env.PAPER_TRADER_ADAPTIVE_ARM_MULT || 1.5);
 
 // Safety clamps — never let the adaptive stop go absurd in either direction.
-// MIN raised 0.4% → 1.0% so no asset gets picked off inside fee-noise band.
-const MIN_STOP_PCT = 0.01;  // 1.0%
+// MIN raised 1.0% → 2.5% on 2026-09-26. Trade audit: SOL/XRP stopped
+// out on 5-6bp move past 1.2-1.4% stops (adaptive × CHOP regime 0.75×
+// scaling can pull below the intended floor). 2.5% survives typical
+// 45-min mean reversion at 3× leverage without turning stops into
+// silent no-ops. Env override: PAPER_TRADER_MIN_STOP_PCT.
+const MIN_STOP_PCT = Number(process.env.PAPER_TRADER_MIN_STOP_PCT || 0.025);
 const MAX_STOP_PCT = 0.05;  // 5% — anything wider is a stop-loss in name only
 const MIN_ARM_PCT = 0.003;
 const MAX_ARM_PCT = 0.04;
@@ -61,7 +65,10 @@ function assetStopFloor(asset: string): number {
     const n = Number(raw);
     if (Number.isFinite(n) && n > 0) return n;
   }
-  if (upper === 'DOGE' || upper === 'XRP') return 0.018;
+  // DOGE/XRP kept slightly wider than the base MIN — historically their
+  // 45-min noise band is bigger than BTC/ETH. But never LOWER than the
+  // base MIN (regime scaling could pull DOGE below the intended floor).
+  if (upper === 'DOGE' || upper === 'XRP') return Math.max(MIN_STOP_PCT, 0.025);
   return MIN_STOP_PCT;
 }
 

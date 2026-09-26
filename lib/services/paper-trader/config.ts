@@ -326,12 +326,14 @@ export const PAPER_MAX_SAME_DIR_PER_CLUSTER = Math.max(
 export const PAPER_MIN_MAJORITY_PCT = Number(
   process.env.PAPER_TRADER_MIN_MAJORITY_PCT || 0.55,
 );
-// RESEARCH MODE: 2 → 1 tick. Faster time-to-first-trade after a
-// signal appears. Cost: less filter on flip-flop signals; the 45m
-// max-hold catches most of the flip-then-reverse pattern anyway.
+// Bumped 1 → 2 on 2026-09-26. Trade-log audit showed BTC/ETH/SOL signal
+// flipping in 4-15 min at 3× leverage — max-hold does NOT catch chop
+// that flips inside 45m. Require the same direction for 2 consecutive
+// ticks (10 min) before entry. Cost: ~5 min more time-to-first-trade
+// after a fresh signal appears.
 export const PAPER_MIN_STABLE_TICKS = Math.max(
   1,
-  Number(process.env.PAPER_TRADER_MIN_STABLE_TICKS || 1),
+  Number(process.env.PAPER_TRADER_MIN_STABLE_TICKS || 2),
 );
 export const KEY_SIGNAL_HISTORY = 'paper-trader:signal-history';
 
