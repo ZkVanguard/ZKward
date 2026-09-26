@@ -96,6 +96,28 @@ export const PAPER_ROLLING_LOSS_HALT_HOURS = Number(
   process.env.PAPER_TRADER_ROLLING_LOSS_HALT_HOURS || 4,
 );
 
+// Fix K (2026-09-26) — calibrated-probability-driven ranking + gating.
+//
+// The probability-calibrator learns per-(asset, side, conf-bucket) actual
+// win rate. Historically the paper trader USED it only as a binary
+// gate ("skip if calibrated < 50%"), and RANKED candidates by raw
+// aggregator score. But raw score is broken — bucket 80-84 was 23.8% wr,
+// bucket 70-74 was 38.4% wr (data 2026-09-25). Ranking by raw meant
+// picking high-conf/low-win-rate signals over low-conf/high-win-rate.
+//
+// This bumps the gate to a fee-adjusted breakeven and switches ranking
+// to calibrated probability when enough data exists.
+//
+// Threshold math: 3× leverage, 13bp round-trip fees, ~55/45 avg win/loss
+// dollar asymmetry → breakeven around 53% win rate. Everything below
+// bleeds after fees.
+export const PAPER_CALIBRATED_MIN_WIN_RATE = Number(
+  process.env.PAPER_TRADER_CALIBRATED_MIN_WIN_RATE || 0.53,
+);
+export const PAPER_CALIBRATED_RANK_MIN_N = Number(
+  process.env.PAPER_TRADER_CALIBRATED_RANK_MIN_N || 5,
+);
+
 /**
  * Max stake per trade as a fraction of NAV, applied AFTER all sizing
  * multipliers (signalScalar × volMult × calibrationBoost).

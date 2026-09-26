@@ -33,6 +33,8 @@ import {
   PAPER_STAKE_PCT,
   PAPER_LEVERAGE,
   PAPER_SKIP_STRONG_SIGNALS,
+  PAPER_CALIBRATED_MIN_WIN_RATE,
+  PAPER_CALIBRATED_RANK_MIN_N,
 } from './config';
 import type { Side } from './simulated-executor';
 import { getMultiSourceValidatedPrice } from '@/lib/services/market-data/unified-price-provider';
@@ -148,10 +150,25 @@ export async function selectCandidate(
   // suppressed. Cold-start arms (<3 trades) return neutral 1.0 so the
   // regular signal picker still gets to explore.
   const { getArmMultiplier } = await import('./bandit');
+  const { calibrate } = await import('@/lib/services/ai/probability-calibrator');
 
-  // In concurrent mode: rank every candidate by score, iterate.
-  // In legacy mode: just try scan.best.
-  const rankedCandidates: Array<{ asset: string; prediction: AggregatedPrediction; score: number }> = [];
+  // Fix K (2026-09-26) — rank candidates by CALIBRATED empirical win rate
+  // (fee-adjusted), not raw aggregator score. Historical audit showed raw
+  // confidence has no monotonic relationship with actual win rate:
+  //   raw 60-64 conf → 23.2% wr, raw 70-74 → 38.4% wr, raw 80-84 → 23.8% wr.
+  // The old code ranked by raw score, then GATED at pCalibrated < 0.50.
+  // That preferred high-raw-conf/low-actual-win over low-raw-conf/high-
+  // actual-win. Now: precompute calibrated prob per candidate, USE it as
+  // the rank key, and gate at the fee-adjusted threshold (default 0.53).
+  // Falls back to raw score when the (asset, side, bucket) has < min-N
+  // data — bootstrap window before empirical dominates.
+  const rankedCandidates: Array<{
+    asset: string;
+    prediction: AggregatedPrediction;
+    score: number;
+    calibratedProb: number | null;
+    calibrationN: number;
+  }> = [];
   if (concurrencyFilter) {
     for (const [candidateAsset, pred] of Object.entries(scan.all)) {
       if (pred.confidence < effectiveMinConf) continue;
@@ -161,14 +178,39 @@ export async function selectCandidate(
       if (rawScore <= 0) continue;
       const side = recommendationToSide(pred.recommendation);
       const armMult = side ? await getArmMultiplier(candidateAsset, side).catch(() => 1) : 1;
-      rankedCandidates.push({ asset: candidateAsset, prediction: pred, score: rawScore * armMult });
+      // Calibrated probability lookup — cheap cron_state read.
+      let calibratedProb: number | null = null;
+      let calibrationN = 0;
+      if (side) {
+        try {
+          const cal = await calibrate({ asset: candidateAsset, side, rawConfidencePct: pred.confidence });
+          calibratedProb = cal.pCalibrated;
+          calibrationN = cal.nHistory;
+        } catch { /* fall back to raw */ }
+      }
+      // Rank score: when we have real data, use calibrated prob × 100 so
+      // it competes on the same numeric scale as raw score. Multiply by
+      // bandit arm boost so historically-profitable arms still bubble up.
+      const rankScore = calibratedProb !== null && calibrationN >= PAPER_CALIBRATED_RANK_MIN_N
+        ? calibratedProb * 100 * armMult
+        : rawScore * armMult;
+      rankedCandidates.push({ asset: candidateAsset, prediction: pred, score: rankScore, calibratedProb, calibrationN });
     }
     rankedCandidates.sort((a, b) => b.score - a.score);
   } else {
     // Legacy path: apply bandit boost to scan.best too so both paths agree.
     const side = recommendationToSide(scan.best.prediction.recommendation);
     const armMult = side ? await getArmMultiplier(scan.best.asset, side).catch(() => 1) : 1;
-    rankedCandidates.push({ ...scan.best, score: scan.best.score * armMult });
+    let calibratedProb: number | null = null;
+    let calibrationN = 0;
+    if (side) {
+      try {
+        const cal = await calibrate({ asset: scan.best.asset, side, rawConfidencePct: scan.best.prediction.confidence });
+        calibratedProb = cal.pCalibrated;
+        calibrationN = cal.nHistory;
+      } catch { /* fall back to raw */ }
+    }
+    rankedCandidates.push({ ...scan.best, score: scan.best.score * armMult, calibratedProb, calibrationN });
   }
 
   let lastSkipReason = 'no edge above gates';
@@ -199,26 +241,21 @@ export async function selectCandidate(
       }
     }
 
-    // Probability-calibrator gate (2026-09-22): reject candidates whose
-    // (asset, side, confidence-bucket) has historically won < 50% of the
-    // time. Live trader wrote 189 records under trader:calibration:*
-    // showing e.g. SOL:SHORT:6 wins 25% empirically vs its raw 60%+
-    // aggregator confidence. Paper trader was ignoring that data.
-    // PRIOR=10 shrinkage means new-bucket signals fall back to raw conf.
-    try {
-      const { calibrate } = await import('@/lib/services/ai/probability-calibrator');
-      const cal = await calibrate({
-        asset: cand.asset,
-        side: candSide,
-        rawConfidencePct: cand.prediction.confidence,
-      });
-      // Only gate when we have real data in this bucket (n >= 5). Below
-      // that, PRIOR dominates and calibrated ≈ raw — no signal to act on.
-      if (cal.nHistory >= 5 && cal.pCalibrated < 0.50) {
-        lastSkipReason = `calibrator (${cand.asset} ${candSide}): bucket win-rate ${(cal.pCalibrated * 100).toFixed(0)}% (n=${cal.nHistory}) below 50%`;
-        continue;
-      }
-    } catch { /* non-fatal — fall through */ }
+    // Fix K (2026-09-26) — fee-adjusted calibrated-probability gate.
+    // Uses the pre-computed calibrated prob attached during ranking (no
+    // second cron_state read per candidate). Threshold raised from the
+    // pre-Fix-K 0.50 to PAPER_CALIBRATED_MIN_WIN_RATE (default 0.53) to
+    // cover 3× lev + 13bp round-trip fees + slight adverse-selection
+    // margin. Below 53% empirical wins → net loss even when trades
+    // marginally "win" by close.
+    if (
+      cand.calibratedProb !== null
+      && cand.calibrationN >= PAPER_CALIBRATED_RANK_MIN_N
+      && cand.calibratedProb < PAPER_CALIBRATED_MIN_WIN_RATE
+    ) {
+      lastSkipReason = `calibrator (${cand.asset} ${candSide}): bucket win-rate ${(cand.calibratedProb * 100).toFixed(0)}% (n=${cand.calibrationN}) below fee-adj ${(PAPER_CALIBRATED_MIN_WIN_RATE * 100).toFixed(0)}%`;
+      continue;
+    }
 
     // Extra caller-supplied gate (streak / trend / vol / regret) —
     // was AFTER selection previously, meaning a top-pick rejection
