@@ -274,7 +274,10 @@ describe('PaperTrader.runTick — active-position path', () => {
     stubSameAssetPrediction('BTC', 'HEDGE_SHORT', 70); // flipped LONG → SHORT
     mockGetLivePrice.mockResolvedValue(65_500);
 
-    const res = await PaperTrader.runTick(NOW + 5 * 60_000);
+    // Post-Fix-M (2026-09-26): flip-age gate raised 3min → 15min. Fire
+    // between the flip gate (15) and the pinned MAX_HOLD (20) — 16min
+    // hits the flip path cleanly.
+    const res = await PaperTrader.runTick(NOW + 16 * 60_000);
     expect(res.action).toBe('closed');
     expect(res.reason).toMatch(/signal flipped/);
     // Position was cleared — that's the behavioral signal of a close.
@@ -505,7 +508,10 @@ describe('signal-flip close — STRONG_ skip symmetry (PR #130)', () => {
     stubSameAssetPrediction('BTC', 'HEDGE_SHORT', 70);
     mockGetLivePrice.mockResolvedValue(64_800);
 
-    const res = await PaperTrader.runTick(NOW + 5 * 60_000);
+    // Post-Fix-M (2026-09-26): flip-age gate raised 3min → 15min. Fire
+    // between the flip gate (15) and the pinned MAX_HOLD (20) — 16min
+    // hits the flip path cleanly.
+    const res = await PaperTrader.runTick(NOW + 16 * 60_000);
     expect(res.action).toBe('closed');
     expect(res.reason).toMatch(/signal flipped/);
   });
