@@ -17,6 +17,10 @@ process.env.PAPER_TRADER_MAX_HOLD_MIN = '20';
 // KEY_POSITIONS (concurrent 3) since 2026-09-22; the tests here assert
 // the legacy single-slot state transitions.
 process.env.PAPER_TRADER_MAX_CONCURRENT = '1';
+// Regime lookup defaults to CHOP when the aggregator mock isn't wired.
+// These tests exercise the entry state-machine, not the regime halt —
+// disable so opens aren't shadow-blocked. Regime halt has its own tests.
+process.env.PAPER_TRADER_HALT_ENTRIES_IN_CHOP = '0';
 
 import { describe, it, expect, jest, beforeEach } from '@jest/globals';
 
@@ -50,6 +54,16 @@ jest.mock('@/lib/db/hedges', () => ({
 }));
 jest.mock('@/lib/db/postgres', () => ({
   query: (...args: any[]) => mockQuery(...args),
+}));
+// Mock volatility-gate so adaptive-stops falls through to its STATIC
+// fallback (STOP=0.025, ARM=0.006), AND lowVolatilityRejection returns
+// null (fail-open on null vol). Without this, tests picked up live
+// BTC vol from the network. Mock a HIGH vol (60%) so the low-vol
+// entry gate PASSES rather than fails-open.
+jest.mock('@/lib/services/paper-trader/volatility-gate', () => ({
+  getRealizedVolPct: jest.fn(async () => 60),
+  getBinanceRealizedVolPct: jest.fn(async () => 60),
+  lowVolatilityRejection: jest.fn(async () => null),
 }));
 
 // Import AFTER mocks are set up

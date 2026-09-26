@@ -125,6 +125,13 @@ export const PAPER_CALIBRATED_RANK_MIN_N = Number(
   process.env.PAPER_TRADER_CALIBRATED_RANK_MIN_N || 20,
 );
 
+// Halt entries entirely when the regime classifier says CHOP. Trade audit
+// 2026-09-26 showed 7 of 8 recent losses came from 4-15 min signal flips
+// (classic chop pattern). Regime is cached 1h — no flapping. Env-toggleable
+// in case the classifier locks us out for extended stretches.
+export const PAPER_HALT_ENTRIES_IN_CHOP =
+  (process.env.PAPER_TRADER_HALT_ENTRIES_IN_CHOP ?? '1') !== '0';
+
 // Fix L (2026-09-26) — asset-side hard blacklist based on lifetime
 // empirical hit rate. Deep-dive audit showed 5 of 9 (asset,side) pairs
 // bleed 97% of the total loss:

@@ -35,6 +35,7 @@ import {
   PAPER_SKIP_STRONG_SIGNALS,
   PAPER_CALIBRATED_MIN_WIN_RATE,
   PAPER_CALIBRATED_RANK_MIN_N,
+  PAPER_HALT_ENTRIES_IN_CHOP,
 } from './config';
 import type { Side } from './simulated-executor';
 import { getMultiSourceValidatedPrice } from '@/lib/services/market-data/unified-price-provider';
@@ -121,12 +122,25 @@ export async function selectCandidate(
   // TREND relaxes 0.95× (55 → 52). minConfidenceMult was dead until
   // 2026-09-22.
   let effectiveMinConf = PAPER_MIN_CONFIDENCE;
+  let currentRegime: 'TRENDING_UP' | 'TRENDING_DOWN' | 'CHOP' | null = null;
   try {
     const { getCurrentRegime, getRegimeMultipliers } = await import('./regime');
     const { regime } = await getCurrentRegime(now);
+    currentRegime = regime;
     const regMults = getRegimeMultipliers(regime);
     effectiveMinConf = PAPER_MIN_CONFIDENCE * regMults.minConfidenceMult;
   } catch { /* fall back to static */ }
+
+  // Structural: halt all entries in CHOP regime. Every recent flip-close
+  // loss (id 816/818/821/822, 4-21 min holds) was chop behavior. Regime
+  // stays put for 1h (regime.ts REGIME_TTL_MS), so this doesn't flap.
+  // Trending regimes let entries through as normal.
+  if (PAPER_HALT_ENTRIES_IN_CHOP && currentRegime === 'CHOP') {
+    logger.info('[PaperTrader] chop-regime halt — no entries this tick', {
+      regime: currentRegime,
+    });
+    return { ok: false, reason: 'chop-regime: entries halted (funding+consensus not trending)' };
+  }
 
   let scan: Awaited<ReturnType<typeof PredictionAggregatorService.scanAndPickBest>>;
   try {
@@ -248,6 +262,7 @@ export async function selectCandidate(
     // Fix K's per-bucket gate.
     const blacklistReject = await assetSideBlacklistRejection(cand.asset, candSide);
     if (blacklistReject) {
+      logger.info('[PaperTrader] Fix L rejected candidate', { asset: cand.asset, side: candSide, reason: blacklistReject });
       lastSkipReason = blacklistReject;
       continue;
     }
@@ -264,7 +279,9 @@ export async function selectCandidate(
       && cand.calibrationN >= PAPER_CALIBRATED_RANK_MIN_N
       && cand.calibratedProb < PAPER_CALIBRATED_MIN_WIN_RATE
     ) {
-      lastSkipReason = `calibrator (${cand.asset} ${candSide}): bucket win-rate ${(cand.calibratedProb * 100).toFixed(0)}% (n=${cand.calibrationN}) below fee-adj ${(PAPER_CALIBRATED_MIN_WIN_RATE * 100).toFixed(0)}%`;
+      const reason = `calibrator (${cand.asset} ${candSide}): bucket win-rate ${(cand.calibratedProb * 100).toFixed(0)}% (n=${cand.calibrationN}) below fee-adj ${(PAPER_CALIBRATED_MIN_WIN_RATE * 100).toFixed(0)}%`;
+      logger.info('[PaperTrader] Fix K rejected candidate', { asset: cand.asset, side: candSide, calibratedProb: cand.calibratedProb, n: cand.calibrationN });
+      lastSkipReason = reason;
       continue;
     }
 
