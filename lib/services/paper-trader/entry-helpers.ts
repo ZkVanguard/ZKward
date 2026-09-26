@@ -44,6 +44,7 @@ import {
   signalQualityRejection,
   appendSignalHistory,
 } from './signal-quality';
+import { assetSideBlacklistRejection } from './asset-side-blacklist';
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -239,6 +240,16 @@ export async function selectCandidate(
         lastSkipReason = `concurrency (${cand.asset}): ${cReject}`;
         continue;
       }
+    }
+
+    // Fix L (2026-09-26) — asset-side lifetime blacklist. Catches
+    // (asset, side) pairs where EVERY conf bucket bleeds (e.g. BTC LONG
+    // at 26% lifetime wr / -$24k across 114 trades). Broader than
+    // Fix K's per-bucket gate.
+    const blacklistReject = await assetSideBlacklistRejection(cand.asset, candSide);
+    if (blacklistReject) {
+      lastSkipReason = blacklistReject;
+      continue;
     }
 
     // Fix K (2026-09-26) — fee-adjusted calibrated-probability gate.

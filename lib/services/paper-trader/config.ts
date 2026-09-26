@@ -118,6 +118,32 @@ export const PAPER_CALIBRATED_RANK_MIN_N = Number(
   process.env.PAPER_TRADER_CALIBRATED_RANK_MIN_N || 5,
 );
 
+// Fix L (2026-09-26) — asset-side hard blacklist based on lifetime
+// empirical hit rate. Deep-dive audit showed 5 of 9 (asset,side) pairs
+// bleed 97% of the total loss:
+//   BTC LONG  114 tr / 26% wr / -$24k  ← 34% of bleed
+//   ETH SHORT  70 tr / 33% wr / -$20k
+//   SOL LONG   32 tr / 34% wr / -$14k
+//   BTC SHORT  36 tr / 22% wr / -$11k
+//   SOL SHORT  15 tr / 27% wr /  -$3k
+// The 3 winners (XRP LONG/SHORT, DOGE SHORT) net +$2k. Fix L blocks
+// any (asset,side) whose lifetime win rate is below MIN_WR AND has
+// at least MIN_N closed trades of evidence. Cold pairs pass through.
+//
+// Complements Fix K (calibrator per-bucket) — Fix L is a BROADER
+// per-pair filter that catches asset-sides where every conf bucket
+// bleeds. Cache the pair list for 30 min so we don't hit the DB
+// every candidate.
+export const PAPER_ASSET_SIDE_BLACKLIST_MIN_WR = Number(
+  process.env.PAPER_TRADER_ASSET_SIDE_BLACKLIST_MIN_WR || 0.40,
+);
+export const PAPER_ASSET_SIDE_BLACKLIST_MIN_N = Number(
+  process.env.PAPER_TRADER_ASSET_SIDE_BLACKLIST_MIN_N || 20,
+);
+export const PAPER_ASSET_SIDE_BLACKLIST_CACHE_TTL_MS = Number(
+  process.env.PAPER_TRADER_ASSET_SIDE_BLACKLIST_CACHE_TTL_MS || 30 * 60_000,
+);
+
 /**
  * Max stake per trade as a fraction of NAV, applied AFTER all sizing
  * multipliers (signalScalar × volMult × calibrationBoost).
@@ -134,9 +160,16 @@ export const PAPER_CALIBRATED_RANK_MIN_N = Number(
  * generated -$40 to -$62 per hit at 5%. Halving stake halves per-trade
  * dollar loss magnitude while keeping the strategy exposure similar to
  * a live $10K vault at ~3% stake ($300/trade).
+ *
+ * Fix N (2026-09-26): 3% → 1.5%. Deep-dive audit showed fee cost is
+ * $117/trade avg on 379 lifetime trades = $44k of the $71k total bleed.
+ * Halving stake halves fee cost too. With 33% win rate + 1.4× loss/win
+ * ratio, we need 55% wr to overcome $117/trade fees. Trade smaller
+ * until Fix L (asset-side blacklist) + Fix K (calibrator ranking)
+ * lift the win rate to fee-breakeven.
  */
 export const PAPER_MAX_STAKE_PCT = Number(
-  process.env.PAPER_TRADER_MAX_STAKE_PCT || 0.03,
+  process.env.PAPER_TRADER_MAX_STAKE_PCT || 0.015,
 );
 
 /**
@@ -313,8 +346,12 @@ export const KEY_SIGNAL_HISTORY = 'paper-trader:signal-history';
  *     confidence bar than the entry gate (65 vs 55) to justify the
  *     round-trip cost.
  */
+// Fix M (2026-09-26): raised 180 → 900. Signal-flip whipsaw audit
+// (2026-09-26) showed flips closed under 15 min win 12-27% and lose money;
+// flips at 30+ min age win 68% and net positive. The 3-min gate let the
+// whipsaw class through.
 export const PAPER_MIN_FLIP_AGE_SEC = Number(
-  process.env.PAPER_TRADER_MIN_FLIP_AGE_SEC || 180,
+  process.env.PAPER_TRADER_MIN_FLIP_AGE_SEC || 900,
 );
 export const PAPER_MIN_FLIP_CONFIDENCE = Number(
   process.env.PAPER_TRADER_MIN_FLIP_CONFIDENCE || 65,
