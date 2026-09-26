@@ -114,8 +114,15 @@ export const PAPER_ROLLING_LOSS_HALT_HOURS = Number(
 export const PAPER_CALIBRATED_MIN_WIN_RATE = Number(
   process.env.PAPER_TRADER_CALIBRATED_MIN_WIN_RATE || 0.53,
 );
+// Min bucket samples before calibrated prob replaces raw score as rank
+// key AND before the 53% gate fires. Shrinkage vs coverage tradeoff at
+// PRIOR_STRENGTH=10: n=5 → raw contributes 67% weight (gate toothless),
+// n=20 → raw 33% (catches worst buckets), n=50 → raw 17% (ideal but few
+// buckets meet it). Bumped 5 → 20 on 2026-09-26 after audit showed a
+// 40%-actual-wr bucket at conf=70 was calibrating to 0.60 and passing
+// the 53% gate. Push to 50 once lifetime trades > 1000.
 export const PAPER_CALIBRATED_RANK_MIN_N = Number(
-  process.env.PAPER_TRADER_CALIBRATED_RANK_MIN_N || 5,
+  process.env.PAPER_TRADER_CALIBRATED_RANK_MIN_N || 20,
 );
 
 // Fix L (2026-09-26) — asset-side hard blacklist based on lifetime
