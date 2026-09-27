@@ -25,6 +25,9 @@ process.env.PAPER_TRADER_HALT_ENTRIES_IN_CHOP = '0';
 // tests exercise the entry state-machine with BTC fixtures, so clear the
 // seeds. Seed behavior has its own tests (paper-trader-fix-o.test.ts).
 process.env.PAPER_TRADER_ASSET_SIDE_BLACKLIST_SEEDS = '';
+// Flip tests assert the flip MECHANICS at NOW+16min fixtures; pin the age
+// gate at the pre-2026-09-27 value (prod default is now 1800s).
+process.env.PAPER_TRADER_MIN_FLIP_AGE_SEC = '900';
 // Fix O: max-hold ceiling (default 90) would clip the legacy scalar
 // assertions below; pin it out of the way. Ceiling has its own test.
 process.env.PAPER_TRADER_MAX_HOLD_CEILING_MIN = '10000';

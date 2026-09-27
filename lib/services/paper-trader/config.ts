@@ -419,8 +419,11 @@ export const KEY_SIGNAL_HISTORY = 'paper-trader:signal-history';
 // (2026-09-26) showed flips closed under 15 min win 12-27% and lose money;
 // flips at 30+ min age win 68% and net positive. The 3-min gate let the
 // whipsaw class through.
+// 2026-09-27: 900 → 1800. Post-reset age-band data (n=60 flip closes):
+// <15min 23% wr, 15-30min 29% wr / -$928, >=30min 75% wr / +$633. The
+// 15-min gate still admitted a losing band; the win-rate cliff is at 30.
 export const PAPER_MIN_FLIP_AGE_SEC = Number(
-  process.env.PAPER_TRADER_MIN_FLIP_AGE_SEC || 900,
+  process.env.PAPER_TRADER_MIN_FLIP_AGE_SEC || 1800,
 );
 export const PAPER_MIN_FLIP_CONFIDENCE = Number(
   process.env.PAPER_TRADER_MIN_FLIP_CONFIDENCE || 65,
