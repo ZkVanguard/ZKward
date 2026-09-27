@@ -192,6 +192,42 @@ async function checkPhantomRate(): Promise<Component & { ratePct?: number; total
 }
 
 /**
+ * Signal-supply freshness — root-audit R5 (2026-09-27). The AI signal
+ * interpreter (best measured source: 75.5% resolved accuracy) died
+ * silently on 2026-09-23 when the Ollama tunnel broke; the aggregator's
+ * 24h staleness filter then fed on nothing and no one noticed for 4 days
+ * while the paper win rate collapsed. Two freshness reads:
+ *   • signal_interpretations MAX(interpreted_at) — >6h warn, >24h down-ish
+ *     (capped at warn: a dead signal degrades quality, it doesn't take
+ *     the platform down — the paging path is the signal-ledger's Discord
+ *     WARN, this component is the dashboard truth)
+ *   • signal_outcomes MAX(observed_at) — the ledger snapshot loop; >2h
+ *     warn once rows exist (rides the 60s fast-tick, 10min debounce)
+ */
+async function checkSignalSupply(): Promise<Component & { interpAgeH?: number; ledgerAgeMin?: number }> {
+  try {
+    const r = await query<{ interp: string | null; ledger: string | null }>(
+      `SELECT
+         (SELECT EXTRACT(EPOCH FROM (NOW() - MAX(interpreted_at)))::text FROM signal_interpretations) AS interp,
+         (SELECT EXTRACT(EPOCH FROM (NOW() - MAX(observed_at)))::text FROM signal_outcomes) AS ledger`,
+    );
+    const interpAgeS = r[0]?.interp ? Number(r[0].interp) : null;
+    const ledgerAgeS = r[0]?.ledger ? Number(r[0].ledger) : null;
+    const interpAgeH = interpAgeS !== null ? Math.round(interpAgeS / 360) / 10 : undefined;
+    const ledgerAgeMin = ledgerAgeS !== null ? Math.round(ledgerAgeS / 60) : undefined;
+    if (interpAgeS !== null && interpAgeS > 6 * 3600) {
+      return { status: 'warn', interpAgeH, ledgerAgeMin, detail: `AI interpreter stale ${interpAgeH}h (>6h) — best source not producing` };
+    }
+    if (ledgerAgeS !== null && ledgerAgeS > 2 * 3600) {
+      return { status: 'warn', interpAgeH, ledgerAgeMin, detail: `signal ledger stale ${ledgerAgeMin}min (>2h) — snapshot loop not running` };
+    }
+    return { status: 'ok', interpAgeH, ledgerAgeMin };
+  } catch (e: any) {
+    return { status: 'warn', error: e?.message?.slice(0, 100) || 'unknown' };
+  }
+}
+
+/**
  * Reconstructed-orphan rate — catches silent createHedge failures.
  *
  * bluefin-db-reconcile writes `order_id = reconstructed_*` rows when it
@@ -627,8 +663,9 @@ export async function GET(req: NextRequest) {
   const autohedgeHalt = await withCheckTimeout(checkAutohedgeHaltDuration(), 'autohedgeHalt');
   const traderActivity = await withCheckTimeout(checkTraderActivity(), 'traderActivity');
   const tvlHeadroom = await withCheckTimeout(checkTvlHeadroom(), 'tvlHeadroom');
+  const signalSupply = await withCheckTimeout(checkSignalSupply(), 'signalSupply');
 
-  const components = { db, polymarket, suiRpc, bluefin, navFreshness, suiPoolCron, traderCron, hedgeReconcileCron, bluefinHealthCron, bluefinDbReconcileCron, poolNavMonitorCron, phantomRate, orphanRate, autohedgeHalt, traderActivity, tvlHeadroom };
+  const components = { db, polymarket, suiRpc, bluefin, navFreshness, suiPoolCron, traderCron, hedgeReconcileCron, bluefinHealthCron, bluefinDbReconcileCron, poolNavMonitorCron, phantomRate, orphanRate, autohedgeHalt, traderActivity, tvlHeadroom, signalSupply };
   const overall = worstStatus(Object.values(components));
 
   const body = {

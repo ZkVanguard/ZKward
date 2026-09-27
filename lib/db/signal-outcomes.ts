@@ -1,26 +1,28 @@
 /**
- * Signal Outcomes Tracker
+ * Signal Outcomes Ledger — fixed-horizon ground truth for every signal source.
  *
- * Persists every Polymarket 5-min BTC signal we observed alongside its
- * realised outcome (from on-chain price feeds) so we can compute true
- * win-rate after the window resolves.
+ * Root-fix centerpiece (see docs/_ops/PAPER_TRADER_ROOT_AUDIT_2026-09-27.md).
+ * Built 2026-08 for a BTC-only 5-min experiment and never wired (0 rows,
+ * 0 write call sites found in the 2026-09-27 audit). Generalized to
+ * multi-asset / multi-horizon and wired into the paper-fast-tick via
+ * lib/services/market-data/signal-ledger.ts.
  *
- * Why this exists:
- *   The current `Polymarket5MinService.calculateAccuracy()` counts
- *   "signals with confidence > 60%" as accurate WITHOUT comparing to
- *   the actual BTC move. That is meaningless. This module records the
- *   ground truth so we can validate (or falsify) the signal as alpha.
+ * Why it exists — two root defects it fixes:
+ *   1. Credit assignment was policy-entangled: sources were labeled
+ *      correct/incorrect by TRADE exits (variable 4min-5h windows set by
+ *      the exit policy). Here a signal is scored against the price at a
+ *      FIXED horizon, independent of any trade.
+ *   2. Statistical starvation: trades supply ~5-40 observations/day;
+ *      snapshots supply thousands. Detecting a 53%-vs-50% edge needs
+ *      ~1,050 observations per cell — only the ledger gets there.
  *
  * Lifecycle:
- *   1. `recordSignal(...)` — called when cron observes a fresh 5-min signal
- *      (status = 'pending', outcome columns null).
- *   2. `resolveOutcome(...)` — called for any pending signal whose window
- *      has closed. Fetches reference BTC price at window end, marks UP/DOWN,
- *      computes correct/incorrect.
- *   3. `getStats(windowDays)` — aggregates win-rate, expected-value, etc.
- *
- * Tracking only — does NOT make trade decisions. Use `getStats()` results
- * to decide whether to keep `HEDGE_REQUIRE_PREDICTION_SIGNAL=true`.
+ *   recordSignal(...)          — one row per (source, asset, horizon, window)
+ *   resolveExpiredSignals(...) — resolves pending rows whose window closed,
+ *                                fetching one validated price per asset.
+ *                                Rows discovered too long after expiry are
+ *                                voided, never guessed (label honesty).
+ *   getSignalStats(...)        — per-source aggregates for admission logic.
  */
 
 import { query } from '@/lib/db/postgres';
@@ -50,11 +52,20 @@ export async function ensureSignalOutcomesTable(): Promise<void> {
         correct BOOLEAN,
         resolved_at TIMESTAMP,
         status VARCHAR(16) NOT NULL DEFAULT 'pending',
-        notes TEXT,
-        UNIQUE(source, window_end_time)
+        notes TEXT
       );
+      ALTER TABLE signal_outcomes ADD COLUMN IF NOT EXISTS asset VARCHAR(16);
+      ALTER TABLE signal_outcomes ADD COLUMN IF NOT EXISTS horizon_min INT;
+      -- The original UNIQUE(source, window_end_time) collides across assets
+      -- and horizons snapshotted in the same tick. Table was empty in prod
+      -- when this shipped (2026-09-27), so the swap is safe.
+      ALTER TABLE signal_outcomes DROP CONSTRAINT IF EXISTS signal_outcomes_source_window_end_time_key;
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_signal_outcomes_uniq
+        ON signal_outcomes(source, COALESCE(asset, ''), COALESCE(horizon_min, 0), window_end_time);
       CREATE INDEX IF NOT EXISTS idx_signal_outcomes_status ON signal_outcomes(status);
       CREATE INDEX IF NOT EXISTS idx_signal_outcomes_window ON signal_outcomes(window_end_time);
+      CREATE INDEX IF NOT EXISTS idx_signal_outcomes_source_asset
+        ON signal_outcomes(source, asset, horizon_min) WHERE status = 'resolved';
     `);
     tableReady = true;
   } catch (err) {
@@ -64,7 +75,9 @@ export async function ensureSignalOutcomesTable(): Promise<void> {
 }
 
 export interface RecordSignalArgs {
-  source: string;          // e.g. 'polymarket-5min'
+  source: string;          // normalized source key (source-calibrator.normalizeSourceKey)
+  asset: string;           // BTC / ETH / SOL / XRP / DOGE
+  horizonMin: number;      // fixed evaluation horizon in minutes (30 / 60 / 240)
   marketId?: string;
   windowEndTime: number;   // ms epoch when this prediction window resolves
   direction: 'UP' | 'DOWN';
@@ -73,21 +86,23 @@ export interface RecordSignalArgs {
   signalStrength?: 'STRONG' | 'MODERATE' | 'WEAK';
   volume?: number;
   liquidity?: number;
-  entryPrice?: number;     // BTC price observed when signal was recorded
+  entryPrice?: number;     // asset price observed when signal was recorded
 }
 
-/** Record a new signal observation. No-op if (source, windowEndTime) already exists. */
+/** Record a new signal observation. No-op on duplicate (source, asset, horizon, window). */
 export async function recordSignal(args: RecordSignalArgs): Promise<void> {
   await ensureSignalOutcomesTable();
   try {
     await query(
       `INSERT INTO signal_outcomes
-        (source, market_id, window_end_time, direction, probability,
+        (source, asset, horizon_min, market_id, window_end_time, direction, probability,
          confidence, signal_strength, volume, liquidity, entry_price, status)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'pending')
-       ON CONFLICT (source, window_end_time) DO NOTHING`,
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'pending')
+       ON CONFLICT DO NOTHING`,
       [
         args.source,
+        args.asset.toUpperCase(),
+        Math.round(args.horizonMin),
         args.marketId ?? null,
         args.windowEndTime,
         args.direction,
@@ -105,31 +120,38 @@ export async function recordSignal(args: RecordSignalArgs): Promise<void> {
 }
 
 /**
- * Resolve all pending signals whose windows have already closed.
- * Reads the asset price from the validated price provider as ground truth.
- *
- * `priceFetcher` lets the caller inject the price source (so we don't pin
- * an import at module load — the cron passes its own).
+ * A pending row resolved more than this long after its window closed gets
+ * VOIDED, not scored — the price "now" is no longer the price "at horizon",
+ * and a mislabeled outcome is worse than a missing one. With the ledger
+ * resolver running on the 60s fast-tick, healthy operation resolves within
+ * ~1-2 minutes of expiry; anything older means an outage window.
+ */
+const RESOLVE_STALE_MAX_MS = Number(process.env.SIGNAL_LEDGER_RESOLVE_STALE_MAX_MIN || 15) * 60_000;
+
+/**
+ * Resolve pending signals whose windows have closed, across ALL assets.
+ * Fetches one multi-source validated price per distinct asset in the batch.
+ * Price-fetch failure for an asset leaves its rows pending (retried next
+ * tick, voided by the staleness rule if the outage outlives the cap).
  */
 export async function resolveExpiredSignals(
-  asset: string,
-  priceFetcher: () => Promise<number>,
-  options: { maxBatch?: number } = {},
-): Promise<{ resolved: number; correct: number; incorrect: number }> {
+  options: { maxBatch?: number; now?: number } = {},
+): Promise<{ resolved: number; correct: number; incorrect: number; voided: number }> {
   await ensureSignalOutcomesTable();
-  const maxBatch = options.maxBatch ?? 32;
-  const now = Date.now();
+  const maxBatch = options.maxBatch ?? 200;
+  const now = options.now ?? Date.now();
+  const zero = { resolved: 0, correct: 0, incorrect: 0, voided: 0 };
 
   let pending: Array<{
     id: number;
+    asset: string | null;
     direction: 'UP' | 'DOWN';
     entry_price: number | null;
     window_end_time: string | number;
   }> = [];
-
   try {
     pending = await query(
-      `SELECT id, direction, entry_price, window_end_time
+      `SELECT id, asset, direction, entry_price, window_end_time
        FROM signal_outcomes
        WHERE status = 'pending' AND window_end_time <= $1
        ORDER BY window_end_time ASC
@@ -138,38 +160,54 @@ export async function resolveExpiredSignals(
     );
   } catch (err) {
     logger.warn('[SignalOutcomes] resolveExpired query failed', { error: err instanceof Error ? err.message : err });
-    return { resolved: 0, correct: 0, incorrect: 0 };
+    return zero;
   }
+  if (pending.length === 0) return zero;
 
-  if (pending.length === 0) return { resolved: 0, correct: 0, incorrect: 0 };
+  let voided = 0;
+  const scorable: typeof pending = [];
+  for (const row of pending) {
+    const lateMs = now - Number(row.window_end_time);
+    if (lateMs > RESOLVE_STALE_MAX_MS || !row.asset) {
+      try {
+        await query(
+          `UPDATE signal_outcomes SET status = 'void', resolved_at = CURRENT_TIMESTAMP,
+           notes = $1 WHERE id = $2`,
+          [!row.asset ? 'no asset (legacy row)' : `resolved ${Math.round(lateMs / 60_000)}min late — outside honesty window`, row.id],
+        );
+        voided++;
+      } catch { /* ignore */ }
+      continue;
+    }
+    scorable.push(row);
+  }
+  if (scorable.length === 0) return { ...zero, voided };
 
-  let exitPrice = 0;
-  try {
-    exitPrice = await priceFetcher();
-  } catch (err) {
-    logger.warn('[SignalOutcomes] price fetch failed — leaving signals pending', {
-      asset,
-      error: err instanceof Error ? err.message : err,
-    });
-    return { resolved: 0, correct: 0, incorrect: 0 };
-  }
-  if (!Number.isFinite(exitPrice) || exitPrice <= 0) {
-    return { resolved: 0, correct: 0, incorrect: 0 };
-  }
+  // One validated price per distinct asset.
+  const assets = Array.from(new Set(scorable.map((r) => r.asset as string)));
+  const priceByAsset = new Map<string, number>();
+  const { getMultiSourceValidatedPrice } = await import('@/lib/services/market-data/unified-price-provider');
+  await Promise.allSettled(
+    assets.map(async (a) => {
+      const v = await getMultiSourceValidatedPrice(a, { minSources: 2, maxDeviationPercent: 2, timeout: 8000 });
+      if (Number.isFinite(v.price) && v.price > 0) priceByAsset.set(a, v.price);
+    }),
+  );
 
   let correct = 0;
   let incorrect = 0;
-
-  for (const row of pending) {
+  for (const row of scorable) {
+    const exitPrice = priceByAsset.get(row.asset as string);
+    if (!exitPrice) continue; // price outage → stay pending, retry next tick
     const entry = Number(row.entry_price ?? 0);
     if (!Number.isFinite(entry) || entry <= 0) {
-      // Cannot judge without entry — mark as void.
       try {
         await query(
           `UPDATE signal_outcomes SET status = 'void', resolved_at = CURRENT_TIMESTAMP,
            exit_price = $1, notes = 'no entry_price recorded' WHERE id = $2`,
           [exitPrice, row.id],
         );
+        voided++;
       } catch { /* ignore */ }
       continue;
     }
@@ -189,7 +227,7 @@ export async function resolveExpiredSignals(
     }
   }
 
-  return { resolved: correct + incorrect, correct, incorrect };
+  return { resolved: correct + incorrect, correct, incorrect, voided };
 }
 
 export interface SignalStats {
@@ -249,31 +287,59 @@ export async function getSignalStats(windowDays = 7, source = 'polymarket-5min')
   }
 }
 
-/** Helper for cron: fetch BTC price for resolution. */
-export async function fetchBtcExitPrice(): Promise<number> {
-  const { getMultiSourceValidatedPrice } = await import('@/lib/services/market-data/unified-price-provider');
-  const v = await getMultiSourceValidatedPrice('BTC');
-  return v.price;
+/**
+ * Per-(source, asset, horizon) hit rates — the admission-decision read.
+ * Only resolved rows count. Used by the (upcoming) proof-based source
+ * admission gate: a source trades only where its ledger cell shows
+ * hit ≥ threshold with enough samples.
+ */
+export async function getLedgerHitRates(options: {
+  windowDays?: number;
+  minN?: number;
+} = {}): Promise<Array<{ source: string; asset: string; horizonMin: number; n: number; hitRate: number }>> {
+  await ensureSignalOutcomesTable();
+  const windowDays = options.windowDays ?? 30;
+  const minN = options.minN ?? 50;
+  const sinceMs = Date.now() - windowDays * 24 * 60 * 60 * 1000;
+  try {
+    const rows = await query<{
+      source: string; asset: string; horizon_min: number; n: string; hits: string;
+    }>(
+      `SELECT source, asset, horizon_min, COUNT(*)::text AS n,
+              SUM(CASE WHEN correct THEN 1 ELSE 0 END)::text AS hits
+       FROM signal_outcomes
+       WHERE status = 'resolved' AND window_end_time >= $1 AND asset IS NOT NULL
+       GROUP BY source, asset, horizon_min
+       HAVING COUNT(*) >= $2`,
+      [sinceMs, minN],
+    );
+    return rows.map((r) => ({
+      source: r.source,
+      asset: r.asset,
+      horizonMin: Number(r.horizon_min),
+      n: Number(r.n),
+      hitRate: Number(r.n) > 0 ? Number(r.hits) / Number(r.n) : 0,
+    }));
+  } catch (err) {
+    logger.warn('[SignalOutcomes] getLedgerHitRates failed', { error: err instanceof Error ? err.message : err });
+    return [];
+  }
 }
 
-/** Convenience hook for the cron — record-and-resolve in one call. */
-export async function trackSignalAndResolve(args: {
-  source: string;
-  marketId?: string;
-  windowEndTime: number;
-  direction: 'UP' | 'DOWN';
-  probability: number;
-  confidence?: number;
-  signalStrength?: 'STRONG' | 'MODERATE' | 'WEAK';
-  volume?: number;
-  liquidity?: number;
-  entryPrice: number;
-}): Promise<void> {
+/** Prune terminal rows older than the retention window. Returns rows deleted. */
+export async function pruneOldSignalOutcomes(retentionDays = 90): Promise<number> {
+  await ensureSignalOutcomesTable();
   try {
-    await recordSignal(args);
-    // Try to resolve expired signals while we're here — cheap, max batch 32.
-    await resolveExpiredSignals('BTC', fetchBtcExitPrice, { maxBatch: 32 });
+    const r = await query<{ id: number }>(
+      `DELETE FROM signal_outcomes
+       WHERE status IN ('resolved', 'void')
+         AND window_end_time < $1
+       RETURNING id`,
+      [Date.now() - retentionDays * 24 * 60 * 60 * 1000],
+    );
+    return r.length;
   } catch (err) {
-    logger.warn('[SignalOutcomes] trackSignalAndResolve non-fatal', { error: err instanceof Error ? err.message : err });
+    logger.warn('[SignalOutcomes] prune failed', { error: err instanceof Error ? err.message : err });
+    return 0;
   }
 }

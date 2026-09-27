@@ -143,7 +143,7 @@ export async function DELETE(request: NextRequest) {
     let count: number;
     if (clearAll) {
       count = await clearAllHedges();
-      logger.info(`✅ Cleared ALL ${count} hedges`);
+      logger.info(`✅ Cleared ${count} simulation/paper hedges (real-portfolio rows are not deletable via this route)`);
     } else {
       count = await clearSimulationHedges();
       logger.info(`✅ Cleared ${count} simulation hedges`);
