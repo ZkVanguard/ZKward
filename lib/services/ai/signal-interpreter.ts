@@ -106,24 +106,64 @@ export async function interpretSignal(
   return regexFallback(title, opts);
 }
 
+/**
+ * Root-audit R5 fix (2026-09-27): the fine-tuned Ollama endpoint is only
+ * reachable from Vercel via tunnel; when it broke on 2026-09-23 every
+ * interpretation silently fell back to regex — and regex interpretations
+ * are deliberately not persisted, so the stack's best measured source
+ * (75.5% resolved accuracy) went dark for 4 days with no alarm.
+ *
+ * Now: primary endpoint first; on any failure, retry against ASI:One's
+ * OpenAI-compatible API (same message contract) when a key is present.
+ * The interpreter must degrade fine-tune → frontier-model → regex, not
+ * fine-tune → regex. Opt out: SIGNAL_INTERPRETER_ASI_FALLBACK=0.
+ */
 async function callModel(title: string, opts: InterpretOptions): Promise<InterpretedSignal | null> {
-  const base = (process.env.SIGNAL_INTERPRETER_MODEL_URL || 'http://localhost:11434').replace(
-    /\/$/,
-    '',
-  );
-  const model = process.env.SIGNAL_INTERPRETER_MODEL_NAME || 'zkward-signal-interp:qwen2.5-7b';
-  const timeoutMs = Number(process.env.SIGNAL_INTERPRETER_TIMEOUT_MS) || 5000;
-  const authHeader = (process.env.SIGNAL_INTERPRETER_AUTH_HEADER || '').trim();
-
   const userLines = [`Title: ${title}`];
   if (opts.category && opts.category !== 'unknown') userLines.push(`Category: ${opts.category}`);
   if (opts.endDate) userLines.push(`Resolves: ${opts.endDate}`);
+  const userContent = userLines.join('\n');
 
+  const base = (process.env.SIGNAL_INTERPRETER_MODEL_URL || 'http://localhost:11434').replace(/\/$/, '');
+  const model = process.env.SIGNAL_INTERPRETER_MODEL_NAME || 'zkward-signal-interp:qwen2.5-7b';
+  const timeoutMs = Number(process.env.SIGNAL_INTERPRETER_TIMEOUT_MS) || 5000;
+  const authHeader = (process.env.SIGNAL_INTERPRETER_AUTH_HEADER || '').trim();
+  const primaryHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (authHeader) primaryHeaders['X-Api-Key'] = authHeader;
+
+  try {
+    const primary = await callChatEndpoint(base, model, primaryHeaders, userContent, timeoutMs);
+    if (primary) return primary;
+  } catch (e) {
+    logger.debug('[SignalInterpreter] primary endpoint failed — trying ASI fallback', {
+      error: e instanceof Error ? e.message : String(e),
+    });
+  }
+
+  const asiKey = (process.env.ASI_API_KEY || process.env.ASI_ONE_API_KEY || '').trim();
+  const asiEnabled = (process.env.SIGNAL_INTERPRETER_ASI_FALLBACK ?? '1') !== '0';
+  if (!asiKey || !asiEnabled) return null;
+  const asiModel = process.env.ASI_MODEL || 'asi1-mini';
+  // callChatEndpoint appends /v1/chat/completions — pass the bare host.
+  return callChatEndpoint(
+    'https://api.asi1.ai',
+    asiModel,
+    { 'Content-Type': 'application/json', Authorization: `Bearer ${asiKey}` },
+    userContent,
+    timeoutMs,
+  );
+}
+
+async function callChatEndpoint(
+  base: string,
+  model: string,
+  headers: Record<string, string>,
+  userContent: string,
+  timeoutMs: number,
+): Promise<InterpretedSignal | null> {
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    if (authHeader) headers['X-Api-Key'] = authHeader;
     const resp = await fetch(`${base}/v1/chat/completions`, {
       method: 'POST',
       headers,
@@ -131,7 +171,7 @@ async function callModel(title: string, opts: InterpretOptions): Promise<Interpr
         model,
         messages: [
           { role: 'system', content: SYSTEM_PROMPT },
-          { role: 'user', content: userLines.join('\n') },
+          { role: 'user', content: userContent },
         ],
         temperature: 0,
         max_tokens: 400,

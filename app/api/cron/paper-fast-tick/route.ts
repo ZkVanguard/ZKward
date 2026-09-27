@@ -61,6 +61,19 @@ async function handle(request: NextRequest) {
     logger.warn('[PaperFastTick] paper-gated tick failed (non-fatal)', { error: errMsg(e) });
   }
 
+  // Signal ledger (root-audit Pillar 2): snapshot every source's call at
+  // fixed horizons + resolve expired windows. Rides this tick because the
+  // aggregator scan is still warm (20s TTL) from the trader runs above.
+  // Non-fatal — ledger failure never blocks paper ticks.
+  try {
+    const { runSignalLedgerTick } = await import('@/lib/services/market-data/signal-ledger');
+    const s = await runSignalLedgerTick(Date.now());
+    results.ledger = `resolved ${s.resolved}${s.voided ? ` (+${s.voided} void)` : ''}${s.snapshotted ? `, recorded ${s.recorded}` : ''}${s.pruned ? `, pruned ${s.pruned}` : ''}`;
+  } catch (e) {
+    results.ledger = `error: ${errMsg(e).slice(0, 80)}`;
+    logger.warn('[PaperFastTick] signal-ledger tick failed (non-fatal)', { error: errMsg(e) });
+  }
+
   void setCronState('cron:lastRun:paper-fast-tick', Date.now()).catch(() => {});
 
   // Effective-config echo (Fix O audit, 2026-09-27). This response body is
@@ -88,6 +101,10 @@ async function handle(request: NextRequest) {
       seeds: c.PAPER_ASSET_SIDE_BLACKLIST_SEEDS.size,
       chopHalt: c.PAPER_HALT_ENTRIES_IN_CHOP,
       disableHalts: c.PAPER_DISABLE_HALTS,
+      // Names (never values) of PAPER_TRADER_* env overrides active on this
+      // deployment — a non-empty list means env is diverging from code
+      // defaults, the root cause of every "the fix changed nothing" episode.
+      overrides: Object.keys(process.env).filter((k) => k.startsWith('PAPER_TRADER_')).sort(),
     };
   } catch { /* echo is best-effort */ }
 

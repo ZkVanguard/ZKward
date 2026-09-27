@@ -651,10 +651,16 @@ export async function clearSimulationHedges(): Promise<number> {
 }
 
 /**
- * Delete all hedges (use with caution)
+ * Delete simulation/paper hedges. Root-audit 2026-09-27: the old
+ * unconditional `DELETE FROM hedges` could erase LIVE trader rows with
+ * one admin curl, and paper evidence rows (Fix K/L training data) were
+ * already lost once to an ad-hoc wipe. Real-portfolio rows are never
+ * deletable through this path; evidence should be archived, not deleted.
  */
 export async function clearAllHedges(): Promise<number> {
-  const sql = 'DELETE FROM hedges RETURNING order_id';
+  const sql = `DELETE FROM hedges
+    WHERE simulation_mode = true OR portfolio_id < 0
+    RETURNING order_id`;
   const result = await query(sql);
   return result.length;
 }

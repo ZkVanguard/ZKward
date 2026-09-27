@@ -44,6 +44,11 @@ interface MasterCronResult {
     succeeded: number;
     failed: number;
   };
+  /** Present on the fire-and-forget 202 ack, where succeeded/failed are
+   *  structurally 0 — the fanout runs in the background AFTER this
+   *  response. Read cron:lastRun:* heartbeats for ground truth. Added
+   *  2026-09-27 after the ack's zeros were misread as "fanout dead". */
+  note?: string;
 }
 
 /**
@@ -193,6 +198,7 @@ export async function GET(request: NextRequest): Promise<NextResponse<MasterCron
       succeeded: 0,
       failed: 0,
     },
+    note: `202 ack — ${cronJobs.length} sub-crons dispatched in background; see cron:lastRun:* heartbeats for outcomes`,
   }, { status: 202 });
 }
 
