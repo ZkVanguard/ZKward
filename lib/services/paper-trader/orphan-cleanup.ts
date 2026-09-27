@@ -32,6 +32,7 @@ export async function orphanCloseIfExists(input: {
            closed_at = NOW(),
            realized_pnl = COALESCE(realized_pnl, 0),
            current_pnl = COALESCE(current_pnl, 0),
+           close_reason = COALESCE(close_reason, 'orphan-close'),
            metadata = COALESCE(metadata, '{}'::jsonb) || jsonb_build_object(
              'exitReason', 'orphan-auto-close: superseded by ' || $4::text || ' (same portfolio + asset + side)',
              'orphanAutoClosedAt', extract(epoch from now()) * 1000
