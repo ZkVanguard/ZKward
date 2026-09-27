@@ -12,7 +12,11 @@ import {
   normalizeSourceKey,
   getCalibratedMultiplier,
 } from '@/lib/services/ai/source-calibrator';
-import { PAPER_MAX_HOLD_MIN, PAPER_MAX_HOLD_EXTRA_MIN } from './config';
+import {
+  PAPER_MAX_HOLD_MIN,
+  PAPER_MAX_HOLD_EXTRA_MIN,
+  PAPER_MAX_HOLD_CEILING_MIN,
+} from './config';
 
 /**
  * Confidence-weighted stake scalar. Rides the 55-100 confidence range and
@@ -44,7 +48,13 @@ export function computeMaxHoldMinutes(signalScalar: number, regimeMult: number =
   const capped = Math.max(0.4, Math.min(2.0, signalScalar));
   const bonusRatio = (capped - 0.4) / 1.6; // 0.0 at min gate, 1.0 at max
   const base = PAPER_MAX_HOLD_MIN + bonusRatio * PAPER_MAX_HOLD_EXTRA_MIN;
-  return base * Math.max(0.25, Math.min(3, regimeMult));
+  // Fix O (2026-09-27): hard ceiling. Signal-scaled × regime bonuses were
+  // stretching holds to 186-224min while every hold bucket past 60min ran
+  // net negative (see config PAPER_MAX_HOLD_CEILING_MIN).
+  return Math.min(
+    base * Math.max(0.25, Math.min(3, regimeMult)),
+    PAPER_MAX_HOLD_CEILING_MIN,
+  );
 }
 
 /**

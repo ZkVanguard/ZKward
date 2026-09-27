@@ -54,8 +54,15 @@ interface CalibrationBucket {
   updatedAt: number;
 }
 
-function keyFor(asset: string, side: 'LONG' | 'SHORT', bucket: number): string {
-  return `trader:calibration:${asset}:${side}:${bucket}`;
+// Optional namespace isolates trader populations. Paper passes 'paper' so
+// its buckets aren't polluted by (and don't pollute) live-trader history —
+// 2026-09-27 forensics found the shared SOL:LONG:7 bucket claiming 61% wr
+// (n=149, epochs back to Sep 2) while post-reset paper SOL LONG ran 29%,
+// so Fix K was actively ranking a bleeding pair to the top.
+function keyFor(asset: string, side: 'LONG' | 'SHORT', bucket: number, namespace?: string): string {
+  return namespace
+    ? `trader:calibration:${namespace}:${asset}:${side}:${bucket}`
+    : `trader:calibration:${asset}:${side}:${bucket}`;
 }
 
 /**
@@ -68,10 +75,11 @@ export async function recordOutcome(input: {
   side: 'LONG' | 'SHORT';
   openConfidencePct: number;
   realizedPnl: number;
+  namespace?: string;
 }): Promise<void> {
   try {
     const b = bucketFor(input.openConfidencePct);
-    const key = keyFor(input.asset, input.side, b);
+    const key = keyFor(input.asset, input.side, b, input.namespace);
     const prev = await getCronStateOr<CalibrationBucket>(key, {
       n: 0,
       wins: 0,
@@ -101,11 +109,12 @@ export async function calibrate(input: {
   asset: string;
   side: 'LONG' | 'SHORT';
   rawConfidencePct: number;
+  namespace?: string;
 }): Promise<{ pCalibrated: number; pRaw: number; nHistory: number; empiricalWinRate: number | null }> {
   const pRaw = Math.max(0, Math.min(1, input.rawConfidencePct / 100));
   try {
     const b = bucketFor(input.rawConfidencePct);
-    const key = keyFor(input.asset, input.side, b);
+    const key = keyFor(input.asset, input.side, b, input.namespace);
     const bucket = await getCronStateOr<CalibrationBucket>(key, { n: 0, wins: 0, updatedAt: 0 });
     if (bucket.n === 0) {
       return { pCalibrated: pRaw, pRaw, nHistory: 0, empiricalWinRate: null };

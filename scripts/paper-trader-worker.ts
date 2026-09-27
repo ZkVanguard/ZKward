@@ -82,6 +82,50 @@ async function main() {
 
   logger.info('[worker] tick start', { pid: process.pid, node: process.version });
 
+  // Effective-config dump (Fix O, 2026-09-27). The worker host's own env
+  // silently overrides code defaults — Fix J raised the conf gate to 70 in
+  // code while conf 65-68 entries kept appearing in prod, and nothing
+  // logged which value was actually live. One line makes every future
+  // "the fix changed nothing" diagnosable at a glance.
+  try {
+    const cfg = await import('@/lib/services/paper-trader/config');
+    let sha = 'unknown';
+    try {
+      sha = execFileSync('git', ['rev-parse', '--short', 'HEAD'], {
+        encoding: 'utf8', timeout: 5_000,
+      }).trim();
+    } catch { /* non-fatal */ }
+    logger.info('[worker] effective config', {
+      sha,
+      universe: cfg.PAPER_UNIVERSE.join(','),
+      minConfidence: cfg.PAPER_MIN_CONFIDENCE,
+      minConsensus: cfg.PAPER_MIN_CONSENSUS,
+      minSources: cfg.PAPER_MIN_SOURCES,
+      stakePct: cfg.PAPER_STAKE_PCT,
+      maxStakePct: cfg.PAPER_MAX_STAKE_PCT,
+      leverage: cfg.PAPER_LEVERAGE,
+      stopLossPctEnv: process.env.PAPER_TRADER_STOP_LOSS_PCT ?? '(default)',
+      maxHoldMin: cfg.PAPER_MAX_HOLD_MIN,
+      maxHoldCeilingMin: cfg.PAPER_MAX_HOLD_CEILING_MIN,
+      tightenAgeMin: cfg.PAPER_TIGHTEN_AGE_MIN,
+      tightenNotionalFrac: cfg.PAPER_TIGHTEN_NOTIONAL_FRAC,
+      trailingArmNotionalFrac: cfg.PAPER_TRAILING_ARM_NOTIONAL_FRAC,
+      minFlipAgeSec: cfg.PAPER_MIN_FLIP_AGE_SEC,
+      minStableTicks: cfg.PAPER_MIN_STABLE_TICKS,
+      minMajorityPct: cfg.PAPER_MIN_MAJORITY_PCT,
+      haltEntriesInChop: cfg.PAPER_HALT_ENTRIES_IN_CHOP,
+      disableHalts: cfg.PAPER_DISABLE_HALTS,
+      calibratedMinWinRate: cfg.PAPER_CALIBRATED_MIN_WIN_RATE,
+      calibratedRankMinN: cfg.PAPER_CALIBRATED_RANK_MIN_N,
+      blacklistSeeds: [...cfg.PAPER_ASSET_SIDE_BLACKLIST_SEEDS].join(','),
+      maxConcurrent: cfg.PAPER_MAX_CONCURRENT,
+    });
+  } catch (e) {
+    logger.warn('[worker] config dump failed (non-fatal)', {
+      error: e instanceof Error ? e.message : String(e),
+    });
+  }
+
   try {
     const r = await PaperTrader.runTick();
     logger.info('[worker] PaperTrader tick complete', { result: r });

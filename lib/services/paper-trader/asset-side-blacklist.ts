@@ -31,6 +31,7 @@ import {
   PAPER_ASSET_SIDE_BLACKLIST_MIN_WR,
   PAPER_ASSET_SIDE_BLACKLIST_MIN_N,
   PAPER_ASSET_SIDE_BLACKLIST_CACHE_TTL_MS,
+  PAPER_ASSET_SIDE_BLACKLIST_SEEDS,
 } from './config';
 
 interface PairStats {
@@ -95,6 +96,13 @@ export async function assetSideBlacklistRejection(
       _cache = { at: now, pairs: await loadPairStats() };
     }
     const stats = _cache.pairs.get(key(asset, side));
+    // Seeded priors (Fix O): pairs proven toxic on the deleted pre-reset
+    // history stay blocked until post-reset evidence reaches MIN_N; then
+    // the empirical branch below decides on the fresh data.
+    if (PAPER_ASSET_SIDE_BLACKLIST_SEEDS.has(key(asset, side))
+        && (!stats || stats.n < PAPER_ASSET_SIDE_BLACKLIST_MIN_N)) {
+      return `asset-side-blacklist: ${asset} ${side} seeded-toxic prior (pre-reset history), n=${stats?.n ?? 0} < ${PAPER_ASSET_SIDE_BLACKLIST_MIN_N} post-reset samples`;
+    }
     if (!stats) return null; // no data → cold pair, allow
     if (!stats.blacklisted) return null;
     return `asset-side-blacklist: ${asset} ${side} lifetime wr ${(stats.wr * 100).toFixed(0)}% (n=${stats.n}) below ${(PAPER_ASSET_SIDE_BLACKLIST_MIN_WR * 100).toFixed(0)}% floor · lifetime PnL $${stats.pnl.toFixed(0)}`;

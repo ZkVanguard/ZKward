@@ -105,7 +105,6 @@ import {
   PAPER_DISABLE_HALTS,
   PAPER_MIN_FLIP_AGE_SEC,
   PAPER_MIN_FLIP_CONFIDENCE,
-  PAPER_TRAILING_STOP_ARM_PCT,
   PAPER_TRAILING_STOP_GIVEBACK_PCT,
   PAPER_REGRET_COOLDOWN_PCT,
   PAPER_REGRET_WINDOW,
@@ -432,14 +431,6 @@ export class PaperTrader {
       }
     }
 
-    // L7 — vol-adaptive trailing-arm. (The stop-loss half moved to
-    // price-anchored per-position stops at open — see the entry path.
-    // Trailing-arm still uses the vol-scaled NAV pct because it's about
-    // detecting a winning-move plateau, not cutting a losing trade.)
-    const { computeAdaptiveThresholds } = await import('./adaptive-stops');
-    const thresholds = await computeAdaptiveThresholds(pos.asset);
-    const trailingArmPct = thresholds.trailingArmPct;
-
     // 1a. Price-anchored stop-loss — fires the tick mark crosses the
     //     line set at open. Deterministic vs the old NAV-percentage
     //     check which quietly never triggered (see post-mortem in
@@ -465,16 +456,18 @@ export class PaperTrader {
 
     const mtm = markToMarket(pos, markPrice, now);
 
-    // 2. Trailing stop — once we've been up >= trailingArmPct of NAV,
-    //    close if we've given back PAPER_TRAILING_STOP_GIVEBACK_PCT
-    //    of that peak. Locks in the winner. Trailing-arm is also
-    //    vol-scaled — only arm on genuinely directional moves, not
-    //    chop that touches the fee-recovery threshold.
+    // 2. Trailing stop — once we've been up >= the notional-relative arm
+    //    threshold, close if we've given back PAPER_TRAILING_STOP_GIVEBACK_PCT
+    //    of that peak. Fix O (2026-09-27): arm was NAV-relative (nav ×
+    //    trailingArmPct ≈ $2K unrealized on a ≤$30K notional = a 6.7%
+    //    price move) — the trailing stop had NEVER fired in the trader's
+    //    life. Now arms on the position's own notional.
     const priorPeak = pos.peakUnrealizedPnl ?? 0;
     const priorTrough = pos.troughUnrealizedPnl ?? 0;
     const currentPeak = Math.max(priorPeak, mtm.unrealizedPnlUsd);
     const currentTrough = Math.min(priorTrough, mtm.unrealizedPnlUsd);
-    const trailingArmed = currentPeak >= nav * trailingArmPct;
+    const { trailingArmThresholdUsd, underwaterTightenTrip } = await import('./adaptive-stops');
+    const trailingArmed = currentPeak >= trailingArmThresholdUsd(pos.notionalUsd);
     if (
       trailingArmed &&
       mtm.unrealizedPnlUsd < currentPeak * (1 - PAPER_TRAILING_STOP_GIVEBACK_PCT)
@@ -499,26 +492,17 @@ export class PaperTrader {
       }));
     }
 
-    // 2.5. Adaptive underwater tighten (2026-09-23) — caps the failure
-    //      mode Phase 2 introduced: extended max-hold lets a trade sit
-    //      underwater for hours before the wide stop-loss fires. If a
-    //      position has been open > TIGHTEN_AGE_MIN, has NEVER gone
-    //      positive (trailing never armed), AND the unrealized loss is
-    //      deep enough to matter, close it early. Two thresholds:
-    //        - by USD magnitude (catches large notional trades)
-    //        - by NAV percentage (catches small-notional death-by-1000-cuts)
-    //      Skips if trailing armed (trailing-stop is the correct exit
-    //      for once-profitable trades that give back).
+    // 2.5. Adaptive underwater tighten — close a position that has NEVER
+    //      gone positive once it's old AND deep underwater relative to
+    //      its own notional. Fix O (2026-09-27): the old $50-flat / NAV-pct
+    //      thresholds fired at a 0.17% adverse move at exactly minute 31 —
+    //      15 closes, 0 wins, -$2,660 since the 9/22 reset. Thresholds
+    //      live in config (PAPER_TIGHTEN_AGE_MIN / _NOTIONAL_FRAC); the
+    //      shared trip check is in adaptive-stops.ts.
     if (orderId && !trailingArmed && currentPeak <= 0) {
       const ageMin = (now - pos.openedAt) / 60_000;
       const lossUsd = -mtm.unrealizedPnlUsd; // positive = deeper underwater
-      const lossPctOfNav = nav > 0 ? lossUsd / nav : 0;
-      const TIGHTEN_AGE_MIN = Number(process.env.PAPER_TRADER_TIGHTEN_AGE_MIN || 30);
-      const TIGHTEN_USD = Number(process.env.PAPER_TRADER_TIGHTEN_LOSS_USD || 50);
-      const TIGHTEN_NAV_PCT = Number(process.env.PAPER_TRADER_TIGHTEN_LOSS_PCT || 0.0002);
-      const oldEnough = ageMin >= TIGHTEN_AGE_MIN;
-      const deepEnough = lossUsd >= TIGHTEN_USD || lossPctOfNav >= TIGHTEN_NAV_PCT;
-      if (oldEnough && deepEnough) {
+      if (underwaterTightenTrip({ ageMin, lossUsd, notionalUsd: pos.notionalUsd })) {
         return PaperTrader.closeAtMark(
           pos,
           markPrice,
@@ -772,18 +756,15 @@ export class PaperTrader {
     // (a single +$11,794 trade in the window); the trailing-stop path
     // handles "let winners run, ratchet at give-back" without capping.
     //
-    // Revert 2026-09-22: back to static 1.2% stop after adaptive-at-entry
-    // (PR #227) produced 4 stop-loss trades totalling -$173 (-$43 avg per
-    // hit) in live paper. Backtest sensitivity predicted salvage from
-    // tighter stops but used only FINAL close prices — intra-tick dips
-    // hit the tight stop then price recovered, converting held trades
-    // into forced losses. Loose static stop lets noise pass through;
-    // signal-flip + max-hold handle real exit decisions.
-    //
-    // Adaptive stop stays available for handleActive's trailing-arm
-    // computation where vol scaling still adds value.
-    const { _STATIC_STOP_LOSS_PCT } = await import('./adaptive-stops');
-    const stopFrac = _STATIC_STOP_LOSS_PCT;
+    // Fix O (2026-09-27): entry stop wired to computeAdaptiveThresholds,
+    // whose 2.5% MIN_STOP_PCT floor (commit 510b2a3f) never actually
+    // reached the stop path — entry kept using the static 1.2% constant,
+    // so all 9 post-reset stop-outs clustered at 1.35-1.5% of notional
+    // with 0 wins (-$2,818, avg -$313 vs avg win $143). The 2026-09-22
+    // revert to static was a response to the OLD 1.0-1.2% adaptive
+    // floors; the raised floor is the wider stop that revert wanted.
+    const { computeAdaptiveThresholds } = await import('./adaptive-stops');
+    const stopFrac = (await computeAdaptiveThresholds(asset)).stopLossPct;
     const stopLossPrice = side === 'LONG' ? markPrice * (1 - stopFrac) : markPrice * (1 + stopFrac);
 
     // Regime-scale the max-hold: CHOP shrinks 0.75× (~34min), TREND
@@ -1079,11 +1060,11 @@ export class PaperTrader {
       } catch { /* non-fatal */ }
     }
 
-    // Probability-calibrator outcome (2026-09-22): feed paper closes into
-    // the shared trader:calibration:* bucket store so the live trader's
-    // calibrator sharpens on 5-10× more samples. Same store both traders
-    // read via calibrate() at entry — one-way pipe was leaving live's
-    // small live sample as the only training signal.
+    // Probability-calibrator outcome. Fix O (2026-09-27): writes go to the
+    // 'paper' namespace — the shared store mixed live-trader history and
+    // pre-reset epochs (different fees/holds/sizing), so Fix K was ranking
+    // on fiction (SOL:LONG:7 claimed 61% wr while post-reset paper ran 29%).
+    // Paper now self-calibrates on its own outcomes only.
     if (pos.entryConfidence !== undefined && (pos.side === 'LONG' || pos.side === 'SHORT')) {
       try {
         const { recordOutcome } = await import('@/lib/services/ai/probability-calibrator');
@@ -1092,6 +1073,7 @@ export class PaperTrader {
           side: pos.side,
           openConfidencePct: pos.entryConfidence,
           realizedPnl: result.realizedPnlUsd,
+          namespace: 'paper',
         });
       } catch { /* non-fatal */ }
     }

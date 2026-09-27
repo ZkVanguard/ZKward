@@ -489,7 +489,9 @@ export class DelphiMarketService {
             relatedAssets.push('SOL');
             category = 'price';
           }
-          if (/\bxrp\b/.test(q) || q.includes('ripple')) {
+          // \bripple\b — substring match tagged 'Rippling' (HR company)
+          // lawsuit markets as XRP (2026-09-27, 55 obs at 44% hit rate).
+          if (/\bxrp\b/.test(q) || /\bripple\b/.test(q)) {
             relatedAssets.push('XRP');
             category = 'price';
           }

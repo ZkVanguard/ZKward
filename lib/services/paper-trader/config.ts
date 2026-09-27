@@ -157,6 +157,21 @@ export const PAPER_ASSET_SIDE_BLACKLIST_MIN_N = Number(
 export const PAPER_ASSET_SIDE_BLACKLIST_CACHE_TTL_MS = Number(
   process.env.PAPER_TRADER_ASSET_SIDE_BLACKLIST_CACHE_TTL_MS || 30 * 60_000,
 );
+// Fix O (2026-09-27) — seeded blacklist priors. The pre-9/22 hedges rows
+// that justified Fix L (379 trades: BTC LONG 26% wr / -$24k etc.) were
+// deleted from the DB, so the "lifetime" blacklist restarted from zero
+// evidence and the known-toxic pairs traded freely for 4 more days
+// (BTC SHORT re-bled at 22% wr before reaching MIN_N again). These
+// pairs stay blocked until POST-reset data reaches MIN_N samples; once
+// n >= MIN_N the empirical win rate decides, so a genuinely reformed
+// pair earns its way back in. Format: 'ASSET:SIDE,ASSET:SIDE'.
+export const PAPER_ASSET_SIDE_BLACKLIST_SEEDS: ReadonlySet<string> = new Set(
+  (process.env.PAPER_TRADER_ASSET_SIDE_BLACKLIST_SEEDS
+    ?? 'BTC:LONG,BTC:SHORT,ETH:SHORT,SOL:LONG,SOL:SHORT')
+    .split(',')
+    .map((s) => s.trim().toUpperCase())
+    .filter((s) => /^[A-Z0-9]+:(LONG|SHORT)$/.test(s)),
+);
 
 /**
  * Max stake per trade as a fraction of NAV, applied AFTER all sizing
@@ -210,6 +225,44 @@ export const PAPER_TRAILING_STOP_ARM_PCT = Number(
 );
 export const PAPER_TRAILING_STOP_GIVEBACK_PCT = Number(
   process.env.PAPER_TRADER_TRAILING_GIVEBACK_PCT || 0.5,
+);
+// Fix O (2026-09-27) — arm the trailing stop on a fraction of the
+// POSITION'S NOTIONAL, not of NAV. The NAV-relative arm (nav × armPct,
+// min 0.3% of a $666K book = $2K unrealized on a ≤$30K notional = a
+// 6.7% price move inside a ≤3h hold) meant the trailing stop had never
+// fired once in the trader's life — zero 'trailing-stop' close_reasons
+// across every paper portfolio. Cost since the 9/22 reset alone: 10
+// max-hold trades peaked > +$60 (class avg MFE $194) and closed red
+// for -$1,962. 0.5% of notional (~$150 at $30K) arms on a real move
+// but past the 13bp fee floor.
+export const PAPER_TRAILING_ARM_NOTIONAL_FRAC = Number(
+  process.env.PAPER_TRADER_TRAILING_ARM_NOTIONAL_FRAC || 0.005,
+);
+
+// ── Underwater tighten (Fix O, 2026-09-27) ─────────────────────────
+// Previously inline env reads with scale-blind thresholds: $50 flat OR
+// 0.02% of NAV — a 0.17% adverse price move on a $30K notional. Fired
+// at exactly minute 31 on anything a hair red: 15 closes / 0 wins /
+// -$2,660 since the 9/22 reset, while the 45-60min hold bucket ran 57%
+// wins. Re-created the "chop positions at max pain" failure the
+// 2026-09-20 max-hold fix removed. Now: notional-relative depth (1.5%
+// of notional, between the fee floor and the stop) + age 45min so the
+// mean-reversion window the stop was widened for actually exists.
+export const PAPER_TIGHTEN_AGE_MIN = Number(
+  process.env.PAPER_TRADER_TIGHTEN_AGE_MIN || 45,
+);
+export const PAPER_TIGHTEN_NOTIONAL_FRAC = Number(
+  process.env.PAPER_TRADER_TIGHTEN_NOTIONAL_FRAC || 0.015,
+);
+
+// Hard ceiling on max-hold regardless of signalScalar × regime bonuses.
+// Hold-bucket audit (2026-09-27, n=136): 45-60min = 57% wr +$2,216;
+// every bucket past 60min is net negative (funding + fee drag, no
+// winner lock). Signal-scaled holds were stretching to 186-224min —
+// and high conf is empirically the WORST bucket, so the weakest
+// signals were earning the longest rope.
+export const PAPER_MAX_HOLD_CEILING_MIN = Number(
+  process.env.PAPER_TRADER_MAX_HOLD_CEILING_MIN || 90,
 );
 
 // ── Regret cooldown ─────────────────────────────────────────────────
