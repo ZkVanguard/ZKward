@@ -21,6 +21,13 @@ process.env.PAPER_TRADER_MAX_CONCURRENT = '1';
 // These tests exercise the entry state-machine, not the regime halt —
 // disable so opens aren't shadow-blocked. Regime halt has its own tests.
 process.env.PAPER_TRADER_HALT_ENTRIES_IN_CHOP = '0';
+// Fix O: seeded blacklist priors block BTC LONG/SHORT by default — these
+// tests exercise the entry state-machine with BTC fixtures, so clear the
+// seeds. Seed behavior has its own tests (paper-trader-fix-o.test.ts).
+process.env.PAPER_TRADER_ASSET_SIDE_BLACKLIST_SEEDS = '';
+// Fix O: max-hold ceiling (default 90) would clip the legacy scalar
+// assertions below; pin it out of the way. Ceiling has its own test.
+process.env.PAPER_TRADER_MAX_HOLD_CEILING_MIN = '10000';
 
 import { describe, it, expect, jest, beforeEach } from '@jest/globals';
 
@@ -370,9 +377,11 @@ describe('PaperTrader.runTick — active-position path', () => {
     expect(store[KEY_POSITION]).toBeNull();
   });
 
-  it('trailing-stop DOES NOT arm before peak reaches PAPER_TRAILING_STOP_ARM_PCT of NAV', async () => {
-    // Position with peak +$500 (0.5% of $100k) — below the 1% arm threshold.
-    const smallPeak = { ...pos, peakUnrealizedPnl: 500 };
+  it('trailing-stop DOES NOT arm before peak reaches the notional-relative threshold', async () => {
+    // Fix O: arm threshold = max(0.5% of notional, 3× round-trip fees)
+    // = max($500, $390) = $500 on this $100k-notional position. Peak
+    // +$300 stays below it — must HOLD, not giveback-close.
+    const smallPeak = { ...pos, peakUnrealizedPnl: 300 };
     primeStore({
       [KEY_POSITION]: smallPeak,
       [KEY_NAV]: PAPER_STARTING_NAV,

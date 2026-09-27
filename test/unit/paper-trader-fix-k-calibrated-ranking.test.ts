@@ -37,6 +37,8 @@ jest.mock('../../lib/services/paper-trader/regime', () => ({
   getCurrentRegime: async () => ({ regime: 'trending' }),
   getRegimeMultipliers: () => ({ minConfidenceMult: 1.0 }),
 }));
+process.env.PAPER_TRADER_ASSET_SIDE_BLACKLIST_SEEDS = '';
+
 jest.mock('../../lib/services/paper-trader/bandit', () => ({
   getArmMultiplier: async () => 1,
 }));
@@ -49,7 +51,8 @@ import { selectCandidate } from '../../lib/services/paper-trader/entry-helpers';
 
 // Helper: seed the calibrator bucket for (asset, side, conf-decile).
 function seedCalibrator(asset: string, side: 'LONG' | 'SHORT', confDecile: number, n: number, wins: number) {
-  cronStateStore.set(`trader:calibration:${asset}:${side}:${confDecile}`, { n, wins, updatedAt: 0 });
+  // Fix O: paper reads its own namespaced buckets.
+  cronStateStore.set(`trader:calibration:paper:${asset}:${side}:${confDecile}`, { n, wins, updatedAt: 0 });
 }
 
 function stubSignal(rec: { asset: string; recommendation: string; confidence: number; consensus?: number; sourcesCount?: number }[]) {

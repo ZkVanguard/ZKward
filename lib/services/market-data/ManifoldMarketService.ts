@@ -23,6 +23,42 @@ const FETCH_TIMEOUT_MS = 5_000;
 const CACHE_TTL_MS = 60_000;                  // Manifold markets drift slowly
 const MIN_VOLUME_24H = 50;                    // dollar-equivalent in MANA; tiny floor
 
+// Horizon cap (2026-09-27): a market resolving in 2027-2030 carries no
+// information about the intraday moves the traders act on, yet several
+// ('bitcoin-1M-by-2030', 'above-90k-before-2027') were feeding direction
+// with sub-45% measured hit rates. Skip anything closing further out.
+const MAX_HORIZON_MS =
+  Number(process.env.MANIFOLD_MAX_HORIZON_DAYS || 45) * 24 * 60 * 60 * 1000;
+
+// Word-boundary relevance check per asset (2026-09-27). Manifold's
+// keyword search is fuzzy: searching 'ripple' returned 'Rippling wins
+// its lawsuit against Deel' (the HR company), which then fed XRP
+// direction for 55 scored observations at 44% hit rate. \b(ripple)\b
+// does not match 'Rippling'. Assets missing from the map pass through.
+const RELEVANCE_RE: Record<string, RegExp> = {
+  BTC: /\b(bitcoin|btc)\b/i,
+  ETH: /\b(ethereum|ether|eth)\b/i,
+  SOL: /\b(solana|sol)\b/i,
+  XRP: /\b(xrp|ripple)\b/i,
+  DOGE: /\b(dogecoin|doge)\b/i,
+  ADA: /\b(cardano|ada)\b/i,
+  AVAX: /\b(avalanche|avax)\b/i,
+  MATIC: /\b(polygon|matic)\b/i,
+  LINK: /\b(chainlink|link)\b/i,
+};
+
+/** Exported for tests. True when the market should feed this asset. */
+export function isRelevantManifoldMarket(
+  m: { question: string; closeTime?: number },
+  asset: string,
+  now: number = Date.now(),
+): boolean {
+  if (m.closeTime && m.closeTime > now + MAX_HORIZON_MS) return false;
+  const re = RELEVANCE_RE[asset.toUpperCase()];
+  if (re && !re.test(m.question)) return false;
+  return true;
+}
+
 // Crypto asset → search terms. Manifold's search is keyword-OR'd, so we
 // fire several per asset to maximize coverage.
 const SEARCH_TERMS: Record<string, string[]> = {
@@ -97,6 +133,7 @@ export class ManifoldMarketService {
         if (typeof m.probability !== 'number') continue;
         if ((m.volume24Hours ?? 0) < MIN_VOLUME_24H && (m.uniqueBettorCount ?? 0) < 5) continue;
         if (m.closeTime && m.closeTime < Date.now()) continue;
+        if (!isRelevantManifoldMarket(m, asset)) continue;
         seenIds.add(m.id);
 
         const probPct = Math.round(m.probability * 1000) / 10;        // 0-100, 1 decimal

@@ -119,19 +119,34 @@ export function normalizeSourceKey(name: string, type: string = ''): string {
 
   // Generic Delphi markets — key by first 40 chars of question slug
   if (lower.startsWith('delphi:')) {
-    const q = lower.slice(7).replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40);
-    return `delphi:${q}`;
+    return `delphi:${slugify(lower.slice(7))}`;
   }
 
   // Manifold markets — same pattern
   if (lower.startsWith('manifold:')) {
-    const q = lower.slice(9).replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40);
-    return `manifold:${q}`;
+    return `manifold:${slugify(lower.slice(9))}`;
   }
 
   // Fallback — coarse key by type + name-slug head
-  const nameSlug = lower.replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40);
-  return `${(type || 'other').toLowerCase()}:${nameSlug}`;
+  return `${(type || 'other').toLowerCase()}:${slugify(lower)}`;
+}
+
+/**
+ * Slug for calibration keys, with volatile numeric tails stripped so a
+ * market whose title embeds a live price doesn't fragment into a fresh
+ * bucket on every price change. Observed 2026-09-27: 'will-bitcoin-
+ * reach-100k-currently-81/-76/-84/-86' each accumulated separately and
+ * none reached the Fix-H hard-filter n=20 despite 152 combined
+ * observations at ~40% hit rate — fragmentation was defeating the
+ * dead-source filter.
+ */
+function slugify(raw: string): string {
+  return raw
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/currently-[0-9]+(-[0-9]+)*/g, '')
+    .replace(/-+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 40);
 }
 
 function stateKey(sourceKey: string): string {

@@ -47,7 +47,6 @@ import {
   PAPER_MIN_CONSENSUS,
   PAPER_MIN_SOURCES,
   PAPER_MAX_HOLD_MIN,
-  PAPER_TRAILING_STOP_ARM_PCT,
   PAPER_TRAILING_STOP_GIVEBACK_PCT,
   PAPER_MIN_MAJORITY_PCT,
   PAPER_SKIP_STRONG_SIGNALS,
@@ -152,13 +151,16 @@ export class PaperGatedTrader {
       }
     }
 
-    // 2. Trailing stop.
+    // 2. Trailing stop. Fix O (2026-09-27): arm on the position's own
+    //    notional, not NAV — the NAV-relative arm never fired once.
+    //    Shared threshold math in adaptive-stops.ts.
     const mtm = markToMarket(pos, markPrice, now);
     const priorPeak = pos.peakUnrealizedPnl ?? 0;
     const priorTrough = pos.troughUnrealizedPnl ?? 0;
     const currentPeak = Math.max(priorPeak, mtm.unrealizedPnlUsd);
     const currentTrough = Math.min(priorTrough, mtm.unrealizedPnlUsd);
-    const trailingArmed = currentPeak >= nav * PAPER_TRAILING_STOP_ARM_PCT;
+    const { trailingArmThresholdUsd, underwaterTightenTrip } = await import('./adaptive-stops');
+    const trailingArmed = currentPeak >= trailingArmThresholdUsd(pos.notionalUsd);
     if (trailingArmed && mtm.unrealizedPnlUsd < currentPeak * (1 - PAPER_TRAILING_STOP_GIVEBACK_PCT)) {
       return PaperGatedTrader.closeAtMark(
         pos, markPrice, nav, now,
@@ -177,16 +179,12 @@ export class PaperGatedTrader {
       }).catch(() => {});
     }
 
-    // 2.5. Adaptive underwater tighten (2026-09-23) — same knobs as
-    //      PaperTrader. Cap the failure mode Phase 2 introduced.
+    // 2.5. Adaptive underwater tighten — same shared trip check as
+    //      PaperTrader (Fix O: notional-relative depth + 45min age).
     if (!trailingArmed && currentPeak <= 0) {
       const ageMin = (now - pos.openedAt) / 60_000;
       const lossUsd = -mtm.unrealizedPnlUsd;
-      const lossPctOfNav = nav > 0 ? lossUsd / nav : 0;
-      const TIGHTEN_AGE_MIN = Number(process.env.PAPER_TRADER_TIGHTEN_AGE_MIN || 30);
-      const TIGHTEN_USD = Number(process.env.PAPER_TRADER_TIGHTEN_LOSS_USD || 50);
-      const TIGHTEN_NAV_PCT = Number(process.env.PAPER_TRADER_TIGHTEN_LOSS_PCT || 0.0002);
-      if (ageMin >= TIGHTEN_AGE_MIN && (lossUsd >= TIGHTEN_USD || lossPctOfNav >= TIGHTEN_NAV_PCT)) {
+      if (underwaterTightenTrip({ ageMin, lossUsd, notionalUsd: pos.notionalUsd })) {
         return PaperGatedTrader.closeAtMark(
           pos, markPrice, nav, now,
           `underwater-tighten: ${Math.round(ageMin)}min under, never positive, loss $${lossUsd.toFixed(2)}`,
@@ -446,6 +444,7 @@ export class PaperGatedTrader {
           side: pos.side,
           openConfidencePct: pos.entryConfidence,
           realizedPnl,
+          namespace: 'paper',
         });
       } catch { /* non-fatal */ }
     }

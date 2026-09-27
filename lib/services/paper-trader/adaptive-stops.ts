@@ -142,6 +142,42 @@ export async function computeAdaptiveThresholds(asset: string): Promise<Adaptive
   }
 }
 
+// ── Shared exit thresholds (Fix O, 2026-09-27) ──────────────────────
+// Both traders (raw + gated) duplicated NAV-relative trailing-arm and
+// underwater-tighten checks; both were broken the same way (see config
+// comments on PAPER_TRAILING_ARM_NOTIONAL_FRAC / PAPER_TIGHTEN_*).
+// One implementation here, both traders call it.
+
+import {
+  PAPER_TRAILING_ARM_NOTIONAL_FRAC,
+  PAPER_TIGHTEN_AGE_MIN,
+  PAPER_TIGHTEN_NOTIONAL_FRAC,
+} from './config';
+
+/**
+ * USD unrealized-PnL threshold at which the trailing stop arms.
+ * Notional-relative with a fee-multiple floor: never arm inside 3×
+ * round-trip fees or the giveback close would surrender most of a
+ * barely-above-fees peak.
+ */
+export function trailingArmThresholdUsd(notionalUsd: number): number {
+  const roundTripFeeUsd = notionalUsd * 0.0013; // 6.5bp per side
+  return Math.max(notionalUsd * PAPER_TRAILING_ARM_NOTIONAL_FRAC, 3 * roundTripFeeUsd);
+}
+
+/**
+ * True when a never-positive position is old AND deep enough underwater
+ * (as a fraction of its own notional) to cut ahead of the stop.
+ */
+export function underwaterTightenTrip(params: {
+  ageMin: number;
+  lossUsd: number;
+  notionalUsd: number;
+}): boolean {
+  if (params.ageMin < PAPER_TIGHTEN_AGE_MIN) return false;
+  return params.lossUsd >= params.notionalUsd * PAPER_TIGHTEN_NOTIONAL_FRAC;
+}
+
 // Test-only exports
 export {
   STATIC_STOP_LOSS_PCT as _STATIC_STOP_LOSS_PCT,

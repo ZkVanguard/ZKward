@@ -118,9 +118,11 @@ export async function selectCandidate(
   concurrencyFilter?: ConcurrencyFilter,
   extraGate?: ExtraCandidateGate,
 ): Promise<SelectResult> {
-  // Regime-scale the entry conf gate: CHOP tightens 1.05× (55 → 58),
-  // TREND relaxes 0.95× (55 → 52). minConfidenceMult was dead until
-  // 2026-09-22.
+  // Regime-scale the entry conf gate — but only ever TIGHTEN. Fix O
+  // (2026-09-27): the TREND 0.95× relax pulled the Fix-J gate from 70
+  // down to 66.5, re-admitting the conf 65-69 bucket that Fix J was
+  // built to cut (43 post-reset trades, 33% wr, -$4,355 — the single
+  // worst bucket). The floor is the floor.
   let effectiveMinConf = PAPER_MIN_CONFIDENCE;
   let currentRegime: 'TRENDING_UP' | 'TRENDING_DOWN' | 'CHOP' | null = null;
   try {
@@ -128,7 +130,10 @@ export async function selectCandidate(
     const { regime } = await getCurrentRegime(now);
     currentRegime = regime;
     const regMults = getRegimeMultipliers(regime);
-    effectiveMinConf = PAPER_MIN_CONFIDENCE * regMults.minConfidenceMult;
+    effectiveMinConf = Math.max(
+      PAPER_MIN_CONFIDENCE,
+      PAPER_MIN_CONFIDENCE * regMults.minConfidenceMult,
+    );
   } catch { /* fall back to static */ }
 
   // Structural: halt all entries in CHOP regime. Every recent flip-close
@@ -198,7 +203,8 @@ export async function selectCandidate(
       let calibrationN = 0;
       if (side) {
         try {
-          const cal = await calibrate({ asset: candidateAsset, side, rawConfidencePct: pred.confidence });
+          // 'paper' namespace — self-calibrate on paper's own outcomes (Fix O).
+          const cal = await calibrate({ asset: candidateAsset, side, rawConfidencePct: pred.confidence, namespace: 'paper' });
           calibratedProb = cal.pCalibrated;
           calibrationN = cal.nHistory;
         } catch { /* fall back to raw */ }
@@ -220,7 +226,7 @@ export async function selectCandidate(
     let calibrationN = 0;
     if (side) {
       try {
-        const cal = await calibrate({ asset: scan.best.asset, side, rawConfidencePct: scan.best.prediction.confidence });
+        const cal = await calibrate({ asset: scan.best.asset, side, rawConfidencePct: scan.best.prediction.confidence, namespace: 'paper' });
         calibratedProb = cal.pCalibrated;
         calibrationN = cal.nHistory;
       } catch { /* fall back to raw */ }
