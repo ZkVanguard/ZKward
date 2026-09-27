@@ -63,6 +63,34 @@ async function handle(request: NextRequest) {
 
   void setCronState('cron:lastRun:paper-fast-tick', Date.now()).catch(() => {});
 
+  // Effective-config echo (Fix O audit, 2026-09-27). This response body is
+  // persisted verbatim in the jobs service's job_messages table, so the
+  // knob values ACTUALLY live on this deployment are queryable from the
+  // DB — no Vercel dashboard access needed. Vercel env silently overriding
+  // code defaults is the standing suspect for gates not matching code
+  // (e.g. conf 65-68 entries surviving the Fix-J conf>=70 bump).
+  let cfg: Record<string, unknown> = {};
+  try {
+    const c = await import('@/lib/services/paper-trader/config');
+    cfg = {
+      sha: (process.env.VERCEL_GIT_COMMIT_SHA || '').slice(0, 8) || 'local',
+      minConf: c.PAPER_MIN_CONFIDENCE,
+      minCons: c.PAPER_MIN_CONSENSUS,
+      minSrc: c.PAPER_MIN_SOURCES,
+      stake: c.PAPER_STAKE_PCT,
+      maxStake: c.PAPER_MAX_STAKE_PCT,
+      flipAgeSec: c.PAPER_MIN_FLIP_AGE_SEC,
+      holdCeil: c.PAPER_MAX_HOLD_CEILING_MIN,
+      tightenAge: c.PAPER_TIGHTEN_AGE_MIN,
+      tightenFrac: c.PAPER_TIGHTEN_NOTIONAL_FRAC,
+      armFrac: c.PAPER_TRAILING_ARM_NOTIONAL_FRAC,
+      stopEnv: (process.env.PAPER_TRADER_STOP_LOSS_PCT || 'default').trim(),
+      seeds: c.PAPER_ASSET_SIDE_BLACKLIST_SEEDS.size,
+      chopHalt: c.PAPER_HALT_ENTRIES_IN_CHOP,
+      disableHalts: c.PAPER_DISABLE_HALTS,
+    };
+  } catch { /* echo is best-effort */ }
+
   const elapsedMs = Date.now() - t0;
-  return NextResponse.json({ ok: true, elapsedMs, results });
+  return NextResponse.json({ ok: true, elapsedMs, results, cfg });
 }

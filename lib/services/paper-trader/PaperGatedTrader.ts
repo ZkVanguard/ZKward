@@ -312,16 +312,20 @@ export class PaperGatedTrader {
       };
     }
 
-    // Revert 2026-09-22 — back to static stop (parity with raw paper
-    // after PR #227's adaptive-at-entry hurt live paper PnL).
-    const { _STATIC_STOP_LOSS_PCT } = await import('./adaptive-stops');
-    const stopFrac = _STATIC_STOP_LOSS_PCT;
+    // Fix O (2026-09-27): adaptive stop at entry, parity with raw paper —
+    // the static 1.2% left all gated stop-outs at 0 wins (6 closes,
+    // -$1,769); the 2.5% floor in computeAdaptiveThresholds is the wider
+    // stop the 2026-09-22 revert actually wanted.
+    const { computeAdaptiveThresholds } = await import('./adaptive-stops');
+    const stopFrac = (await computeAdaptiveThresholds(asset)).stopLossPct;
     const stopLossPrice = side === 'LONG'
       ? markPrice * (1 - stopFrac)
       : markPrice * (1 + stopFrac);
 
-    // Simple max-hold: base + signal scalar bonus (min 45 default).
-    const maxHoldMin = PAPER_MAX_HOLD_MIN + Math.max(0, (signalScalar - 0.4) * 45);
+    // Shared hold math (Fix O) — includes the 90min hard ceiling; the
+    // old inline formula could stretch to 117min with no cap.
+    const { computeMaxHoldMinutes } = await import('./sizing');
+    const maxHoldMin = computeMaxHoldMinutes(signalScalar);
 
     // Snapshot the per-source directions at open so recordSourceOutcome
     // can score each source's call against the actual outcome at close.
