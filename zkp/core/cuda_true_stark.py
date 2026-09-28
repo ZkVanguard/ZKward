@@ -61,6 +61,7 @@ License: MIT
 """
 
 import hashlib
+import os
 import secrets
 import time
 import json
@@ -106,11 +107,21 @@ CUDA_AVAILABLE = False
 try:
     import cupy as cp
     cp.cuda.Device(0).use()
+    # VRAM budget (2026-09-28): this GPU is shared with the fine-tuned
+    # Signal Interpreter (4-bit 7B ≈ 5.1 GB resident on an 8 GB card).
+    # CuPy's default memory pool grows monotonically and never shrinks,
+    # so an unbounded ZK pool eventually starves the model server into
+    # OOM. Cap the pool; proofs at current trace sizes use well under
+    # 1 GB, and allocation beyond the cap raises inside CuPy, which the
+    # per-op fallbacks already treat as "use CPU for this op".
+    _pool_limit_gb = float(os.environ.get('ZK_GPU_POOL_LIMIT_GB', '1.5') or 1.5)
+    if _pool_limit_gb > 0:
+        cp.get_default_memory_pool().set_limit(size=int(_pool_limit_gb * 1024 ** 3))
     _probe = (cp.arange(4, dtype=cp.int64) * 2 + 1).sum()
     cp.cuda.Device().synchronize()
     _ = int(_probe)  # force materialize
     CUDA_AVAILABLE = True
-    print("[cuda] CuPy GPU probe passed - acceleration enabled")
+    print(f"[cuda] CuPy GPU probe passed - acceleration enabled (pool cap {_pool_limit_gb} GB)")
 except Exception as _e:
     print(f"[cuda] CuPy runtime probe failed: {type(_e).__name__}: {str(_e)[:120]}")
     try:
