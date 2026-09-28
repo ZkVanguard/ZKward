@@ -11,6 +11,8 @@ import {
   computeFeeUsd,
   computeFundingUsd,
   computeGrossPnl,
+  computeSlippageUsd,
+  slippageBpsForAsset,
   simulateOpen,
   simulateClose,
   markToMarket,
@@ -87,14 +89,56 @@ describe('computeGrossPnl', () => {
   });
 });
 
+describe('slippage model', () => {
+  it('per-asset defaults: majors 1bp, small-caps wider', () => {
+    expect(slippageBpsForAsset('BTC')).toBe(1);
+    expect(slippageBpsForAsset('ETH')).toBe(1);
+    expect(slippageBpsForAsset('SOL')).toBe(2);
+    expect(slippageBpsForAsset('DOGE')).toBe(2.5);
+  });
+  it('unknown asset falls back to 1.5bp; lookup is case-insensitive', () => {
+    expect(slippageBpsForAsset('PEPE')).toBe(1.5);
+    expect(slippageBpsForAsset('btc')).toBe(1);
+  });
+  it('computeSlippageUsd: one adverse side — 1bp on $100k BTC = $10', () => {
+    expect(computeSlippageUsd(100_000, 'BTC')).toBeCloseTo(10, 6);
+    expect(computeSlippageUsd(20_000, 'SOL')).toBeCloseTo(4, 6);
+  });
+  it('pre-slippage stored positions (no slippageOpenUsd) charge close side only', () => {
+    const legacy = {
+      asset: 'BTC',
+      side: 'LONG' as const,
+      entryPrice: 65_000,
+      size: 100_000 / 65_000,
+      notionalUsd: 100_000,
+      leverage: 1,
+      openedAt: NOW,
+      openFeeUsd: 65,
+    };
+    const result = simulateClose(legacy, 65_000, NOW);
+    expect(result.slippageUsd).toBeCloseTo(10, 6); // close side only
+  });
+  it('PAPER_SLIPPAGE_BPS_PER_SIDE flat override wins over per-asset map', () => {
+    jest.isolateModules(() => {
+      process.env.PAPER_SLIPPAGE_BPS_PER_SIDE = '3';
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const fresh = require('@/lib/services/paper-trader/simulated-executor');
+      expect(fresh.slippageBpsForAsset('BTC')).toBe(3);
+      expect(fresh.computeSlippageUsd(10_000, 'DOGE')).toBeCloseTo(3, 6);
+      delete process.env.PAPER_SLIPPAGE_BPS_PER_SIDE;
+    });
+  });
+});
+
 describe('simulateOpen', () => {
-  it('computes size = notional / entry, records open fee', () => {
+  it('computes size = notional / entry, records open fee + open slippage', () => {
     const pos = simulateOpen(
       { asset: 'BTC', side: 'LONG', notionalUsd: 65_000, leverage: 3, entryPrice: 65_000 },
       NOW,
     );
     expect(pos.size).toBeCloseTo(1, 6);
     expect(pos.openFeeUsd).toBeCloseTo(65_000 * 0.00065, 6); // 42.25
+    expect(pos.slippageOpenUsd).toBeCloseTo(6.5, 6); // 1bp on 65k
     expect(pos.openedAt).toBe(NOW);
   });
   it('throws on invalid entry price', () => {
@@ -129,8 +173,10 @@ describe('simulateClose — realistic scenarios', () => {
     expect(result.closeFeeUsd).toBeCloseTo(65, 3);
     // funding = -100k × 0.11 × (3600/31_536_000) ≈ -1.256
     expect(result.fundingUsd).toBeCloseTo(-1.2557, 3);
-    // realized = 2000 - 65 - 65 - 1.256 ≈ 1868.74
-    expect(result.realizedPnlUsd).toBeCloseTo(1868.7443, 3);
+    // slippage = 2 sides × 1bp × 100k = $20
+    expect(result.slippageUsd).toBeCloseTo(20, 3);
+    // realized = 2000 - 65 - 65 - 20 - 1.256 ≈ 1848.74
+    expect(result.realizedPnlUsd).toBeCloseTo(1848.7443, 3);
     expect(result.holdSeconds).toBe(3600);
   });
 
@@ -146,8 +192,10 @@ describe('simulateClose — realistic scenarios', () => {
     // SHORT collects funding: 50k × 0.11 × (43200/31_536_000) ≈ +7.53
     expect(result.fundingUsd).toBeGreaterThan(0);
     expect(result.fundingUsd).toBeCloseTo(7.5342, 3);
-    // net = 0 - 65 + 7.53 ≈ -57.47
-    expect(result.realizedPnlUsd).toBeCloseTo(-57.4658, 3);
+    // slippage = 2 sides × 1bp × 50k = $10
+    expect(result.slippageUsd).toBeCloseTo(10, 3);
+    // net = 0 - 65 - 10 + 7.53 ≈ -67.47
+    expect(result.realizedPnlUsd).toBeCloseTo(-67.4658, 3);
   });
 
   it('LONG with tiny move (< fee floor) → loss', () => {
@@ -155,11 +203,13 @@ describe('simulateClose — realistic scenarios', () => {
       { asset: 'SOL', side: 'LONG', notionalUsd: 20_000, leverage: 3, entryPrice: 150 },
       NOW,
     );
-    // +0.05% move = $10 gross, fees $26, funding negligible over 5 min
+    // +0.05% move = $10 gross, fees $26, slippage 2×2bp×20k = $8,
+    // funding negligible over 5 min
     const result = simulateClose(pos, 150.075, NOW + 5 * 60 * 1000);
     expect(result.grossPnlUsd).toBeCloseTo(10, 3);
-    expect(result.realizedPnlUsd).toBeLessThan(-15);
-    expect(result.realizedPnlUsd).toBeGreaterThan(-17);
+    expect(result.slippageUsd).toBeCloseTo(8, 3);
+    expect(result.realizedPnlUsd).toBeLessThan(-23);
+    expect(result.realizedPnlUsd).toBeGreaterThan(-25);
   });
 
   it('LONG catastrophic drawdown — 10% down', () => {
@@ -180,7 +230,8 @@ describe('markToMarket', () => {
       NOW,
     );
     const m = markToMarket(pos, 66_950, NOW + HOUR_MS); // +3%
-    expect(m.unrealizedPnlUsd).toBeCloseTo(300 - 6.5 - 0.1256, 2);
+    // gross − open fee − open-side slippage ($1 on 10k BTC) + funding
+    expect(m.unrealizedPnlUsd).toBeCloseTo(300 - 6.5 - 1 - 0.1256, 2);
     expect(m.fundingAccruedUsd).toBeCloseTo(-0.1256, 3);
   });
   it('close fee is NOT deducted in mark-to-market (only realized on close)', () => {
@@ -189,7 +240,7 @@ describe('markToMarket', () => {
       NOW,
     );
     const m = markToMarket(pos, 65_000, NOW); // 0-hold, no move
-    // Should reflect open fee only, not double
-    expect(m.unrealizedPnlUsd).toBeCloseTo(-6.5, 3);
+    // Should reflect open fee + open-side slippage only, not the close side
+    expect(m.unrealizedPnlUsd).toBeCloseTo(-7.5, 3);
   });
 });

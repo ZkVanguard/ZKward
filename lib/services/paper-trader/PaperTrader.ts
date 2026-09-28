@@ -1128,6 +1128,7 @@ export class PaperTrader {
           maePctOfNav: nav > 0 ? (pos.troughUnrealizedPnl ?? 0) / nav : 0,
           actualDir,
           attribution,
+          slippageUsd: result.slippageUsd,
           exitReason: reason.slice(0, 100),
         };
 
@@ -1173,6 +1174,7 @@ export class PaperTrader {
       realizedUsd: result.realizedPnlUsd.toFixed(2),
       grossUsd: result.grossPnlUsd.toFixed(2),
       fees: (result.openFeeUsd + result.closeFeeUsd).toFixed(2),
+      slippage: result.slippageUsd.toFixed(2),
       funding: result.fundingUsd.toFixed(4),
       holdSec: result.holdSeconds,
       newNavUsd: newNav.toFixed(2),

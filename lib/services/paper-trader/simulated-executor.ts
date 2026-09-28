@@ -10,12 +10,43 @@
  *   • Taker fee 6.5 bp per side → 13 bp round-trip
  *   • Perp funding ~11% APR average, prorated per second on open notional
  *   • LONG pays funding (bull-regime convention), SHORT collects
- *   • Zero slippage — fair-mark fill. Slippage layer is a future knob.
+ *   • Adverse slippage per side, per asset (spread + impact) — see below
  */
 
 export const FEE_BPS_PER_SIDE = 6.5;
 export const FUNDING_APR = 0.11;
 const SECONDS_PER_YEAR = 365 * 24 * 60 * 60;
+
+/**
+ * Slippage — the last flattering assumption, removed 2026-09-28.
+ * Market orders cross the spread and eat impact; a mark-price fill
+ * pretends they don't. Modeled as an adverse cost per side, per asset
+ * (majors tight, small-caps wider), charged at open AND close so every
+ * realized number the platform shows is net of the full friction a
+ * live taker would pay. Flat override: PAPER_SLIPPAGE_BPS_PER_SIDE;
+ * per-asset: PAPER_ASSET_SLIPPAGE_BPS='{"BTC":1,...}'.
+ */
+const DEFAULT_SLIPPAGE_BPS: Record<string, number> = (() => {
+  const raw = process.env.PAPER_ASSET_SLIPPAGE_BPS;
+  if (raw) {
+    try {
+      const parsed = JSON.parse(raw) as Record<string, number>;
+      if (parsed && typeof parsed === 'object') return parsed;
+    } catch { /* fall through */ }
+  }
+  return { BTC: 1, ETH: 1, SOL: 2, XRP: 2, DOGE: 2.5, SUI: 2.5, ATOM: 2.5 };
+})();
+const FLAT_SLIPPAGE_BPS = Number(process.env.PAPER_SLIPPAGE_BPS_PER_SIDE || 0);
+
+export function slippageBpsForAsset(asset: string): number {
+  if (FLAT_SLIPPAGE_BPS > 0) return FLAT_SLIPPAGE_BPS;
+  return DEFAULT_SLIPPAGE_BPS[asset.toUpperCase()] ?? 1.5;
+}
+
+/** Adverse slippage cost in USD for ONE side of the trade. */
+export function computeSlippageUsd(notionalUsd: number, asset: string): number {
+  return notionalUsd * (slippageBpsForAsset(asset) / 10_000);
+}
 
 export type Side = 'LONG' | 'SHORT';
 
@@ -41,6 +72,9 @@ export interface SimulatedPosition {
   leverage: number;
   openedAt: number;
   openFeeUsd: number;
+  /** Adverse slippage paid at open (one side). Optional for positions
+   *  stored before 2026-09-28 — those close with close-side slippage only. */
+  slippageOpenUsd?: number;
   // Signal sources present at open (with normalized keys). Used at close
   // to record per-source outcomes against the actual price move. Optional
   // for backward-compat with positions written before the calibrator
@@ -88,6 +122,7 @@ export interface SimulatedCloseResult {
   grossPnlUsd: number;
   openFeeUsd: number;
   closeFeeUsd: number;
+  slippageUsd: number;
   fundingUsd: number;
   realizedPnlUsd: number;
 }
@@ -145,6 +180,7 @@ export function simulateOpen(
     leverage: params.leverage,
     openedAt: nowMs,
     openFeeUsd: computeFeeUsd(params.notionalUsd),
+    slippageOpenUsd: computeSlippageUsd(params.notionalUsd, params.asset),
   };
 }
 
@@ -165,7 +201,10 @@ export function simulateClose(
   );
   const closeFeeUsd = computeFeeUsd(position.notionalUsd);
   const fundingUsd = computeFundingUsd(position.notionalUsd, position.side, holdMs);
-  const realizedPnlUsd = grossPnlUsd - position.openFeeUsd - closeFeeUsd + fundingUsd;
+  const slippageUsd =
+    (position.slippageOpenUsd ?? 0) + computeSlippageUsd(position.notionalUsd, position.asset);
+  const realizedPnlUsd =
+    grossPnlUsd - position.openFeeUsd - closeFeeUsd - slippageUsd + fundingUsd;
   return {
     asset: position.asset,
     side: position.side,
@@ -177,6 +216,7 @@ export function simulateClose(
     grossPnlUsd,
     openFeeUsd: position.openFeeUsd,
     closeFeeUsd,
+    slippageUsd,
     fundingUsd,
     realizedPnlUsd,
   };
@@ -201,7 +241,8 @@ export function markToMarket(
   const holdMs = Math.max(0, nowMs - position.openedAt);
   const fundingAccruedUsd = computeFundingUsd(position.notionalUsd, position.side, holdMs);
   return {
-    unrealizedPnlUsd: gross - position.openFeeUsd + fundingAccruedUsd,
+    unrealizedPnlUsd:
+      gross - position.openFeeUsd - (position.slippageOpenUsd ?? 0) + fundingAccruedUsd,
     fundingAccruedUsd,
   };
 }

@@ -162,7 +162,11 @@ export class OracleTrader {
               result.realizedPnlUsd,
               result.fundingUsd,
               pos.orderId,
-              JSON.stringify({ uncertain: pos.uncertain, slug: pos.slug }),
+              JSON.stringify({
+                uncertain: pos.uncertain,
+                slug: pos.slug,
+                slippageUsd: result.slippageUsd,
+              }),
             ],
           );
           const stats = (await getCronState<OracleStats>(KEY_STATS)) ?? {

@@ -486,6 +486,7 @@ export class PaperGatedTrader {
           maePctOfNav: priorNav > 0 ? (pos.troughUnrealizedPnl ?? 0) / priorNav : 0,
           actualDir,
           attribution,
+          slippageUsd: closeResult.slippageUsd,
           exitReason: reason.slice(0, 100),
         };
         await query(
