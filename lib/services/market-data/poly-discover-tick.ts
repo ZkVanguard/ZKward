@@ -137,15 +137,29 @@ export async function runPolyDiscoverTick(): Promise<PolyDiscoverTickResult> {
       );
     }
 
-    // Interpret new high-impact markets with the fine-tuned Signal Interpreter.
-    // Guarded by SIGNAL_INTERPRETER_ENABLED — off = regex fallback, no network call.
+    // Interpret new markets with the Signal Interpreter (fine-tune → ASI
+    // fallback → regex). Guarded by SIGNAL_INTERPRETER_ENABLED.
     // Only labels NEW markets (filtered by seenBroadSlugs above), so cost is
     // bounded per tick. Serial (not parallel) because the single-instance
     // GPU model has no batch endpoint on `/v1/chat/completions` — 5 parallel
     // requests queued serially on the GPU take 65s+ vs 25s serial-with-clean-
     // queuing. Cap at 3 so worst-case ~15s stays well under 300s Function limit.
+    //
+    // 2026-09-28: interpretation floor decoupled from the $50k notify floor.
+    // INTERP_CAP already bounds per-tick cost, and the $50k floor starved the
+    // stack's best measured source (75.5% resolved accuracy) to ~91 rows
+    // lifetime — new qualifying markets appear hours-to-days apart, so the
+    // aggregator's 24h-fresh AI source was empty most of the time even when
+    // the interpreter was healthy. $10k default admits enough titles for
+    // steady supply; the ledger + resolve-outcomes measure quality per row.
     const INTERP_CAP = 3;
-    const toInterpret = newBroadHigh.slice(0, INTERP_CAP);
+    const INTERP_MIN_VOL = Number(process.env.POLY_INTERPRET_MIN_VOL24H || 10_000);
+    const toInterpret = broad
+      .filter(m => m.horizon !== '5min')
+      .filter(m => !seenBroadSlugs.has(m.slug))
+      .filter(m => m.volume24hr >= INTERP_MIN_VOL)
+      .sort((a, b) => b.volume24hr - a.volume24hr)
+      .slice(0, INTERP_CAP);
     const interpretations: Array<{ market: BroadMarket; signal: InterpretedSignal }> = [];
     if (toInterpret.length > 0) {
       for (const m of toInterpret) {
