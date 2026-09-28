@@ -61,6 +61,18 @@ async function handle(request: NextRequest) {
     logger.warn('[PaperFastTick] paper-gated tick failed (non-fatal)', { error: errMsg(e) });
   }
 
+  // Oracle trader (portfolio -5): bets fresh AI interpretations at their
+  // NATIVE horizon — the counterfactual on stored entry/exit pairs ran
+  // 73.9% WR / +1.55%/trade net (n=46). This book measures it forward.
+  try {
+    const { OracleTrader } = await import('@/lib/services/paper-trader/OracleTrader');
+    const s = await OracleTrader.runTick(Date.now());
+    results.oracle = `opened ${s.opened}, closed ${s.closed}, active ${s.active}`;
+  } catch (e) {
+    results.oracle = `error: ${errMsg(e).slice(0, 80)}`;
+    logger.warn('[PaperFastTick] oracle tick failed (non-fatal)', { error: errMsg(e) });
+  }
+
   // Signal ledger (root-audit Pillar 2): snapshot every source's call at
   // fixed horizons + resolve expired windows. Rides this tick because the
   // aggregator scan is still warm (20s TTL) from the trader runs above.
