@@ -697,9 +697,16 @@ if __name__ == "__main__":
     print(f"🔬 Prover: CUDATrueSTARK (Goldilocks, FRI + grinding)")
     print("=" * 60)
     
+    # access_log=False (2026-09-28): per-request access lines flooded the
+    # task wrapper's stdout pipe; when the pipe reader stalls, the write
+    # BLOCKS the event loop mid-request (py-spy: MainThread stuck in
+    # logging emit -> uvicorn send). Server then accepts TCP but never
+    # responds — the recurring half-dead pattern. App-level prints are
+    # low-volume and stay.
     uvicorn.run(
         app,
         host="0.0.0.0",
         port=8000,
-        log_level="info"
+        log_level="warning",
+        access_log=False,
     )
