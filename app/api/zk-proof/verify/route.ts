@@ -1,3 +1,4 @@
+import { zkApiHeaders } from '@/lib/utils/zk-api-auth';
 import { NextRequest, NextResponse } from 'next/server';
 import { safeErrorResponse } from '@/lib/security/safe-error';
 import { heavyLimiter } from '@/lib/security/rate-limiter';
@@ -23,9 +24,7 @@ export async function POST(request: NextRequest) {
     // Call the real FastAPI ZK server
     const response = await fetch(`${ZK_API_URL}/api/zk/verify`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: zkApiHeaders(),
       body: JSON.stringify({
         proof: proof,
         claim: verificationClaim,

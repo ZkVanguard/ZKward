@@ -26,6 +26,7 @@
  * @see lib/db/agent-decisions.ts — outcome tracking
  */
 
+import { zkApiHeaders } from '@/lib/utils/zk-api-auth';
 import { logger } from '@/lib/utils/logger';
 import { recordAgentDecision } from '@/lib/db/agent-decisions';
 import { getCronState, setCronState } from '@/lib/db/cron-state';
@@ -262,7 +263,7 @@ async function attestLargeTradeOrFail(
     const commitment = `0x${'0'.repeat(64)}`; // placeholder — attestation gates the SIZE not identity
     const r = await fetch(`${url}/api/zk/attest`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: zkApiHeaders(),
       body: JSON.stringify({
         proof_type: 'risk',
         statement: {

@@ -3,6 +3,7 @@
  * @module zk/prover/ProofGenerator
  */
 
+import { zkApiHeaders } from '@/lib/utils/zk-api-auth';
 import path from 'path';
 import crypto from 'crypto';
 import { logger } from '../../shared/utils/logger';
@@ -234,7 +235,7 @@ export class ProofGenerator {
       // Submit proof generation request
       const resp = await fetch(`${zkApiUrl}/api/zk/generate`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: zkApiHeaders(),
         body: JSON.stringify({ 
           proof_type: supportedScenario,
           scenario: supportedScenario,
@@ -259,7 +260,7 @@ export class ProofGenerator {
         while (Date.now() - startTime < timeout) {
           const statusResp = await fetch(`${zkApiUrl}/api/zk/proof/${result.job_id}`, {
             method: 'GET',
-            headers: { 'Content-Type': 'application/json' },
+            headers: zkApiHeaders(),
           });
           
           if (!statusResp.ok) {

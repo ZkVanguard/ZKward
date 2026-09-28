@@ -1,3 +1,4 @@
+import { zkApiHeaders } from '@/lib/utils/zk-api-auth';
 import { NextRequest, NextResponse } from 'next/server';
 import { createPublicClient, http, type Log } from 'viem';
 import { CronosTestnet } from '@/lib/chains';
@@ -105,7 +106,7 @@ export async function POST(request: NextRequest) {
       try {
         const zkResponse = await fetch(`${ZK_API_URL}/api/zk/verify`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: zkApiHeaders(),
           body: JSON.stringify({
             proof: proof,
             claim: JSON.stringify(statement),

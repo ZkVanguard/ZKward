@@ -70,6 +70,22 @@ app = FastAPI(
     default_response_class=LargeIntJSONResponse  # Custom handler for big integers as strings
 )
 
+# ── Shared-secret auth for the public tunnel (2026-09-28) ─────────────
+# The prover is exposed at zk.zkward.com; unauthenticated /api/zk/*
+# would let anyone burn this GPU generating proofs. Same pattern as the
+# AI model server: X-Api-Key must match ZK_API_AUTH_HEADER when set.
+# Empty env = auth disabled (local dev / tests). /health and / stay
+# open for monitors.
+_ZK_AUTH_SECRET = (os.environ.get("ZK_API_AUTH_HEADER") or "").strip()
+
+
+@app.middleware("http")
+async def _zk_api_auth(request, call_next):
+    if _ZK_AUTH_SECRET and request.url.path.startswith("/api/zk/"):
+        if request.headers.get("x-api-key", "") != _ZK_AUTH_SECRET:
+            return JSONResponse(status_code=401, content={"detail": "invalid or missing X-Api-Key"})
+    return await call_next(request)
+
 # CORS for Next.js frontend (local + Vercel deployments)
 app.add_middleware(
     CORSMiddleware,

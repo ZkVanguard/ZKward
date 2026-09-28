@@ -23,6 +23,7 @@
  * @see zkp/api/server.py — /api/zk/generate, /api/zk/verify, /api/zk/attest
  */
 
+import { zkApiHeaders } from '@/lib/utils/zk-api-auth';
 import { logger } from '@/lib/utils/logger';
 import crypto from 'crypto';
 import {
@@ -363,7 +364,7 @@ export class SuiPrivateHedgeService {
 
     const r = await fetch(`${this.proverApiUrl}/api/zk/attest`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: zkApiHeaders(),
       body: JSON.stringify({
         proof_type: 'risk',
         statement,
@@ -534,7 +535,7 @@ export class SuiPrivateHedgeService {
 
     const r = await fetch(`${this.proverApiUrl}/api/zk/attest`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: zkApiHeaders(),
       body: JSON.stringify({
         proof_type: 'private-hedge',
         statement,
@@ -582,7 +583,7 @@ export class SuiPrivateHedgeService {
   ): Promise<boolean> {
     const r = await fetch(`${this.proverApiUrl}/api/zk/verify`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: zkApiHeaders(),
       body: JSON.stringify({
         proof: bundle.starkProof,
         public_inputs: publicInputs,

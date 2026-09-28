@@ -3,6 +3,7 @@
  * Connects frontend to actual ZK proof generation system
  */
 
+import { zkApiHeaders } from '@/lib/utils/zk-api-auth';
 import { logger } from '../utils/logger';
 
 const ZK_API_URL = process.env.NEXT_PUBLIC_ZK_API_URL || 'https://zk-api.starknova.xyz';
@@ -89,9 +90,7 @@ export async function generateSettlementProof(
     
     const response = await fetch(`${ZK_API_URL}/api/zk/generate`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: zkApiHeaders(),
       signal: AbortSignal.timeout(30_000),
       body: JSON.stringify({
         proof_type: 'settlement',
@@ -151,9 +150,7 @@ export async function generateRiskProof(
     
     const response = await fetch(`${ZK_API_URL}/api/zk/generate`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: zkApiHeaders(),
       signal: AbortSignal.timeout(30_000),
       body: JSON.stringify({
         proof_type: 'risk',
@@ -199,9 +196,7 @@ export async function generateRebalanceProof(
     
     const response = await fetch(`${ZK_API_URL}/api/zk/generate`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: zkApiHeaders(),
       signal: AbortSignal.timeout(30_000),
       body: JSON.stringify({
         proof_type: 'rebalance',
@@ -239,6 +234,7 @@ export async function generateRebalanceProof(
 export async function getProofStatus(jobId: string): Promise<ZKProofStatus> {
   try {
     const response = await fetch(`${ZK_API_URL}/api/zk/proof/${jobId}`, {
+      headers: zkApiHeaders(),
       signal: AbortSignal.timeout(5_000),
     });
     
@@ -299,9 +295,7 @@ export async function verifyProofOffChain(
     
     const response = await fetch(`${ZK_API_URL}/api/zk/verify`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: zkApiHeaders(),
       signal: AbortSignal.timeout(15_000),
       body: JSON.stringify({
         proof,
@@ -556,9 +550,7 @@ export async function generateWalletOwnershipProof(
     
     const response = await fetch(`${ZK_API_URL}/api/zk/generate`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: zkApiHeaders(),
       signal: AbortSignal.timeout(30_000),
       body: JSON.stringify({
         proof_type: 'wallet_ownership',
