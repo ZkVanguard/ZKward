@@ -688,7 +688,29 @@ def _prepare_rebalance_witness(data: Dict[str, Any]) -> Dict[str, Any]:
 # Run server
 if __name__ == "__main__":
     import secrets
-    
+
+    # Startup self-test (2026-09-28): prove the prover before serving —
+    # generate + verify one tiny STARK, exit(1) on any failure so the
+    # task wrapper respawns us instead of leaving a warm corpse behind
+    # the tunnel. Mirrors serve-model.py's generate self-test.
+    try:
+        from zkp.core.cuda_true_stark import CUDATrueSTARK
+        _st_zk = CUDATrueSTARK()
+        _st_stmt = {"claim": "startup-self-test", "public_inputs": [1]}
+        _st_proof = _st_zk.generate_proof(_st_stmt, {"secret_value": 1})
+        if not _st_zk.verify_proof(_st_proof, _st_stmt):
+            print("[self-test] FATAL: startup proof did not verify")
+            sys.exit(1)
+        print(f"[self-test] proof round-trip OK "
+              f"(cuda={_st_proof.get('cuda_accelerated')}, "
+              f"{_st_proof.get('generation_time', 0):.2f}s)")
+        del _st_zk, _st_proof
+    except SystemExit:
+        raise
+    except Exception as _st_err:  # noqa: BLE001 — unfit to serve on any failure
+        print(f"[self-test] FATAL: {_st_err}")
+        sys.exit(1)
+
     print("🚀 Starting ZkWard ZK System API")
     print("=" * 60)
     print(f"📍 Server: http://0.0.0.0:8000")
