@@ -237,7 +237,7 @@ describe('ZK-STARK Integration Tests', () => {
       expect(Array.isArray(proof.proof.query_responses)).toBe(true);
     }, 120000);
 
-    it('should use NIST P-521 prime', async () => {
+    it('should use the Goldilocks prime (2^64 - 2^32 + 1)', async () => {
       if (!zkServerAvailable) {
         logger.warn('Skipping test: ZK server not available');
         return;
@@ -247,10 +247,12 @@ describe('ZK-STARK Integration Tests', () => {
 
       const proof = await proofGenerator.generateProof('prime-test', statement, witness);
 
-      const expectedPrime =
-        '6864797660130609714981900799081393217269435300143305409394463459185543183397656052122559640661454554977296311391480858037121987999716643812574028291115057151';
-
-      expect(proof.proof.field_prime).toBe(expectedPrime);
+      // CUDATrueSTARK cutover (c56ff363, 2026-07-28) moved the field from
+      // NIST P-521 to Goldilocks — the FFT-friendly 64-bit STARK field used
+      // by Plonky2 / Polygon zkEVM. This pin catches an accidental field
+      // downgrade or a stale prover build.
+      const GOLDILOCKS = '18446744069414584321'; // 2^64 - 2^32 + 1
+      expect(String(proof.proof.field_prime)).toBe(GOLDILOCKS);
     }, 120000);
   });
 
@@ -267,8 +269,11 @@ describe('ZK-STARK Integration Tests', () => {
       const proof = await proofGenerator.generateProof('perf-test', statement, witness);
       const totalTime = Date.now() - startTime;
 
-      // Should complete within 5 seconds (including Python spawn)
-      expect(totalTime).toBeLessThan(5000);
+      // Budget: a single proof is ~1.6-2.5s on GPU (trace 256, 80 queries,
+      // 20 grinding bits), but the prover is single-threaded and this test
+      // runs behind the suite's earlier proofs, so allow queueing headroom.
+      // 15s still catches a CPU-fallback regression compounding with load.
+      expect(totalTime).toBeLessThan(15000);
       expect(proof.generationTime).toBeDefined();
 
       logger.info('Proof generation performance', {

@@ -68,6 +68,36 @@ from typing import List, Dict, Any, Optional, Tuple
 from dataclasses import dataclass
 import numpy as np
 
+# Windows + pip-installed CUDA libraries: CuPy wheels do NOT bundle NVRTC
+# (the runtime kernel compiler) and CuPy's loader does not search pip's
+# site-packages/nvidia/*/bin on Windows. Without this, the probe below dies
+# with "Could not find nvrtc64_120_0.dll" and the prover silently runs CPU
+# (observed 2026-09-28 on the RTX 3070 box). Registering those dirs is a
+# no-op anywhere they don't exist, so this is safe cross-platform.
+def _register_pip_cuda_dlls() -> None:
+    import os
+    if os.name != 'nt':
+        return
+    try:
+        import site
+        import glob
+        search_roots = list(site.getsitepackages())
+        user_site = site.getusersitepackages()
+        if user_site:
+            search_roots.append(user_site)
+        for root in search_roots:
+            for bin_dir in glob.glob(os.path.join(root, 'nvidia', '*', 'bin')):
+                try:
+                    os.add_dll_directory(bin_dir)
+                except (OSError, AttributeError):
+                    pass
+                os.environ['PATH'] = bin_dir + os.pathsep + os.environ.get('PATH', '')
+    except Exception:
+        pass  # discovery is best-effort; the probe below reports the truth
+
+
+_register_pip_cuda_dlls()
+
 # Try to import CUDA libraries.
 # .use() alone only sets device context — it does NOT trigger nvrtc / kernel
 # compilation, so a broken CUDA install (missing nvrtc DLL) sneaks through.

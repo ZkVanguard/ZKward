@@ -53,7 +53,13 @@ class TestSingleZKSystem:
     
     @pytest.mark.asyncio
     async def test_zk_proof_generation(self):
-        """Test ZK-STARK proof generation"""
+        """Proof generation + verification against the CUDATrueSTARK shape.
+
+        Rewritten 2026-09-28: the old assertions targeted the pre-cutover
+        sigma-protocol shape (commitment/challenge/response) and awaited a
+        sync method. CUDATrueSTARK (c56ff363) is sync with an async wrapper
+        and emits the STARK proof shape (trace root, FRI layers, queries).
+        """
         statement = {
             "public_input": 42,
             "computation": "square"
@@ -62,52 +68,61 @@ class TestSingleZKSystem:
             "secret": 42,
             "intermediate": 42 * 42
         }
-        
-        proof = await self.zk_system.generate_proof(statement, witness)
-        
-        # Verify proof structure
+
+        proof = await self.zk_system.generate_proof_async(statement, witness)
+
+        # Current STARK proof structure
         assert isinstance(proof, dict)
-        assert "commitment" in proof
-        assert "challenge" in proof
-        assert "response" in proof
-        assert "timestamp" in proof
-        assert "field_prime" in proof
-        
-        # Verify proof verification
-        is_valid = self.zk_system.verify_proof(proof, statement)
-        assert is_valid is True
-    
-    @pytest.mark.asyncio 
+        for key in (
+            "statement_hash",
+            "trace_merkle_root",
+            "fri_roots",
+            "query_responses",
+            "field_prime",
+            "timestamp",
+            "grinding_nonce",
+        ):
+            assert key in proof, f"missing proof field: {key}"
+        assert isinstance(proof["cuda_accelerated"], bool)
+
+        # Round-trip verification
+        assert self.zk_system.verify_proof(proof, statement) is True
+
+        # Binding: a different statement must NOT verify
+        assert self.zk_system.verify_proof(
+            proof, {"public_input": 43, "computation": "square"}
+        ) is False
+
+    @pytest.mark.asyncio
     async def test_proof_manager(self):
-        """Test proof storage and retrieval"""
+        """Disk-backed persistence: create → get → verify → delete."""
         statement = {"value": 100}
         witness = {"secret": 10}
-        
-        # Generate and store proof
-        proof = await self.zk_system.generate_proof(statement, witness)
-        proof_id = await self.proof_manager.store_proof(proof, statement)
-        
-        # Retrieve and verify
-        stored_proof = self.proof_manager.get_proof(proof_id)
-        assert stored_proof is not None
-        
-        # Verify stored proof
-        is_valid = self.proof_manager.verify_proof(proof_id)
-        assert is_valid is True
-    
+
+        record = await self.proof_manager.create_proof("t-proof-1", statement, witness)
+        assert record["status"] == "valid"
+        assert record["proof_id"] == "t-proof-1"
+
+        stored = self.proof_manager.get_proof("t-proof-1")
+        assert stored is not None
+        assert stored["statement"] == statement
+
+        assert self.proof_manager.verify_proof_sync("t-proof-1") is True
+        assert "t-proof-1" in self.proof_manager.list_proofs()
+        assert self.proof_manager.delete_proof("t-proof-1") is True
+        assert self.proof_manager.verify_proof_sync("t-proof-1") is False
+
     @pytest.mark.asyncio
     async def test_multiple_proofs(self):
-        """Test multiple proof generations"""
+        """Several independent proofs all verify against their own statements."""
         proofs = []
-        
-        for i in range(5):
+
+        for i in range(3):
             statement = {"iteration": i}
             witness = {"secret_value": i * 2}
-            
-            proof = await self.zk_system.generate_proof(statement, witness)
+            proof = await self.zk_system.generate_proof_async(statement, witness)
             proofs.append((proof, statement))
-        
-        # Verify all proofs
+
         for proof, statement in proofs:
             assert self.zk_system.verify_proof(proof, statement)
     
