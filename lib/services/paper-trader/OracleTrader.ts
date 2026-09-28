@@ -49,6 +49,12 @@ const MAX_OPENS_PER_TICK = Number(process.env.ORACLE_TRADER_MAX_OPENS_PER_TICK |
 const MIN_HORIZON_MS = Number(process.env.ORACLE_TRADER_MIN_HORIZON_MIN || 30) * 60_000;
 const MAX_HORIZON_MS = Number(process.env.ORACLE_TRADER_MAX_HORIZON_H || 48) * 3_600_000;
 const UNCERTAIN_BAND = Number(process.env.ORACLE_TRADER_UNCERTAIN_BAND || 0.08);
+// A row's entry anchor is the price AT interpretation time. Opening a
+// position against a stale anchor books phantom PnL for whatever the
+// market did in between, so only fresh rows qualify — on the 60s tick
+// the anchor-to-open gap is then ≤ ~1 min. Protects against backlog
+// sweeps after downtime (the watermark still advances past stale rows).
+const MAX_SIGNAL_AGE_MS = Number(process.env.ORACLE_TRADER_MAX_SIGNAL_AGE_MIN || 30) * 60_000;
 const DISABLED = /^(1|true|yes|on)$/i.test((process.env.ORACLE_TRADER_DISABLE || '').trim());
 
 const KEY_POSITIONS = 'oracle-trader:active-positions';
@@ -98,6 +104,8 @@ export function selectOracleCandidates(
     const side: Side | null =
       row.direction === 'UP' ? 'LONG' : row.direction === 'DOWN' ? 'SHORT' : null;
     if (!side) continue;
+    const interpretedAt = new Date(row.interpreted_at).getTime();
+    if (!Number.isFinite(interpretedAt) || now - interpretedAt > MAX_SIGNAL_AGE_MS) continue;
     const asset = (row.asset || '').toUpperCase();
     if (!PRICEABLE.has(asset)) continue;
     const entry = Number(row.entry_price_usd);

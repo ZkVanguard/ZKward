@@ -42,6 +42,11 @@ describe('selectOracleCandidates', () => {
     expect(selectOracleCandidates([row({ direction: 'BINARY_YES' })], NOW)).toHaveLength(0);
   });
 
+  it('rejects stale rows — the entry anchor must be at-market', () => {
+    const stale = row({ interpreted_at: new Date(NOW - 2 * H).toISOString() });
+    expect(selectOracleCandidates([stale], NOW)).toHaveLength(0);
+  });
+
   it('rejects unpriceable assets and missing entry anchors', () => {
     expect(selectOracleCandidates([row({ asset: 'PEPE' })], NOW)).toHaveLength(0);
     expect(selectOracleCandidates([row({ entry_price_usd: null })], NOW)).toHaveLength(0);
