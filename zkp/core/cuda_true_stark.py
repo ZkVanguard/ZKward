@@ -1263,11 +1263,21 @@ class CUDATrueSTARK:
         
         # ===== STEP 8: Grinding (Proof-of-Work) =====
         # Whitepaper claim: 2^-grinding_bits soundness bonus on top of FRI.
-        # Bind grinding to the FULL commitment transcript (trace + FRI roots)
-        # so an attacker cannot pre-mine a nonce for a favorable trace root.
-        # Query seed is derived from the ground digest so grinding also gates
-        # query selection — flipping the nonce reshuffles the query indices.
-        transcript = trace_merkle.root() + b''.join(t.root() for t in fri_trees)
+        # Bind grinding to the FULL commitment transcript (STATEMENT + trace
+        # + FRI roots) so an attacker cannot pre-mine a nonce for a favorable
+        # trace root. Query seed is derived from the ground digest so grinding
+        # also gates query selection — flipping the nonce reshuffles indices.
+        #
+        # STARK-2.1 (2026-09-28): the statement digest is part of the
+        # transcript. Before this, statement_hash was only a FIELD the
+        # verifier compared, so an honest proof for statement A could be
+        # rebound to any statement B by editing that field — demonstrated
+        # empirically ("I owe you $1" proof verified for "I owe you
+        # $1,000,000"). With the statement in the transcript, rebinding
+        # invalidates the grinding PoW and every query index.
+        statement_str = json.dumps(statement, sort_keys=True) if isinstance(statement, dict) else str(statement)
+        statement_digest = hashlib.sha256(statement_str.encode()).digest()
+        transcript = statement_digest + trace_merkle.root() + b''.join(t.root() for t in fri_trees)
         grinding_nonce = _find_grinding_nonce(transcript, self.config.grinding_bits)
         ground_digest = hashlib.sha256(transcript + grinding_nonce.to_bytes(16, 'big')).digest()
 
@@ -1303,13 +1313,12 @@ class CUDATrueSTARK:
         # ===== STEP 11: Build Complete Proof =====
         generation_time = time.time() - start_time
         
-        # Statement hash for binding
-        statement_str = json.dumps(statement, sort_keys=True) if isinstance(statement, dict) else str(statement)
-        statement_hash = int(hashlib.sha256(statement_str.encode()).hexdigest(), 16) % self.prime
-        
+        # Statement hash for binding (field form of the transcript digest)
+        statement_hash = int(statement_digest.hex(), 16) % self.prime
+
         proof = {
             # Protocol identifier
-            'version': 'STARK-2.0',
+            'version': 'STARK-2.1',
             'protocol': 'ZK-STARK (AIR + FRI)',
             
             # Trace commitment
@@ -1453,18 +1462,53 @@ class CUDATrueSTARK:
             except (TypeError, ValueError):
                 print(f"❌ Grinding nonce malformed")
                 return False
-            transcript = bytes.fromhex(trace_merkle_root) + b''.join(
+            # STARK-2.1: the transcript starts with the digest of the
+            # PRESENTED statement (recomputed here, never read from the
+            # proof), so a proof ground for statement A cannot pass for B.
+            statement_digest = hashlib.sha256(statement_str.encode()).digest()
+            transcript = statement_digest + bytes.fromhex(trace_merkle_root) + b''.join(
                 bytes.fromhex(r) for r in fri_roots
             )
             if not _verify_grinding(transcript, grinding_nonce, grinding_bits):
                 print(f"❌ Grinding PoW check failed for {grinding_bits} bits")
                 return False
 
+            # ===== STEP 4c: Enforce Fiat-Shamir Query Indices =====
+            # The prover derives query positions from the ground transcript
+            # digest; the verifier MUST re-derive and enforce them. Before
+            # this check (2026-09-28) query positions were read from the
+            # proof as-is — a cheating prover could open only positions
+            # where its (arbitrary) layer commitments happened to fold
+            # consistently, voiding the ρ^num_queries soundness claim.
+            # Demonstrated empirically: a proof with all 80 queries replaced
+            # by copies of query[0] verified.
+            extended_size_fs = int(proof_data.get('extended_trace_length') or 0)
+            if extended_size_fs <= 0:
+                print(f"❌ extended_trace_length missing or invalid")
+                return False
+            ground_digest = hashlib.sha256(
+                transcript + grinding_nonce.to_bytes(16, 'big')
+            ).digest()
+            query_seed = hashlib.sha256(ground_digest + b'queries').hexdigest()
+            expected_indices = [
+                int(hashlib.sha256(f"{query_seed}_{i}".encode()).hexdigest(), 16) % extended_size_fs
+                for i in range(self.config.num_queries)
+            ]
+
             # ===== STEP 5: Verify FRI (Merkle + folding consistency) =====
             query_responses = proof_data.get('query_responses', [])
-            if len(query_responses) < self.config.num_queries // 2:
-                print(f"❌ Insufficient query responses")
+            if len(query_responses) != len(expected_indices):
+                print(f"❌ Query count mismatch: {len(query_responses)} != {len(expected_indices)} expected")
                 return False
+            for i, (query, expected_idx) in enumerate(zip(query_responses, expected_indices)):
+                try:
+                    supplied_idx = int(query.get('index', -1))
+                except (TypeError, ValueError):
+                    print(f"❌ Query {i} index malformed")
+                    return False
+                if supplied_idx % extended_size_fs != expected_idx:
+                    print(f"❌ Query {i} index {supplied_idx} != Fiat-Shamir expected {expected_idx}")
+                    return False
 
             # Reconstruct final polynomial from serialized coefficients.
             final_poly_coeffs = proof_data.get('fri_final_polynomial', [])
