@@ -516,7 +516,8 @@
       "clear": "Clear",
       "clearHistory": "Clear conversation",
       "newChat": "New Chat",
-      "newChatTooltip": "Start a fresh conversation (resets memory)"
+      "newChatTooltip": "Start a fresh conversation (resets memory)",
+      "emptyResponse": "応答がありませんでした。サービスが更新中だった可能性があります。もう一度お試しください。"
     }
   },
   "story": {

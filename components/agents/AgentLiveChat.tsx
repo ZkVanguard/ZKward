@@ -363,7 +363,17 @@ export function AgentLiveChat() {
       }));
     } finally {
       setPending(false);
-      patch(msg => (msg.streaming ? { ...msg, streaming: false } : msg));
+      // A stream can terminate with zero tokens and no error event (seen
+      // when a request straddles a production deploy swap). Without this
+      // guard the assistant bubble sits silently EMPTY — looks like the
+      // bot ignored the user. Surface it as a retryable error instead.
+      patch(msg => {
+        const next = msg.streaming ? { ...msg, streaming: false } : msg;
+        if (!next.content && !next.error) {
+          return { ...next, content: t('emptyResponse'), error: true, streaming: false };
+        }
+        return next;
+      });
     }
   }, [pending, t]);
 

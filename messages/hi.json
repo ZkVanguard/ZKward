@@ -516,7 +516,8 @@
       "clear": "Clear",
       "clearHistory": "Clear conversation",
       "newChat": "New Chat",
-      "newChatTooltip": "Start a fresh conversation (resets memory)"
+      "newChatTooltip": "Start a fresh conversation (resets memory)",
+      "emptyResponse": "कोई प्रतिक्रिया नहीं मिली — सेवा अपडेट हो रही हो सकती है। कृपया पुनः प्रयास करें।"
     }
   },
   "story": {

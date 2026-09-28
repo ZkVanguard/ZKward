@@ -516,7 +516,8 @@
       "clear": "Clear",
       "clearHistory": "Clear conversation",
       "newChat": "New Chat",
-      "newChatTooltip": "Start a fresh conversation (resets memory)"
+      "newChatTooltip": "Start a fresh conversation (resets memory)",
+      "emptyResponse": "No se recibio respuesta - el servicio puede haberse estado actualizando. Intentalo de nuevo."
     }
   },
   "story": {

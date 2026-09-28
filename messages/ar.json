@@ -516,7 +516,8 @@
       "clear": "Clear",
       "clearHistory": "Clear conversation",
       "newChat": "New Chat",
-      "newChatTooltip": "Start a fresh conversation (resets memory)"
+      "newChatTooltip": "Start a fresh conversation (resets memory)",
+      "emptyResponse": "لم يتم تلقي أي رد — ربما كانت الخدمة قيد التحديث. يرجى المحاولة مرة أخرى."
     }
   },
   "story": {

@@ -221,7 +221,8 @@
       "clear": "Clear",
       "clearHistory": "Clear conversation",
       "newChat": "New Chat",
-      "newChatTooltip": "Start a fresh conversation (resets memory)"
+      "newChatTooltip": "Start a fresh conversation (resets memory)",
+      "emptyResponse": "No response received - the service may have been updating. Please try again."
     },
     "architecture": "Architecture",
     "architectureBody": "All agents talk through a central <bus>MessageBus</bus> and extend a common <base>BaseAgent</base>. Each concern owns one file. Nothing shares state through globals.",

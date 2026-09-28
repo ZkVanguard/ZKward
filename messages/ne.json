@@ -302,7 +302,8 @@
       "clear": "Clear",
       "clearHistory": "Clear conversation",
       "newChat": "New Chat",
-      "newChatTooltip": "Start a fresh conversation (resets memory)"
+      "newChatTooltip": "Start a fresh conversation (resets memory)",
+      "emptyResponse": "कुनै प्रतिक्रिया प्राप्त भएन — सेवा अपडेट हुँदै थियो होला। कृपया फेरि प्रयास गर्नुहोस्।"
     }
   },
   "story": {
