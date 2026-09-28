@@ -130,6 +130,26 @@ _im_end = _tokenizer.convert_tokens_to_ids("<|im_end|>")
 _stop_ids = list({_tokenizer.eos_token_id, _im_end})
 print(f"[serve] Model loaded in {time.time() - _load_start:.1f}s. Stop tokens: {_stop_ids}")
 
+# ── Startup self-test: the model must PROVE it can generate ───────────
+# 2026-09-28 post-mortem: an instance sat behind ai.zkward.com for days
+# answering /health 'ok' while every completion 500'd in ~11ms (weights
+# never landed on the GPU at ITS boot; fp16-on-CPU generate raises
+# instantly). HTTP 500s don't exit the process, so the task wrapper's
+# auto-restart never fired — a zombie with a healthy heartbeat. The fix
+# is structural: generate one token at startup or die loudly so the
+# wrapper respawns us; /health reports the proof so monitors can tell
+# a live brain from a warm corpse.
+try:
+    _probe_ids = _tokenizer("ping", return_tensors="pt").to(_model.device)
+    with torch.no_grad():
+        _model.generate(**_probe_ids, max_new_tokens=1, do_sample=False,
+                        pad_token_id=_tokenizer.pad_token_id)
+    _GENERATE_OK = True
+    print("[serve] Startup generation self-test: OK")
+except Exception as _probe_err:  # noqa: BLE001 — any failure means unfit to serve
+    print(f"[serve] FATAL: startup generation self-test failed: {_probe_err}")
+    sys.exit(1)
+
 # ── FastAPI app ────────────────────────────────────────────────────────
 app = FastAPI(title="Zkward Signal Interpreter")
 
@@ -193,6 +213,9 @@ def health():
         "model_path": MODEL_PATH,
         "device": str(_model.device),
         "dtype": str(_model.dtype),
+        # Proof of life, not just liveness — set by the startup self-test.
+        # An instance that can't generate never reaches serving at all.
+        "generate_ok": _GENERATE_OK,
     }
 
 
