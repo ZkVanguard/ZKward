@@ -287,9 +287,13 @@ async def verify_proof(request: VerificationRequest):
             'field_prime', 'security_level',
             'generation_time', 'timestamp',
             # CUDATrueSTARK — trace + FRI
+            # (2026-09-28: actual_fri_layers + trace_openings were missing —
+            # the allowlist rejected the prover's OWN proofs with 400 since
+            # the 07-28 cutover; both are legitimate CUDATrueSTARK outputs.)
             'trace_length', 'extended_trace_length', 'blowup_factor',
             'trace_merkle_root', 'fri_roots', 'fri_challenges',
             'fri_final_polynomial', 'query_indices', 'query_responses',
+            'actual_fri_layers', 'trace_openings',
             # CUDATrueSTARK — grinding
             'grinding_bits', 'grinding_nonce',
             # CUDATrueSTARK — status flags

@@ -1,10 +1,21 @@
 # ZK Proof System API Server
 # FastAPI server to expose Python/CUDA ZK system to Next.js frontend
 
-fastapi==0.104.1
-uvicorn[standard]==0.24.0
-pydantic==2.5.0
-python-multipart==0.0.6
-aiofiles==23.2.1
-numpy==1.24.3
-pycuda==2022.2.2  # Optional: only if CUDA available
+fastapi>=0.104
+uvicorn[standard]>=0.24
+pydantic>=2.5
+python-multipart>=0.0.6
+aiofiles>=23.2
+orjson>=3.9
+numpy>=1.24
+
+# CUDA acceleration (optional — prover falls back to CPU without it).
+# The stack that actually works on Windows + RTX (verified 2026-09-28):
+# CuPy wheels do NOT bundle NVRTC; the nvidia pip package provides the
+# DLL and cuda_true_stark.py registers its directory at import.
+cupy-cuda12x>=13.0        # CUDA 12.x driver required
+nvidia-cuda-nvrtc-cu12    # NVRTC runtime compiler DLLs for CuPy kernels
+
+# Tests
+pytest>=8
+pytest-asyncio>=0.23

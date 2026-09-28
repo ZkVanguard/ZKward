@@ -192,15 +192,20 @@ class TestAssertRiskBinding:
             assert_risk_binding(statement, {"canonical": inputs})
 
     def test_rejects_wrong_fusion(self):
-        # If AI is present, totalRisk must equal fuse(base, ai). Set an
-        # inconsistent totalRisk that still matches the reported base.
-        inputs = base_inputs(baseRiskScore=40, aiRiskScore=60, totalRisk=99)
+        # If AI is present, totalRisk must equal fuse(base, ai). Keep the
+        # reported base consistent with the formula (63 for the default
+        # exposures — the binding recomputes it and would otherwise reject
+        # at baseRiskScore before the fusion check is ever reached) and set
+        # an inconsistent totalRisk.
+        inputs = base_inputs(baseRiskScore=63, aiRiskScore=60, totalRisk=99)
         statement = self._statement_from(inputs)
         with pytest.raises(RiskBindingError, match="totalRisk mismatch"):
             assert_risk_binding(statement, {"canonical": inputs})
 
     def test_rejects_threshold_violation(self):
-        inputs = base_inputs(baseRiskScore=80, totalRisk=80, threshold=50)
+        # base must match the formula (63) so the threshold check is what
+        # fires, not the earlier baseRiskScore recompute.
+        inputs = base_inputs(baseRiskScore=63, totalRisk=63, threshold=50)
         statement = self._statement_from(inputs)
         with pytest.raises(RiskBindingError, match="exceeds threshold"):
             assert_risk_binding(statement, {"canonical": inputs})
