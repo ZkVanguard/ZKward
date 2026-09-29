@@ -49,7 +49,7 @@ const EXPECTED_CADENCE_MIN: Record<string, number> = {
   'sui-hedge-reconcile':     60,
   'sui-collect-fees':      1440,   // daily
   'poly-discover':           60,   // best-guess; adjust when schedule confirmed
-  'solana-pool':              0,   // dark-shipped; set to 1 when SOLANA_POOL_ENABLED goes live in prod
+  'solana-pool':              1,   // 60s schedule; enabled at prod go-live 2026-09-29
   // Known-dormant — don't alert:
   'hedge-monitor':            0,
   'health-monitor':           0,

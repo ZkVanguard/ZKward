@@ -166,7 +166,21 @@ export async function runSolanaSleeveTick(
       '@/lib/services/market-data/PredictionAggregatorService'
     );
     const { normalizeSourceKey } = await import('@/lib/services/ai/source-calibrator');
-    const preds = await PredictionAggregatorService.getPerAssetPredictions(ASSETS);
+    // A single hung source once wedged this scan for 20+ minutes locally.
+    // Prod's maxDuration would cap it, but the tick should own its budget:
+    // no signal read in 25s → idle, retry next minute.
+    let scanTimer: ReturnType<typeof setTimeout> | undefined;
+    let preds: Awaited<ReturnType<typeof PredictionAggregatorService.getPerAssetPredictions>>;
+    try {
+      preds = await Promise.race([
+        PredictionAggregatorService.getPerAssetPredictions(ASSETS),
+        new Promise<never>((_, rej) => {
+          scanTimer = setTimeout(() => rej(new Error('aggregator scan timeout (25s)')), 25_000);
+        }),
+      ]);
+    } finally {
+      if (scanTimer) clearTimeout(scanTimer);
+    }
 
     // Highest-confidence directional signal above the floor.
     // TODO(ledger-admission): once getLedgerHitRates(n>=500) returns cells,
