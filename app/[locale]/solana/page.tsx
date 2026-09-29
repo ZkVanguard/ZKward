@@ -12,6 +12,12 @@
  * direct URL; i18n follow-up tracked for both pages together).
  */
 import { useEffect, useState } from 'react';
+import {
+  connectWallet,
+  depositTokens,
+  getProvider,
+  signWithdrawMessage,
+} from '@/components/solana/wallet';
 
 interface DepositRow {
   signature: string;
@@ -46,6 +52,8 @@ interface Status {
   testnet?: boolean;
   cluster?: string;
   vaultAta?: string | null;
+  tokenMint?: string | null;
+  rpcUrl?: string;
   vaultTokens?: number | null;
   totalShares?: number;
   sharePrice?: number;
@@ -68,10 +76,135 @@ const fmtUsd = (n: number | null | undefined) =>
 const short = (s: string, head = 6, tail = 6) =>
   s.length <= head + tail + 1 ? s : `${s.slice(0, head)}…${s.slice(-tail)}`;
 
+interface MyBalance {
+  sharesUi: number;
+  tokenValueUi: number;
+  poolSharePct: number;
+}
+
 export default function SolanaPoolPage() {
   const [status, setStatus] = useState<Status | null>(null);
   const [fetchedAt, setFetchedAt] = useState<Date | null>(null);
   const [copied, setCopied] = useState(false);
+  const [wallet, setWallet] = useState<string | null>(null);
+  const [myBalance, setMyBalance] = useState<MyBalance | null>(null);
+  const [depositAmt, setDepositAmt] = useState('');
+  const [withdrawAmt, setWithdrawAmt] = useState('');
+  const [busy, setBusy] = useState<string | null>(null);
+  const [notice, setNotice] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
+
+  const say = (kind: 'ok' | 'err', text: string) => setNotice({ kind, text });
+
+  const refreshBalance = async (w: string) => {
+    try {
+      const r = await fetch(`/api/solana-pool/balance?wallet=${w}`, { cache: 'no-store' });
+      const j = await r.json();
+      if (r.ok) setMyBalance(j as MyBalance);
+    } catch { /* next poll */ }
+  };
+
+  useEffect(() => {
+    // Silent reconnect for returning wallets
+    const p = getProvider();
+    if (p && !p.publicKey) {
+      p.connect({ onlyIfTrusted: true })
+        .then(({ publicKey }) => {
+          const w = publicKey.toBase58();
+          setWallet(w);
+          void refreshBalance(w);
+        })
+        .catch(() => undefined);
+    }
+  }, []);
+
+  const onConnect = async () => {
+    setBusy('connect');
+    try {
+      const w = await connectWallet();
+      setWallet(w);
+      await refreshBalance(w);
+      say('ok', `Connected ${w.slice(0, 6)}…`);
+    } catch (e) {
+      say('err', e instanceof Error ? e.message : 'connect failed');
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const onFaucet = async () => {
+    if (!wallet) return;
+    setBusy('faucet');
+    try {
+      const r = await fetch('/api/solana-pool/faucet', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ wallet }),
+      });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.error || 'faucet failed');
+      say('ok', `Faucet sent ${Number(j.amountUi).toLocaleString()} test JIMP`);
+    } catch (e) {
+      say('err', e instanceof Error ? e.message : 'faucet failed');
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const onDeposit = async () => {
+    if (!wallet || !status?.tokenMint || !status.vaultAta || !status.rpcUrl) return;
+    const amt = Number(depositAmt);
+    if (!isFinite(amt) || amt <= 0) return say('err', 'enter a deposit amount');
+    setBusy('deposit');
+    try {
+      const sig = await depositTokens({
+        rpcUrl: status.rpcUrl,
+        wallet,
+        tokenMint: status.tokenMint,
+        vaultAta: status.vaultAta,
+        amountUi: amt,
+      });
+      say('ok', `Deposit sent (${sig.slice(0, 12)}…) — shares credit within ~1 min`);
+      setDepositAmt('');
+    } catch (e) {
+      say('err', e instanceof Error ? e.message : 'deposit failed');
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const onWithdraw = async () => {
+    if (!wallet) return;
+    const amt = Number(withdrawAmt);
+    if (!isFinite(amt) || amt <= 0) return say('err', 'enter a shares amount');
+    setBusy('withdraw');
+    try {
+      const nr = await fetch(`/api/solana-pool/withdraw?wallet=${wallet}`, { cache: 'no-store' });
+      const nj = await nr.json();
+      if (!nr.ok) throw new Error(nj.error || 'nonce failed');
+      const signatureHex = await signWithdrawMessage(nj.nonce as string, amt);
+      const r = await fetch('/api/solana-pool/withdraw', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ wallet, sharesUi: amt, signatureHex }),
+      });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.error || 'withdraw failed');
+      say('ok', `Paid ${Number(j.amountUi).toLocaleString()} JIMP (${String(j.txSignature).slice(0, 12)}…)`);
+      setWithdrawAmt('');
+      await refreshBalance(wallet);
+    } catch (e) {
+      say('err', e instanceof Error ? e.message : 'withdraw failed');
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  useEffect(() => {
+    if (!wallet) return;
+    const id = setInterval(() => void refreshBalance(wallet), 30_000);
+    void refreshBalance(wallet);
+    return () => clearInterval(id);
+  }, [wallet]);
 
   useEffect(() => {
     let alive = true;
@@ -226,6 +359,107 @@ export default function SolanaPoolPage() {
                 Sleeve notional sizes off live pool NAV (portfolio-margin). Realized profits become
                 vault tokens only via real buybacks — on testnet they accrue here, truthfully pending.
               </div>
+            </div>
+
+            <div className="bg-system-bg-secondary rounded-ios-xl p-4 sm:p-5 border border-separator-opaque/30">
+              <div className="text-xs text-label-secondary uppercase mb-3">Your wallet</div>
+              {!wallet ? (
+                <div className="flex items-center gap-3 flex-wrap">
+                  <button
+                    onClick={onConnect}
+                    disabled={busy !== null}
+                    className="text-sm font-bold px-4 py-2 rounded-ios bg-system-bg-primary border border-separator-opaque/30 hover:bg-system-bg-tertiary disabled:opacity-50"
+                  >
+                    {busy === 'connect' ? 'Connecting…' : 'Connect Solana wallet'}
+                  </button>
+                  <span className="text-xs text-label-tertiary">
+                    Phantom recommended — set network to devnet
+                  </span>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                    <div>
+                      <div className="text-label-tertiary text-xs">Address</div>
+                      <div>{short(wallet)}</div>
+                    </div>
+                    <div>
+                      <div className="text-label-tertiary text-xs">Your shares</div>
+                      <div className="font-bold">{fmtTok(myBalance?.sharesUi ?? 0)}</div>
+                    </div>
+                    <div>
+                      <div className="text-label-tertiary text-xs">Value (JIMP)</div>
+                      <div>{fmtTok(myBalance?.tokenValueUi ?? 0)}</div>
+                    </div>
+                    <div>
+                      <div className="text-label-tertiary text-xs">Pool share</div>
+                      <div>{(myBalance?.poolSharePct ?? 0).toFixed(2)}%</div>
+                    </div>
+                  </div>
+
+                  <div className="grid md:grid-cols-3 gap-3 text-sm">
+                    <div className="bg-system-bg-primary rounded-ios p-3 border border-separator-opaque/30 space-y-2">
+                      <div className="text-label-tertiary text-xs">1 · Get test JIMP (devnet faucet)</div>
+                      <button
+                        onClick={onFaucet}
+                        disabled={busy !== null}
+                        className="w-full px-3 py-2 rounded-ios bg-system-bg-secondary border border-separator-opaque/30 hover:bg-system-bg-tertiary disabled:opacity-50"
+                      >
+                        {busy === 'faucet' ? 'Minting…' : 'Airdrop 100,000 test JIMP'}
+                      </button>
+                    </div>
+                    <div className="bg-system-bg-primary rounded-ios p-3 border border-separator-opaque/30 space-y-2">
+                      <div className="text-label-tertiary text-xs">2 · Deposit into the pool</div>
+                      <input
+                        value={depositAmt}
+                        onChange={(e) => setDepositAmt(e.target.value)}
+                        placeholder="amount (JIMP)"
+                        inputMode="decimal"
+                        className="w-full px-3 py-2 rounded-ios bg-system-bg-secondary border border-separator-opaque/30"
+                      />
+                      <button
+                        onClick={onDeposit}
+                        disabled={busy !== null}
+                        className="w-full px-3 py-2 rounded-ios bg-system-bg-secondary border border-separator-opaque/30 hover:bg-system-bg-tertiary disabled:opacity-50 font-bold"
+                      >
+                        {busy === 'deposit' ? 'Sign in wallet…' : 'Deposit'}
+                      </button>
+                    </div>
+                    <div className="bg-system-bg-primary rounded-ios p-3 border border-separator-opaque/30 space-y-2">
+                      <div className="text-label-tertiary text-xs">3 · Withdraw (burn shares)</div>
+                      <input
+                        value={withdrawAmt}
+                        onChange={(e) => setWithdrawAmt(e.target.value)}
+                        placeholder="shares"
+                        inputMode="decimal"
+                        className="w-full px-3 py-2 rounded-ios bg-system-bg-secondary border border-separator-opaque/30"
+                      />
+                      <button
+                        onClick={onWithdraw}
+                        disabled={busy !== null}
+                        className="w-full px-3 py-2 rounded-ios bg-system-bg-secondary border border-separator-opaque/30 hover:bg-system-bg-tertiary disabled:opacity-50"
+                      >
+                        {busy === 'withdraw' ? 'Sign message…' : 'Withdraw'}
+                      </button>
+                    </div>
+                  </div>
+                  <div className="text-xs text-label-tertiary">
+                    Deposits are on-chain transfers you sign; withdrawals burn your shares and the
+                    vault pays you back at live share price after you sign an ownership proof.
+                  </div>
+                </div>
+              )}
+              {notice && (
+                <div
+                  className={`text-sm mt-3 rounded-ios p-2 ${
+                    notice.kind === 'ok'
+                      ? 'text-green-700 bg-ios-green/10'
+                      : 'text-red-700 bg-ios-red/10'
+                  }`}
+                >
+                  {notice.text}
+                </div>
+              )}
             </div>
 
             <div className="bg-system-bg-secondary rounded-ios-xl p-4 sm:p-5 border border-separator-opaque/30">

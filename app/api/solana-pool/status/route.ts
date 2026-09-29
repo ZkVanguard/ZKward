@@ -45,6 +45,8 @@ export async function GET(): Promise<NextResponse> {
       testnet: (process.env.SOLANA_CLUSTER || 'devnet').trim() !== 'mainnet-beta',
       cluster: (process.env.SOLANA_CLUSTER || 'devnet').trim(),
       vaultAta: ata || null,
+      tokenMint: (process.env.SOLANA_POOL_TOKEN_MINT || '').trim() || null,
+      rpcUrl: (process.env.SOLANA_RPC_URL || 'https://api.devnet.solana.com').trim(),
       vaultTokens: vaultUi,
       totalShares: poolState.toUi(totalSharesRaw),
       sharePrice: sharePriceUi,

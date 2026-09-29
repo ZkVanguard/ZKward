@@ -26,6 +26,15 @@ export async function ensureSolanaPoolTables(): Promise<void> {
         created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
       );
       CREATE INDEX IF NOT EXISTS idx_solana_pool_deposits_sender ON solana_pool_deposits(sender);
+      CREATE TABLE IF NOT EXISTS solana_pool_withdrawals (
+        signature VARCHAR(96) PRIMARY KEY,
+        wallet VARCHAR(64) NOT NULL,
+        shares_burned_raw BIGINT NOT NULL,
+        amount_raw BIGINT NOT NULL,
+        cluster VARCHAR(16) NOT NULL DEFAULT 'devnet',
+        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE INDEX IF NOT EXISTS idx_solana_pool_withdrawals_wallet ON solana_pool_withdrawals(wallet);
     `);
     tableReady = true;
   } catch (err) {
@@ -77,9 +86,40 @@ export async function recordDeposit(args: {
 export async function getTotalSharesRaw(): Promise<bigint> {
   await ensureSolanaPoolTables();
   const r = await query<{ total: string | null }>(
-    `SELECT SUM(shares_minted_raw)::text AS total FROM solana_pool_deposits`,
+    `SELECT (COALESCE((SELECT SUM(shares_minted_raw) FROM solana_pool_deposits), 0)
+           - COALESCE((SELECT SUM(shares_burned_raw) FROM solana_pool_withdrawals), 0))::text AS total`,
   );
   return BigInt(r[0]?.total ?? '0');
+}
+
+/** Net shares owned by one wallet: deposits minted − withdrawals burned. */
+export async function getWalletSharesRaw(wallet: string): Promise<bigint> {
+  await ensureSolanaPoolTables();
+  const r = await query<{ total: string | null }>(
+    `SELECT (COALESCE((SELECT SUM(shares_minted_raw) FROM solana_pool_deposits WHERE sender = $1), 0)
+           - COALESCE((SELECT SUM(shares_burned_raw) FROM solana_pool_withdrawals WHERE wallet = $1), 0))::text AS total`,
+    [wallet],
+  );
+  return BigInt(r[0]?.total ?? '0');
+}
+
+/** Idempotent by on-chain signature — replays are no-ops, like deposits. */
+export async function recordWithdrawal(args: {
+  signature: string;
+  wallet: string;
+  sharesBurnedRaw: bigint;
+  amountRaw: bigint;
+  cluster: string;
+}): Promise<boolean> {
+  await ensureSolanaPoolTables();
+  const rows = await query<{ signature: string }>(
+    `INSERT INTO solana_pool_withdrawals (signature, wallet, shares_burned_raw, amount_raw, cluster)
+     VALUES ($1, $2, $3, $4, $5)
+     ON CONFLICT (signature) DO NOTHING
+     RETURNING signature`,
+    [args.signature, args.wallet, args.sharesBurnedRaw.toString(), args.amountRaw.toString(), args.cluster],
+  );
+  return rows.length === 1;
 }
 
 export async function getRecentDeposits(limit = 20): Promise<SolanaDepositRow[]> {
