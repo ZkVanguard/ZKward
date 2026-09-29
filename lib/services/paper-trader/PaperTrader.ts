@@ -27,6 +27,7 @@ import { positionOpen, positionUpdate, positionClose } from './concurrent';
 import { selectCandidate, priceCandidate, sizeCandidate } from './entry-helpers';
 import { createHedge } from '@/lib/db/hedges';
 import { orphanCloseIfExists } from './orphan-cleanup';
+import { recordCloseLearning, settleHedgeRow, categorizeCloseReason } from './close-pipeline';
 import { query } from '@/lib/db/postgres';
 import { logger } from '@/lib/utils/logger';
 import { errMsg } from '@/lib/utils/error-handler';
@@ -1007,16 +1008,9 @@ export class PaperTrader {
    * Kept as a static so the same mapping applies for both closeAtMark
    * writes and the backfill script.
    */
+  /** Delegates to the shared close-pipeline (extracted 2026-09-29, audit R3). */
   static categorizeCloseReason(rawReason: string): string {
-    const r = rawReason.toLowerCase();
-    if (r.includes('stop-loss')) return 'stop-loss';
-    if (r.includes('trailing-stop')) return 'trailing-stop';
-    if (r.includes('underwater-tighten')) return 'underwater-tighten';
-    if (r.includes('max-hold')) return 'max-hold';
-    if (r.includes('signal flipped') || r.includes('signal-flip')) return 'signal-flip';
-    if (r.includes('liquidation')) return 'liquidation';
-    if (r.includes('halt')) return 'halt';
-    return 'other';
+    return categorizeCloseReason(rawReason);
   }
 
   private static async closeAtMark(
@@ -1030,53 +1024,11 @@ export class PaperTrader {
     const result = simulateClose(pos, exitPrice, now);
     const newNav = nav + result.realizedPnlUsd;
 
-    // Per-source outcome recording — the training signal for the meta-
-    // learner. Actual direction is the sign of the price move; each
-    // source's snapshot direction gets scored against it. NEUTRAL on
-    // either side is a no-op inside recordSourceOutcome.
-    const actualDirection: 'UP' | 'DOWN' | 'NEUTRAL' =
-      exitPrice > pos.entryPrice ? 'UP' : exitPrice < pos.entryPrice ? 'DOWN' : 'NEUTRAL';
-    if (pos.sourceSnapshot && pos.sourceSnapshot.length > 0) {
-      await Promise.all(
-        pos.sourceSnapshot.map((s) =>
-          recordSourceOutcome({
-            sourceKey: s.key,
-            sourceDirection: s.direction,
-            actualDirection,
-          }).catch(() => undefined),
-        ),
-      );
-    }
-
-    // L6 — record arm outcome for the multi-armed bandit. Reward is the
-    // realized PnL as a fraction of the notional traded, so arms of
-    // different sizes are comparable. The bandit will use this to bias
-    // future entry selection toward historically-profitable (asset, side)
-    // combos.
-    if (pos.notionalUsd > 0) {
-      try {
-        const { recordArmOutcome } = await import('./bandit');
-        await recordArmOutcome(pos.asset, pos.side, result.realizedPnlUsd / pos.notionalUsd, now);
-      } catch { /* non-fatal */ }
-    }
-
-    // Probability-calibrator outcome. Fix O (2026-09-27): writes go to the
-    // 'paper' namespace — the shared store mixed live-trader history and
-    // pre-reset epochs (different fees/holds/sizing), so Fix K was ranking
-    // on fiction (SOL:LONG:7 claimed 61% wr while post-reset paper ran 29%).
-    // Paper now self-calibrates on its own outcomes only.
-    if (pos.entryConfidence !== undefined && (pos.side === 'LONG' || pos.side === 'SHORT')) {
-      try {
-        const { recordOutcome } = await import('@/lib/services/ai/probability-calibrator');
-        await recordOutcome({
-          asset: pos.asset,
-          side: pos.side,
-          openConfidencePct: pos.entryConfidence,
-          realizedPnl: result.realizedPnlUsd,
-          namespace: 'paper',
-        });
-      } catch { /* non-fatal */ }
-    }
+    // Learning callbacks — shared pipeline (source outcomes, bandit arm,
+    // probability-calibrator in the 'paper' namespace per Fix O).
+    await recordCloseLearning(pos, exitPrice, result.realizedPnlUsd, now, {
+      calibratorNamespace: 'paper',
+    });
 
     // Passed-in orderId is the source of truth. In legacy mode it may
     // be undefined (older call sites); fall back to KEY_ORDER_ID for
@@ -1104,67 +1056,12 @@ export class PaperTrader {
     if ((stats.dailyPeakNavUsd ?? 0) < newNav) stats.dailyPeakNavUsd = newNav;
     await setCronState(KEY_STATS, stats);
 
-    // Close DB row + persist funding + close reason + MFE/MAE/attribution
+    // Settle the hedges row via the shared pipeline (single atomic UPDATE,
+    // MFE/MAE + attribution analytics). Paper trades MUST NOT credit the
+    // real treasury — portfolio -3 stats live in cron_state only (the
+    // 2026-09-18 treasury-pollution lesson).
     if (orderId) {
-      try {
-        // Build metadata blob with post-hoc trade analytics. Two purposes:
-        //   1. MFE/MAE — did the trade travel far in our direction (mfe)
-        //      before reversing (mae)? Direct evidence for stop-loss /
-        //      trailing-stop tuning. Task L2 in the learning-loop plan.
-        //   2. Per-source attribution — which of the 10 signal sources
-        //      called the direction correctly on THIS trade? Feeds the
-        //      Bayesian source weight updater (L5) + decay detector (L4).
-        const actualDir: 'UP' | 'DOWN' | 'NEUTRAL' =
-          exitPrice > pos.entryPrice ? 'UP' : exitPrice < pos.entryPrice ? 'DOWN' : 'NEUTRAL';
-        const attribution = (pos.sourceSnapshot ?? []).map((s) => ({
-          key: s.key,
-          dir: s.direction,
-          wasCorrect: s.direction !== 'NEUTRAL' && s.direction === actualDir,
-        }));
-        const meta = {
-          mfeUsd: pos.peakUnrealizedPnl ?? 0,
-          maeUsd: pos.troughUnrealizedPnl ?? 0,
-          mfePctOfNav: nav > 0 ? (pos.peakUnrealizedPnl ?? 0) / nav : 0,
-          maePctOfNav: nav > 0 ? (pos.troughUnrealizedPnl ?? 0) / nav : 0,
-          actualDir,
-          attribution,
-          slippageUsd: result.slippageUsd,
-          exitReason: reason.slice(0, 100),
-        };
-
-        // Single atomic UPDATE — status + pnl + funding + close-reason + metadata.
-        // Prior code did closeHedge() then a separate UPDATE for funding + reason;
-        // if the 2nd write failed, the row landed in a "closed but no close-reason"
-        // state that confused monitoring (observed 2026-09-17). Merging metadata
-        // via jsonb concat preserves any earlier writes to the same column.
-        //
-        // close_reason gets the canonical short category (max-hold / signal-flip /
-        // stop-loss / trailing-stop / liquidation / halt / other) so structured
-        // monitoring queries can aggregate. The free-text `reason` column keeps
-        // the full human-readable string for single-row debugging.
-        const category = PaperTrader.categorizeCloseReason(reason);
-        await query(
-          `UPDATE hedges
-           SET status = 'closed',
-               realized_pnl = $1,
-               current_pnl = $1,
-               funding_paid = $2,
-               closed_at = CURRENT_TIMESTAMP,
-               updated_at = CURRENT_TIMESTAMP,
-               reason = COALESCE(reason,'') || ' | close: ' || $3,
-               close_reason = $6,
-               metadata = COALESCE(metadata, '{}'::jsonb) || $5::jsonb
-           WHERE order_id = $4`,
-          [result.realizedPnlUsd, result.fundingUsd, reason.slice(0, 100), orderId, JSON.stringify(meta), category],
-        );
-        // Paper trades MUST NOT credit the real treasury. Diagnosed
-        // 2026-09-18: 126 paper closes polluted treasury_ledger with
-        // -$62,158.96 of fake losses. Real trader had ~-$6 in the same
-        // window. Paper is a separate portfolio (id=-3, chain=hedera-
-        // testnet), stats live in cron_state — never touches treasury.
-      } catch (e) {
-        logger.warn('[PaperTrader] closeHedge DB write failed', { error: errMsg(e) });
-      }
+      await settleHedgeRow({ orderId, pos, result, reason, nav });
     }
 
     logger.info('[PaperTrader] closed', {

@@ -27,15 +27,15 @@ describe('reserved portfolio IDs', () => {
 
 describe('isCommunityPoolPortfolio', () => {
   it('matches every reserved pool sentinel', () => {
-    for (const id of [-1, -2, -3]) {
+    for (const id of [-1, -2, -3, -6]) {
       expect(isCommunityPoolPortfolio(id)).toBe(true);
     }
   });
   it('rejects user portfolios, unreserved negatives, and nullish', () => {
     expect(isCommunityPoolPortfolio(0)).toBe(false);
     expect(isCommunityPoolPortfolio(5)).toBe(false);
-    expect(isCommunityPoolPortfolio(-4)).toBe(false);
-    expect(isCommunityPoolPortfolio(-6)).toBe(false);
+    expect(isCommunityPoolPortfolio(-4)).toBe(false); // paper book, module-local, not a pool
+    expect(isCommunityPoolPortfolio(-7)).toBe(false);
     expect(isCommunityPoolPortfolio(null)).toBe(false);
     expect(isCommunityPoolPortfolio(undefined)).toBe(false);
   });
