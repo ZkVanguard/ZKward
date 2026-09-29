@@ -22,6 +22,25 @@ interface DepositRow {
   blockTime: string | null;
 }
 
+interface SleevePosition {
+  orderId: string;
+  asset: string;
+  side: 'LONG' | 'SHORT';
+  entryPrice: number;
+  notionalUsd: number;
+  markPrice: number | null;
+  unrealizedPnlUsd: number | null;
+  openedAt: number;
+}
+
+interface Sleeve {
+  trades: number;
+  wins: number;
+  winRatePct: number | null;
+  pendingBuybackUsd: number;
+  position: SleevePosition | null;
+}
+
 interface Status {
   enabled: boolean;
   testnet?: boolean;
@@ -33,6 +52,7 @@ interface Status {
   tokenUsd?: number | null;
   navUsd?: number | null;
   priceNote?: string;
+  sleeve?: Sleeve | null;
   recentDeposits?: DepositRow[];
   error?: string;
 }
@@ -137,6 +157,75 @@ export default function SolanaPoolPage() {
                   Token price {`$${status.tokenUsd.toFixed(8)}`} — {status.priceNote}
                 </div>
               )}
+            </div>
+
+            <div className="bg-system-bg-secondary rounded-ios-xl p-4 sm:p-5 border border-separator-opaque/30">
+              <div className="text-xs text-label-secondary uppercase mb-3">
+                Trading sleeve — signal-driven, honest friction (paper on testnet)
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                <div>
+                  <div className="text-label-tertiary text-xs">Win rate</div>
+                  <div className="font-bold">
+                    {status.sleeve?.winRatePct != null
+                      ? `${status.sleeve.winRatePct}%`
+                      : '— (no closes yet)'}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-label-tertiary text-xs">Trades (W/L)</div>
+                  <div>
+                    {status.sleeve
+                      ? `${status.sleeve.trades} (${status.sleeve.wins}/${status.sleeve.trades - status.sleeve.wins})`
+                      : '—'}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-label-tertiary text-xs">Pending buyback (realized PnL)</div>
+                  <div
+                    className={
+                      (status.sleeve?.pendingBuybackUsd ?? 0) >= 0 ? 'text-green-700' : 'text-red-700'
+                    }
+                  >
+                    {fmtUsd(status.sleeve?.pendingBuybackUsd ?? 0)}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-label-tertiary text-xs">Open position</div>
+                  {status.sleeve?.position ? (
+                    <div>
+                      {status.sleeve.position.asset}{' '}
+                      <span
+                        className={
+                          status.sleeve.position.side === 'LONG' ? 'text-green-700' : 'text-red-700'
+                        }
+                      >
+                        {status.sleeve.position.side}
+                      </span>{' '}
+                      {fmtUsd(status.sleeve.position.notionalUsd)}
+                      {status.sleeve.position.unrealizedPnlUsd != null && (
+                        <span
+                          className={
+                            status.sleeve.position.unrealizedPnlUsd >= 0
+                              ? 'text-green-700'
+                              : 'text-red-700'
+                          }
+                        >
+                          {' '}
+                          ({status.sleeve.position.unrealizedPnlUsd >= 0 ? '+' : ''}
+                          {status.sleeve.position.unrealizedPnlUsd.toFixed(2)})
+                        </span>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="text-label-secondary">none (gates holding)</div>
+                  )}
+                </div>
+              </div>
+              <div className="text-xs text-label-tertiary mt-3">
+                Sleeve notional sizes off live pool NAV (portfolio-margin). Realized profits become
+                vault tokens only via real buybacks — on testnet they accrue here, truthfully pending.
+              </div>
             </div>
 
             <div className="bg-system-bg-secondary rounded-ios-xl p-4 sm:p-5 border border-separator-opaque/30">

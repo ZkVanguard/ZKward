@@ -24,12 +24,14 @@ export async function GET(): Promise<NextResponse> {
       import('@/lib/services/solana/price'),
     ]);
 
+    const { getSleeveStatus } = await import('@/lib/services/solana/SolanaSleeveTrader');
     const ata = vaultAta();
-    const [balance, totalSharesRaw, recent, tokenPrice] = await Promise.all([
+    const [balance, totalSharesRaw, recent, tokenPrice, sleeve] = await Promise.all([
       ata ? rpc.getTokenAccountBalance(ata).catch(() => null) : Promise.resolve(null),
       db.getTotalSharesRaw(),
       db.getRecentDeposits(10),
       price.getPoolTokenUsdPrice(),
+      getSleeveStatus().catch(() => null),
     ]);
 
     const vaultRaw = balance ? BigInt(balance.amount) : null;
@@ -49,6 +51,32 @@ export async function GET(): Promise<NextResponse> {
       tokenUsd: tokenPrice?.usd ?? null,
       navUsd: vaultUi !== null && tokenPrice ? vaultUi * tokenPrice.usd : null,
       priceNote: 'devnet mirror priced at the real token’s mainnet Jupiter quote',
+      sleeve: sleeve
+        ? {
+            trades: sleeve.stats.trades,
+            wins: sleeve.stats.wins,
+            winRatePct:
+              sleeve.stats.trades > 0
+                ? Math.round((sleeve.stats.wins / sleeve.stats.trades) * 1000) / 10
+                : null,
+            // Realized sleeve PnL = the plan's "pending buyback" line: it
+            // becomes vault tokens only via real mainnet buybacks, so share
+            // price stays chain-truth on testnet.
+            pendingBuybackUsd: Math.round(sleeve.stats.cumRealizedUsd * 100) / 100,
+            position: sleeve.position
+              ? {
+                  orderId: sleeve.position.orderId,
+                  asset: sleeve.position.position.asset,
+                  side: sleeve.position.position.side,
+                  entryPrice: sleeve.position.position.entryPrice,
+                  notionalUsd: sleeve.position.position.notionalUsd,
+                  markPrice: sleeve.position.markPrice,
+                  unrealizedPnlUsd: sleeve.position.unrealizedPnlUsd,
+                  openedAt: sleeve.position.position.openedAt,
+                }
+              : null,
+          }
+        : null,
       recentDeposits: recent.map((r) => ({
         signature: r.signature,
         sender: r.sender,

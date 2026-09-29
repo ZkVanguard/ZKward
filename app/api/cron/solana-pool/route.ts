@@ -62,7 +62,29 @@ async function handle(request: NextRequest): Promise<NextResponse> {
           'INFO',
         );
       }
-      logger.info('[SolanaPool] tick complete', { ...summary });
+
+      // Sleeve trader — the pool's win-rate engine (plan §1b portfolio
+      // margin: sleeve notional tracks live pool NAV in USD).
+      let sleeve: unknown = null;
+      try {
+        const { getPoolTokenUsdPrice } = await import('@/lib/services/solana/price');
+        const { toUi } = await import('@/lib/services/solana/pool-state');
+        const { runSolanaSleeveTick } = await import(
+          '@/lib/services/solana/SolanaSleeveTrader'
+        );
+        const price = await getPoolTokenUsdPrice();
+        const navUsd =
+          summary.vaultTokensRaw !== 'unavailable' && price
+            ? toUi(BigInt(summary.vaultTokensRaw)) * price.usd
+            : null;
+        sleeve = await runSolanaSleeveTick(navUsd);
+      } catch (e) {
+        logger.warn('[SolanaPool] sleeve tick failed (indexer unaffected)', {
+          error: errMsg(e),
+        });
+      }
+
+      logger.info('[SolanaPool] tick complete', { ...summary, sleeve });
     } catch (e) {
       logger.error('[SolanaPool] tick failed', { error: errMsg(e) });
     }
