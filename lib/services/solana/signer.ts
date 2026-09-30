@@ -23,7 +23,7 @@ import {
   createTransferInstruction,
   createMintToInstruction,
   getAssociatedTokenAddressSync,
-} from '@solana/spl-token';
+} from './spl';
 import { solanaRpcUrl } from './rpc';
 
 let cached: Keypair | null = null;
