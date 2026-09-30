@@ -61,6 +61,14 @@ try {
     ok(`screenshot → ${SHOT}`);
   }
 
+  // ── Dashboard tab embeds the same full pool — nothing sends users to /solana ──
+  await page.goto(`${BASE}/en/dashboard?tab=solana`, { waitUntil: 'domcontentloaded', timeout: 60_000 });
+  await page.waitForSelector('text=Pool state (live from chain)', { timeout: 30_000 });
+  await page.waitForSelector('button:has-text("Connect Solana wallet")', { timeout: 10_000 });
+  const outLinks = await page.locator('section:has-text("Solana Token Pool") a[href="/solana"]').count();
+  if (outLinks > 0) fail('dashboard Solana tab still links out to /solana');
+  ok('dashboard tab embeds the full pool (state + wallet actions, no hop)');
+
   // ── API surface via browser context ──
   const status = await (await page.request.get(`${BASE}/api/solana-pool/status`)).json();
   if (!status.enabled || typeof status.vaultTokens !== 'number' || !status.tokenMint) {
