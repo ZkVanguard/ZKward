@@ -6,6 +6,7 @@ import { describe, it, expect, beforeEach, afterEach, jest } from '@jest/globals
 import {
   sharePrice,
   sharesForDeposit,
+  payoutForShares,
   toUi,
   fromUi,
 } from '@/lib/services/solana/pool-state';
@@ -38,6 +39,16 @@ describe('pool-state share math (raw bigint)', () => {
 
   it('zero/negative deposits mint nothing', () => {
     expect(sharesForDeposit(0n, 10n, 10n)).toBe(0n);
+  });
+
+  it('payout is ledger-proportional and floors dust', () => {
+    // 1.23M accounted tokens over 1.23M shares → 20k shares pay exactly 20k
+    expect(payoutForShares(20_000_000_000n, 1_230_000_000_000n, 1_230_000_000_000n)).toBe(20_000_000_000n);
+    // the 2026-09-29 bug: chain held 1.3M (50k uncredited) — ledger pricing ignores it
+    expect(payoutForShares(20_000_000_000n, 1_250_000_000_000n, 1_250_000_000_000n)).toBe(20_000_000_000n);
+    expect(payoutForShares(1n, 2n, 3n)).toBe(0n); // floor
+    expect(payoutForShares(5n, 10n, 0n)).toBe(0n); // empty pool
+    expect(payoutForShares(0n, 10n, 10n)).toBe(0n);
   });
 
   it('ui conversion round-trips at 6 decimals', () => {

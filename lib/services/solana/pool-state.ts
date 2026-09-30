@@ -1,10 +1,12 @@
 /**
  * Pure share math for the Solana token pool.
  *
- * v1 (testnet branch): no trading, no buybacks, so share price is 1.0 by
- * construction and deposits mint 1:1. The general machinery is here so the
- * mainnet phase (buybacks raise vault balance without minting) changes the
- * inputs, not the math.
+ * Price inputs are LEDGER-accounted tokens (credited deposits − paid
+ * withdrawals, later + buyback credits), never the live vault balance: the
+ * chain balance also holds deposits not yet indexed, and pricing off it
+ * hands a pending depositor's tokens to whoever withdraws in the gap
+ * (2026-09-29: a 20,000-share withdrawal paid 20,800). The chain balance is
+ * a solvency check, not a price.
  *
  * All amounts are RAW base units (bigint, 6-decimal token) — floats never
  * touch accounting. UI conversion happens at the edge.
@@ -36,6 +38,16 @@ export function sharesForDeposit(
   // shares = deposit / price = deposit * den / num
   if (p.num <= 0n) return depositRaw; // degenerate empty-vault state → 1:1
   return (depositRaw * p.den) / p.num;
+}
+
+/** Tokens owed for burning shares at the ledger price. Floor — never overpays dust. */
+export function payoutForShares(
+  sharesRaw: bigint,
+  accountedTokensRaw: bigint,
+  totalSharesRaw: bigint,
+): bigint {
+  if (sharesRaw <= 0n || totalSharesRaw <= 0n || accountedTokensRaw <= 0n) return 0n;
+  return (sharesRaw * accountedTokensRaw) / totalSharesRaw;
 }
 
 export function toUi(raw: bigint, decimals: number = TOKEN_DECIMALS): number {

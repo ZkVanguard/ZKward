@@ -26,19 +26,24 @@ export async function GET(): Promise<NextResponse> {
 
     const { getSleeveStatus } = await import('@/lib/services/solana/SolanaSleeveTrader');
     const ata = vaultAta();
-    const [balance, totalSharesRaw, recent, tokenPrice, sleeve] = await Promise.all([
+    const [balance, totalSharesRaw, accountedRaw, recent, tokenPrice, sleeve] = await Promise.all([
       ata ? rpc.getTokenAccountBalance(ata).catch(() => null) : Promise.resolve(null),
       db.getTotalSharesRaw(),
+      db.getAccountedTokensRaw(),
       db.getRecentDeposits(10),
       price.getPoolTokenUsdPrice(),
       getSleeveStatus().catch(() => null),
     ]);
 
     const vaultRaw = balance ? BigInt(balance.amount) : null;
-    const p = poolState.sharePrice(vaultRaw ?? 0n, totalSharesRaw);
+    // Share price + NAV from the ledger; chain balance above it is deposits
+    // still being indexed (they belong to their depositors, not holders).
     const sharePriceUi =
-      totalSharesRaw > 0n && vaultRaw !== null ? Number(p.num) / Number(p.den) : 1.0;
+      totalSharesRaw > 0n ? Number(accountedRaw) / Number(totalSharesRaw) : 1.0;
     const vaultUi = vaultRaw !== null ? poolState.toUi(vaultRaw) : null;
+    const accountedUi = poolState.toUi(accountedRaw);
+    const pendingUi =
+      vaultRaw !== null && vaultRaw > accountedRaw ? poolState.toUi(vaultRaw - accountedRaw) : 0;
 
     return NextResponse.json({
       enabled: true,
@@ -48,10 +53,13 @@ export async function GET(): Promise<NextResponse> {
       tokenMint: (process.env.SOLANA_POOL_TOKEN_MINT || '').trim() || null,
       rpcUrl: (process.env.SOLANA_RPC_URL || 'https://api.devnet.solana.com').trim(),
       vaultTokens: vaultUi,
+      accountedTokens: accountedUi,
+      pendingTokens: pendingUi,
+      solvent: vaultRaw === null ? null : vaultRaw >= accountedRaw,
       totalShares: poolState.toUi(totalSharesRaw),
       sharePrice: sharePriceUi,
       tokenUsd: tokenPrice?.usd ?? null,
-      navUsd: vaultUi !== null && tokenPrice ? vaultUi * tokenPrice.usd : null,
+      navUsd: tokenPrice ? accountedUi * tokenPrice.usd : null,
       priceNote: 'devnet mirror priced at the real token’s mainnet Jupiter quote',
       sleeve: sleeve
         ? {

@@ -92,6 +92,16 @@ export async function getTotalSharesRaw(): Promise<bigint> {
   return BigInt(r[0]?.total ?? '0');
 }
 
+/** Ledger-accounted tokens: credited deposits − paid withdrawals. The pricing basis. */
+export async function getAccountedTokensRaw(): Promise<bigint> {
+  await ensureSolanaPoolTables();
+  const r = await query<{ total: string | null }>(
+    `SELECT (COALESCE((SELECT SUM(amount_raw) FROM solana_pool_deposits), 0)
+           - COALESCE((SELECT SUM(amount_raw) FROM solana_pool_withdrawals), 0))::text AS total`,
+  );
+  return BigInt(r[0]?.total ?? '0');
+}
+
 /** Net shares owned by one wallet: deposits minted − withdrawals burned. */
 export async function getWalletSharesRaw(wallet: string): Promise<bigint> {
   await ensureSolanaPoolTables();
