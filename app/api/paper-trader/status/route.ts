@@ -18,6 +18,7 @@ import {
   KEY_STATS,
   KEY_NAV_SERIES,
   KEY_LAST_RUN,
+  KEY_LAST_SKIP,
   PAPER_STARTING_NAV,
   PAPER_UNIVERSE,
   PAPER_CHAIN,
@@ -133,13 +134,17 @@ export async function GET(_req: NextRequest): Promise<NextResponse> {
     // the /paper dashboard rendered "no active position" while
     // multiple positions were actually open.
     const { loadActivePositions } = await import('@/lib/services/paper-trader/concurrent');
-    const [nav, activePositions, stats, series, lastRun] = await Promise.all([
+    const [nav, activePositions, stats, series, lastRun, lastSkip] = await Promise.all([
       getCronState<number>(KEY_NAV),
       loadActivePositions(),
       getCronState<PaperStats>(KEY_STATS),
       getCronState<Array<{ ts: number; nav: number }>>(KEY_NAV_SERIES),
       getCronState<number>(KEY_LAST_RUN),
+      getCronState<{ at: number; reason: string }>(KEY_LAST_SKIP),
     ]);
+    // A gated tick (e.g. regime halt) is still a tick — the run key only
+    // moves when a tick gets past the gates.
+    const lastTickMs = Math.max(lastRun ?? 0, lastSkip?.at ?? 0);
 
     const currentNavRealized = nav ?? PAPER_STARTING_NAV;
 
@@ -248,7 +253,8 @@ export async function GET(_req: NextRequest): Promise<NextResponse> {
     const response = NextResponse.json({
       success: true,
       generatedAt: new Date().toISOString(),
-      lastTickAt: lastRun ? new Date(lastRun).toISOString() : null,
+      lastTickAt: lastTickMs ? new Date(lastTickMs).toISOString() : null,
+      lastSkipReason: lastSkip?.reason ?? null,
       config: {
         startingNavUsd: PAPER_STARTING_NAV,
         universe: PAPER_UNIVERSE,

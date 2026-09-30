@@ -393,7 +393,7 @@ curl "https://www.zkward.com/api/zk-proof/lookup?hash=0xa3..2f"
           <div className="mt-4 flex flex-wrap gap-3 items-center text-caption-1 text-label-tertiary">
             <span>Source:</span>
             <a
-              href="https://github.com/ZkVanguard/zkward-ethglobal/tree/main/zkp"
+              href="https://github.com/ZkVanguard/ZKward/tree/main/zkp"
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1 text-ios-blue hover:underline font-mono"
@@ -402,7 +402,7 @@ curl "https://www.zkward.com/api/zk-proof/lookup?hash=0xa3..2f"
             </a>
             <span>·</span>
             <a
-              href="https://github.com/ZkVanguard/zkward-ethglobal/blob/main/zkp/api/server.py"
+              href="https://github.com/ZkVanguard/ZKward/blob/main/zkp/api/server.py"
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1 text-ios-blue hover:underline font-mono"

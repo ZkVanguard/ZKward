@@ -36,6 +36,7 @@ import {
   PAPER_CALIBRATED_MIN_WIN_RATE,
   PAPER_CALIBRATED_RANK_MIN_N,
   PAPER_HALT_ENTRIES_IN_CHOP,
+  PAPER_CHOP_STAKE_MULT,
 } from './config';
 import type { Side } from './simulated-executor';
 import { getMultiSourceValidatedPrice } from '@/lib/services/market-data/unified-price-provider';
@@ -54,6 +55,7 @@ export interface PickedCandidate {
   prediction: AggregatedPrediction;
   score: number;
   side: Side;
+  regime?: 'TRENDING_UP' | 'TRENDING_DOWN' | 'CHOP' | null;
 }
 
 export type SelectResult =
@@ -70,6 +72,7 @@ export interface SizeResult {
   signalScalar: number;
   volMult: number;
   calibrationBoost: number;
+  regimeStakeMult: number;
 }
 
 export interface ConcurrencyFilter {
@@ -136,11 +139,9 @@ export async function selectCandidate(
     );
   } catch { /* fall back to static */ }
 
-  // Structural: halt all entries in CHOP regime. Every recent flip-close
-  // loss (id 816/818/821/822, 4-21 min holds) was chop behavior. Regime
-  // stays put for 1h (regime.ts REGIME_TTL_MS), so this doesn't flap.
-  // Trending regimes let entries through as normal.
-  if (PAPER_HALT_ENTRIES_IN_CHOP && currentRegime === 'CHOP') {
+  // CHOP: full halt only when configured (or the chop stake is 0); otherwise
+  // the entry proceeds and sizeCandidate scales stake by PAPER_CHOP_STAKE_MULT.
+  if (currentRegime === 'CHOP' && (PAPER_HALT_ENTRIES_IN_CHOP || PAPER_CHOP_STAKE_MULT <= 0)) {
     logger.info('[PaperTrader] chop-regime halt — no entries this tick', {
       regime: currentRegime,
     });
@@ -308,7 +309,7 @@ export async function selectCandidate(
       rec: cand.prediction.recommendation,
       score: cand.score.toFixed(1),
     });
-    return { ok: true, picked: { ...cand, side: candSide } };
+    return { ok: true, picked: { ...cand, side: candSide, regime: currentRegime } };
   }
   return { ok: false, reason: lastSkipReason };
 }
@@ -370,7 +371,9 @@ export async function sizeCandidate(
       weight: s.weight ?? 1,
     })),
   );
-  const rawStake = nav * PAPER_STAKE_PCT * signalScalar * volMult * calibrationBoost;
+  const regimeStakeMult = picked.regime === 'CHOP' ? PAPER_CHOP_STAKE_MULT : 1;
+  const rawStake =
+    nav * PAPER_STAKE_PCT * signalScalar * volMult * calibrationBoost * regimeStakeMult;
   // Hard cap on stake (was missing — paper had unbounded stake vs live's
   // $500 cap). Applied AFTER all multipliers so any combined boost still
   // respects the NAV-fraction ceiling.
@@ -378,5 +381,5 @@ export async function sizeCandidate(
   const maxStake = nav * PAPER_MAX_STAKE_PCT;
   const stakeUsd = Math.min(rawStake, maxStake);
   const notionalUsd = stakeUsd * PAPER_LEVERAGE;
-  return { notionalUsd, stakeUsd, signalScalar, volMult, calibrationBoost };
+  return { notionalUsd, stakeUsd, signalScalar, volMult, calibrationBoost, regimeStakeMult };
 }
