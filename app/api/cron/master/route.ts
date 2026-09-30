@@ -151,7 +151,7 @@ export async function GET(request: NextRequest): Promise<NextResponse<MasterCron
     // gives the fine-tuned Signal Interpreter (~83% accurate) 6× more
     // opportunities to label new markets, and keeps momentum history
     // snapshots fresh across the wider top-200 slot.
-    { name: 'Polymarket Discover',      path: '/api/cron/poly-discover', timeoutMs: 30_000 },
+    { name: 'Polymarket Discover',      path: '/api/cron/poly-discover', timeoutMs: 60_000 },
     // Watchdog for THIS orchestrator — if master itself stops firing, no cron
     // updates its heartbeat, heartbeat-monitor detects the stale-cron gap and
     // fires a Discord KILL. Added 2026-09-20 during the recovery from the

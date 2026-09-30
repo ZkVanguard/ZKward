@@ -43,7 +43,7 @@ async function handle(request: NextRequest): Promise<NextResponse> {
   }
 
   const now = Date.now();
-  const claimed = await tryClaimCronRun(CLAIM_KEY, CLAIM_MS, now);
+  const { claimed } = await tryClaimCronRun(CLAIM_KEY, CLAIM_MS, now);
   if (!claimed) {
     return NextResponse.json({ enabled: true, claimed: false });
   }

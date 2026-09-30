@@ -15,18 +15,28 @@
  *
  * Non-fatal: paper tick failures never block anything real.
  *
+ * Ack-and-run (2026-09-29): 202 in milliseconds, the four stages run in
+ * after() behind a 50s claim. Awaiting them in-request put p99 (~29s) at the
+ * scheduler's delivery timeout, so ~98 deliveries/day retried and re-ran
+ * live trading logic. The effective-config echo stays in the response
+ * (job_messages keeps it); per-tick results go to cron_state
+ * `paper-fast-tick:last-results`.
+ *
  * Security: verifyCronRequest — jobs.zkward.com HMAC or CRON_SECRET.
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse, after } from 'next/server';
 import { logger } from '@/lib/utils/logger';
 import { verifyCronRequest } from '@/lib/qstash';
 import { errMsg } from '@/lib/utils/error-handler';
-import { setCronState } from '@/lib/db/cron-state';
+import { setCronState, tryClaimCronRun } from '@/lib/db/cron-state';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
+
+const CLAIM_ID = 'paper-fast-tick-claim';
+const CLAIM_MS = 50_000;
 
 export async function POST(request: NextRequest) {
   return handle(request);
@@ -40,7 +50,25 @@ async function handle(request: NextRequest) {
   const auth = await verifyCronRequest(request, 'paper-fast-tick');
   if (auth !== true) return auth;
 
-  const t0 = Date.now();
+  const cfg = await effectiveConfig();
+  const { claimed } = await tryClaimCronRun(CLAIM_ID, CLAIM_MS, Date.now());
+  if (!claimed) return NextResponse.json({ ok: true, claimed: false, cfg });
+
+  after(async () => {
+    const t0 = Date.now();
+    const results = await runStages();
+    const elapsedMs = Date.now() - t0;
+    await setCronState('cron:lastRun:paper-fast-tick', Date.now()).catch(() => {});
+    await setCronState('paper-fast-tick:last-results', { at: t0, elapsedMs, results }).catch(
+      () => {},
+    );
+    logger.info('[PaperFastTick] tick complete', { elapsedMs, results });
+  });
+
+  return NextResponse.json({ ok: true, acked: true, cfg }, { status: 202 });
+}
+
+async function runStages(): Promise<Record<string, string>> {
   const results: Record<string, string> = {};
 
   try {
@@ -86,18 +114,18 @@ async function handle(request: NextRequest) {
     logger.warn('[PaperFastTick] signal-ledger tick failed (non-fatal)', { error: errMsg(e) });
   }
 
-  void setCronState('cron:lastRun:paper-fast-tick', Date.now()).catch(() => {});
+  return results;
+}
 
-  // Effective-config echo (Fix O audit, 2026-09-27). This response body is
-  // persisted verbatim in the jobs service's job_messages table, so the
-  // knob values ACTUALLY live on this deployment are queryable from the
-  // DB — no Vercel dashboard access needed. Vercel env silently overriding
-  // code defaults is the standing suspect for gates not matching code
-  // (e.g. conf 65-68 entries surviving the Fix-J conf>=70 bump).
-  let cfg: Record<string, unknown> = {};
+// Effective-config echo (Fix O audit, 2026-09-27). This response body is
+// persisted verbatim in the jobs service's job_messages table, so the knob
+// values ACTUALLY live on this deployment are queryable from the DB — no
+// Vercel dashboard access needed. Vercel env silently overriding code
+// defaults is the standing suspect for gates not matching code.
+async function effectiveConfig(): Promise<Record<string, unknown>> {
   try {
     const c = await import('@/lib/services/paper-trader/config');
-    cfg = {
+    return {
       sha: (process.env.VERCEL_GIT_COMMIT_SHA || '').slice(0, 8) || 'local',
       minConf: c.PAPER_MIN_CONFIDENCE,
       minCons: c.PAPER_MIN_CONSENSUS,
@@ -118,8 +146,7 @@ async function handle(request: NextRequest) {
       // defaults, the root cause of every "the fix changed nothing" episode.
       overrides: Object.keys(process.env).filter((k) => k.startsWith('PAPER_TRADER_')).sort(),
     };
-  } catch { /* echo is best-effort */ }
-
-  const elapsedMs = Date.now() - t0;
-  return NextResponse.json({ ok: true, elapsedMs, results, cfg });
+  } catch {
+    return {}; // echo is best-effort
+  }
 }
