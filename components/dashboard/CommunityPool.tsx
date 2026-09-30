@@ -42,10 +42,12 @@ import {
 import { PieChart, Shield, Users } from 'lucide-react';
 import { CommunityPoolSkeleton } from './community-pool/Skeletons';
 import { NavHistoryChart } from './NavHistoryChart';
-import { PaperPoolPanel } from './PaperPoolPanel';
-import { SolanaPoolPanel } from '@/components/solana/DashboardPanel'; // Lazy load heavy panels (only load when in viewport)
+import { PaperPoolPanel } from './PaperPoolPanel'; // Lazy load heavy panels (only load when in viewport)
 const RiskMetricsPanel = lazy(() =>
   import('./RiskMetricsPanel').then((mod) => ({ default: mod.RiskMetricsPanel }))
+);
+const SolanaPoolView = lazy(() =>
+  import('@/components/solana/SolanaPoolView').then((mod) => ({ default: mod.SolanaPoolView }))
 );
 const AutoHedgePanel = lazy(() =>
   import('./AutoHedgePanel').then((mod) => ({ default: mod.AutoHedgePanel }))
@@ -318,7 +320,15 @@ export const CommunityPool = memo(function CommunityPool({
           network={isPaper ? 'shadow' : 'devnet'}
           poolDeployed
         />
-        <div className="p-3 sm:p-6">{isPaper ? <PaperPoolPanel /> : <SolanaPoolPanel />}</div>
+        <div className="p-3 sm:p-6">
+          {isPaper ? (
+            <PaperPoolPanel />
+          ) : (
+            <Suspense fallback={<div className="text-label-secondary text-sm p-4">Loading pool state…</div>}>
+              <SolanaPoolView />
+            </Suspense>
+          )}
+        </div>
       </motion.div>
     );
   }

@@ -180,11 +180,10 @@ const HederaAgentPayments = nextDynamic(
   { loading: () => <LoadingSkeleton />, ssr: false },
 );
 
-// Solana token pool snapshot (testnet). Wallet actions stay on /solana —
-// this tab never imports the Solana SDK.
-const SolanaPoolPanel = nextDynamic(
-  () =>
-    import('@/components/solana/DashboardPanel').then((mod) => ({ default: mod.SolanaPoolPanel })),
+// Full Solana token pool (testnet) — state, sleeve, wallet, faucet, deposit,
+// withdraw. Lazy so @solana/web3.js only downloads when the tab opens.
+const SolanaPoolView = nextDynamic(
+  () => import('@/components/solana/SolanaPoolView').then((mod) => ({ default: mod.SolanaPoolView })),
   { loading: () => <LoadingSkeleton />, ssr: false },
 );
 
@@ -1018,7 +1017,9 @@ export default function DashboardPage() {
               subtitle="JIMP-denominated · signal-driven sleeve · chain-truth NAV"
               badge={<Badge color="teal">TESTNET · DEVNET</Badge>}
             />
-            <SolanaPoolPanel />
+            <div className="p-4 sm:p-6">
+              <SolanaPoolView />
+            </div>
           </Card>
         );
 
