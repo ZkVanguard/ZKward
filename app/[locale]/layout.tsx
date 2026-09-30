@@ -45,7 +45,9 @@ export async function generateMetadata(
     locale
   } = params;
 
-  const t = await getTranslations({ locale, namespace: 'hero' });
+  // A missing namespace doesn't fail the build — next-intl ships the raw key
+  // ("hero.subtitle") as every inheriting page's meta description.
+  const t = await getTranslations({ locale, namespace: 'landing.hero' });
 
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://zkward.com';
   // Tab title is brand-only per 2026-09-25 direction. Description meta
