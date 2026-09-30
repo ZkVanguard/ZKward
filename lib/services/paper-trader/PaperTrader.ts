@@ -75,6 +75,7 @@ export {
   KEY_ORDER_ID,
   KEY_NAV,
   KEY_STATS,
+  KEY_SESSION_STARTED_AT,
   KEY_NAV_SERIES,
   KEY_LAST_RUN,
   KEY_LAST_SKIP,
@@ -116,6 +117,7 @@ import {
   KEY_ORDER_ID,
   KEY_NAV,
   KEY_STATS,
+  KEY_SESSION_STARTED_AT,
   KEY_NAV_SERIES,
   KEY_LAST_RUN,
   KEY_LAST_SKIP,
@@ -890,16 +892,19 @@ export class PaperTrader {
       if (now - lastCheck < 60 * 60_000) return null; // check once per hour
       await setCronState(CHECK_KEY, now);
 
-      // Aggregate 7-day PnL windows. Filter by portfolio_id AND the LIKE
-      // clause so a session reset (which archives old rows to a different
-      // portfolio_id) doesn't drag pre-reset losses into the halt trigger.
+      // Aggregate 7-day PnL windows, bounded at the current session start.
+      // A session reset only resets NAV/stats in cron_state — hedges rows keep
+      // the same portfolio_id — so without the bound, pre-reset losses halt a
+      // freshly reset book that has made no trades at all.
+      const sessionStart = (await getCronState<number>(KEY_SESSION_STARTED_AT)) ?? 0;
       const rows = await query<{ recent: string; prior: string }>(
         `SELECT
            COALESCE(SUM(realized_pnl) FILTER (WHERE closed_at > NOW() - INTERVAL '7 days'), 0) AS recent,
            COALESCE(SUM(realized_pnl) FILTER (WHERE closed_at BETWEEN NOW() - INTERVAL '14 days' AND NOW() - INTERVAL '7 days'), 0) AS prior
          FROM hedges
-         WHERE portfolio_id = $1 AND order_id LIKE 'paper_%' AND status = 'closed'`,
-        [PAPER_PORTFOLIO_ID],
+         WHERE portfolio_id = $1 AND order_id LIKE 'paper_%' AND status = 'closed'
+           AND closed_at >= to_timestamp($2 / 1000.0)`,
+        [PAPER_PORTFOLIO_ID, sessionStart],
       );
       const recent = Number(rows[0]?.recent ?? 0);
       const prior = Number(rows[0]?.prior ?? 0);
