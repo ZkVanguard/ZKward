@@ -37,7 +37,7 @@ import {
   PAPER_CALIBRATED_RANK_MIN_N,
   PAPER_HALT_ENTRIES_IN_CHOP,
   PAPER_CHOP_STAKE_MULT,
-  PAPER_BLACKLIST_PROBE_STAKE_MULT,
+  PAPER_PROBE_STAKE_MULT,
 } from './config';
 import type { Side } from './simulated-executor';
 import { getMultiSourceValidatedPrice } from '@/lib/services/market-data/unified-price-provider';
@@ -57,7 +57,7 @@ export interface PickedCandidate {
   score: number;
   side: Side;
   regime?: 'TRENDING_UP' | 'TRENDING_DOWN' | 'CHOP' | null;
-  /** Blacklist reason when the pair trades at probe stake. */
+  /** Why the entry trades at probe stake (blacklisted pair / STRONG signal). */
   probe?: string | null;
 }
 
@@ -113,8 +113,10 @@ const recommendationToSide = (rec: string): Side | null => {
  * Signal scan + candidate ranking + filter chain. Returns the highest-
  * scoring candidate that survives every filter, or a skip reason.
  *
- * Filter order per candidate: recommendationToSide → skip-STRONG →
- * signal-quality (majority + stability) → concurrency (dedup + cluster).
+ * Filter order per candidate: recommendationToSide → signal-quality
+ * (majority + stability) → concurrency (dedup + cluster) → blacklist →
+ * calibrator → caller gates. STRONG signals and blacklisted pairs pass as
+ * probes (sized down in sizeCandidate), not skips.
  *
  * The signal-history append happens for the winning candidate so future
  * ticks have data for the stability filter — but only for the winner
@@ -246,7 +248,11 @@ export async function selectCandidate(
       lastSkipReason = `non-directional signal (${cand.asset})`;
       continue;
     }
-    if (PAPER_SKIP_STRONG_SIGNALS && cand.prediction.recommendation.startsWith('STRONG_')) {
+    const strongProbe =
+      PAPER_SKIP_STRONG_SIGNALS && cand.prediction.recommendation.startsWith('STRONG_')
+        ? `strong-signal: ${cand.prediction.recommendation}`
+        : null;
+    if (strongProbe && PAPER_PROBE_STAKE_MULT <= 0) {
       lastSkipReason = `skip-strong: ${cand.prediction.recommendation} (${cand.asset})`;
       continue;
     }
@@ -274,7 +280,7 @@ export async function selectCandidate(
     // (sizeCandidate) so the pair keeps producing the evidence that can
     // clear it; only a probe stake of 0 blocks outright.
     const blacklistReject = await assetSideBlacklistRejection(cand.asset, candSide);
-    if (blacklistReject && PAPER_BLACKLIST_PROBE_STAKE_MULT <= 0) {
+    if (blacklistReject && PAPER_PROBE_STAKE_MULT <= 0) {
       logger.info('[PaperTrader] Fix L rejected candidate', { asset: cand.asset, side: candSide, reason: blacklistReject });
       lastSkipReason = blacklistReject;
       continue;
@@ -315,7 +321,7 @@ export async function selectCandidate(
       rec: cand.prediction.recommendation,
       score: cand.score.toFixed(1),
     });
-    return { ok: true, picked: { ...cand, side: candSide, regime: currentRegime, probe: blacklistReject } };
+    return { ok: true, picked: { ...cand, side: candSide, regime: currentRegime, probe: blacklistReject ?? strongProbe } };
   }
   return { ok: false, reason: lastSkipReason };
 }
@@ -378,7 +384,7 @@ export async function sizeCandidate(
     })),
   );
   const regimeStakeMult = picked.regime === 'CHOP' ? PAPER_CHOP_STAKE_MULT : 1;
-  const probeStakeMult = picked.probe ? PAPER_BLACKLIST_PROBE_STAKE_MULT : 1;
+  const probeStakeMult = picked.probe ? PAPER_PROBE_STAKE_MULT : 1;
   const rawStake =
     nav * PAPER_STAKE_PCT * signalScalar * volMult * calibrationBoost * regimeStakeMult * probeStakeMult;
   // Hard cap on stake (was missing — paper had unbounded stake vs live's

@@ -1,7 +1,7 @@
 /**
  * Stake multipliers that replace hard blocks: CHOP regime entries size at
- * PAPER_CHOP_STAKE_MULT and blacklisted pairs at
- * PAPER_BLACKLIST_PROBE_STAKE_MULT (both default 0.25).
+ * PAPER_CHOP_STAKE_MULT; blacklisted pairs and STRONG signals at
+ * PAPER_PROBE_STAKE_MULT (both default 0.25).
  */
 import { describe, it, expect, jest } from '@jest/globals';
 
@@ -16,7 +16,7 @@ jest.mock('@/lib/services/paper-trader/sizing', () => {
 import { sizeCandidate, type PickedCandidate } from '@/lib/services/paper-trader/entry-helpers';
 import {
   PAPER_CHOP_STAKE_MULT,
-  PAPER_BLACKLIST_PROBE_STAKE_MULT,
+  PAPER_PROBE_STAKE_MULT,
   PAPER_HALT_ENTRIES_IN_CHOP,
   PAPER_STAKE_PCT,
   PAPER_MAX_STAKE_PCT,
@@ -56,12 +56,12 @@ describe('chop-regime sizing', () => {
   });
 });
 
-describe('blacklist probe sizing', () => {
+describe('probe sizing (blacklisted pair / STRONG signal)', () => {
   const capped = (mult: number, signalScalar: number) =>
     Math.min(NAV * PAPER_STAKE_PCT * signalScalar * mult, NAV * PAPER_MAX_STAKE_PCT);
 
   it('a blacklisted pair trades at probe stake instead of being blocked', async () => {
-    expect(PAPER_BLACKLIST_PROBE_STAKE_MULT).toBe(0.25);
+    expect(PAPER_PROBE_STAKE_MULT).toBe(0.25);
     const full = await sizeCandidate(pick('TRENDING_UP'), NAV, 1);
     const probe = await sizeCandidate(pick('TRENDING_UP', 'asset-side-blacklist: BTC LONG'), NAV, 1);
     expect(full.probeStakeMult).toBe(1);
