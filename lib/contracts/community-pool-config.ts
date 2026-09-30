@@ -285,6 +285,27 @@ export const POOL_CHAIN_CONFIGS: Record<string, PoolChainConfig> = {
     assets: ['BTC', 'ETH', 'SOL', 'XRP', 'DOGE'],
     status: 'testing',
   },
+
+  // Solana token pool (devnet, portfolio -6) — its own vertical with its
+  // own API. Listed here only so the pool picker can offer it; selecting it
+  // renders the Solana panel and no EVM/SUI fetcher runs.
+  solana: {
+    chainId: 'solana:devnet',
+    chainType: 'solana',
+    name: 'Solana Token Pool',
+    shortName: 'Solana',
+    icon: '◎',
+    color: 'bg-purple-500',
+    nativeCurrency: { name: 'SOL', symbol: 'SOL', decimals: 9 },
+    rpcUrls: { testnet: '', mainnet: '' },
+    blockExplorer: { testnet: '', mainnet: '' },
+    contracts: {
+      testnet: { communityPool: '0x0000000000000000000000000000000000000000', usdt: '0x0000000000000000000000000000000000000000' },
+      mainnet: { communityPool: '0x0000000000000000000000000000000000000000', usdt: '0x0000000000000000000000000000000000000000' },
+    },
+    assets: ['BTC', 'ETH', 'SOL'],
+    status: 'testing',
+  },
 };
 
 // ============================================

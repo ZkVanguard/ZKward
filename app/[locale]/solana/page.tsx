@@ -243,7 +243,7 @@ export default function SolanaPoolPage() {
   };
 
   return (
-    <main className="min-h-screen bg-system-bg-primary text-label-primary px-4 py-8 sm:px-6">
+    <main className="min-h-screen bg-system-bg-primary text-label-primary px-4 pt-20 sm:pt-24 pb-16 sm:px-6">
       <div className="max-w-3xl mx-auto space-y-4">
         <div className="flex items-center gap-3 flex-wrap">
           <h1 className="text-2xl font-bold">Solana Token Pool</h1>

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { memo } from 'react';
-import { Users, RefreshCw, Brain, Globe, Loader2 } from 'lucide-react';
+import { RefreshCw, Brain, Globe, Loader2 } from 'lucide-react';
 import { POOL_CHAIN_CONFIGS } from '@/lib/contracts/community-pool-config';
 import type { ChainKey } from './types';
 
@@ -54,11 +54,12 @@ export const PoolHeader = memo(function PoolHeader({
 
       {/* Right: action row */}
       <div className="flex items-center gap-2 flex-shrink-0">
-        {/* Chain selector — SUI (live USDC pool) + Hedera (EVM testnet pool).
-            Both share the same CommunityPool contract shape; picker just swaps
-            the RPC + address the fetcher hits. */}
+        {/* Pool selector — SUI (live USDC pool) + Hedera (EVM testnet pool)
+            share the CommunityPool contract shape; Solana (token pool) and
+            Paper (shadow book) are virtual entries CommunityPool renders
+            with their own panels. */}
         <div className="flex items-center gap-2 bg-system-bg-grouped border border-separator-opaque/30 rounded-full px-2 py-1">
-          {(['sui', 'hedera', 'paper'] as const)
+          {(['sui', 'hedera', 'solana', 'paper'] as const)
             .map((key) => [key, POOL_CHAIN_CONFIGS[key]] as const)
             .filter(([, config]) => config && (config.status === 'live' || config.status === 'testing'))
             .map(([key, config]) => (
@@ -72,7 +73,8 @@ export const PoolHeader = memo(function PoolHeader({
                 }`}
                 title={`${config.name} · ${config.status === 'testing' ? 'testnet' : 'mainnet'}`}
               >
-                <span>{config.icon}</span>
+                {/* Icons from sm up: four pills + refresh + AI must fit a 390px row. */}
+                <span className="hidden sm:inline">{config.icon}</span>
                 <span>{config.shortName}</span>
               </button>
             ))}

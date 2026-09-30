@@ -338,11 +338,10 @@ export function useCommunityPool(propAddress?: string) {
       if (!force && now - lastFetchRef.current < 5000) return;
       lastFetchRef.current = now;
 
-      // Paper is a virtual pool — its data lives in cron_state via
-      // /api/paper-trader/status, not in the multi-chain community-pool
-      // endpoint. Short-circuit the fetcher entirely (CommunityPool.tsx
-      // renders PaperPoolPanel which fetches from its own endpoint).
-      if (selectedChain === 'paper') {
+      // Paper and Solana are virtual entries — their data comes from their
+      // own endpoints (/api/paper-trader/status, /api/solana-pool/status),
+      // fetched by the panels CommunityPool.tsx renders for them.
+      if (selectedChain === 'paper' || selectedChain === 'solana') {
         dispatchPool({ type: 'SET_LOADING', payload: false });
         return;
       }
