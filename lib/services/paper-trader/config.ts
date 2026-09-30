@@ -313,6 +313,8 @@ export const KEY_POSITION = 'paper-trader:active-position';
 export const KEY_ORDER_ID = 'paper-trader:active-order-id';
 export const KEY_NAV = 'paper-trader:nav-usd';
 export const KEY_STATS = 'paper-trader:stats';
+/** Set by a book reset; history-window checks must not reach before it. */
+export const KEY_SESSION_STARTED_AT = 'paper-trader:session-started-at';
 export const KEY_NAV_SERIES = 'paper-trader:nav-series';
 export const KEY_LAST_RUN = 'cron:lastRun:paper-trader';
 export const KEY_LAST_SKIP = 'paper-trader:last-skip';

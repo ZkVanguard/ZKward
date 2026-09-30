@@ -804,3 +804,36 @@ describe('PaperTrader.runTick — profit-lock + halt gates', () => {
     expect(store[KEY_STATS].dailyPeakNavUsd).toBe(94_000);
   });
 });
+
+describe('rolling-drawdown check is bounded at the session start', () => {
+  const SESSION = 1_790_534_850_482;
+  const ddCall = () =>
+    mockQuery.mock.calls.find(([sql]: any[]) => /prior/.test(String(sql)) && /FROM hedges/.test(String(sql)));
+
+  beforeEach(() => mockQuery.mockReset());
+
+  it('passes session-started-at as the closed_at lower bound (pre-reset losses cannot halt a fresh book)', async () => {
+    primeStore({ 'paper-trader:session-started-at': SESSION });
+    mockQuery.mockResolvedValue([{ recent: '0', prior: '0' }]);
+    const reason = await (PaperTrader as any).rollingDrawdownCheck(NOW);
+    expect(reason).toBeNull();
+    const [sql, params] = ddCall() as [string, unknown[]];
+    expect(sql).toContain('closed_at >= to_timestamp($2 / 1000.0)');
+    expect(params[1]).toBe(SESSION);
+  });
+
+  it('without a session marker the bound is epoch 0 (previous behaviour)', async () => {
+    primeStore({});
+    mockQuery.mockResolvedValue([{ recent: '0', prior: '0' }]);
+    await (PaperTrader as any).rollingDrawdownCheck(NOW);
+    const [, params] = ddCall() as [string, unknown[]];
+    expect(params[1]).toBe(0);
+  });
+
+  it('still halts on a genuine in-session deterioration', async () => {
+    primeStore({ 'paper-trader:session-started-at': SESSION });
+    mockQuery.mockResolvedValue([{ recent: '-900', prior: '-100' }]);
+    const reason = await (PaperTrader as any).rollingDrawdownCheck(NOW);
+    expect(reason).toMatch(/rolling-drawdown/);
+  });
+});
