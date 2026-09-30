@@ -2,20 +2,18 @@
  * OracleTrader — paper book that trades the AI Signal Interpreter at its
  * NATIVE horizon (portfolio -5).
  *
- * Why this exists (2026-09-28): the interpreter resolves 74-83% accurate
- * on its own daily/monthly threshold questions, but the ledger measured
- * the same signal at 5-22% when mechanically translated to 30-240min
- * trade windows — a horizon category error, not a weak signal. The
- * counterfactual on stored (entry_price, exit_price) pairs: trading every
- * resolved interpretation directionally at 1x with 13bp fees = 73.9% WR,
- * +1.55%/trade net (n=46); threshold-within-8%-of-spot subset = 76.5%,
- * +1.72%/trade. This book turns that counterfactual into a live,
- * forward-measured POC.
+ * The interpreter parses a market's QUESTION — asset, strike, horizon, and
+ * the question's wording ("above"/"reach" = UP, "below"/"dip" = DOWN). That
+ * wording is not a forecast: "Will BTC be above $88k?" at 3% YES is still
+ * UP. The forecast is the market's YES price. This book therefore trades
+ * only when the market's likely outcome requires price to CROSS the strike
+ * from spot (marketImpliedSide); questions whose likely outcome is already
+ * true at spot carry no directional edge and are skipped.
  *
  * Design:
  *   • Opens on fresh `signal_interpretations` rows (source='model',
  *     UP/DOWN, priceable asset, entry anchor present, horizon_end
- *     30min..48h out). Everything qualifying is opened and tagged
+ *     30min..48h out) whose live market odds imply a move (see above). Everything qualifying is opened and tagged
  *     `uncertain` (threshold within ORACLE_UNCERTAIN_BAND of spot) so
  *     both slices stay measurable.
  *   • Fixed $1k stake at 1x — isolates signal quality from sizing games.
@@ -56,6 +54,9 @@ const UNCERTAIN_BAND = Number(process.env.ORACLE_TRADER_UNCERTAIN_BAND || 0.08);
 // sweeps after downtime (the watermark still advances past stale rows).
 const MAX_SIGNAL_AGE_MS = Number(process.env.ORACLE_TRADER_MAX_SIGNAL_AGE_MIN || 30) * 60_000;
 const DISABLED = /^(1|true|yes|on)$/i.test((process.env.ORACLE_TRADER_DISABLE || '').trim());
+// Minimum probability of the market's likely outcome — below it the market
+// is a coin flip and makes no forecast.
+const MIN_CONVICTION = Number(process.env.ORACLE_TRADER_MIN_CONVICTION || 0.6);
 
 const KEY_POSITIONS = 'oracle-trader:active-positions';
 const KEY_WATERMARK = 'oracle-trader:interp-watermark';
@@ -121,6 +122,51 @@ export function selectOracleCandidates(
     out.push({ row, side, closeAtMs: horizonEnd, uncertain });
   }
   return out;
+}
+
+/**
+ * Side implied by a threshold market's odds — pure, exported for tests.
+ * `condition` is the question's wording (UP = "above/reach X", DOWN =
+ * "below/dip to X"). A side is returned only when the likely outcome
+ * (probability >= minConviction) requires the price to cross the strike
+ * from spot; if that outcome is already true at spot there is no move to
+ * bet on.
+ */
+export function marketImpliedSide(
+  condition: string | null,
+  yesPrice: number | null,
+  spot: number,
+  threshold: number | null,
+  minConviction: number = MIN_CONVICTION,
+): Side | null {
+  if (condition !== 'UP' && condition !== 'DOWN') return null;
+  if (yesPrice === null || !(yesPrice > 0 && yesPrice < 1)) return null;
+  if (!(spot > 0) || threshold === null || !(threshold > 0)) return null;
+  const likelyYes = yesPrice >= minConviction;
+  const likelyNo = 1 - yesPrice >= minConviction;
+  if (!likelyYes && !likelyNo) return null;
+  const expectAbove = condition === 'UP' ? likelyYes : likelyNo;
+  if (expectAbove && spot < threshold) return 'LONG';
+  if (!expectAbove && spot > threshold) return 'SHORT';
+  return null;
+}
+
+/** Live YES price of an open Polymarket market; null on any failure. */
+async function fetchYesPrice(slug: string): Promise<number | null> {
+  try {
+    const res = await fetch(
+      `https://gamma-api.polymarket.com/markets?slug=${encodeURIComponent(slug)}`,
+      { signal: AbortSignal.timeout(8000) },
+    );
+    if (!res.ok) return null;
+    const arr = (await res.json()) as Array<{ outcomePrices?: string; closed?: boolean }>;
+    const m = Array.isArray(arr) ? arr[0] : null;
+    if (!m || m.closed) return null;
+    const yes = Number((JSON.parse(m.outcomePrices || '[]') as string[])[0]);
+    return Number.isFinite(yes) ? yes : null;
+  } catch {
+    return null;
+  }
 }
 
 export interface OracleTickSummary {
@@ -207,17 +253,33 @@ export class OracleTrader {
         ).toISOString());
 
         const held = new Set(positions.map((p) => p.slug));
+        // Wide candidate pass: most rows are skipped by the odds check below,
+        // and the watermark has already moved past everything scanned.
         const candidates = selectOracleCandidates(
           rows.filter((r) => !held.has(r.slug)),
           now,
+          rows.length,
         );
         for (const cand of candidates) {
+          if (summary.opened >= MAX_OPENS_PER_TICK) break;
           const asset = (cand.row.asset || '').toUpperCase();
           const entryPrice = Number(cand.row.entry_price_usd);
+          const yesPrice = await fetchYesPrice(cand.row.slug);
+          const side = marketImpliedSide(cand.row.direction, yesPrice, entryPrice, cand.row.threshold);
+          if (!side) {
+            logger.info('[OracleTrader] skipped — market odds imply no move', {
+              slug: cand.row.slug,
+              condition: cand.row.direction,
+              yesPrice,
+              entryPrice,
+              threshold: cand.row.threshold,
+            });
+            continue;
+          }
           const position = simulateOpen(
             {
               asset,
-              side: cand.side,
+              side,
               notionalUsd: STAKE_USD * LEVERAGE,
               leverage: LEVERAGE,
               entryPrice,
@@ -232,13 +294,13 @@ export class OracleTrader {
               portfolioId: ORACLE_PORTFOLIO_ID,
               asset,
               market: `${asset}-PERP`,
-              side: cand.side,
+              side,
               size: position.size,
               notionalValue: position.notionalUsd,
               leverage: LEVERAGE,
               entryPrice,
               simulationMode: true,
-              reason: `oracle: ${cand.row.slug.slice(0, 60)} | uncertain=${cand.uncertain}`,
+              reason: `oracle: ${cand.row.slug.slice(0, 60)} | yes=${yesPrice} | uncertain=${cand.uncertain}`,
               predictionMarket: 'signal-interpreter',
               chain: CHAIN,
             });
@@ -253,7 +315,8 @@ export class OracleTrader {
             logger.info('[OracleTrader] opened at native horizon', {
               orderId,
               asset,
-              side: cand.side,
+              side,
+              yesPrice,
               closeAt: new Date(cand.closeAtMs).toISOString(),
               uncertain: cand.uncertain,
             });

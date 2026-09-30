@@ -268,7 +268,7 @@ export function WhitepaperClient({ frontmatter, body }: Props) {
               <Link href="/dashboard" className="inline-flex items-center gap-2 px-6 py-3 bg-white text-ios-blue rounded-full font-medium hover:bg-white/90 transition-colors">
                 Launch App
               </Link>
-              <a href="https://github.com/ZkVanguard/zkward-ethglobal" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 px-6 py-3 bg-white/20 text-white rounded-full font-medium hover:bg-white/30 transition-colors">
+              <a href="https://github.com/ZkVanguard/ZKward" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 px-6 py-3 bg-white/20 text-white rounded-full font-medium hover:bg-white/30 transition-colors">
                 View source
               </a>
             </div>

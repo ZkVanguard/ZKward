@@ -185,7 +185,7 @@ export default async function LocaleLayout(
           caption: 'ZKward',
         },
         sameAs: [
-          'https://github.com/ZkVanguard/zkward-ethglobal',
+          'https://github.com/ZkVanguard/ZKward',
           'https://twitter.com/HarveReg',
           'https://t.me/+QoAodv90iWExZmVh',
         ],

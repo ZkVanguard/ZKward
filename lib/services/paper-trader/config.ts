@@ -125,12 +125,17 @@ export const PAPER_CALIBRATED_RANK_MIN_N = Number(
   process.env.PAPER_TRADER_CALIBRATED_RANK_MIN_N || 20,
 );
 
-// Halt entries entirely when the regime classifier says CHOP. Trade audit
-// 2026-09-26 showed 7 of 8 recent losses came from 4-15 min signal flips
-// (classic chop pattern). Regime is cached 1h — no flapping. Env-toggleable
-// in case the classifier locks us out for extended stretches.
+// CHOP trades at reduced stake rather than halting: the classifier defaults
+// to CHOP whenever BTC vol < 45%, so a full halt locks the book out for most
+// market hours and leaves no samples to measure. The 30-min flip-age gate
+// already blocks the 4-15 min flip losses the halt was built for. Set
+// PAPER_TRADER_HALT_ENTRIES_IN_CHOP=1 to restore the full halt.
 export const PAPER_HALT_ENTRIES_IN_CHOP =
-  (process.env.PAPER_TRADER_HALT_ENTRIES_IN_CHOP ?? '1') !== '0';
+  (process.env.PAPER_TRADER_HALT_ENTRIES_IN_CHOP ?? '0') !== '0';
+export const PAPER_CHOP_STAKE_MULT = Math.min(
+  1,
+  Math.max(0, Number(process.env.PAPER_TRADER_CHOP_STAKE_MULT ?? 0.25)),
+);
 
 // Fix L (2026-09-26) — asset-side hard blacklist based on lifetime
 // empirical hit rate. Deep-dive audit showed 5 of 9 (asset,side) pairs

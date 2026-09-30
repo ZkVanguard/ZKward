@@ -45,7 +45,7 @@ export const Footer = memo(function Footer() {
               <ul className="space-y-3">
                 <li><a href="mailto:ashish.regmi@zkward.com" className={LINK_CLASS}>{t('contact')}</a></li>
                 <li><a href="https://t.me/+QoAodv90iWExZmVh" target="_blank" rel="noopener noreferrer" className={LINK_CLASS}>{t('community')}</a></li>
-                <li><a href="https://github.com/ZkVanguard/zkward-ethglobal" target="_blank" rel="noopener noreferrer" className={LINK_CLASS}>{t('github')}</a></li>
+                <li><a href="https://github.com/ZkVanguard/ZKward" target="_blank" rel="noopener noreferrer" className={LINK_CLASS}>{t('github')}</a></li>
                 <li><a href="https://twitter.com/HarveReg" target="_blank" rel="noopener noreferrer" className={LINK_CLASS}>{t('twitter')}</a></li>
               </ul>
             </div>

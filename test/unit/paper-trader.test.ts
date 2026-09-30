@@ -21,6 +21,7 @@ process.env.PAPER_TRADER_MAX_CONCURRENT = '1';
 // These tests exercise the entry state-machine, not the regime halt —
 // disable so opens aren't shadow-blocked. Regime halt has its own tests.
 process.env.PAPER_TRADER_HALT_ENTRIES_IN_CHOP = '0';
+process.env.PAPER_TRADER_CHOP_STAKE_MULT = '1';
 // Fix O: seeded blacklist priors block BTC LONG/SHORT by default — these
 // tests exercise the entry state-machine with BTC fixtures, so clear the
 // seeds. Seed behavior has its own tests (paper-trader-fix-o.test.ts).

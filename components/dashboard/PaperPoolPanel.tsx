@@ -75,6 +75,7 @@ export function PaperPoolPanel() {
   if (error || !data) return <div className="p-6 text-red-700">Failed to load: {error instanceof Error ? error.message : 'unknown'}</div>;
 
   const returnColor = data.nav.cumReturnPct >= 0 ? 'text-green-700' : 'text-red-700';
+  const hasTrades = data.stats.trades > 0;
   const winRateGood = data.stats.winRatePct >= 50;
 
   return (
@@ -94,7 +95,7 @@ export function PaperPoolPanel() {
       {/* NAV + win-rate top strip */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
         <Stat icon={<TrendingUp className="w-4 h-4" />} label="Live NAV" value={fmtUsd(data.nav.currentUsd)} sub={<span className={returnColor}>{fmtPct(data.nav.cumReturnPct)}</span>} />
-        <Stat icon={<Target className="w-4 h-4" />} label="Win rate" value={`${data.stats.winRatePct.toFixed(1)}%`} sub={<span className={winRateGood ? 'text-green-700' : 'text-red-700'}>{data.stats.wins}W / {data.stats.losses}L</span>} sub2={`${data.stats.trades} trades`} />
+        <Stat icon={<Target className="w-4 h-4" />} label="Win rate" value={hasTrades ? `${data.stats.winRatePct.toFixed(1)}%` : '—'} sub={<span className={!hasTrades ? 'text-label-secondary' : winRateGood ? 'text-green-700' : 'text-red-700'}>{data.stats.wins}W / {data.stats.losses}L</span>} sub2={`${data.stats.trades} trades`} />
         <Stat icon={<TrendingDown className="w-4 h-4" />} label="Drawdown" value={`${data.nav.drawdownFromPeakPct.toFixed(2)}%`} sub={`Peak ${fmtUsd(data.nav.peakUsd)}`} />
         <Stat icon={<Zap className="w-4 h-4" />} label="Active" value={String(data.activePositions.length)} sub={data.activePositions.length ? data.activePositions.map((p) => `${p.asset} ${p.side}`).join(', ') : 'flat'} />
       </div>
