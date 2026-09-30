@@ -141,6 +141,8 @@ async function effectiveConfig(): Promise<Record<string, unknown>> {
       seeds: c.PAPER_ASSET_SIDE_BLACKLIST_SEEDS.size,
       chopHalt: c.PAPER_HALT_ENTRIES_IN_CHOP,
       chopStakeMult: c.PAPER_CHOP_STAKE_MULT,
+      probeStakeMult: c.PAPER_PROBE_STAKE_MULT,
+      skipStrong: c.PAPER_SKIP_STRONG_SIGNALS,
       disableHalts: c.PAPER_DISABLE_HALTS,
       // Names (never values) of PAPER_TRADER_* env overrides active on this
       // deployment — a non-empty list means env is diverging from code

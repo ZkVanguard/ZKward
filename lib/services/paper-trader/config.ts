@@ -177,13 +177,14 @@ export const PAPER_ASSET_SIDE_BLACKLIST_SEEDS: ReadonlySet<string> = new Set(
     .map((s) => s.trim().toUpperCase())
     .filter((s) => /^[A-Z0-9]+:(LONG|SHORT)$/.test(s)),
 );
-// A blacklisted pair trades at this fraction of stake instead of being
-// blocked. A hard block can never lift: the only evidence that clears it
-// is the pair's own trades, which the block prevents (BTC sat at n=18 < 20
-// with both sides shut, 2026-09-30). 0 restores the hard block.
-export const PAPER_BLACKLIST_PROBE_STAKE_MULT = Math.min(
+// Entries the book holds evidence against — a blacklisted pair, or a
+// distrusted STRONG signal (PAPER_SKIP_STRONG_SIGNALS) — trade at this
+// fraction of stake instead of being blocked. A hard block can never lift:
+// the only evidence that could clear it is the trades it prevents (BTC sat
+// at n=18 < 20 with both sides shut, 2026-09-30). 0 restores the blocks.
+export const PAPER_PROBE_STAKE_MULT = Math.min(
   1,
-  Math.max(0, Number(process.env.PAPER_TRADER_BLACKLIST_PROBE_STAKE_MULT ?? 0.25)),
+  Math.max(0, Number(process.env.PAPER_TRADER_PROBE_STAKE_MULT ?? 0.25)),
 );
 
 /**
@@ -451,7 +452,12 @@ export const PAPER_MIN_FLIP_CONFIDENCE = Number(
 //   STRONG_HEDGE_LONG:       16 trades,  13% win, -$0.34 PnL
 // The "STRONG_" upgrade fires when Polymarket consensus is already
 // high, which usually means the move is priced in and mean-reversion
-// follows. Live trader has skipped these by default for weeks; paper
-// should too. Opt-out via PAPER_TRADER_SKIP_STRONG_SIGNALS=0.
+// follows. Live trader has skipped these by default for weeks.
+// Paper (2026-09-30): a STRONG entry trades at PAPER_PROBE_STAKE_MULT
+// instead of being skipped — that evidence predates two aggregator
+// overhauls, and with honest sources genuine agreement usually IS STRONG
+// (the 70 conf gate leaves only a 60-70 consensus band below it). A
+// STRONG flip still never force-closes a position. Opt-out (full stake,
+// flip-closes allowed) via PAPER_TRADER_SKIP_STRONG_SIGNALS=0.
 export const PAPER_SKIP_STRONG_SIGNALS =
   (process.env.PAPER_TRADER_SKIP_STRONG_SIGNALS || '1').trim() !== '0';
