@@ -15,7 +15,7 @@ import {
   createAssociatedTokenAccountIdempotentInstruction,
   createTransferInstruction,
   getAssociatedTokenAddressSync,
-} from '@solana/spl-token';
+} from '@/lib/services/solana/spl';
 
 export interface InjectedProvider {
   isPhantom?: boolean;
