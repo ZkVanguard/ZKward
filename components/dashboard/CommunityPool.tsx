@@ -42,7 +42,8 @@ import {
 import { PieChart, Shield, Users } from 'lucide-react';
 import { CommunityPoolSkeleton } from './community-pool/Skeletons';
 import { NavHistoryChart } from './NavHistoryChart';
-import { PaperPoolPanel } from './PaperPoolPanel'; // Lazy load heavy panels (only load when in viewport)
+import { PaperPoolPanel } from './PaperPoolPanel';
+import { SolanaPoolPanel } from '@/components/solana/DashboardPanel'; // Lazy load heavy panels (only load when in viewport)
 const RiskMetricsPanel = lazy(() =>
   import('./RiskMetricsPanel').then((mod) => ({ default: mod.RiskMetricsPanel }))
 );
@@ -296,13 +297,14 @@ export const CommunityPool = memo(function CommunityPool({
   });
 
   // ============================================================================
-  // PAPER POOL SHORT-CIRCUIT
+  // VIRTUAL POOL SHORT-CIRCUIT (Paper, Solana)
   // ============================================================================
-  // Paper isn't a chain — it's a virtual pool backed by paper-trader:*
-  // cron_state + hedges (portfolio_id -3). Short-circuit BEFORE the loading
-  // gate so the on-chain fetchers never fire for this selection. Keeps the
-  // PoolHeader visible so users can switch back to Sui/Hedera.
-  if (pool.selectedChain === 'paper') {
+  // Paper (paper-trader:* cron_state, portfolio -3) and the Solana token pool
+  // (its own vertical, portfolio -6) aren't CommunityPool contracts. Short-
+  // circuit BEFORE the loading gate so the on-chain fetchers never fire for
+  // them. Keeps the PoolHeader visible so users can switch back.
+  if (pool.selectedChain === 'paper' || pool.selectedChain === 'solana') {
+    const isPaper = pool.selectedChain === 'paper';
     return (
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -312,13 +314,11 @@ export const CommunityPool = memo(function CommunityPool({
         <PoolHeader
           selectedChain={pool.selectedChain}
           onChainSelect={pool.handleChainSelect}
-          chainName="Paper Pool"
-          network="shadow"
+          chainName={isPaper ? 'Paper Pool' : 'Solana Token Pool'}
+          network={isPaper ? 'shadow' : 'devnet'}
           poolDeployed
         />
-        <div className="p-3 sm:p-6">
-          <PaperPoolPanel />
-        </div>
+        <div className="p-3 sm:p-6">{isPaper ? <PaperPoolPanel /> : <SolanaPoolPanel />}</div>
       </motion.div>
     );
   }

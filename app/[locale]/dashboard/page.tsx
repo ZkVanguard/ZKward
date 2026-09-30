@@ -226,16 +226,18 @@ const navItems: NavItem[] = [
 // custody} sub-routes. Rendered in a secondary sidebar section so they stay
 // visually separated from the daily-use tabs above.
 const platformItems: NavItem[] = [
+  { id: 'solana', label: 'Solana Pool', icon: Coins, badge: 'Testnet' },
   { id: 'portfolio', label: 'Portfolio', icon: Layers },
   { id: 'risk', label: 'Risk', icon: Activity },
   { id: 'custody', label: 'Custody', icon: ShieldCheck },
   { id: 'admin', label: 'B2B Admin', icon: Settings, badge: 'Privy' },
   { id: 'x402', label: 'Agent Payments', icon: Coins, badge: 'Hedera' },
-  { id: 'solana', label: 'Solana Pool', icon: Coins, badge: 'Testnet' },
   { id: 'profile', label: 'Profile', icon: UserCog },
 ];
 
 type NavId = (typeof navItems)[number]['id'] | (typeof platformItems)[number]['id'];
+
+const NAV_IDS = new Set<string>([...navItems, ...platformItems].map((n) => n.id));
 
 export default function DashboardPage() {
   // Unified session. Privy embedded wallet first, then anything wagmi
@@ -297,9 +299,23 @@ export default function DashboardPage() {
   // MobileTabBar, etc.) don't re-render on every parent state change
   // (notification, agentMessage, etc.). Setter fns from useState are
   // stable by React contract, so the empty dep list is correct.
+  // `?tab=<id>` deep-links a tab; every switch keeps the URL in step so a
+  // tab can be shared or bookmarked. Scroll resets because the sidebar is
+  // sticky — switching from deep in a long tab left the new one off-screen.
+  useEffect(() => {
+    const tab = new URLSearchParams(window.location.search).get('tab');
+    if (tab && NAV_IDS.has(tab)) setActiveNav(tab as NavId);
+  }, []);
+
   const handleNavChange = useCallback((id: NavId) => {
     setActiveNav(id);
     setMobileMenuOpen(false);
+    window.scrollTo({ top: 0 });
+    const params = new URLSearchParams(window.location.search);
+    if (id === 'community') params.delete('tab');
+    else params.set('tab', id);
+    const query = params.toString();
+    window.history.replaceState(null, '', `${window.location.pathname}${query ? `?${query}` : ''}`);
   }, []);
 
   const openChat = useCallback(() => setShowChat(true), []);
@@ -531,35 +547,46 @@ export default function DashboardPage() {
             />
           </div>
 
-          {/* Mobile Nav */}
+          {/* Mobile Nav — the only way to reach the Platform tabs on phones */}
           <nav className="flex-1 py-2 overflow-y-auto">
-            {navItems.map((item) => {
+            {[...navItems, ...platformItems].map((item, i) => {
               const Icon = item.icon;
               const isActive = activeNav === item.id;
+              const isPlatform = i >= navItems.length;
 
               return (
-                <button
-                  key={item.id}
-                  onClick={() => handleNavChange(item.id)}
-                  className={`
-                    w-full flex items-center gap-3 px-4 py-3 text-left transition-colors
-                    ${
-                      isActive
-                        ? 'bg-ios-blue/10 border-r-2 border-ios-blue'
-                        : 'hover:bg-system-bg-secondary'
-                    }
-                  `}
-                >
-                  <Icon className={`w-5 h-5 ${isActive ? 'text-ios-blue' : 'text-label-quaternary'}`} />
-                  <span className={`font-medium ${isActive ? 'text-ios-blue' : 'text-label-primary'}`}>
-                    {item.label}
-                  </span>
-                  {item.badge && (
-                    <span className="ml-auto px-2 py-0.5 text-xs font-semibold bg-ios-green text-white rounded-full">
-                      {item.badge}
-                    </span>
+                <div key={item.id}>
+                  {i === navItems.length && (
+                    <p className="px-4 pt-4 pb-1 mt-2 border-t border-black/5 text-[13px] font-semibold text-label-quaternary uppercase tracking-[0.06em]">
+                      Platform
+                    </p>
                   )}
-                </button>
+                  <button
+                    onClick={() => handleNavChange(item.id)}
+                    className={`
+                      w-full flex items-center gap-3 px-4 py-3 text-left transition-colors
+                      ${
+                        isActive
+                          ? 'bg-ios-blue/10 border-r-2 border-ios-blue'
+                          : 'hover:bg-system-bg-secondary'
+                      }
+                    `}
+                  >
+                    <Icon className={`w-5 h-5 ${isActive ? 'text-ios-blue' : 'text-label-quaternary'}`} />
+                    <span className={`font-medium ${isActive ? 'text-ios-blue' : 'text-label-primary'}`}>
+                      {item.label}
+                    </span>
+                    {item.badge && (
+                      <span
+                        className={`ml-auto px-2 py-0.5 text-xs font-semibold rounded-full ${
+                          isPlatform ? 'bg-system-bg-secondary text-label-secondary' : 'bg-ios-green text-white'
+                        }`}
+                      >
+                        {item.badge}
+                      </span>
+                    )}
+                  </button>
+                </div>
               );
             })}
           </nav>
@@ -609,7 +636,7 @@ export default function DashboardPage() {
               return (
                 <button
                   key={item.id}
-                  onClick={() => setActiveNav(item.id)}
+                  onClick={() => handleNavChange(item.id)}
                   className={`
                     w-[calc(100%-16px)] mx-2 mb-1 flex items-center gap-3 px-4 py-2.5 rounded-[12px] text-left transition-all duration-200 ease-[cubic-bezier(0.4,0,0.2,1)]
                     ${
@@ -651,7 +678,7 @@ export default function DashboardPage() {
               return (
                 <button
                   key={item.id}
-                  onClick={() => setActiveNav(item.id)}
+                  onClick={() => handleNavChange(item.id)}
                   className={`
                     w-[calc(100%-16px)] mx-2 mb-1 flex items-center gap-3 px-4 py-2.5 rounded-[12px] text-left transition-all duration-200 ease-[cubic-bezier(0.4,0,0.2,1)]
                     ${isActive ? 'bg-ios-blue shadow-[0_2px_8px_rgba(0,105,217,0.25)]' : 'hover:bg-system-bg-secondary'}
@@ -777,11 +804,11 @@ export default function DashboardPage() {
                   onActionTrigger={(action, params) => {
                     switch (action) {
                       case 'analyze':
-                        setActiveNav('insights');
+                        handleNavChange('insights');
                         setShowChat(false);
                         break;
                       case 'status':
-                        setActiveNav('positions');
+                        handleNavChange('positions');
                         setShowChat(false);
                         break;
                       default:
@@ -829,8 +856,8 @@ export default function DashboardPage() {
             <Card>
               <PortfolioOverview
                 address={displayAddress}
-                onNavigateToPositions={() => setActiveNav('positions')}
-                onNavigateToHedges={() => setActiveNav('hedges')}
+                onNavigateToPositions={() => handleNavChange('positions')}
+                onNavigateToHedges={() => handleNavChange('hedges')}
               />
             </Card>
 
@@ -851,7 +878,7 @@ export default function DashboardPage() {
                   title="Active Hedges"
                   action={
                     <button
-                      onClick={() => setActiveNav('hedges')}
+                      onClick={() => handleNavChange('hedges')}
                       className="flex items-center gap-1 text-sm text-ios-blue font-medium hover:opacity-80 transition-opacity"
                     >
                       View All <ChevronRight className="w-4 h-4" />

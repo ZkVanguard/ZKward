@@ -204,7 +204,7 @@ export const HEDERA_CONTRACT_ADDRESSES = {
 // CHAIN TYPE DETECTION
 // ============================================
 
-export type ChainType = 'evm' | 'sui' | 'hedera' | 'oasis-emerald' | 'oasis-sapphire' | 'oasis-consensus' | 'oasis-cipher';
+export type ChainType = 'evm' | 'sui' | 'hedera' | 'solana' | 'oasis-emerald' | 'oasis-sapphire' | 'oasis-consensus' | 'oasis-cipher';
 export type NetworkType = 'mainnet' | 'testnet' | 'devnet';
 
 export interface ChainInfo {
