@@ -4,7 +4,7 @@
  * Flow per tick: fetch signatures on the vault ATA newer than the watermark
  * (cron_state `solana-pool:last-sig`) → parse each confirmed tx → credit
  * SPL transfers into the vault as deposits, minting shares at the current
- * share price (1:1 on this branch — no yield source exists yet). Signature
+ * ledger share price (see pool-state for why never the chain balance). Signature
  * PK makes every step replay-safe; the watermark is an optimization, not a
  * correctness requirement.
  */
@@ -17,7 +17,7 @@ import {
   extractDepositsToVault,
 } from './rpc';
 import { sharesForDeposit } from './pool-state';
-import { recordDeposit, getTotalSharesRaw } from '@/lib/db/solana-pool';
+import { recordDeposit, getTotalSharesRaw, getAccountedTokensRaw } from '@/lib/db/solana-pool';
 
 const KEY_LAST_SIG = 'solana-pool:last-sig';
 const FIRST_RUN_LIMIT = 50;
@@ -61,9 +61,13 @@ export async function runSolanaPoolIndexTick(): Promise<IndexTickSummary> {
         skipped++;
       } else {
         for (const d of deposits) {
-          // v1: balance-before/shares inputs make this 1:1 (see pool-state).
-          const totalShares = await getTotalSharesRaw();
-          const shares = sharesForDeposit(d.rawAmount, totalShares, totalShares);
+          // Mint at the LEDGER price (accounted tokens / shares), re-read per
+          // deposit so multiple deposits in one tick price sequentially.
+          const [accounted, totalShares] = await Promise.all([
+            getAccountedTokensRaw(),
+            getTotalSharesRaw(),
+          ]);
+          const shares = sharesForDeposit(d.rawAmount, accounted, totalShares);
           const isNew = await recordDeposit({
             signature: s.signature,
             sender: d.authority || d.source,

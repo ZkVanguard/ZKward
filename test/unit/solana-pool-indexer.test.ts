@@ -10,15 +10,23 @@ jest.mock('@/lib/db/cron-state', () => ({
   setCronState: jest.fn(async (k: string, v: unknown) => void state.set(k, v)),
 }));
 
-const depositRows = new Map<string, { sharesMintedRaw: bigint }>();
+const depositRows = new Map<string, { sharesMintedRaw: bigint; amountRaw: bigint }>();
 jest.mock('@/lib/db/solana-pool', () => ({
-  recordDeposit: jest.fn(async (args: { signature: string; sharesMintedRaw: bigint }) => {
-    if (depositRows.has(args.signature)) return false;
-    depositRows.set(args.signature, { sharesMintedRaw: args.sharesMintedRaw });
-    return true;
-  }),
+  recordDeposit: jest.fn(
+    async (args: { signature: string; sharesMintedRaw: bigint; amountRaw: bigint }) => {
+      if (depositRows.has(args.signature)) return false;
+      depositRows.set(args.signature, {
+        sharesMintedRaw: args.sharesMintedRaw,
+        amountRaw: args.amountRaw,
+      });
+      return true;
+    },
+  ),
   getTotalSharesRaw: jest.fn(async () =>
     [...depositRows.values()].reduce((a, r) => a + r.sharesMintedRaw, 0n),
+  ),
+  getAccountedTokensRaw: jest.fn(async () =>
+    [...depositRows.values()].reduce((a, r) => a + r.amountRaw, 0n),
   ),
 }));
 
@@ -100,6 +108,15 @@ describe('runSolanaPoolIndexTick', () => {
     const s = await runSolanaPoolIndexTick();
     expect(s.credited).toBe(0);
     expect(s.skipped).toBe(1);
+  });
+
+  it('mints at the ledger price, not 1:1 — after an overpaid exit, new deposits get proportionally more shares', async () => {
+    // Ledger: 900k tokens accounted against 1M shares (price 0.9), e.g. after a past overpayment.
+    depositRows.set('seed', { sharesMintedRaw: 1_000_000_000_000n, amountRaw: 900_000_000_000n });
+    rpcMocks.sigs = [{ signature: 'sigNew', slot: 50, err: null, blockTime: 1 }];
+    rpcMocks.txs.set('sigNew', mkTx(VAULT, '90000000000')); // 90k tokens
+    await runSolanaPoolIndexTick();
+    expect(depositRows.get('sigNew')!.sharesMintedRaw).toBe(100_000_000_000n); // 90k / 0.9
   });
 
   it('throws loudly when the vault ATA is unconfigured', async () => {

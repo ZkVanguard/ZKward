@@ -82,10 +82,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     );
     if (!ok) return bad(401, 'signature verification failed');
 
-    const { getWalletSharesRaw, getTotalSharesRaw, recordWithdrawal } = await import(
-      '@/lib/db/solana-pool'
-    );
-    const { fromUi, toUi, sharePrice } = await import('@/lib/services/solana/pool-state');
+    const { getWalletSharesRaw, getTotalSharesRaw, getAccountedTokensRaw, recordWithdrawal } =
+      await import('@/lib/db/solana-pool');
+    const { fromUi, toUi, payoutForShares } = await import('@/lib/services/solana/pool-state');
     const { getTokenAccountBalance } = await import('@/lib/services/solana/rpc');
     const { vaultAta, solanaCluster } = await import(
       '@/lib/services/solana/SolanaPoolService'
@@ -97,14 +96,18 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       return bad(400, `insufficient shares: own ${toUi(owned)}, requested ${sharesUi}`);
     }
 
-    // Payout at live share price (floor — the pool never overpays dust).
-    const [balance, totalShares] = await Promise.all([
-      getTokenAccountBalance(vaultAta()),
+    // Price off the ledger (pending uncredited deposits must not leak to
+    // withdrawers); the chain balance is only the solvency check.
+    const [accounted, totalShares, balance] = await Promise.all([
+      getAccountedTokensRaw(),
       getTotalSharesRaw(),
+      getTokenAccountBalance(vaultAta()),
     ]);
-    const p = sharePrice(BigInt(balance.amount), totalShares);
-    const amountRaw = (sharesRaw * p.num) / p.den;
+    const amountRaw = payoutForShares(sharesRaw, accounted, totalShares);
     if (amountRaw <= 0n) return bad(400, 'payout rounds to zero');
+    if (BigInt(balance.amount) < amountRaw) {
+      return bad(503, 'vault holds less than the ledger owes — withdrawals paused');
+    }
 
     const { transferFromVault } = await import('@/lib/services/solana/signer');
     const txSignature = await transferFromVault(wallet, amountRaw);

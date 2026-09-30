@@ -13,18 +13,17 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: 'invalid wallet' }, { status: 400 });
   }
   try {
-    const { getWalletSharesRaw, getTotalSharesRaw } = await import('@/lib/db/solana-pool');
-    const { toUi, sharePrice } = await import('@/lib/services/solana/pool-state');
-    const { getTokenAccountBalance } = await import('@/lib/services/solana/rpc');
-    const { vaultAta } = await import('@/lib/services/solana/SolanaPoolService');
+    const { getWalletSharesRaw, getTotalSharesRaw, getAccountedTokensRaw } = await import(
+      '@/lib/db/solana-pool'
+    );
+    const { toUi, payoutForShares } = await import('@/lib/services/solana/pool-state');
 
-    const [owned, total, balance] = await Promise.all([
+    const [owned, total, accounted] = await Promise.all([
       getWalletSharesRaw(wallet),
       getTotalSharesRaw(),
-      getTokenAccountBalance(vaultAta()).catch(() => null),
+      getAccountedTokensRaw(),
     ]);
-    const p = balance ? sharePrice(BigInt(balance.amount), total) : { num: 1n, den: 1n };
-    const valueRaw = (owned * p.num) / p.den;
+    const valueRaw = payoutForShares(owned, accounted, total);
     return NextResponse.json({
       wallet,
       sharesUi: toUi(owned),

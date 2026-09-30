@@ -55,6 +55,9 @@ interface Status {
   tokenMint?: string | null;
   rpcUrl?: string;
   vaultTokens?: number | null;
+  accountedTokens?: number;
+  pendingTokens?: number;
+  solvent?: boolean | null;
   totalShares?: number;
   sharePrice?: number;
   tokenUsd?: number | null;
@@ -285,6 +288,17 @@ export default function SolanaPoolPage() {
                   <div>{fmtUsd(status.navUsd)}</div>
                 </div>
               </div>
+              {(status.pendingTokens ?? 0) > 0 && (
+                <div className="text-xs text-orange-700 mt-3">
+                  {fmtTok(status.pendingTokens)} JIMP arriving on-chain — credited as shares within ~1 min
+                  (excluded from share price until credited)
+                </div>
+              )}
+              {status.solvent === false && (
+                <div className="text-xs text-red-700 bg-ios-red/10 rounded-ios p-2 mt-3">
+                  Vault holds less than the ledger owes — withdrawals paused
+                </div>
+              )}
               {status.tokenUsd != null && (
                 <div className="text-xs text-label-tertiary mt-3">
                   Token price {`$${status.tokenUsd.toFixed(8)}`} — {status.priceNote}
