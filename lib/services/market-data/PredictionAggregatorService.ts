@@ -17,7 +17,6 @@
 import { logger } from '@/lib/utils/logger';
 import { cache } from '../../utils/cache';
 import { scoreTradeOpportunity } from '@/lib/services/market-data/opportunity-scoring';
-import type { FiveMinBTCSignal } from './Polymarket5MinService';
 import type { PredictionMarket } from './DelphiMarketService';
 import type { MultiAssetSignal } from './MultiAssetSignalService';
 import { MultiAssetSignalService } from './MultiAssetSignalService';
@@ -55,6 +54,7 @@ import {
   approximateFundingRateSentiment,
 } from './aggregator-fetchers';
 import { calculateAggregation } from './aggregator-math';
+import { marketImpliedDirection } from './market-implied';
 
 // ─── Types ───────────────────────────────────────────────────────────
 
@@ -91,7 +91,6 @@ export interface AggregatedPrediction {
 }
 
 // Cache TTL for aggregated predictions
-const CACHE_KEY = 'prediction_aggregation';
 const CACHE_TTL_MS = 20_000; // 20 seconds - balance freshness vs. API load
 
 /**
@@ -111,123 +110,6 @@ export { CACHE_TAG_CRYPTOCOM_TICKER, CACHE_TAG_BLUEFIN_FUNDING };
 
 export class PredictionAggregatorService {
   
-  /**
-   * Get aggregated prediction from all available sources
-   * Uses caching to reduce API load
-   */
-  static async getAggregatedPrediction(): Promise<AggregatedPrediction> {
-    // Check cache first
-    const cached = cache.get<AggregatedPrediction>(CACHE_KEY);
-    if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
-      return cached;
-    }
-
-    // Fetch from all sources in parallel
-    const [
-      polymarketSignal,
-      delphiPredictions,
-      cryptoComData,
-    ] = await Promise.all([
-      fetchPolymarketSignal(),
-      fetchDelphiPredictions(),
-      fetchCryptoComData(),
-    ]);
-
-    // Build source array
-    const sources: PredictionSource[] = [];
-
-    // 1. Polymarket 5-min signal (weight: 30% - real-time crowd wisdom)
-    if (polymarketSignal) {
-      sources.push({
-        name: 'Polymarket 5-Min BTC',
-        type: 'short_term',
-        direction: polymarketSignal.direction,
-        confidence: polymarketSignal.confidence,
-        probability: polymarketSignal.direction === 'UP' 
-          ? polymarketSignal.upProbability 
-          : polymarketSignal.downProbability,
-        weight: 0.30,
-        rawData: polymarketSignal,
-        fetchedAt: polymarketSignal.fetchedAt,
-      });
-    }
-
-    // 2. Delphi/Crypto.com price momentum signals (weight: 25% each)
-    for (const pred of delphiPredictions) {
-      const isPositive = pred.probability > 50;
-      sources.push({
-        name: `Delphi: ${pred.question.substring(0, 40)}...`,
-        type: pred.category === 'price' ? 'medium_term' : 'sentiment',
-        direction: isPositive ? 'UP' : pred.probability < 45 ? 'DOWN' : 'NEUTRAL',
-        confidence: pred.confidence,
-        probability: pred.probability,
-        weight: pred.impact === 'HIGH' ? 0.15 : pred.impact === 'MODERATE' ? 0.10 : 0.05,
-        rawData: pred,
-        fetchedAt: pred.lastUpdate,
-      });
-    }
-
-    // 3. Crypto.com 24h data (weight: 20% - real market momentum)
-    if (cryptoComData.btc) {
-      const btcChange = cryptoComData.btc.change24h;
-      const btcDirection: 'UP' | 'DOWN' | 'NEUTRAL' = 
-        btcChange > 1 ? 'UP' : btcChange < -1 ? 'DOWN' : 'NEUTRAL';
-      sources.push({
-        name: 'Crypto.com BTC 24h',
-        type: 'medium_term',
-        direction: btcDirection,
-        confidence: Math.min(50 + Math.abs(btcChange) * 10, 90),
-        probability: btcChange > 0 ? 50 + Math.min(btcChange * 5, 30) : 50 + Math.max(btcChange * 5, -30),
-        weight: 0.20,
-        rawData: cryptoComData.btc,
-        fetchedAt: Date.now(),
-      });
-    }
-
-    // 4. ETH correlation signal (weight: 10%)
-    if (cryptoComData.eth) {
-      const ethChange = cryptoComData.eth.change24h;
-      const ethDirection: 'UP' | 'DOWN' | 'NEUTRAL' = 
-        ethChange > 1 ? 'UP' : ethChange < -1 ? 'DOWN' : 'NEUTRAL';
-      sources.push({
-        name: 'Crypto.com ETH 24h',
-        type: 'medium_term',
-        direction: ethDirection,
-        confidence: Math.min(45 + Math.abs(ethChange) * 8, 85),
-        probability: ethChange > 0 ? 50 + Math.min(ethChange * 4, 25) : 50 + Math.max(ethChange * 4, -25),
-        weight: 0.10,
-        rawData: cryptoComData.eth,
-        fetchedAt: Date.now(),
-      });
-    }
-
-    // 5. Funding rate approximation (weight: 10% - market sentiment proxy)
-    const fundingSignal = approximateFundingRateSentiment(sources);
-    if (fundingSignal) {
-      sources.push(fundingSignal);
-    }
-
-    // Normalize weights
-    const totalWeight = sources.reduce((sum, s) => sum + s.weight, 0);
-    sources.forEach(s => { s.weight = s.weight / totalWeight; });
-
-    // Calculate aggregated metrics
-    const aggregation = calculateAggregation(sources);
-    
-    logger.info('[PredictionAggregator] Computed aggregated prediction', {
-      direction: aggregation.direction,
-      confidence: aggregation.confidence.toFixed(1),
-      consensus: aggregation.consensus.toFixed(1),
-      recommendation: aggregation.recommendation,
-      sourceCount: sources.length,
-    });
-
-    // Cache result
-    cache.set(CACHE_KEY, aggregation, CACHE_TTL_MS);
-    
-    return aggregation;
-  }
-
   // ─── Multi-asset scanning ────────────────────────────────────────
   //
   // Instead of producing a single monolithic signal, scan all relevant
@@ -330,22 +212,28 @@ export class PredictionAggregatorService {
     // theme (etf-approval, fed-rates, regulation, etc.). A theme with 3+
     // markets pointing bearish for BTC is a stronger meta-signal than any
     // single market. Applied per-asset via the theme's `affects` list.
-    const themeClusters: ThemeCluster[] = broadMarkets.length > 0 ? detectThemes(broadMarkets) : [];
-
-    // AI-labeled interpretations. Fine-tuned interpreter runs in
-    // poly-discover cron on every new broad market — extracts asset,
-    // direction, horizon, confidence, novelty. Live prod stats (2026-09-21):
-    // 29 resolved outcomes, 24 correct → 82.8% accuracy, avg confidence
-    // 0.87. This is the single highest-quality signal source we have,
-    // previously sitting in signal_interpretations DB with no consumer.
     //
-    // Filter to fresh (24h), horizon-matched (hourly/daily match trader's
-    // 45min hold), high-confidence (≥0.7), and not-yet-resolved. One
-    // query for the whole asset set; grouped by asset in memory.
+    // A market's direction is what its odds imply against spot
+    // (market-implied.ts), never "YES is likely": a likely "hack" is not
+    // bullish and a ladder of far strikes is not a forecast. Markets that
+    // imply no move are NEUTRAL, so 3b skips them and themes don't count them.
+    const spotOf = (m: BroadMarket) => cryptoComData.perAsset[m.assets[0]]?.price;
+    const impliedBroad: BroadMarket[] = broadMarkets.map((m) => ({
+      ...m,
+      direction: marketImpliedDirection(m.question, m.upProbability / 100, spotOf(m)) ?? 'NEUTRAL',
+    }));
+    const themeClusters: ThemeCluster[] = impliedBroad.length > 0 ? detectThemes(impliedBroad) : [];
+    const liveYesBySlug = new Map(broadMarkets.map((m) => [m.slug, m.upProbability / 100]));
+
+    // AI-selected markets. The fine-tuned interpreter runs in the
+    // poly-discover cron on every new broad market and extracts asset,
+    // strike, horizon, confidence, novelty. Fresh (24h), horizon-matched,
+    // confident (≥0.7), not-yet-expired rows; one query for the whole
+    // asset set, grouped in memory. Direction is decided per asset below
+    // from each market's LIVE odds.
     let aiInterpretationsByAsset: Record<string, Array<{
       slug: string;
       title: string;
-      direction: 'UP' | 'DOWN' | 'NEUTRAL';
       confidence: number;
       horizon: string;
       novelty: number;
@@ -356,7 +244,6 @@ export class PredictionAggregatorService {
         asset: string;
         slug: string;
         title: string;
-        direction: string;
         confidence: string;
         horizon: string;
         novelty: string;
@@ -367,10 +254,10 @@ export class PredictionAggregatorService {
         // carry the resolution window. Live prod (2026-09-21): 31 BTC UP
         // interpretations at horizon='unknown' vs 3 at 'daily' + 0 at
         // 'hourly'. Filtering to the two known-good horizons discarded 91%
-        // of the highest-accuracy signal source we have (82.8% resolved).
+        // of the AI-selected markets.
         // Skip 'weekly' + 'monthly' — those DO extract reliably and are
         // too slow for a 45min-hold trader.
-        `SELECT asset, slug, title, direction, confidence, horizon, novelty, interpreted_at
+        `SELECT asset, slug, title, confidence, horizon, novelty, interpreted_at
          FROM signal_interpretations
          WHERE asset = ANY($1::text[])
            AND direction IN ('UP', 'DOWN')
@@ -387,7 +274,6 @@ export class PredictionAggregatorService {
         list.push({
           slug: r.slug,
           title: r.title,
-          direction: r.direction as 'UP' | 'DOWN' | 'NEUTRAL',
           confidence: Number(r.confidence),
           horizon: r.horizon,
           novelty: Number(r.novelty || 0.5),
@@ -405,6 +291,7 @@ export class PredictionAggregatorService {
 
     for (const asset of upperAssets) {
       const sources: PredictionSource[] = [];
+      const spot = cryptoComData.perAsset[asset]?.price;
 
       // 1a) Per-asset Polymarket 5-min binary (was BTC-only before — this
       //     is the main signal-density unlock).
@@ -453,18 +340,20 @@ export class PredictionAggregatorService {
         });
       }
 
-      // 2) Delphi/Polymarket markets that tag this asset
+      // 2) Delphi/Polymarket markets that tag this asset — counted only
+      //    when their odds imply a move from spot.
       const assetDelphi = delphiPredictions.filter((p) =>
         (p.relatedAssets || []).map((a) => a.toUpperCase()).includes(asset),
       );
       for (const pred of assetDelphi) {
-        const isPositive = pred.probability > 50;
+        const direction = marketImpliedDirection(pred.question, pred.probability / 100, spot);
+        if (!direction) continue;
         sources.push({
           name: `Delphi: ${pred.question.substring(0, 40)}...`,
           type: pred.category === 'price' ? 'medium_term' : 'sentiment',
-          direction: isPositive ? 'UP' : pred.probability < 45 ? 'DOWN' : 'NEUTRAL',
+          direction,
           confidence: pred.confidence,
-          probability: pred.probability,
+          probability: Math.max(pred.probability, 100 - pred.probability),
           weight:
             pred.impact === 'HIGH' ? 0.15 : pred.impact === 'MODERATE' ? 0.10 : 0.05,
           rawData: pred,
@@ -478,14 +367,18 @@ export class PredictionAggregatorService {
       const assetManifold = manifoldMarkets.filter((p) =>
         (p.relatedAssets || []).map((a) => a.toUpperCase()).includes(asset),
       );
-      for (const pred of assetManifold.slice(0, 3)) {
-        const isPositive = pred.probability > 50;
+      let manifoldCount = 0;
+      for (const pred of assetManifold) {
+        if (manifoldCount >= 3) break;
+        const direction = marketImpliedDirection(pred.question, pred.probability / 100, spot);
+        if (!direction) continue;
+        manifoldCount++;
         sources.push({
           name: `Manifold: ${pred.question.substring(0, 40)}...`,
           type: 'medium_term',
-          direction: isPositive ? 'UP' : pred.probability < 45 ? 'DOWN' : 'NEUTRAL',
+          direction,
           confidence: pred.confidence,
-          probability: pred.probability,
+          probability: Math.max(pred.probability, 100 - pred.probability),
           weight: pred.impact === 'HIGH' ? 0.10 : pred.impact === 'MODERATE' ? 0.07 : 0.04,
           rawData: pred,
           fetchedAt: pred.lastUpdate,
@@ -528,7 +421,7 @@ export class PredictionAggregatorService {
       //     30min-24h resolution). Top 3 by 24h volume per asset, weighted
       //     0.06/0.05/0.04 — sums to ~0.15 for a well-covered asset,
       //     comparable to the Delphi/Manifold budget.
-      const assetBroad = broadMarkets
+      const assetBroad = impliedBroad
         .filter((m) => m.assets.includes(asset))
         .filter((m) => (['hourly', 'daily'] as BroadHorizon[]).includes(m.horizon))
         .filter((m) => m.direction !== 'NEUTRAL')
@@ -583,40 +476,35 @@ export class PredictionAggregatorService {
         }),
       );
 
-      // 3c) AI-labeled prediction-market interpretations. Fine-tuned model
-      //     (see poly-discover-tick) reads each new broad market's title
-      //     and extracts {asset, direction, horizon, confidence, novelty}.
-      //
-      //     Live: 81.3% accuracy on 48 resolved outcomes (measured
-      //     2026-09-23). Highest-quality signal source in the pool.
-      //
-      //     Two 2026-09-23 tunings (see docs/PAPER_TRADER_HORIZON_ALIGNMENT.md):
-      //     (a) Horizon filter — skip 'monthly' since paper closes trades
-      //         in ~30-90 min and 30-day predictions don't inform the tick
-      //         decision. Keep 'hourly', 'daily', and 'unknown' (default).
-      //     (b) Weight base 0.05 → 0.15 — AI has 3× the empirical accuracy
-      //         of the median prediction-market source (81% vs 50-53%);
-      //         give it 3× the weight so calibrator-boosted good AI
-      //         sources actually swing aggregate direction. Bad AI sources
-      //         (22-28% observed on some) still get calibrator-killed
-      //         at <40% via PR #233's KILL cutoff.
+      // 3c) AI-selected prediction markets. The interpreter picks and parses
+      //     the market; the direction is the market's own forecast — its
+      //     live odds against spot — never the title's wording. The
+      //     wording-era "81% accuracy" (and the 3x weight it justified)
+      //     measured BTC drift, so these weigh the same as 3b's markets.
+      //     Markets already counted in 3b, closed, or silent are skipped.
       const usableHorizons = new Set(['hourly', 'daily', 'unknown']);
-      const aiForAsset = (aiInterpretationsByAsset[asset] ?? []).filter(
-        (interp) => !interp.horizon || usableHorizons.has(interp.horizon),
-      );
-      for (const interp of aiForAsset.slice(0, 4)) {
-        const w = 0.15 * interp.confidence * (0.5 + interp.novelty * 0.5);
+      const countedSlugs = new Set(assetBroad.map((m) => m.slug));
+      let aiCount = 0;
+      for (const interp of aiInterpretationsByAsset[asset] ?? []) {
+        if (aiCount >= 4) break;
+        if (interp.horizon && !usableHorizons.has(interp.horizon)) continue;
+        if (countedSlugs.has(interp.slug)) continue;
+        const yes = liveYesBySlug.get(interp.slug);
+        if (yes === undefined) continue;
+        const direction = marketImpliedDirection(interp.title, yes, spot);
+        if (!direction) continue;
+        aiCount++;
+        const conviction = Math.max(yes, 1 - yes) * 100;
         sources.push({
           name: `AI: ${interp.title.substring(0, 45)}…`,
           type: interp.horizon === 'hourly' || interp.horizon === 'unknown' ? 'short_term' : 'medium_term',
-          direction: interp.direction,
-          confidence: interp.confidence * 100,
-          probability: interp.direction === 'UP'
-            ? 50 + interp.confidence * 40
-            : 50 - interp.confidence * 40,
-          weight: w,
+          direction,
+          confidence: Math.min(60 + Math.abs(conviction - 50), 95),
+          probability: conviction,
+          weight: 0.05 * interp.confidence * (0.5 + interp.novelty * 0.5),
           rawData: {
             slug: interp.slug,
+            yesPrice: yes,
             horizon: interp.horizon,
             novelty: interp.novelty,
             interpretedAt: interp.interpretedAt,

@@ -7,8 +7,8 @@
  * wording is not a forecast: "Will BTC be above $88k?" at 3% YES is still
  * UP. The forecast is the market's YES price. This book therefore trades
  * only when the market's likely outcome requires price to CROSS the strike
- * from spot (marketImpliedSide); questions whose likely outcome is already
- * true at spot carry no directional edge and are skipped.
+ * from spot (marketImpliedDirection); questions whose likely outcome is
+ * already true at spot carry no directional edge and are skipped.
  *
  * Design:
  *   • Opens on fresh `signal_interpretations` rows (source='model',
@@ -35,8 +35,8 @@ import {
   simulateOpen,
   simulateClose,
   type SimulatedPosition,
-  type Side,
 } from './simulated-executor';
+import { marketImpliedDirection } from '@/lib/services/market-data/market-implied';
 
 export const ORACLE_PORTFOLIO_ID = -5;
 const CHAIN = 'hedera-testnet';
@@ -78,10 +78,12 @@ interface OracleStats {
 
 export interface InterpRow {
   slug: string;
+  title: string;
   asset: string | null;
   direction: string | null;
   threshold: number | null;
   entry_price_usd: number | null;
+  yes_price: number | null;
   horizon_end: string | Date | null;
   interpreted_at: string | Date;
 }
@@ -91,20 +93,19 @@ const PRICEABLE = new Set(['BTC', 'ETH', 'SOL', 'XRP', 'DOGE', 'SUI', 'ATOM']);
 
 /**
  * Pure candidate filter — exported for tests.
- * A row qualifies when it is directional, priceable, carries an entry
- * anchor, and its horizon_end lands inside [now+MIN, now+MAX].
+ * A row qualifies when it is a threshold question (UP/DOWN wording),
+ * priceable, carries an entry anchor, and its horizon_end lands inside
+ * [now+MIN, now+MAX]. The side comes later, from the market's odds.
  */
 export function selectOracleCandidates(
   rows: InterpRow[],
   now: number,
   limit: number = MAX_OPENS_PER_TICK,
-): Array<{ row: InterpRow; side: Side; closeAtMs: number; uncertain: boolean }> {
-  const out: Array<{ row: InterpRow; side: Side; closeAtMs: number; uncertain: boolean }> = [];
+): Array<{ row: InterpRow; closeAtMs: number; uncertain: boolean }> {
+  const out: Array<{ row: InterpRow; closeAtMs: number; uncertain: boolean }> = [];
   for (const row of rows) {
     if (out.length >= limit) break;
-    const side: Side | null =
-      row.direction === 'UP' ? 'LONG' : row.direction === 'DOWN' ? 'SHORT' : null;
-    if (!side) continue;
+    if (row.direction !== 'UP' && row.direction !== 'DOWN') continue;
     const interpretedAt = new Date(row.interpreted_at).getTime();
     if (!Number.isFinite(interpretedAt) || now - interpretedAt > MAX_SIGNAL_AGE_MS) continue;
     const asset = (row.asset || '').toUpperCase();
@@ -119,36 +120,9 @@ export function selectOracleCandidates(
       Number.isFinite(threshold) && threshold > 0
         ? Math.abs(threshold - entry) / entry < UNCERTAIN_BAND
         : false;
-    out.push({ row, side, closeAtMs: horizonEnd, uncertain });
+    out.push({ row, closeAtMs: horizonEnd, uncertain });
   }
   return out;
-}
-
-/**
- * Side implied by a threshold market's odds — pure, exported for tests.
- * `condition` is the question's wording (UP = "above/reach X", DOWN =
- * "below/dip to X"). A side is returned only when the likely outcome
- * (probability >= minConviction) requires the price to cross the strike
- * from spot; if that outcome is already true at spot there is no move to
- * bet on.
- */
-export function marketImpliedSide(
-  condition: string | null,
-  yesPrice: number | null,
-  spot: number,
-  threshold: number | null,
-  minConviction: number = MIN_CONVICTION,
-): Side | null {
-  if (condition !== 'UP' && condition !== 'DOWN') return null;
-  if (yesPrice === null || !(yesPrice > 0 && yesPrice < 1)) return null;
-  if (!(spot > 0) || threshold === null || !(threshold > 0)) return null;
-  const likelyYes = yesPrice >= minConviction;
-  const likelyNo = 1 - yesPrice >= minConviction;
-  if (!likelyYes && !likelyNo) return null;
-  const expectAbove = condition === 'UP' ? likelyYes : likelyNo;
-  if (expectAbove && spot < threshold) return 'LONG';
-  if (!expectAbove && spot > threshold) return 'SHORT';
-  return null;
 }
 
 /** Live YES price of an open Polymarket market; null on any failure. */
@@ -236,8 +210,8 @@ export class OracleTrader {
     try {
       const watermark = (await getCronState<string>(KEY_WATERMARK)) ?? '2026-09-28T00:00:00Z';
       const rows = await query<InterpRow>(
-        `SELECT slug, asset, direction, threshold::float, entry_price_usd::float,
-                horizon_end, interpreted_at
+        `SELECT slug, title, asset, direction, threshold::float, entry_price_usd::float,
+                yes_price::float, horizon_end, interpreted_at
          FROM signal_interpretations
          WHERE source = 'model' AND interpreted_at > $1
          ORDER BY interpreted_at ASC
@@ -264,18 +238,18 @@ export class OracleTrader {
           if (summary.opened >= MAX_OPENS_PER_TICK) break;
           const asset = (cand.row.asset || '').toUpperCase();
           const entryPrice = Number(cand.row.entry_price_usd);
-          const yesPrice = await fetchYesPrice(cand.row.slug);
-          const side = marketImpliedSide(cand.row.direction, yesPrice, entryPrice, cand.row.threshold);
-          if (!side) {
+          const yesPrice = (await fetchYesPrice(cand.row.slug)) ?? cand.row.yes_price;
+          const implied = marketImpliedDirection(cand.row.title, yesPrice, entryPrice, MIN_CONVICTION);
+          if (!implied) {
             logger.info('[OracleTrader] skipped — market odds imply no move', {
               slug: cand.row.slug,
-              condition: cand.row.direction,
               yesPrice,
               entryPrice,
               threshold: cand.row.threshold,
             });
             continue;
           }
+          const side = implied === 'UP' ? 'LONG' : 'SHORT';
           const position = simulateOpen(
             {
               asset,

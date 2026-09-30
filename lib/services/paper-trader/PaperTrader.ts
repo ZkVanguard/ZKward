@@ -820,7 +820,7 @@ export class PaperTrader {
         entryPrice: markPrice,
         stopLoss: stopLossPrice,
         simulationMode: true,
-        reason: `paper: ${rec} conf=${picked.prediction.confidence.toFixed(0)} score=${picked.score.toFixed(1)}`,
+        reason: `paper: ${rec} conf=${picked.prediction.confidence.toFixed(0)} score=${picked.score.toFixed(1)}${picked.probe ? ' | probe' : ''}`,
         predictionMarket: 'paper-aggregate',
         chain: PAPER_CHAIN,
       });

@@ -31,12 +31,10 @@ import { getLivePrice } from '@/lib/services/market-data/unified-price-provider'
 import { PredictionAggregatorService } from '@/lib/services/market-data/PredictionAggregatorService';
 
 export const runtime = 'nodejs';
-// 15s edge/browser cache + 30s stale-while-revalidate — the aggregator
-// call internally caches for 20s but the wrapping route was force-dynamic
-// so every /paper request paid the 1.5-2.5s aggregator + per-position
-// price fetches. Frontend polls every 30s; caching for 15s means at most
-// 1 uncached fetch per user per 30s.
-export const revalidate = 15;
+// Dynamic on purpose. `revalidate = 15` made this a build-time static page
+// whose background regeneration never landed — prod served the deploy-time
+// snapshot for 10h (2026-09-30). CDN caching comes from the Cache-Control
+// header set below (15s fresh + 30s stale-while-revalidate, then refetch).
 
 interface BanditArm {
   key: string;
@@ -192,7 +190,8 @@ export async function GET(_req: NextRequest): Promise<NextResponse> {
     // existing UI code that reads .activePosition continues to work.
     const activePosOut = activePositionsOut[0] ?? null;
 
-    // Recent closed trades
+    // Recent closed trades — this book only; the Oracle and gated books
+    // share the paper chain.
     let recent: ClosedTradeRow[] = [];
     try {
       const rows = await query<ClosedTradeRow>(
@@ -205,10 +204,10 @@ export async function GET(_req: NextRequest): Promise<NextResponse> {
                 closed_at::text as closed_at,
                 COALESCE(reason, '') as reason
          FROM hedges
-         WHERE chain = $1 AND status = 'closed'
+         WHERE portfolio_id = $1 AND status = 'closed'
          ORDER BY closed_at DESC
          LIMIT 20`,
-        [PAPER_CHAIN],
+        [PAPER_PORTFOLIO_ID],
       );
       recent = rows;
     } catch (e) {

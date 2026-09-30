@@ -47,6 +47,7 @@ export async function ensureSignalInterpretationsTable(): Promise<void> {
         source                VARCHAR(32) NOT NULL,
         reasoning             TEXT,
         entry_price_usd       DECIMAL(20, 6),
+        yes_price             DECIMAL(6, 4),
         exit_price_usd        DECIMAL(20, 6),
         outcome_correct       BOOLEAN,
         interpreted_at        TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -56,6 +57,7 @@ export async function ensureSignalInterpretationsTable(): Promise<void> {
       ALTER TABLE signal_interpretations ADD COLUMN IF NOT EXISTS entry_price_usd DECIMAL(20, 6);
       ALTER TABLE signal_interpretations ADD COLUMN IF NOT EXISTS exit_price_usd DECIMAL(20, 6);
       ALTER TABLE signal_interpretations ADD COLUMN IF NOT EXISTS outcome_correct BOOLEAN;
+      ALTER TABLE signal_interpretations ADD COLUMN IF NOT EXISTS yes_price DECIMAL(6, 4);
       CREATE INDEX IF NOT EXISTS idx_signal_interp_novelty
         ON signal_interpretations(novelty DESC)
         WHERE novelty IS NOT NULL;
@@ -89,6 +91,8 @@ export interface RecordInterpretationArgs {
   source: 'model' | 'regex-fallback';
   reasoning?: string;
   entryPriceUsd?: number | null;
+  /** Market YES price (0-1) when interpreted — the forecast the title lacks. */
+  yesPrice?: number | null;
 }
 
 /** Upsert one interpretation. Re-interpreting a slug (e.g. after a model
@@ -100,8 +104,8 @@ export async function recordInterpretation(args: RecordInterpretationArgs): Prom
       `INSERT INTO signal_interpretations
         (slug, title, asset, direction, threshold, horizon, horizon_end,
          confidence, novelty, improvement_ask, generalization_note,
-         source, reasoning, entry_price_usd)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+         source, reasoning, entry_price_usd, yes_price)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
        ON CONFLICT (slug) DO UPDATE SET
          title = EXCLUDED.title,
          asset = EXCLUDED.asset,
@@ -116,6 +120,7 @@ export async function recordInterpretation(args: RecordInterpretationArgs): Prom
          source = EXCLUDED.source,
          reasoning = EXCLUDED.reasoning,
          entry_price_usd = COALESCE(EXCLUDED.entry_price_usd, signal_interpretations.entry_price_usd),
+         yes_price = COALESCE(EXCLUDED.yes_price, signal_interpretations.yes_price),
          interpreted_at = CURRENT_TIMESTAMP`,
       [
         args.slug,
@@ -132,6 +137,7 @@ export async function recordInterpretation(args: RecordInterpretationArgs): Prom
         args.source,
         args.reasoning?.slice(0, 500) ?? null,
         args.entryPriceUsd ?? null,
+        args.yesPrice ?? null,
       ],
     );
   } catch (err) {
@@ -177,6 +183,7 @@ export interface InterpretationRow {
   source: string;
   reasoning: string | null;
   entry_price_usd: number | null;
+  yes_price: number | string | null;
   exit_price_usd: number | null;
   outcome_correct: boolean | null;
   interpreted_at: string;
@@ -184,9 +191,8 @@ export interface InterpretationRow {
   outcome_linked_at: string | null;
 }
 
-/** Rows whose horizon has passed and can be judged against a spot price.
- *  Only directional interpretations with an entry price are resolvable —
- *  binary market propositions need Polymarket's own resolution oracle. */
+/** Threshold-question rows whose horizon has passed and have no exit price
+ *  yet. Binary market propositions need Polymarket's own resolution oracle. */
 export async function unresolvedDirectionalPastHorizon(
   limit = 200,
 ): Promise<InterpretationRow[]> {
@@ -194,7 +200,7 @@ export async function unresolvedDirectionalPastHorizon(
   try {
     return await query<InterpretationRow>(
       `SELECT * FROM signal_interpretations
-       WHERE outcome_correct IS NULL
+       WHERE exit_price_usd IS NULL
          AND direction IN ('UP', 'DOWN')
          AND asset IS NOT NULL
          AND entry_price_usd IS NOT NULL
@@ -212,27 +218,30 @@ export async function unresolvedDirectionalPastHorizon(
   }
 }
 
-/** Judge a directional interpretation against realized price. Records
- *  exit price + boolean correctness + signed delta (as retrospective_pnl_usd
- *  so the postmortem pipeline reads it uniformly with trade-linked outcomes).
- *  Signed delta = (exit - entry) × (direction === 'UP' ? +1 : -1). */
+/** Judge an interpretation's MARKET-IMPLIED direction (see
+ *  market-implied.ts) against realized price. Records exit price + boolean
+ *  correctness + signed delta (as retrospective_pnl_usd so the postmortem
+ *  pipeline reads it uniformly with trade-linked outcomes).
+ *  Signed delta = (exit - entry) × (direction === 'UP' ? +1 : -1).
+ *  `direction = null` (the market forecast no move) records the exit price
+ *  only — there is no call to score. */
 export async function resolveDirectional(
   slug: string,
-  direction: 'UP' | 'DOWN',
+  direction: 'UP' | 'DOWN' | null,
   entryPriceUsd: number,
   exitPriceUsd: number,
-): Promise<{ correct: boolean; signedDelta: number }> {
+): Promise<{ correct: boolean | null; signedDelta: number | null }> {
   await ensureSignalInterpretationsTable();
   const raw = exitPriceUsd - entryPriceUsd;
-  const signedDelta = direction === 'UP' ? raw : -raw;
-  const correct = signedDelta > 0;
+  const signedDelta = direction === null ? null : direction === 'UP' ? raw : -raw;
+  const correct = signedDelta === null ? null : signedDelta > 0;
   try {
     await query(
       `UPDATE signal_interpretations
        SET exit_price_usd = $1,
            outcome_correct = $2,
            retrospective_pnl_usd = $3,
-           outcome_linked_at = CURRENT_TIMESTAMP
+           outcome_linked_at = CASE WHEN $2::boolean IS NULL THEN outcome_linked_at ELSE CURRENT_TIMESTAMP END
        WHERE slug = $4`,
       [exitPriceUsd, correct, signedDelta, slug],
     );

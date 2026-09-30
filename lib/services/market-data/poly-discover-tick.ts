@@ -237,6 +237,7 @@ export async function runPolyDiscoverTick(): Promise<PolyDiscoverTickResult> {
           source: signal.source,
           reasoning: signal.reasoning,
           entryPriceUsd: signal.asset ? priceByAsset.get(signal.asset) ?? null : null,
+          yesPrice: market.upProbability / 100,
         }),
       ),
     );
