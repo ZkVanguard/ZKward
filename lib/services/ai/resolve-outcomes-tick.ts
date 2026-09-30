@@ -21,6 +21,7 @@ import {
   type InterpretationRow,
 } from '@/lib/db/signal-interpretations';
 import { getMultiSourceValidatedPrice } from '@/lib/services/market-data/unified-price-provider';
+import { marketImpliedDirection } from '@/lib/services/market-data/market-implied';
 
 export const RESOLVE_OUTCOMES_CRON_KEY = 'resolve-outcomes';
 export const RESOLVE_OUTCOMES_TICK_INTERVAL_MS = 25 * 60 * 1000; // 25 min claim debounce
@@ -35,6 +36,8 @@ export interface ResolveOutcomesSummary {
   wrong: number;
   priceFailed: number;
   skipped: number;
+  /** Past-horizon rows whose market forecast no move — exit recorded, not scored. */
+  nonDirectional: number;
   binaryScanned: number;
   binaryResolved: number;
   binaryStillOpen: number;
@@ -117,6 +120,7 @@ export async function runResolveOutcomesTick(
     wrong: 0,
     priceFailed: 0,
     skipped: 0,
+    nonDirectional: 0,
     binaryScanned: 0,
     binaryResolved: 0,
     binaryStillOpen: 0,
@@ -203,13 +207,19 @@ export async function runResolveOutcomesTick(
         summary.skipped++;
         continue;
       }
-      const direction = r.direction as 'UP' | 'DOWN';
-      if (direction !== 'UP' && direction !== 'DOWN') {
-        summary.skipped++;
-        continue;
-      }
+      // Score what the market forecast at interpretation time (its odds vs
+      // the spot anchor), not the question's wording.
+      const implied = marketImpliedDirection(
+        r.title,
+        r.yes_price === null ? null : Number(r.yes_price),
+        entry,
+      );
       try {
-        const result = await resolveDirectional(r.slug, direction, entry, exitPrice);
+        const result = await resolveDirectional(r.slug, implied, entry, exitPrice);
+        if (result.correct === null) {
+          summary.nonDirectional++;
+          continue;
+        }
         summary.resolved++;
         if (result.correct) summary.correct++;
         else summary.wrong++;

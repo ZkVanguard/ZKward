@@ -26,7 +26,12 @@ export async function fetchDelphiPredictions(): Promise<PredictionMarket[]> {
     const { resolveAgentUniverse } = await import('@/lib/config/agent-universe');
     const assets = await resolveAgentUniverse();
     const predictions = await DelphiMarketService.getRelevantMarkets(assets);
-    return predictions.filter((p) => p.impact === 'HIGH' || p.impact === 'MODERATE').slice(0, 5);
+    // 'crypto-analysis' entries are questions generated from the Crypto.com
+    // ticker with invented odds (already source 3) — not markets.
+    return predictions
+      .filter((p) => p.source !== 'crypto-analysis')
+      .filter((p) => p.impact === 'HIGH' || p.impact === 'MODERATE')
+      .slice(0, 5);
   } catch (error) {
     logger.debug('[PredictionAggregator] Delphi fetch failed', { error });
     return [];

@@ -193,7 +193,7 @@ async function checkPhantomRate(): Promise<Component & { ratePct?: number; total
 
 /**
  * Signal-supply freshness — root-audit R5 (2026-09-27). The AI signal
- * interpreter (best measured source: 75.5% resolved accuracy) died
+ * interpreter died
  * silently on 2026-09-23 when the Ollama tunnel broke; the aggregator's
  * 24h staleness filter then fed on nothing and no one noticed for 4 days
  * while the paper win rate collapsed. Two freshness reads:

@@ -177,6 +177,14 @@ export const PAPER_ASSET_SIDE_BLACKLIST_SEEDS: ReadonlySet<string> = new Set(
     .map((s) => s.trim().toUpperCase())
     .filter((s) => /^[A-Z0-9]+:(LONG|SHORT)$/.test(s)),
 );
+// A blacklisted pair trades at this fraction of stake instead of being
+// blocked. A hard block can never lift: the only evidence that clears it
+// is the pair's own trades, which the block prevents (BTC sat at n=18 < 20
+// with both sides shut, 2026-09-30). 0 restores the hard block.
+export const PAPER_BLACKLIST_PROBE_STAKE_MULT = Math.min(
+  1,
+  Math.max(0, Number(process.env.PAPER_TRADER_BLACKLIST_PROBE_STAKE_MULT ?? 0.25)),
+);
 
 /**
  * Max stake per trade as a fraction of NAV, applied AFTER all sizing

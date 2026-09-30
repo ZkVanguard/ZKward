@@ -37,6 +37,7 @@ import {
   PAPER_CALIBRATED_RANK_MIN_N,
   PAPER_HALT_ENTRIES_IN_CHOP,
   PAPER_CHOP_STAKE_MULT,
+  PAPER_BLACKLIST_PROBE_STAKE_MULT,
 } from './config';
 import type { Side } from './simulated-executor';
 import { getMultiSourceValidatedPrice } from '@/lib/services/market-data/unified-price-provider';
@@ -56,6 +57,8 @@ export interface PickedCandidate {
   score: number;
   side: Side;
   regime?: 'TRENDING_UP' | 'TRENDING_DOWN' | 'CHOP' | null;
+  /** Blacklist reason when the pair trades at probe stake. */
+  probe?: string | null;
 }
 
 export type SelectResult =
@@ -73,6 +76,7 @@ export interface SizeResult {
   volMult: number;
   calibrationBoost: number;
   regimeStakeMult: number;
+  probeStakeMult: number;
 }
 
 export interface ConcurrencyFilter {
@@ -266,9 +270,11 @@ export async function selectCandidate(
     // Fix L (2026-09-26) — asset-side lifetime blacklist. Catches
     // (asset, side) pairs where EVERY conf bucket bleeds (e.g. BTC LONG
     // at 26% lifetime wr / -$24k across 114 trades). Broader than
-    // Fix K's per-bucket gate.
+    // Fix K's per-bucket gate. A hit sizes the trade at probe stake
+    // (sizeCandidate) so the pair keeps producing the evidence that can
+    // clear it; only a probe stake of 0 blocks outright.
     const blacklistReject = await assetSideBlacklistRejection(cand.asset, candSide);
-    if (blacklistReject) {
+    if (blacklistReject && PAPER_BLACKLIST_PROBE_STAKE_MULT <= 0) {
       logger.info('[PaperTrader] Fix L rejected candidate', { asset: cand.asset, side: candSide, reason: blacklistReject });
       lastSkipReason = blacklistReject;
       continue;
@@ -309,7 +315,7 @@ export async function selectCandidate(
       rec: cand.prediction.recommendation,
       score: cand.score.toFixed(1),
     });
-    return { ok: true, picked: { ...cand, side: candSide, regime: currentRegime } };
+    return { ok: true, picked: { ...cand, side: candSide, regime: currentRegime, probe: blacklistReject } };
   }
   return { ok: false, reason: lastSkipReason };
 }
@@ -372,8 +378,9 @@ export async function sizeCandidate(
     })),
   );
   const regimeStakeMult = picked.regime === 'CHOP' ? PAPER_CHOP_STAKE_MULT : 1;
+  const probeStakeMult = picked.probe ? PAPER_BLACKLIST_PROBE_STAKE_MULT : 1;
   const rawStake =
-    nav * PAPER_STAKE_PCT * signalScalar * volMult * calibrationBoost * regimeStakeMult;
+    nav * PAPER_STAKE_PCT * signalScalar * volMult * calibrationBoost * regimeStakeMult * probeStakeMult;
   // Hard cap on stake (was missing — paper had unbounded stake vs live's
   // $500 cap). Applied AFTER all multipliers so any combined boost still
   // respects the NAV-fraction ceiling.
@@ -381,5 +388,5 @@ export async function sizeCandidate(
   const maxStake = nav * PAPER_MAX_STAKE_PCT;
   const stakeUsd = Math.min(rawStake, maxStake);
   const notionalUsd = stakeUsd * PAPER_LEVERAGE;
-  return { notionalUsd, stakeUsd, signalScalar, volMult, calibrationBoost, regimeStakeMult };
+  return { notionalUsd, stakeUsd, signalScalar, volMult, calibrationBoost, regimeStakeMult, probeStakeMult };
 }

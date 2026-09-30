@@ -1,7 +1,7 @@
 {
   "name": "zkward",
   "version": "0.2.0",
-  "description": "Signal intelligence platform for algorithmic trading. 20 sources fused per asset - prediction markets (Polymarket, Kalshi, Delphi, Manifold), funding rates, orderbook depth, options skew, cross-asset correlation. Every source has a Bayesian-shrunk hit rate against real outcomes; sources below 40% auto-kill. Fine-tuned model reads every new market and extracts direction, horizon, confidence (82.8% resolved accuracy). Autonomous multi-agent execution with STARK-attested settlement. Live demo vault on SUI mainnet.",
+  "description": "Signal intelligence platform for algorithmic trading. 20 sources fused per asset - prediction markets (Polymarket, Kalshi, Delphi, Manifold), funding rates, orderbook depth, options skew, cross-asset correlation. Every source has a Bayesian-shrunk hit rate against real outcomes; sources below 40% auto-kill. Fine-tuned model reads every new market and extracts asset, strike, horizon; direction comes from the market odds against spot. Autonomous multi-agent execution with STARK-attested settlement. Live demo vault on SUI mainnet.",
   "author": "ZKward Team",
   "license": "Apache-2.0",
   "keywords": [
@@ -61,7 +61,6 @@
     "ai:label": "bun run scripts/ai-training/label-with-llm.ts --concurrency=4",
     "ai:format": "bun run scripts/ai-training/to-soup-format.ts",
     "ai:evaluate": "bun run scripts/ai-training/evaluate-model.ts",
-    "ai:resolve": "bun run scripts/ai-training/resolve-interpretations.ts",
     "ai:postmortem": "bun run scripts/ai-training/postmortem.ts",
     "treasury:status": "bun run scripts/treasury-status.ts",
     "local:status": "powershell -ExecutionPolicy Bypass -File scripts/local-ai.ps1 status",

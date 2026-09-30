@@ -147,7 +147,7 @@ export async function runPolyDiscoverTick(): Promise<PolyDiscoverTickResult> {
     //
     // 2026-09-28: interpretation floor decoupled from the $50k notify floor.
     // INTERP_CAP already bounds per-tick cost, and the $50k floor starved the
-    // stack's best measured source (75.5% resolved accuracy) to ~91 rows
+    // AI-selected market source to ~91 rows
     // lifetime — new qualifying markets appear hours-to-days apart, so the
     // aggregator's 24h-fresh AI source was empty most of the time even when
     // the interpreter was healthy. $10k default admits enough titles for
@@ -237,6 +237,7 @@ export async function runPolyDiscoverTick(): Promise<PolyDiscoverTickResult> {
           source: signal.source,
           reasoning: signal.reasoning,
           entryPriceUsd: signal.asset ? priceByAsset.get(signal.asset) ?? null : null,
+          yesPrice: market.upProbability / 100,
         }),
       ),
     );
