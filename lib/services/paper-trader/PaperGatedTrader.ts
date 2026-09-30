@@ -418,40 +418,10 @@ export class PaperGatedTrader {
     //   3. probability-calibrator: feed (asset, side, opening-conf-decile,
     //      realizedPnl) into the shared trader:calibration:* buckets that
     //      both live + paper read on entry.
-    const actualDir: 'UP' | 'DOWN' | 'NEUTRAL' =
-      markPrice > pos.entryPrice ? 'UP' : markPrice < pos.entryPrice ? 'DOWN' : 'NEUTRAL';
-    if (pos.sourceSnapshot && pos.sourceSnapshot.length > 0) {
-      try {
-        const { recordSourceOutcome } = await import('@/lib/services/ai/source-calibrator');
-        await Promise.all(
-          pos.sourceSnapshot.map((s) =>
-            recordSourceOutcome({
-              sourceKey: s.key,
-              sourceDirection: s.direction,
-              actualDirection: actualDir,
-            }).catch(() => undefined),
-          ),
-        );
-      } catch { /* non-fatal */ }
-    }
-    if (pos.notionalUsd > 0) {
-      try {
-        const { recordArmOutcome } = await import('./bandit');
-        await recordArmOutcome(pos.asset, pos.side, realizedPnl / pos.notionalUsd, now);
-      } catch { /* non-fatal */ }
-    }
-    if (pos.entryConfidence !== undefined && (pos.side === 'LONG' || pos.side === 'SHORT')) {
-      try {
-        const { recordOutcome } = await import('@/lib/services/ai/probability-calibrator');
-        await recordOutcome({
-          asset: pos.asset,
-          side: pos.side,
-          openConfidencePct: pos.entryConfidence,
-          realizedPnl,
-          namespace: 'paper',
-        });
-      } catch { /* non-fatal */ }
-    }
+    const { recordCloseLearning, settleHedgeRow } = await import('./close-pipeline');
+    await recordCloseLearning(pos, markPrice, realizedPnl, now, {
+      calibratorNamespace: 'paper',
+    });
 
     // Update state.
     const stats = await loadStats(priorNav);
@@ -467,44 +437,11 @@ export class PaperGatedTrader {
     await setCronState(KEY_ORDER_ID, null);
     await setCronState(KEY_STATS, stats);
 
-    // Update hedges row — categorized close_reason + attribution metadata
-    // parity with PaperTrader so structured monitoring / source-decay /
-    // MFE-MAE-based stop tuning all cover gated trades too.
+    // Settle via the shared pipeline — analytics parity with PaperTrader.
+    // Unification note (2026-09-29): gated's old inline UPDATE never wrote
+    // funding_paid; the pipeline settles it like every other book.
     if (orderId) {
-      try {
-        const { PaperTrader } = await import('./PaperTrader');
-        const category = PaperTrader.categorizeCloseReason(reason);
-        const attribution = (pos.sourceSnapshot ?? []).map((s) => ({
-          key: s.key,
-          dir: s.direction,
-          wasCorrect: s.direction !== 'NEUTRAL' && s.direction === actualDir,
-        }));
-        const meta = {
-          mfeUsd: pos.peakUnrealizedPnl ?? 0,
-          maeUsd: pos.troughUnrealizedPnl ?? 0,
-          mfePctOfNav: priorNav > 0 ? (pos.peakUnrealizedPnl ?? 0) / priorNav : 0,
-          maePctOfNav: priorNav > 0 ? (pos.troughUnrealizedPnl ?? 0) / priorNav : 0,
-          actualDir,
-          attribution,
-          slippageUsd: closeResult.slippageUsd,
-          exitReason: reason.slice(0, 100),
-        };
-        await query(
-          `UPDATE hedges
-             SET status = 'closed',
-                 realized_pnl = $1,
-                 current_pnl = $1,
-                 closed_at = CURRENT_TIMESTAMP,
-                 updated_at = CURRENT_TIMESTAMP,
-                 reason = COALESCE(reason,'') || ' | close: ' || $2,
-                 close_reason = $3,
-                 metadata = COALESCE(metadata, '{}'::jsonb) || $4::jsonb
-           WHERE order_id = $5`,
-          [realizedPnl, reason.slice(0, 100), category, JSON.stringify(meta), orderId],
-        );
-      } catch (e) {
-        logger.warn('[PaperGatedTrader] close DB write failed', { error: errMsg(e), orderId });
-      }
+      await settleHedgeRow({ orderId, pos, result: closeResult, reason, nav: priorNav });
     }
 
     logger.info('[PaperGatedTrader] closed', {

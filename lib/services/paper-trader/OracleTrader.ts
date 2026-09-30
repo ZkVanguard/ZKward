@@ -151,24 +151,15 @@ export class OracleTrader {
           });
           if (!v.price || v.price <= 0) continue; // retry next tick
           const result = simulateClose(pos.position, v.price, now);
-          await query(
-            `UPDATE hedges
-             SET status = 'closed', realized_pnl = $1, current_pnl = $1,
-                 funding_paid = $2, closed_at = CURRENT_TIMESTAMP,
-                 updated_at = CURRENT_TIMESTAMP, close_reason = 'horizon-expiry',
-                 metadata = COALESCE(metadata, '{}'::jsonb) || $4::jsonb
-             WHERE order_id = $3`,
-            [
-              result.realizedPnlUsd,
-              result.fundingUsd,
-              pos.orderId,
-              JSON.stringify({
-                uncertain: pos.uncertain,
-                slug: pos.slug,
-                slippageUsd: result.slippageUsd,
-              }),
-            ],
-          );
+          const { settleHedgeRow } = await import('./close-pipeline');
+          await settleHedgeRow({
+            orderId: pos.orderId,
+            pos: pos.position,
+            result,
+            reason: 'horizon-expiry',
+            analytics: false,
+            extraMeta: { uncertain: pos.uncertain, slug: pos.slug },
+          });
           const stats = (await getCronState<OracleStats>(KEY_STATS)) ?? {
             trades: 0,
             wins: 0,

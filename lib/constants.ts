@@ -6,16 +6,21 @@
  *
  *   -1  Legacy EVM community pool (retained for historic rows)
  *   -2  SUI USDC community pool
- *   -3  Hedera community pool
+ *   -3  Hedera community pool (paper trader rides this id, chain=hedera-testnet)
+ *   -4  PaperGatedTrader (module-local const in PaperGatedTrader.ts)
+ *   -5  OracleTrader (ORACLE_PORTFOLIO_ID in OracleTrader.ts)
+ *   -6  Solana token pool
  */
 export const COMMUNITY_POOL_PORTFOLIO_ID = -1;
 export const SUI_COMMUNITY_POOL_PORTFOLIO_ID = -2;
 export const HEDERA_COMMUNITY_POOL_PORTFOLIO_ID = -3;
+export const SOLANA_POOL_PORTFOLIO_ID = -6;
 
 const RESERVED_POOL_IDS: ReadonlySet<number> = new Set([
   COMMUNITY_POOL_PORTFOLIO_ID,
   SUI_COMMUNITY_POOL_PORTFOLIO_ID,
   HEDERA_COMMUNITY_POOL_PORTFOLIO_ID,
+  SOLANA_POOL_PORTFOLIO_ID,
 ]);
 
 /**

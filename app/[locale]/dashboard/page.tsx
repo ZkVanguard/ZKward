@@ -180,6 +180,14 @@ const HederaAgentPayments = nextDynamic(
   { loading: () => <LoadingSkeleton />, ssr: false },
 );
 
+// Solana token pool snapshot (testnet). Wallet actions stay on /solana —
+// this tab never imports the Solana SDK.
+const SolanaPoolPanel = nextDynamic(
+  () =>
+    import('@/components/solana/DashboardPanel').then((mod) => ({ default: mod.SolanaPoolPanel })),
+  { loading: () => <LoadingSkeleton />, ssr: false },
+);
+
 // User profile + settings. Replaces the old `onboard` and `perps` tabs.
 // Sign-in is handled by the navbar; this tab shows identity + preferences.
 const ProfileTab = nextDynamic(
@@ -223,6 +231,7 @@ const platformItems: NavItem[] = [
   { id: 'custody', label: 'Custody', icon: ShieldCheck },
   { id: 'admin', label: 'B2B Admin', icon: Settings, badge: 'Privy' },
   { id: 'x402', label: 'Agent Payments', icon: Coins, badge: 'Hedera' },
+  { id: 'solana', label: 'Solana Pool', icon: Coins, badge: 'Testnet' },
   { id: 'profile', label: 'Profile', icon: UserCog },
 ];
 
@@ -971,6 +980,18 @@ export default function DashboardPage() {
               badge={<Badge color="teal">x402 · HEDERA</Badge>}
             />
             <HederaAgentPayments />
+          </Card>
+        );
+
+      case 'solana':
+        return (
+          <Card>
+            <CardHeader
+              title="Solana Token Pool"
+              subtitle="JIMP-denominated · signal-driven sleeve · chain-truth NAV"
+              badge={<Badge color="teal">TESTNET · DEVNET</Badge>}
+            />
+            <SolanaPoolPanel />
           </Card>
         );
 
