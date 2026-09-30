@@ -220,7 +220,7 @@ async function checkSignalSupplyAlarm(now: number): Promise<void> {
   const { notifyDiscord } = await import('@/lib/utils/discord-notify');
   await notifyDiscord(
     `Signal supply STALE — newest signal_interpretations row is ${ageH}h old. ` +
-    `The AI interpreter (best measured source, 75.5% resolved) is not producing. ` +
+    `The AI interpreter is not producing. ` +
     `Check SIGNAL_INTERPRETER_ENABLED / SIGNAL_INTERPRETER_MODEL_URL on Vercel + Ollama tunnel.`,
     'WARN',
     { component: 'signal-ledger', ageHours: ageH },

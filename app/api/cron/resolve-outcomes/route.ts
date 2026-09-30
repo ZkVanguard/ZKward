@@ -21,11 +21,12 @@
  *
  * ## Contract
  *
- * - Directional (UP/DOWN) interpretations only. Binary (BINARY_YES/NO)
- *   still need Polymarket's resolution oracle; skip them here.
+ * - Threshold questions (UP/DOWN wording) are scored on the direction the
+ *   market's odds implied at interpretation time (market-implied.ts);
+ *   rows whose market forecast no move get an exit price and no score.
  *   entry_price_usd + horizon_end MUST be present — filter enforces this.
  * - Uses `getMultiSourceValidatedPrice` (min 2 agreeing sources, 2% dev cap).
- * - Idempotent: `outcome_correct IS NULL` filter prevents double-resolution.
+ * - Idempotent: `exit_price_usd IS NULL` filter prevents double-resolution.
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyCronRequest } from '@/lib/qstash';

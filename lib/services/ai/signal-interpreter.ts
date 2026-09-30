@@ -110,8 +110,8 @@ export async function interpretSignal(
  * Root-audit R5 fix (2026-09-27): the fine-tuned Ollama endpoint is only
  * reachable from Vercel via tunnel; when it broke on 2026-09-23 every
  * interpretation silently fell back to regex — and regex interpretations
- * are deliberately not persisted, so the stack's best measured source
- * (75.5% resolved accuracy) went dark for 4 days with no alarm.
+ * are deliberately not persisted, so the AI-selected market source went
+ * dark for 4 days with no alarm.
  *
  * Now: primary endpoint first; on any failure, retry against ASI:One's
  * OpenAI-compatible API (same message contract) when a key is present.
