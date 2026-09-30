@@ -1,4 +1,4 @@
-import { Pool, PoolClient } from 'pg';
+import { Client, Pool, PoolClient } from 'pg';
 import { logger } from '@/lib/utils/logger';
 
 // PostgreSQL connection pool
@@ -88,6 +88,7 @@ export function getPool(): Pool {
     }
 
     pool = new Pool({
+      Client: SessionClient,
       connectionString,
       ssl: requiresSsl
         ? isLoopback
@@ -116,29 +117,52 @@ export function getPool(): Pool {
       logger.error('PostgreSQL pool error', err, { component: 'postgres' });
     });
 
-    pool.on('connect', (client: PoolClient) => {
-      // Statement timeout: kill hung queries.
-      // idle_session_timeout (PG14+): SERVER-side reap for connections that
-      // sit idle. Client-side idleTimeoutMillis fails on Vercel because the
-      // Lambda hibernates and setTimeout doesn't fire — 2026-08-04 obs
-      // showed 6 idle conns pinned for 500+s and Aiven's 20-slot budget
-      // saturated. Server-side timeout works even when the client is frozen.
-      // idle_in_transaction_session_timeout guards against stuck transactions
-      // that hold row locks + a connection slot indefinitely.
-      // Application_name makes leaks visible in pg_stat_activity.
-      const appName = (process.env.VERCEL_ENV
-        ? `zkv-${process.env.VERCEL_ENV}`
-        : 'zkv-local').slice(0, 63);
-      client.query(`
-        SET statement_timeout = 15000;
-        SET idle_in_transaction_session_timeout = 10000;
-        SET idle_session_timeout = 30000;
-        SET application_name = '${appName.replace(/[^a-zA-Z0-9_-]/g, '')}';
-      `).catch(() => {});
-    });
   }
 
   return pool;
+}
+
+/**
+ * Session settings applied once per physical connection, BEFORE pg-pool hands
+ * the client out. The former fire-and-forget SET in pool.on('connect') raced
+ * the caller's first query on the same client — pg 8.x warns ("client.query()
+ * when the client is already executing a query", stderr on every cold start)
+ * and pg 9 removes that queueing entirely.
+ *
+ * - statement_timeout: kill hung queries.
+ * - idle_session_timeout (PG14+): SERVER-side reap of idle connections —
+ *   client-side idleTimeoutMillis fails on Vercel because a hibernated Lambda
+ *   never fires setTimeout (2026-08-04: 6 idle conns pinned 500+s).
+ * - idle_in_transaction_session_timeout: stuck transactions can't hold row
+ *   locks + a slot indefinitely.
+ * - application_name: makes leaks visible in pg_stat_activity.
+ * Runtime SET (not startup params) because PgBouncer rejects unsupported
+ * startup parameters. Best-effort, as before: a failed SET never fails connect.
+ */
+const APP_NAME = (process.env.VERCEL_ENV ? `zkv-${process.env.VERCEL_ENV}` : 'zkv-local')
+  .slice(0, 63)
+  .replace(/[^a-zA-Z0-9_-]/g, '');
+const SESSION_SQL = `
+  SET statement_timeout = 15000;
+  SET idle_in_transaction_session_timeout = 10000;
+  SET idle_session_timeout = 30000;
+  SET application_name = '${APP_NAME}';
+`;
+
+class SessionClient extends Client {
+  // pg-pool calls connect(callback); direct callers may await connect().
+  // `any` mirrors pg's overloaded connect() typings, which a single override can't restate.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  connect(callback?: any): any {
+    const ready = super
+      .connect()
+      .then(() => this.query(SESSION_SQL).then(() => undefined, () => undefined));
+    if (callback) {
+      ready.then(() => callback(), (err: Error) => callback(err));
+      return undefined;
+    }
+    return ready;
+  }
 }
 
 const SLOW_QUERY_MS = 2000;
