@@ -43,6 +43,8 @@ try {
   ok('wallet connect CTA present in the pool tab');
 
   await page.waitForSelector('text=Recent activity', { timeout: 10_000 });
+  // The activity panel has its own fetch; rows land a moment after its header.
+  await page.waitForSelector('a[href*="explorer.solana.com/tx/"]', { timeout: 20_000 });
   const explorerLinks = await page.locator('a[href*="explorer.solana.com/tx/"]').count();
   if (explorerLinks < 2) fail(`expected ≥2 explorer-linked deposits, saw ${explorerLinks}`);
   ok(`${explorerLinks} on-chain deposit links`);
