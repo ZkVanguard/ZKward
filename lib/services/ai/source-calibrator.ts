@@ -28,7 +28,7 @@
  * gets re-calibrated for the trader's EV gate.
  */
 
-import { getCronState, getCronStateOr, setCronState } from '@/lib/db/cron-state';
+import { getCronState, setCronState } from '@/lib/db/cron-state';
 import { logger } from '@/lib/utils/logger';
 
 /** Fix H (2026-09-25) — hard-filter mode.
@@ -81,11 +81,26 @@ const KILL_MULTIPLIER = 0.05;
 const MIN_MULTIPLIER = 0.2;
 const MAX_MULTIPLIER = 2.0;
 
+/** Buckets from an older epoch are ignored and restart on their next write.
+ *  2026-09-30: every market-question source changed meaning (odds instead of
+ *  wording), so 84 buckets / 1,653 observations measured a signal that no
+ *  longer exists. A lazy reset needs no delete and nothing stays stale. */
+export const CALIBRATION_EPOCH = (process.env.SOURCE_CALIBRATOR_EPOCH || '2026-09-30').trim();
+
+/** Ledger cells (signal_outcomes) outrank per-trade buckets: thousands of
+ *  fixed-horizon resolutions vs tens of trades. Below this measured hit rate
+ *  a source is removed from the aggregation for that asset. */
+const LEDGER_HARD_FILTER_HIT_RATE = Number(process.env.SOURCE_LEDGER_HARD_FILTER_HIT_RATE || 0.48);
+
 export interface SourceCalibrationBucket {
   n: number;
   wins: number;
   updatedAt: number;
+  epoch?: string;
 }
+
+const liveBucket = (b: SourceCalibrationBucket | null | undefined): SourceCalibrationBucket | null =>
+  b && b.epoch === CALIBRATION_EPOCH ? b : null;
 
 /**
  * Reduce a source's display name + type to a stable calibration key.
@@ -168,16 +183,13 @@ export async function recordSourceOutcome(input: {
   if (!input.sourceKey) return;
   try {
     const key = stateKey(input.sourceKey);
-    const prev = await getCronStateOr<SourceCalibrationBucket>(key, {
-      n: 0,
-      wins: 0,
-      updatedAt: 0,
-    });
+    const prev = liveBucket(await getCronState<SourceCalibrationBucket>(key)) ?? { n: 0, wins: 0, updatedAt: 0 };
     const won = input.sourceDirection === input.actualDirection;
     await setCronState(key, {
       n: prev.n + 1,
       wins: prev.wins + (won ? 1 : 0),
       updatedAt: Date.now(),
+      epoch: CALIBRATION_EPOCH,
     });
   } catch (e) {
     logger.warn('[SourceCalibrator] recordSourceOutcome failed (non-critical)', {
@@ -193,7 +205,7 @@ export async function recordSourceOutcome(input: {
  */
 export async function getCalibratedHitRate(sourceKey: string): Promise<number> {
   try {
-    const bucket = await getCronState<SourceCalibrationBucket>(stateKey(sourceKey));
+    const bucket = liveBucket(await getCronState<SourceCalibrationBucket>(stateKey(sourceKey)));
     if (!bucket || bucket.n === 0) return NEUTRAL_HIT_RATE;
     const empirical = bucket.wins / bucket.n;
     return (bucket.n * empirical + PRIOR_STRENGTH * NEUTRAL_HIT_RATE) / (bucket.n + PRIOR_STRENGTH);
@@ -225,7 +237,7 @@ export async function getCalibratedMultiplier(sourceKey: string): Promise<number
   // (a 30% source over 20 trades still contributed 0.73× weight); this
   // kills them explicitly when the empirical evidence is strong enough.
   try {
-    const bucket = await getCronState<SourceCalibrationBucket>(stateKey(sourceKey));
+    const bucket = liveBucket(await getCronState<SourceCalibrationBucket>(stateKey(sourceKey)));
     if (bucket && bucket.n >= KILL_MIN_TRADES) {
       const empirical = bucket.wins / bucket.n;
       if (empirical < KILL_THRESHOLD) return KILL_MULTIPLIER;
@@ -245,7 +257,7 @@ export async function getCalibratedMultiplier(sourceKey: string): Promise<number
 export async function shouldHardFilterSource(sourceKey: string): Promise<boolean> {
   if (!HARD_FILTER_ENABLED) return false;
   try {
-    const bucket = await getCronState<SourceCalibrationBucket>(stateKey(sourceKey));
+    const bucket = liveBucket(await getCronState<SourceCalibrationBucket>(stateKey(sourceKey)));
     if (!bucket || bucket.n < HARD_FILTER_MIN_TRADES) return false;
     const empirical = bucket.wins / bucket.n;
     return empirical < HARD_FILTER_MIN_HIT_RATE;
@@ -261,7 +273,7 @@ export async function shouldHardFilterSource(sourceKey: string): Promise<boolean
  */
 export async function applyCalibrationToSources<
   S extends { name: string; type?: string; weight: number },
->(sources: S[]): Promise<S[]> {
+>(sources: S[], opts: { asset?: string; horizonMin?: number } = {}): Promise<S[]> {
   if (!sources || sources.length === 0) return sources;
   // L4 — signal-decay auto-disable. Reads the multiplier map written by
   // paper-trader/source-decay.ts. A source explicitly zeroed by decay
@@ -269,11 +281,35 @@ export async function applyCalibrationToSources<
   // decay is a hard kill, calibrator is a soft weight.
   const decayMults = await getCronState<Record<string, number>>('source-decay:weight-multipliers') ?? {};
 
-  // Fix H — hard-filter pass first. Any source with n >= MIN_TRADES and
-  // hit_rate < MIN_HIT_RATE is REMOVED entirely, not down-weighted.
+  // Ledger cells for this asset at the trading horizon (when known).
+  const ledgerMult = new Map<string, number>();
+  const ledgerKill = new Set<string>();
+  if (opts.asset) {
+    try {
+      const { getLedgerCells, findCell } = await import('@/lib/services/market-data/ledger-cells');
+      const cells = await getLedgerCells();
+      const horizon = opts.horizonMin ?? 240;
+      for (const s of sources) {
+        const key = normalizeSourceKey(s.name, s.type ?? '');
+        const cell = findCell(cells, key, opts.asset, horizon);
+        if (!cell) continue;
+        if (cell.hitRate < LEDGER_HARD_FILTER_HIT_RATE) ledgerKill.add(key);
+        else ledgerMult.set(key, hitRateToMultiplier(cell.hitRate));
+      }
+    } catch (e) {
+      logger.debug('[SourceCalibrator] ledger cells unavailable (per-trade buckets only)', {
+        error: e instanceof Error ? e.message : String(e),
+      });
+    }
+  }
+
+  // Hard-filter pass first: a ledger-measured loser, or (Fix H) a source
+  // with n >= MIN_TRADES of trade outcomes below MIN_HIT_RATE, is REMOVED
+  // entirely, not down-weighted.
   const skipFlags: boolean[] = await Promise.all(
     sources.map(async (s) => {
       const key = normalizeSourceKey(s.name, s.type ?? '');
+      if (ledgerKill.has(key)) return true;
       return await shouldHardFilterSource(key);
     }),
   );
@@ -286,9 +322,9 @@ export async function applyCalibrationToSources<
   const withMults = await Promise.all(
     filteredSources.map(async (s) => {
       const key = normalizeSourceKey(s.name, s.type ?? '');
-      const bayes = await getCalibratedMultiplier(key);
+      const measured = ledgerMult.get(key) ?? (await getCalibratedMultiplier(key));
       const decay = decayMults[key] ?? 1;
-      return { ...s, weight: s.weight * bayes * decay };
+      return { ...s, weight: s.weight * measured * decay };
     }),
   );
   const total = withMults.reduce((sum, s) => sum + s.weight, 0);

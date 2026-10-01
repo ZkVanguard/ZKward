@@ -24,10 +24,11 @@ process.env.SOURCE_HARD_FILTER_MIN_HIT_RATE = '0.52';
 import {
   applyCalibrationToSources,
   shouldHardFilterSource,
+  CALIBRATION_EPOCH,
 } from '../../lib/services/ai/source-calibrator';
 
 function seedBucket(sourceKey: string, wins: number, n: number) {
-  state.set(`trader:source-cal:${sourceKey}`, { n, wins, updatedAt: Date.now() });
+  state.set(`trader:source-cal:${sourceKey}`, { n, wins, updatedAt: Date.now(), epoch: CALIBRATION_EPOCH });
 }
 
 describe('Fix H — source-calibrator hard filter', () => {

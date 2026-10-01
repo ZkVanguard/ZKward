@@ -90,6 +90,9 @@ export interface AggregatedPrediction {
   timestamp: number;
 }
 
+// Horizon the ledger weights sources at — the hold the paper books target.
+const LEDGER_WEIGHT_HORIZON_MIN = Number(process.env.SIGNAL_LEDGER_WEIGHT_HORIZON_MIN || 240);
+
 // Cache TTL for aggregated predictions
 const CACHE_TTL_MS = 20_000; // 20 seconds - balance freshness vs. API load
 
@@ -805,7 +808,7 @@ export class PredictionAggregatorService {
       // weights without needing its own recording path.
       try {
         const { applyCalibrationToSources } = await import('@/lib/services/ai/source-calibrator');
-        const calibrated = await applyCalibrationToSources(sources);
+        const calibrated = await applyCalibrationToSources(sources, { asset, horizonMin: LEDGER_WEIGHT_HORIZON_MIN });
         // applyCalibrationToSources returns fresh objects with re-normalized
         // weights already; swap the reference for downstream aggregation.
         sources.length = 0;

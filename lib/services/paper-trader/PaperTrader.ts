@@ -766,15 +766,17 @@ export class PaperTrader {
     // with 0 wins (-$2,818, avg -$313 vs avg win $143). The 2026-09-22
     // revert to static was a response to the OLD 1.0-1.2% adaptive
     // floors; the raised floor is the wider stop that revert wanted.
-    const { computeAdaptiveThresholds } = await import('./adaptive-stops');
-    const stopFrac = (await computeAdaptiveThresholds(asset)).stopLossPct;
-    const stopLossPrice = side === 'LONG' ? markPrice * (1 - stopFrac) : markPrice * (1 + stopFrac);
-
     // Regime-scale the max-hold: CHOP shrinks 0.75× (~34min), TREND
     // expands 1.5× (~68min). maxHoldMult was dead until 2026-09-22.
+    // A ledger-measured horizon (picked.holdHorizonMin) replaces all of it.
     const { getCurrentRegime, getRegimeMultipliers } = await import('./regime');
     const { regime } = await getCurrentRegime(now);
     const regMults = getRegimeMultipliers(regime);
+    const maxHoldMin = computeMaxHoldMinutes(signalScalar, regMults.maxHoldMult, picked.holdHorizonMin);
+
+    const { computeAdaptiveThresholds } = await import('./adaptive-stops');
+    const stopFrac = (await computeAdaptiveThresholds(asset, { holdWindowMin: maxHoldMin })).stopLossPct;
+    const stopLossPrice = side === 'LONG' ? markPrice * (1 - stopFrac) : markPrice * (1 + stopFrac);
 
     const position: SimulatedPosition = {
       ...simulateOpen(
@@ -785,7 +787,7 @@ export class PaperTrader {
       peakUnrealizedPnl: 0,
       entryConfidence: conf,
       entryConsensus: cons,
-      maxHoldMin: computeMaxHoldMinutes(signalScalar, regMults.maxHoldMult),
+      maxHoldMin,
       stopLossPrice,
     };
 

@@ -270,14 +270,21 @@ export const PAPER_TIGHTEN_NOTIONAL_FRAC = Number(
 );
 
 // Hard ceiling on max-hold regardless of signalScalar × regime bonuses.
-// Hold-bucket audit (2026-09-27, n=136): 45-60min = 57% wr +$2,216;
-// every bucket past 60min is net negative (funding + fee drag, no
-// winner lock). Signal-scaled holds were stretching to 186-224min —
-// and high conf is empirically the WORST bucket, so the weakest
-// signals were earning the longest rope.
+// 2026-09-27 (n=136, pre-odds signals): every bucket past 60min was net
+// negative, ceiling 90. 2026-10-01 (12.7k ledger rows, odds-based
+// signals): the aggregate is right 58-61% at 240min on BTC/ETH and a
+// coin flip at 60min, and 80% of 90-min max-hold exits closed red. The
+// ledger now picks each asset's hold horizon (ledger-cells.ts); this is
+// the ceiling it may reach. 24h is excluded — the signal inverts there.
 export const PAPER_MAX_HOLD_CEILING_MIN = Number(
-  process.env.PAPER_TRADER_MAX_HOLD_CEILING_MIN || 90,
+  process.env.PAPER_TRADER_MAX_HOLD_CEILING_MIN || 240,
 );
+
+// Ledger admission (2026-10-01): skip an asset whose aggregate signal the
+// ledger has measured (n >= SIGNAL_LEDGER_MIN_N) with no edge at any hold
+// horizon, and hold to the horizon where it has one. Cold assets pass on
+// the heuristic hold. PAPER_TRADER_LEDGER_GATE=0 disables.
+export const PAPER_LEDGER_GATE = (process.env.PAPER_TRADER_LEDGER_GATE || '1').trim() !== '0';
 
 // ── Regret cooldown ─────────────────────────────────────────────────
 export const PAPER_REGRET_COOLDOWN_PCT = Number(
