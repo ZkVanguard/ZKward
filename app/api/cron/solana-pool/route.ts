@@ -25,6 +25,7 @@ export const maxDuration = 60;
 
 const CLAIM_KEY = 'solana-pool:tick-claim';
 const CLAIM_MS = 55_000;
+const NAV_SNAPSHOT_MS = 15 * 60_000;
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
   return handle(request);
@@ -82,6 +83,29 @@ async function handle(request: NextRequest): Promise<NextResponse> {
         logger.warn('[SolanaPool] sleeve tick failed (indexer unaffected)', {
           error: errMsg(e),
         });
+      }
+
+      // NAV history for the dashboard chart — one snapshot per 15 min.
+      try {
+        const { claimed: snapshotDue } = await tryClaimCronRun('solana-pool:nav-snapshot', NAV_SNAPSHOT_MS, Date.now());
+        if (snapshotDue) {
+          const db = await import('@/lib/db/solana-pool');
+          const { getPoolTokenUsdPrice } = await import('@/lib/services/solana/price');
+          const { ledgerValuation } = await import('@/lib/services/solana/pool-state');
+          const [accountedTokensRaw, totalSharesRaw, price] = await Promise.all([
+            db.getAccountedTokensRaw(),
+            db.getTotalSharesRaw(),
+            getPoolTokenUsdPrice(),
+          ]);
+          await db.recordNavSnapshot({
+            ...ledgerValuation(accountedTokensRaw, totalSharesRaw, price?.usd ?? null),
+            accountedTokensRaw,
+            totalSharesRaw,
+            cluster: (process.env.SOLANA_CLUSTER || 'devnet').trim(),
+          });
+        }
+      } catch (e) {
+        logger.warn('[SolanaPool] NAV snapshot failed (indexer unaffected)', { error: errMsg(e) });
       }
 
       logger.info('[SolanaPool] tick complete', { ...summary, sleeve });

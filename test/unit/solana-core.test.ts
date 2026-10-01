@@ -9,6 +9,7 @@ import {
   payoutForShares,
   toUi,
   fromUi,
+  ledgerValuation,
 } from '@/lib/services/solana/pool-state';
 import { extractDepositsToVault, type ParsedTransaction } from '@/lib/services/solana/rpc';
 
@@ -146,5 +147,17 @@ describe('price probe (mocked network)', () => {
     );
     __resetPriceCacheForTests();
     expect(await getPoolTokenUsdPrice()).toBeNull();
+  });
+});
+
+describe('ledgerValuation — displayed share price + USD NAV', () => {
+  it('prices off the ledger and values tokens at the market quote', () => {
+    const v = ledgerValuation(1_319_225_000_000n, 1_320_050_031_268n, 0.00001);
+    expect(v.sharePrice).toBeCloseTo(0.999375, 6);
+    expect(v.navUsd).toBeCloseTo(13.19225, 6);
+  });
+  it('empty pool bootstraps at 1.0; no quote → no NAV', () => {
+    expect(ledgerValuation(0n, 0n, 0.00001)).toEqual({ sharePrice: 1, navUsd: 0 });
+    expect(ledgerValuation(5_000_000n, 5_000_000n, null).navUsd).toBeNull();
   });
 });

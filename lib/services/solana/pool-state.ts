@@ -57,3 +57,16 @@ export function toUi(raw: bigint, decimals: number = TOKEN_DECIMALS): number {
 export function fromUi(ui: number, decimals: number = TOKEN_DECIMALS): bigint {
   return BigInt(Math.round(ui * 10 ** decimals));
 }
+
+/** Displayed share price (tokens/share) and USD NAV — the one formula the
+ *  status API and the NAV-history snapshots share. */
+export function ledgerValuation(
+  accountedTokensRaw: bigint,
+  totalSharesRaw: bigint,
+  tokenUsd: number | null,
+): { sharePrice: number; navUsd: number | null } {
+  return {
+    sharePrice: totalSharesRaw > 0n ? Number(accountedTokensRaw) / Number(totalSharesRaw) : 1,
+    navUsd: tokenUsd === null ? null : toUi(accountedTokensRaw) * tokenUsd,
+  };
+}
