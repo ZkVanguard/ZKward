@@ -270,6 +270,21 @@ export function SolanaVaultActions() {
         {disabledReason && <div className="text-[11px] text-label-tertiary">{disabledReason}</div>}
       </div>
 
+      {status?.vaultAta && (
+        <div className="text-[11px] text-label-tertiary flex items-center gap-1.5 flex-wrap">
+          <span>Or send JIMP straight to the pool vault:</span>
+          <code className="font-mono text-label-secondary">{shortAddr(status.vaultAta, 6, 6)}</code>
+          <button
+            onClick={() => navigator.clipboard?.writeText(status.vaultAta ?? '').catch(() => undefined)}
+            className="inline-flex items-center gap-0.5 text-ios-blue hover:underline"
+            aria-label="Copy pool vault address"
+          >
+            <Copy className="w-3 h-3" /> copy
+          </button>
+          <span>— credited as shares within a minute.</span>
+        </div>
+      )}
+
       {notice && (
         <div
           className={`text-[12px] rounded-xl p-2.5 flex items-center gap-2 flex-wrap ${

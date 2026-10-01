@@ -3,10 +3,11 @@
  *
  * Not a jest test — run directly: `bun test/integration/solana-pool-ui.pw.ts`
  * against a running server (BASE_URL env, default local prod server :3113).
- * Asserts the page renders live pool state end-to-end (status API → DOM),
- * the wallet CTA exists, the on-chain deposit trail is linked, and the API
- * surface validates input. Wallet signing itself can't run headless (no
- * extension) — that path is covered by the scripted user-journey E2E.
+ * Asserts the dashboard's Solana pool chain renders live state end-to-end
+ * (status API → DOM), the wallet CTA exists, the on-chain deposit trail is
+ * linked, and the API surface validates input. Wallet signing itself can't
+ * run headless (no extension) — that path is covered by the scripted
+ * user-journey E2E.
  */
 import { chromium } from 'playwright';
 
@@ -23,51 +24,43 @@ const browser = await chromium.launch({ headless: true });
 try {
   const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
 
-  // ── /solana page renders live state ──
-  const resp = await page.goto(`${BASE}/en/solana`, { waitUntil: 'networkidle', timeout: 60_000 });
-  if (!resp || resp.status() >= 400) fail(`/en/solana HTTP ${resp?.status()}`);
-  await page.waitForSelector('h1:has-text("Solana Token Pool")', { timeout: 20_000 });
-  ok('page title renders');
+  // ── Pool tab, Solana chain, renders live state ──
+  const resp = await page.goto(`${BASE}/en/dashboard?chain=solana`, { waitUntil: 'domcontentloaded', timeout: 60_000 });
+  if (!resp || resp.status() >= 400) fail(`/en/dashboard?chain=solana HTTP ${resp?.status()}`);
+  await page.waitForSelector('main h1:has-text("Pool")', { timeout: 20_000 });
+  ok('Pool tab renders');
 
-  await page.waitForSelector('text=/Testnet/i', { timeout: 10_000 });
-  ok('TESTNET badge visible');
+  await page.waitForSelector('text=/Solana Token Pool · Testnet/i', { timeout: 20_000 });
+  ok('Solana chain selected (testnet)');
 
   // Live pool state populated from the status API (not placeholders)
-  await page.waitForSelector('text=Pool state (live from chain)', { timeout: 20_000 });
-  const vaultCell = await page
-    .locator('div:has(> div:text("Vault balance")) >> div.font-bold')
-    .first()
-    .textContent({ timeout: 15_000 });
-  if (!vaultCell || !/[\d,]{4,}/.test(vaultCell)) fail(`vault balance not populated: "${vaultCell}"`);
-  ok(`vault balance populated (${vaultCell.trim()})`);
-
-  await page.waitForSelector('text=Trading sleeve', { timeout: 10_000 });
-  await page.waitForSelector('text=Win rate', { timeout: 10_000 });
-  ok('sleeve card with win-rate present');
+  await page.waitForSelector('text=Pool value', { timeout: 20_000 });
+  const members = await page.locator('text=/Pool Members?/').first().textContent({ timeout: 15_000 });
+  if (!members) fail('pool stats not rendered');
+  ok('pool stats rendered');
 
   await page.waitForSelector('button:has-text("Connect Solana wallet")', { timeout: 10_000 });
-  ok('wallet connect CTA present');
+  ok('wallet connect CTA present in the pool tab');
 
+  await page.waitForSelector('text=Recent activity', { timeout: 10_000 });
+  // The activity panel has its own fetch; rows land a moment after its header.
+  await page.waitForSelector('a[href*="explorer.solana.com/tx/"]', { timeout: 20_000 });
   const explorerLinks = await page.locator('a[href*="explorer.solana.com/tx/"]').count();
   if (explorerLinks < 2) fail(`expected ≥2 explorer-linked deposits, saw ${explorerLinks}`);
   ok(`${explorerLinks} on-chain deposit links`);
 
-  const ataShown = await page.locator('code').first().textContent();
-  if (!ataShown || ataShown.trim().length < 32) fail('vault ATA not shown');
-  ok('deposit address rendered');
+  const outLinks = await page.locator('main a[href="/solana"]').count();
+  if (outLinks > 0) fail('pool tab still links out to /solana');
+  ok('no hop to a standalone page');
+
+  const redirect = await page.goto(`${BASE}/en/solana`, { waitUntil: 'domcontentloaded', timeout: 60_000 });
+  if (!redirect || !/dashboard/.test(page.url()) || !/chain=solana/.test(page.url())) fail(`/en/solana did not redirect to the pool chain: ${page.url()}`);
+  ok('/solana redirects to the dashboard pool chain');
 
   if (SHOT) {
     await page.screenshot({ path: SHOT, fullPage: true });
     ok(`screenshot → ${SHOT}`);
   }
-
-  // ── Dashboard tab embeds the same full pool — nothing sends users to /solana ──
-  await page.goto(`${BASE}/en/dashboard?tab=solana`, { waitUntil: 'domcontentloaded', timeout: 60_000 });
-  await page.waitForSelector('text=Pool state (live from chain)', { timeout: 30_000 });
-  await page.waitForSelector('button:has-text("Connect Solana wallet")', { timeout: 10_000 });
-  const outLinks = await page.locator('section:has-text("Solana Token Pool") a[href="/solana"]').count();
-  if (outLinks > 0) fail('dashboard Solana tab still links out to /solana');
-  ok('dashboard tab embeds the full pool (state + wallet actions, no hop)');
 
   // ── API surface via browser context ──
   const status = await (await page.request.get(`${BASE}/api/solana-pool/status`)).json();
