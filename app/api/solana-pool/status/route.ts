@@ -26,13 +26,14 @@ export async function GET(): Promise<NextResponse> {
 
     const { getSleeveStatus } = await import('@/lib/services/solana/SolanaSleeveTrader');
     const ata = vaultAta();
-    const [balance, totalSharesRaw, accountedRaw, recent, tokenPrice, sleeve] = await Promise.all([
+    const [balance, totalSharesRaw, accountedRaw, recent, tokenPrice, sleeve, memberCount] = await Promise.all([
       ata ? rpc.getTokenAccountBalance(ata).catch(() => null) : Promise.resolve(null),
       db.getTotalSharesRaw(),
       db.getAccountedTokensRaw(),
       db.getRecentDeposits(10),
       price.getPoolTokenUsdPrice(),
       getSleeveStatus().catch(() => null),
+      db.getMemberCount(),
     ]);
 
     const vaultRaw = balance ? BigInt(balance.amount) : null;
@@ -56,6 +57,7 @@ export async function GET(): Promise<NextResponse> {
       pendingTokens: pendingUi,
       solvent: vaultRaw === null ? null : vaultRaw >= accountedRaw,
       totalShares: poolState.toUi(totalSharesRaw),
+      memberCount,
       sharePrice: valuation.sharePrice,
       tokenUsd: tokenPrice?.usd ?? null,
       navUsd: valuation.navUsd,

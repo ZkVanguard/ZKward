@@ -124,6 +124,21 @@ export async function getWalletSharesRaw(wallet: string): Promise<bigint> {
   return BigInt(r[0]?.total ?? '0');
 }
 
+/** Wallets currently holding shares (minted − burned > 0). */
+export async function getMemberCount(): Promise<number> {
+  await ensureSolanaPoolTables();
+  const r = await query<{ n: number }>(
+    `SELECT COUNT(*)::int AS n FROM (
+       SELECT d.wallet
+       FROM (SELECT sender AS wallet, SUM(shares_minted_raw) AS minted FROM solana_pool_deposits GROUP BY sender) d
+       LEFT JOIN (SELECT wallet, SUM(shares_burned_raw) AS burned FROM solana_pool_withdrawals GROUP BY wallet) w
+         ON w.wallet = d.wallet
+       WHERE d.minted - COALESCE(w.burned, 0) > 0
+     ) holders`,
+  );
+  return Number(r[0]?.n ?? 0);
+}
+
 /** Idempotent by on-chain signature — replays are no-ops, like deposits. */
 export async function recordWithdrawal(args: {
   signature: string;

@@ -39,7 +39,7 @@ interface EnhancedChatProps {
 const QUICK_PROMPTS = [
   { label: 'Analyze portfolio', icon: TrendingUp, prompt: 'Analyze my portfolio and show key metrics' },
   { label: 'Check risk level', icon: Shield, prompt: 'What is my current risk level?' },
-  { label: 'Explain x402', icon: Zap, prompt: 'Explain how x402 gasless transactions work' },
+  { label: 'How the pool works', icon: Zap, prompt: 'How does the community pool work, and how do I deposit?' },
   { label: 'ZK Proofs?', icon: Sparkles, prompt: 'What are Zero-Knowledge proofs and how do you use them?' },
 ];
 

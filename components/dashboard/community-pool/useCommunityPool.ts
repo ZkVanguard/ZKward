@@ -44,7 +44,8 @@ import { getNetworkFromChainId, getValidChainIds } from './utils';
 import { switchChainNative } from './chain-params';
 import type { ChainKey, TxStatus } from './types';
 import { poolReducer, txReducer, initialPoolState, initialTxState } from './reducers';
-import { mapApiToPoolSummary, mapApiToUserPosition } from './mappers'; // ============================================================================
+import { mapApiToPoolSummary, mapSolanaStatusToPoolSummary, mapApiToUserPosition } from './mappers';
+import type { SolanaPoolStatus } from '@/components/solana/status'; // ============================================================================
 // HOOK
 // ============================================================================
 
@@ -338,11 +339,33 @@ export function useCommunityPool(propAddress?: string) {
       if (!force && now - lastFetchRef.current < 5000) return;
       lastFetchRef.current = now;
 
-      // Paper and Solana are virtual entries — their data comes from their
-      // own endpoints (/api/paper-trader/status, /api/solana-pool/status),
-      // fetched by the panels CommunityPool.tsx renders for them.
-      if (selectedChain === 'paper' || selectedChain === 'solana') {
+      // Paper is a virtual pool — its data lives in cron_state via
+      // /api/paper-trader/status, fetched by the PaperPoolPanel that
+      // CommunityPool.tsx renders for it.
+      if (selectedChain === 'paper') {
         dispatchPool({ type: 'SET_LOADING', payload: false });
+        return;
+      }
+
+      // Solana token pool — its own vertical and API, mapped into the same
+      // PoolSummary the other chains render.
+      if (selectedChain === 'solana') {
+        try {
+          const res = await fetch('/api/solana-pool/status', { cache: 'no-store' });
+          const status = (await res.json()) as SolanaPoolStatus;
+          if (!mountedRef.current) return;
+          if (status.enabled && !status.error) {
+            dispatchPool({ type: 'SET_POOL_DATA', payload: mapSolanaStatusToPoolSummary(status) });
+          } else {
+            dispatchPool({ type: 'SET_ERROR', payload: 'The Solana pool is not available right now.' });
+          }
+        } catch {
+          if (mountedRef.current) {
+            dispatchPool({ type: 'SET_ERROR', payload: 'Could not load the Solana pool — try refresh.' });
+          }
+        } finally {
+          if (mountedRef.current) dispatchPool({ type: 'SET_LOADING', payload: false });
+        }
         return;
       }
 

@@ -206,11 +206,11 @@ export function StrategyStep({
               />
               <div className="ml-3 flex items-center gap-2">
                 <Shield className="w-4 h-4 sm:w-5 sm:h-5 text-[#AF52DE]" />
-                <span className="text-[13px] sm:text-[14px] font-semibold text-[#1d1d1f]">Enable AI Hedging via Moonlander</span>
+                <span className="text-[13px] sm:text-[14px] font-semibold text-[#1d1d1f]">Enable AI hedging</span>
                 <InfoTooltip content={[
                   "🛡️ Automatic Protection: Hedging Agent monitors portfolio 24/7 and opens protective positions when risks are detected",
                   "",
-                  "🤖 Smart Execution: Uses Moonlander DEX aggregator to find best hedge opportunities across multiple DEXs",
+                  "🤖 Smart Execution: routes each hedge to the best available venue",
                   "",
                   "📊 Delphi Integration: Leverages prediction market data to anticipate and hedge against market events before they happen",
                   "",

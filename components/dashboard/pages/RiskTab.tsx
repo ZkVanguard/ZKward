@@ -377,7 +377,7 @@ function HedgeHistoryPanel({ h }: { h: HedgeHistoryState }) {
           <span>Realised: <strong className={pnlPositive ? 'text-green-700' : 'text-red-700'}>{fmtUsd(h.totalPnlUsd)}</strong></span>
         </div>
       </div>
-      {h.recent.length === 0 ? (
+      {(h.recent ?? []).length === 0 ? (
         <div className="text-[#86868b] text-xs sm:text-[13px] py-4 text-center">No settled hedges yet.</div>
       ) : (
         <div className="-mx-3 sm:mx-0 overflow-x-auto">
@@ -390,7 +390,7 @@ function HedgeHistoryPanel({ h }: { h: HedgeHistoryState }) {
               <div className="col-span-3 text-right">Closed</div>
             </div>
             <div>
-              {h.recent.map((r) => {
+              {(h.recent ?? []).map((r) => {
                 const pnlPos = r.pnlUsd >= 0;
                 return (
                   <div key={r.id} className="grid grid-cols-12 gap-2 py-2.5 border-b border-black/5 last:border-b-0 items-center text-[13px]">
@@ -477,7 +477,7 @@ function PaperTraderPanel({ p }: { p: PaperTraderState }) {
 
       <p className="text-[11px] text-[#86868b] mt-3 leading-relaxed">
         Same signal pipeline, agent guards, and stop/take-profit machinery as the live pool — running against
-        a simulated ${p.startingNavUsd.toLocaleString()} book on Bakchodi every 5 minutes. Public receipts at{' '}
+        a simulated ${p.startingNavUsd.toLocaleString()} book every 5 minutes. Public receipts at{' '}
         <a href="/paper" className="text-ios-blue hover:underline">/paper</a>.
       </p>
     </section>
@@ -526,16 +526,14 @@ export function RiskTab() {
 
   return (
     // Navbar clearance + horizontal tab strip live in dashboard/layout.tsx.
-    <div className="max-w-6xl mx-auto px-3 sm:px-4 md:px-6 py-4 sm:py-8 md:py-10 space-y-3 sm:space-y-6 min-w-0">
+    <div className="space-y-3 sm:space-y-6 min-w-0">
       <header className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-4">
         <div className="min-w-0">
-          <div className="text-[11px] sm:text-[12px] text-[#86868b] uppercase tracking-wide font-medium mb-1">Platform risk overview</div>
-          <h1 className="text-2xl sm:text-3xl md:text-[32px] font-semibold text-[#1d1d1f] tracking-[-0.02em] break-words">
-            ZKward. Live institutional view
-          </h1>
+          <h2 className="text-lg sm:text-xl font-semibold text-[#1d1d1f] tracking-[-0.01em] break-words">
+            Live platform view
+          </h2>
           <p className="text-xs sm:text-[13px] text-[#86868b] mt-1 leading-relaxed">
-            Real-time aggregate metrics for every shipped fund and the operational layer behind them.
-            Updates every 60 seconds.
+            Every fund&apos;s numbers and the systems behind them, refreshed every minute.
           </p>
         </div>
         {data?.asOf && (

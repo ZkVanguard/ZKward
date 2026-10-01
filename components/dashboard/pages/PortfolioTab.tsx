@@ -223,7 +223,7 @@ export function PortfolioTab() {
 
   if (!wallet) {
     return (
-      <div className="max-w-6xl mx-auto px-3 sm:px-4 md:px-6 py-8 sm:py-12 min-w-0">
+      <div className="py-8 sm:py-12 min-w-0">
         <div className="bg-white border border-black/5 rounded-3xl p-6 sm:p-10 text-center min-w-0">
           <Briefcase className="w-8 h-8 sm:w-10 sm:h-10 text-[#86868b] mx-auto mb-3" />
           <h1 className="text-xl sm:text-2xl md:text-[28px] font-semibold text-[#1d1d1f] mb-2 break-words">Connect a wallet to view your platform overview</h1>
@@ -238,11 +238,10 @@ export function PortfolioTab() {
 
   return (
     // Navbar clearance + horizontal tab strip live in dashboard/layout.tsx.
-    <div className="max-w-6xl mx-auto px-3 sm:px-4 md:px-6 py-4 sm:py-10 space-y-3 sm:space-y-6 min-w-0">
+    <div className="space-y-3 sm:space-y-6 min-w-0">
       <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 min-w-0">
         <div className="min-w-0">
-          <div className="text-[11px] sm:text-[12px] text-[#86868b] uppercase tracking-wide font-medium mb-1">Platform overview</div>
-          <h1 className="text-2xl sm:text-3xl md:text-[32px] font-semibold text-[#1d1d1f] tracking-[-0.02em] leading-tight break-words">Your ZKward portfolio</h1>
+          <h2 className="text-lg sm:text-xl font-semibold text-[#1d1d1f] tracking-[-0.01em] leading-tight break-words">Everything you hold, across products</h2>
           <p className="text-xs sm:text-[13px] text-[#86868b] mt-1 font-mono truncate tabular-nums">{wallet.slice(0, 10)}…{wallet.slice(-6)}</p>
         </div>
         {data?.asOf && (

@@ -114,7 +114,9 @@ export const PredictionInsights = memo(function PredictionInsights({
         ? await DelphiMarketService.getTopMarkets(20)
         : await DelphiMarketService.getRelevantMarkets(assets);
       
-      setPredictions(markets);
+      // 'crypto-analysis' entries are questions generated from a price ticker
+      // with invented odds — not prediction markets.
+      setPredictions(markets.filter((m) => m.source !== 'crypto-analysis'));
       stopLoading();
     } catch (err) {
       logger.error('Error fetching Delphi predictions', err instanceof Error ? err : undefined);

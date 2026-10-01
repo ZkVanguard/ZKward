@@ -23,7 +23,7 @@ export const Footer = memo(function Footer() {
                 <li><Link href="/dashboard" className={LINK_CLASS}>{t('dashboard')}</Link></li>
                 <li><Link href="/agents" className={LINK_CLASS}>{t('agents')}</Link></li>
                 <li><Link href="/simulator" className={LINK_CLASS}>{t('simulator')}</Link></li>
-                <li><Link href="/solana" className={LINK_CLASS}>Solana Pool</Link></li>
+                <li><Link href="/dashboard?chain=solana" className={LINK_CLASS}>Solana Pool</Link></li>
                 <li><Link href="/whitepaper" className={LINK_CLASS}>{t('documentation')}</Link></li>
                 <li><Link href="/story" className={LINK_CLASS}>{t('story')}</Link></li>
                 <li><Link href="/faq" className={LINK_CLASS}>FAQ</Link></li>

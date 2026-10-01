@@ -5,20 +5,15 @@ import nextDynamic from 'next/dynamic';
 import { useAccount, useBalance } from '@/lib/evm-wallet/hooks';
 import {
   Bot,
-  Shield,
   Briefcase,
   TrendingUp,
-  BarChart3,
   MessageSquare,
   ChevronRight,
   X,
   Settings,
   Users,
-  Activity,
   ShieldCheck,
-  Layers,
   MoreHorizontal,
-  Coins,
   UserCog,
 } from 'lucide-react';
 import { MobileTabBar } from '@/components/dashboard/MobileTabBar';
@@ -173,20 +168,6 @@ const B2bAdminPanel = nextDynamic(
   { loading: () => <LoadingSkeleton />, ssr: false },
 );
 
-// Hedera x402 agent payments demo. Pay-per-call inference with HCS audit trail.
-const HederaAgentPayments = nextDynamic(
-  () =>
-    import('@/components/dashboard/HederaAgentPayments').then((mod) => ({ default: mod.HederaAgentPayments })),
-  { loading: () => <LoadingSkeleton />, ssr: false },
-);
-
-// Full Solana token pool (testnet) — state, sleeve, wallet, faucet, deposit,
-// withdraw. Lazy so @solana/web3.js only downloads when the tab opens.
-const SolanaPoolView = nextDynamic(
-  () => import('@/components/solana/SolanaPoolView').then((mod) => ({ default: mod.SolanaPoolView })),
-  { loading: () => <LoadingSkeleton />, ssr: false },
-);
-
 // User profile + settings. Replaces the old `onboard` and `perps` tabs.
 // Sign-in is handled by the navbar; this tab shows identity + preferences.
 const ProfileTab = nextDynamic(
@@ -200,43 +181,102 @@ function LoadingSkeleton({ height = 'h-40' }: { height?: string }) {
   return <div className={`animate-pulse bg-system-bg-secondary ${height} rounded-[24px]`} />;
 }
 
-// Navigation configuration
+// Navigation. Five destinations; the ones with `views` show a segmented
+// control under the title. Old tab ids keep working through LEGACY_TABS.
+interface NavView {
+  id: string;
+  label: string;
+}
 interface NavItem {
   id: string;
   label: string;
   icon: React.ComponentType<{ className?: string }>;
-  badge?: string;
+  views?: readonly NavView[];
 }
 
-// Primary nav. Surfaces the daily user actions (deposit + monitor).
-// "Pool" first (was "Vault" — collided with the top-navbar entry link).
-// Top navbar's "Vault" is the product entry; sidebar tab is the specific
-// deposit/withdraw section, so keep the labels distinct.
-const navItems: NavItem[] = [
-  { id: 'community', label: 'Pool', icon: Users },
-  { id: 'overview', label: 'Overview', icon: BarChart3 },
-  { id: 'positions', label: 'Positions', icon: Briefcase },
-  { id: 'hedges', label: 'Hedges', icon: Shield },
-  { id: 'agents', label: 'AI Agents', icon: Bot, badge: 'Live' },
-  { id: 'insights', label: 'Insights', icon: TrendingUp },
-];
+const destinations = [
+  { id: 'pool', label: 'Pool', icon: Users },
+  {
+    id: 'portfolio',
+    label: 'Portfolio',
+    icon: Briefcase,
+    views: [
+      { id: 'summary', label: 'Summary' },
+      { id: 'positions', label: 'Positions' },
+      { id: 'hedges', label: 'Hedges' },
+      { id: 'products', label: 'Products' },
+    ],
+  },
+  {
+    id: 'signals',
+    label: 'Signals',
+    icon: TrendingUp,
+    views: [
+      { id: 'markets', label: 'Markets' },
+      { id: 'agents', label: 'Agents' },
+    ],
+  },
+  {
+    id: 'platform',
+    label: 'Platform',
+    icon: ShieldCheck,
+    views: [
+      { id: 'risk', label: 'Risk' },
+      { id: 'custody', label: 'Custody' },
+      { id: 'admin', label: 'Admin' },
+    ],
+  },
+  { id: 'account', label: 'Account', icon: UserCog },
+] as const satisfies readonly NavItem[];
 
-// Platform nav. Sub-tabs consolidated from former /dashboard/{portfolio,risk,
-// custody} sub-routes. Rendered in a secondary sidebar section so they stay
-// visually separated from the daily-use tabs above.
-const platformItems: NavItem[] = [
-  { id: 'solana', label: 'Solana Pool', icon: Coins, badge: 'Testnet' },
-  { id: 'portfolio', label: 'Portfolio', icon: Layers },
-  { id: 'risk', label: 'Risk', icon: Activity },
-  { id: 'custody', label: 'Custody', icon: ShieldCheck },
-  { id: 'admin', label: 'B2B Admin', icon: Settings, badge: 'Privy' },
-  { id: 'x402', label: 'Agent Payments', icon: Coins, badge: 'Hedera' },
-  { id: 'profile', label: 'Profile', icon: UserCog },
-];
+type DestId = (typeof destinations)[number]['id'];
 
-type NavId = (typeof navItems)[number]['id'] | (typeof platformItems)[number]['id'];
+const LEGACY_TABS: Record<string, { dest: DestId; view?: string }> = {
+  community: { dest: 'pool' },
+  overview: { dest: 'portfolio', view: 'summary' },
+  positions: { dest: 'portfolio', view: 'positions' },
+  hedges: { dest: 'portfolio', view: 'hedges' },
+  agents: { dest: 'signals', view: 'agents' },
+  insights: { dest: 'signals', view: 'markets' },
+  risk: { dest: 'platform', view: 'risk' },
+  custody: { dest: 'platform', view: 'custody' },
+  admin: { dest: 'platform', view: 'admin' },
+  x402: { dest: 'platform' },
+  profile: { dest: 'account' },
+  solana: { dest: 'pool' }, // CommunityPool reads ?tab=solana and opens the Solana chain
+};
 
-const NAV_IDS = new Set<string>([...navItems, ...platformItems].map((n) => n.id));
+const viewsOf = (dest: DestId): readonly NavView[] =>
+  (destinations.find((d) => d.id === dest) as NavItem | undefined)?.views ?? [];
+const defaultView = (dest: DestId): string | null => viewsOf(dest)[0]?.id ?? null;
+
+function ViewSwitcher({
+  views,
+  active,
+  onSelect,
+}: {
+  views: readonly NavView[];
+  active: string | null;
+  onSelect: (id: string) => void;
+}) {
+  return (
+    <div role="tablist" className="inline-flex max-w-full overflow-x-auto rounded-[12px] bg-system-bg-secondary p-1 gap-0.5">
+      {views.map((v) => (
+        <button
+          key={v.id}
+          role="tab"
+          aria-selected={active === v.id}
+          onClick={() => onSelect(v.id)}
+          className={`px-3.5 py-1.5 rounded-[9px] text-[13px] font-semibold whitespace-nowrap transition-all ${
+            active === v.id ? 'bg-white text-label-primary shadow-ios-1' : 'text-label-tertiary hover:text-label-primary'
+          }`}
+        >
+          {v.label}
+        </button>
+      ))}
+    </div>
+  );
+}
 
 export default function DashboardPage() {
   // Unified session. Privy embedded wallet first, then anything wagmi
@@ -281,12 +321,11 @@ export default function DashboardPage() {
   const { requestCustomAction } = usePortfolioAction();
   // Portfolio count available via derived?.portfolioCount if needed
 
-  // Default to the Pool tab. Clicking "Vault" in the top nav should land the
-  // user on the actual deposit/withdraw surface, not a generic dashboard view.
-  const [activeNav, setActiveNav] = useState<NavId>('community');
+  // Pool is home: clicking "Vault" in the top nav lands on deposit/withdraw.
+  const [activeDest, setActiveDest] = useState<DestId>('pool');
+  const [activeView, setActiveView] = useState<string | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [notification, setNotification] = useState<string | null>(null);
   const [agentMessage, setAgentMessage] = useState<string | null>(null);
   const [showChat, setShowChat] = useState(false);
 
@@ -294,115 +333,41 @@ export default function DashboardPage() {
   // SUI-only mode: portfolio asset universe is fixed to SUI/USDC.
   const portfolioAssets = ['SUI', 'USDC'];
 
-  // useCallback stabilises the refs so memoized children (ActiveHedges,
-  // MobileTabBar, etc.) don't re-render on every parent state change
-  // (notification, agentMessage, etc.). Setter fns from useState are
-  // stable by React contract, so the empty dep list is correct.
-  // `?tab=<id>` deep-links a tab; every switch keeps the URL in step so a
-  // tab can be shared or bookmarked. Scroll resets because the sidebar is
-  // sticky — switching from deep in a long tab left the new one off-screen.
+  // `?tab=<dest>&view=<sub>` deep-links any view (old tab ids included);
+  // every switch keeps the URL in step so a view can be shared. Scroll
+  // resets because the sidebar is sticky.
   useEffect(() => {
-    const tab = new URLSearchParams(window.location.search).get('tab');
-    if (tab && NAV_IDS.has(tab)) setActiveNav(tab as NavId);
+    const params = new URLSearchParams(window.location.search);
+    const tab = params.get('tab');
+    if (!tab) return;
+    const legacy = LEGACY_TABS[tab];
+    const dest = legacy?.dest ?? (destinations.some((d) => d.id === tab) ? (tab as DestId) : null);
+    if (!dest) return;
+    const view = params.get('view') ?? legacy?.view ?? null;
+    setActiveDest(dest);
+    setActiveView(view && viewsOf(dest).some((v) => v.id === view) ? view : defaultView(dest));
   }, []);
 
-  const handleNavChange = useCallback((id: NavId) => {
-    setActiveNav(id);
+  const handleNavChange = useCallback((dest: DestId, view?: string) => {
+    const nextView = view ?? defaultView(dest);
+    setActiveDest(dest);
+    setActiveView(nextView);
     setMobileMenuOpen(false);
     window.scrollTo({ top: 0 });
     const params = new URLSearchParams(window.location.search);
-    if (id === 'community') params.delete('tab');
-    else params.set('tab', id);
+    if (dest === 'pool') params.delete('tab');
+    else {
+      params.set('tab', dest);
+      params.delete('chain');
+    }
+    if (nextView && nextView !== defaultView(dest)) params.set('view', nextView);
+    else params.delete('view');
     const query = params.toString();
     window.history.replaceState(null, '', `${window.location.pathname}${query ? `?${query}` : ''}`);
   }, []);
 
   const openChat = useCallback(() => setShowChat(true), []);
   const closeSettings = useCallback(() => setSettingsOpen(false), []);
-
-  const handleOpenHedge = useCallback(async (market: PredictionMarket) => {
-    logger.info('Hedge button clicked', { component: 'DashboardPage', data: market });
-    logger.info('🛡️ Opening hedge on Moonlander', { data: market.question });
-
-    // Show initial loading notification (no setTimeout yet)
-    const loadingMsg = `🛡️ Processing hedge request...`;
-    logger.debug('Setting notification', { component: 'DashboardPage', data: loadingMsg });
-    setNotification(loadingMsg);
-
-    try {
-      // Determine primary asset to hedge
-      const primaryAsset = market.relatedAssets[0] || 'BTC';
-
-      // Calculate notional value based on probability (higher probability = larger hedge)
-      const baseNotional = 1000; // $1000 base hedge
-      const notionalValue = baseNotional * (market.probability / 100);
-
-      logger.debug('Hedge parameters', {
-        component: 'DashboardPage',
-        data: {
-          asset: primaryAsset,
-          notionalValue,
-          leverage: 5,
-        },
-      });
-
-      const response = await fetch('/api/agents/hedging/execute', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          portfolioId: 1,
-          asset: primaryAsset,
-          side: 'SHORT',
-          notionalValue: Math.round(notionalValue),
-          leverage: 5,
-          reason: market.question,
-          // Enable auto-approval for prediction market triggered hedges
-          autoApprovalEnabled: true,
-          autoApprovalThreshold: 50000,
-          walletAddress: address, // Associate hedge with connected wallet
-        }),
-      });
-
-      logger.debug('API Response status', { component: 'DashboardPage', data: response.status });
-
-      if (!response.ok) {
-        throw new Error(`API error: ${response.status} ${response.statusText}`);
-      }
-
-      const data = await response.json();
-      logger.debug('API Response data', { component: 'DashboardPage', data });
-
-      if (data.success) {
-        const simulationBadge = data.simulationMode
-          ? '\n\n⚠️ SIMULATION MODE'
-          : '\n\n🔴 LIVE TRADING';
-        const msg = `✅ Hedge Opened Successfully\n\nMarket: ${data.market}\nSide: ${data.side}\nSize: ${data.size}\nEntry: $${data.entryPrice || 'Pending'}\nLeverage: ${data.leverage}x${simulationBadge}`;
-        logger.info('Setting success notification', { component: 'DashboardPage' });
-        setNotification(msg);
-        logger.info('✅ Moonlander hedge successful', data);
-
-        // Auto-clear after 10 seconds
-        setTimeout(() => {
-          logger.debug('Clearing notification', { component: 'DashboardPage' });
-          setNotification(null);
-        }, 10000);
-      } else {
-        throw new Error(data.error || 'Hedge execution failed');
-      }
-    } catch (error) {
-      logger.error('Hedge error', error instanceof Error ? error : undefined, {
-        component: 'DashboardPage',
-      });
-      logger.error('❌ Moonlander hedge failed', undefined, {
-        error: error instanceof Error ? error.message : String(error),
-      });
-      const errorMsg = error instanceof Error ? error.message : 'Unknown error occurred';
-      setNotification(`❌ Hedge Failed\n\n${errorMsg}\n\nCheck browser console for details.`);
-
-      // Auto-clear error after 10 seconds
-      setTimeout(() => setNotification(null), 10000);
-    }
-  }, []);
 
   const handleAgentAnalysis = async (market: PredictionMarket) => {
     logger.info('🤖 Triggering AI Agent Analysis', { market: market.question });
@@ -492,16 +457,8 @@ export default function DashboardPage() {
               but audit tools count both DOM nodes. Screen readers still
               announce this as a level-1 heading via ARIA. */}
           <p role="heading" aria-level={1} className="text-[17px] font-semibold text-label-primary tracking-tight truncate m-0">
-            {[...navItems, ...platformItems].find((n) => n.id === activeNav)?.label}
+            {destinations.find((d) => d.id === activeDest)?.label}
           </p>
-
-          <button
-            onClick={() => setShowChat(true)}
-            className="p-2 -mr-2 text-ios-blue active:scale-[0.96] transition-transform"
-            aria-label="Open chat"
-          >
-            <MessageSquare className="w-5 h-5" />
-          </button>
         </div>
       </header>
 
@@ -546,46 +503,21 @@ export default function DashboardPage() {
             />
           </div>
 
-          {/* Mobile Nav — the only way to reach the Platform tabs on phones */}
           <nav className="flex-1 py-2 overflow-y-auto">
-            {[...navItems, ...platformItems].map((item, i) => {
+            {destinations.map((item) => {
               const Icon = item.icon;
-              const isActive = activeNav === item.id;
-              const isPlatform = i >= navItems.length;
-
+              const isActive = activeDest === item.id;
               return (
-                <div key={item.id}>
-                  {i === navItems.length && (
-                    <p className="px-4 pt-4 pb-1 mt-2 border-t border-black/5 text-[13px] font-semibold text-label-quaternary uppercase tracking-[0.06em]">
-                      Platform
-                    </p>
-                  )}
-                  <button
-                    onClick={() => handleNavChange(item.id)}
-                    className={`
-                      w-full flex items-center gap-3 px-4 py-3 text-left transition-colors
-                      ${
-                        isActive
-                          ? 'bg-ios-blue/10 border-r-2 border-ios-blue'
-                          : 'hover:bg-system-bg-secondary'
-                      }
-                    `}
-                  >
-                    <Icon className={`w-5 h-5 ${isActive ? 'text-ios-blue' : 'text-label-quaternary'}`} />
-                    <span className={`font-medium ${isActive ? 'text-ios-blue' : 'text-label-primary'}`}>
-                      {item.label}
-                    </span>
-                    {item.badge && (
-                      <span
-                        className={`ml-auto px-2 py-0.5 text-xs font-semibold rounded-full ${
-                          isPlatform ? 'bg-system-bg-secondary text-label-secondary' : 'bg-ios-green text-white'
-                        }`}
-                      >
-                        {item.badge}
-                      </span>
-                    )}
-                  </button>
-                </div>
+                <button
+                  key={item.id}
+                  onClick={() => handleNavChange(item.id)}
+                  className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-colors ${
+                    isActive ? 'bg-ios-blue/10 border-r-2 border-ios-blue' : 'hover:bg-system-bg-secondary'
+                  }`}
+                >
+                  <Icon className={`w-5 h-5 ${isActive ? 'text-ios-blue' : 'text-label-quaternary'}`} />
+                  <span className={`font-medium ${isActive ? 'text-ios-blue' : 'text-label-primary'}`}>{item.label}</span>
+                </button>
               );
             })}
           </nav>
@@ -622,58 +554,10 @@ export default function DashboardPage() {
             />
           </div>
 
-          {/* Desktop Navigation */}
           <nav className="flex-1 py-4 overflow-y-auto">
-            <p className="px-5 mb-3 text-[13px] font-semibold text-label-quaternary uppercase tracking-[0.06em]">
-              Menu
-            </p>
-
-            {navItems.map((item) => {
+            {destinations.map((item) => {
               const Icon = item.icon;
-              const isActive = activeNav === item.id;
-
-              return (
-                <button
-                  key={item.id}
-                  onClick={() => handleNavChange(item.id)}
-                  className={`
-                    w-[calc(100%-16px)] mx-2 mb-1 flex items-center gap-3 px-4 py-2.5 rounded-[12px] text-left transition-all duration-200 ease-[cubic-bezier(0.4,0,0.2,1)]
-                    ${
-                      isActive
-                        ? 'bg-ios-blue shadow-[0_2px_8px_rgba(0,105,217,0.25)]'
-                        : 'hover:bg-system-bg-secondary'
-                    }
-                  `}
-                >
-                  <Icon className={`w-5 h-5 ${isActive ? 'text-white' : 'text-label-quaternary'}`} />
-                  <span
-                    className={`text-[15px] font-medium tracking-[-0.01em] ${isActive ? 'text-white' : 'text-label-primary'}`}
-                  >
-                    {item.label}
-                  </span>
-                  {item.badge && (
-                    <span
-                      className={`
-                      ml-auto px-2 py-0.5 text-[11px] font-semibold rounded-full shadow-sm
-                      ${isActive ? 'bg-white/20 text-white' : 'bg-ios-green text-white'}
-                    `}
-                    >
-                      {item.badge}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-
-            <div className="my-4 mx-4 border-t border-black/5" />
-
-            <p className="px-5 mb-3 text-[13px] font-semibold text-label-quaternary uppercase tracking-[0.06em]">
-              Platform
-            </p>
-
-            {platformItems.map((item) => {
-              const Icon = item.icon;
-              const isActive = activeNav === item.id;
+              const isActive = activeDest === item.id;
               return (
                 <button
                   key={item.id}
@@ -703,17 +587,6 @@ export default function DashboardPage() {
               </span>
             </button>
           </nav>
-
-          {/* AI Assistant Button */}
-          <div className="p-4 border-t border-black/5">
-            <button
-              onClick={() => setShowChat(true)}
-              className="w-full flex items-center justify-center gap-2.5 px-4 py-3 bg-ios-blue text-white rounded-[14px] text-[15px] font-semibold hover:opacity-90 active:scale-[0.98] transition-all duration-200 shadow-[0_4px_12px_rgba(0,122,255,0.3)]"
-            >
-              <MessageSquare className="w-5 h-5" strokeWidth={2.5} />
-              AI Assistant
-            </button>
-          </div>
         </aside>
 
         {/* Main Content */}
@@ -722,18 +595,27 @@ export default function DashboardPage() {
             {/* Page Header — desktop-only large title. Uses the design
                 token `text-large-title` (34px, per-Apple line-height +
                 tracking). Sentence-case, tight tracking, no gradient. */}
-            <div className="hidden lg:block mb-8">
+            <div className="hidden lg:block mb-6">
               <h1 className="text-large-title text-label-primary tracking-[-0.02em]">
-                {[...navItems, ...platformItems].find((n) => n.id === activeNav)?.label}
+                {destinations.find((d) => d.id === activeDest)?.label}
               </h1>
             </div>
+            {viewsOf(activeDest).length > 0 && (
+              <div className="mb-3 sm:mb-5">
+                <ViewSwitcher
+                  views={viewsOf(activeDest)}
+                  active={activeView}
+                  onSelect={(view) => handleNavChange(activeDest, view)}
+                />
+              </div>
+            )}
 
             {/* Content Area. Keyed on activeNav so React tears down + remounts
                 the tab's subtree, giving each tab-switch a natural fade-in
                 (paired with the animate-fade-in class). Feels closer to
                 UINavigationController on iOS than a raw conditional swap. */}
             <Suspense fallback={<LoadingSkeleton height="h-96" />}>
-              <div key={activeNav} className="animate-fade-in">
+              <div key={`${activeDest}:${activeView ?? ''}`} className="animate-fade-in">
                 {renderContent()}
               </div>
             </Suspense>
@@ -746,25 +628,13 @@ export default function DashboardPage() {
           portfolio/risk/custody sub-pages, and settings live. Reduces the
           old 4-tap "menu → drawer → tab → close" flow to 1 tap. */}
       <MobileTabBar
-        items={navItems.slice(0, 4)}
-        activeId={activeNav}
-        onSelect={(id) => handleNavChange(id as NavId)}
+        items={destinations.slice(0, 4)}
+        activeId={activeDest}
+        onSelect={(id) => handleNavChange(id)}
         onOpenMore={() => setMobileMenuOpen(true)}
         moreLabel="More"
         moreIcon={MoreHorizontal}
       />
-
-      {/* Notification Toast. Token-based, no raw Tailwind grays */}
-      {notification && (
-        <div className="fixed top-20 lg:top-[68px] left-1/2 -translate-x-1/2 z-50 animate-in fade-in slide-in-from-top-2 duration-300 max-w-md px-4">
-          <div className="flex items-start gap-3 px-5 py-4 bg-label-primary text-white rounded-2xl shadow-ios-3">
-            <div className="w-2 h-2 mt-1.5 bg-ios-green rounded-full animate-pulse flex-shrink-0" />
-            <p className="text-sm font-medium whitespace-pre-line leading-relaxed">
-              {notification}
-            </p>
-          </div>
-        </div>
-      )}
 
       {/* Create Portfolio CTA disabled in SUI-only mode (EVM/Cronos required). */}
 
@@ -803,11 +673,11 @@ export default function DashboardPage() {
                   onActionTrigger={(action, params) => {
                     switch (action) {
                       case 'analyze':
-                        handleNavChange('insights');
+                        handleNavChange('signals', 'markets');
                         setShowChat(false);
                         break;
                       case 'status':
-                        handleNavChange('positions');
+                        handleNavChange('portfolio', 'positions');
                         setShowChat(false);
                         break;
                       default:
@@ -845,181 +715,128 @@ export default function DashboardPage() {
     </div>
   );
 
-  // Content renderer
   function renderContent() {
-    switch (activeNav) {
-      case 'overview':
-        return (
-          <div className="space-y-3 sm:space-y-6">
-            {/* Portfolio Card */}
-            <Card>
-              <PortfolioOverview
-                address={displayAddress}
-                onNavigateToPositions={() => handleNavChange('positions')}
-                onNavigateToHedges={() => handleNavChange('hedges')}
-              />
-            </Card>
+    switch (activeDest) {
+      case 'pool':
+        return <CommunityPool address={displayAddress} />;
 
-            {/* Real-time 5-Min BTC Signal */}
-            <FiveMinSignalWidget />
-
-            {/* Stats Grid - Stack on mobile, 2 cols on tablet+ */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-6 items-stretch">
-              <Card className="flex flex-col">
-                <CardHeader title="Risk Metrics" />
-                <div className="flex-1">
-                  <RiskMetrics address={displayAddress} />
-                </div>
+      case 'portfolio':
+        switch (activeView) {
+          case 'positions':
+            return (
+              <Card>
+                <CardHeader title="Positions" subtitle="Your holdings and portfolios" />
+                <PositionsList address={displayAddress} />
               </Card>
-
-              <Card className="flex flex-col">
-                <CardHeader
-                  title="Active Hedges"
-                  action={
-                    <button
-                      onClick={() => handleNavChange('hedges')}
-                      className="flex items-center gap-1 text-sm text-ios-blue font-medium hover:opacity-80 transition-opacity"
-                    >
-                      View All <ChevronRight className="w-4 h-4" />
-                    </button>
-                  }
-                />
-                <div className="flex-1">
-                  <ActiveHedges
+            );
+          case 'hedges':
+            return (
+              <Card>
+                <CardHeader title="Active hedges" subtitle="Positions that protect your portfolio" />
+                <ActiveHedges address={displayAddress} onOpenChat={openChat} />
+              </Card>
+            );
+          case 'products':
+            return <PortfolioTab />;
+          default:
+            return (
+              <div className="space-y-3 sm:space-y-6">
+                <Card>
+                  <PortfolioOverview
                     address={displayAddress}
-                    compact
-                    onOpenChat={openChat}
+                    onNavigateToPositions={() => handleNavChange('portfolio', 'positions')}
+                    onNavigateToHedges={() => handleNavChange('portfolio', 'hedges')}
                   />
+                </Card>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-6 items-stretch">
+                  <Card className="flex flex-col">
+                    <CardHeader title="Risk" />
+                    <div className="flex-1">
+                      <RiskMetrics address={displayAddress} />
+                    </div>
+                  </Card>
+                  <Card className="flex flex-col">
+                    <CardHeader
+                      title="Active hedges"
+                      action={
+                        <button
+                          onClick={() => handleNavChange('portfolio', 'hedges')}
+                          className="flex items-center gap-1 text-sm text-ios-blue font-medium hover:opacity-80 transition-opacity"
+                        >
+                          View all <ChevronRight className="w-4 h-4" />
+                        </button>
+                      }
+                    />
+                    <div className="flex-1">
+                      <ActiveHedges address={displayAddress} compact onOpenChat={openChat} />
+                    </div>
+                  </Card>
                 </div>
-              </Card>
-            </div>
+              </div>
+            );
+        }
 
-            {/* Agent Alert — shared component (see AgentAlert below) */}
-            <AgentAlert message={agentMessage} onDismiss={() => setAgentMessage(null)} />
-          </div>
-        );
-
-      case 'positions':
-        return (
-          <Card>
-            <CardHeader title="Positions" subtitle="Manage your portfolio holdings" />
-            <PositionsList address={displayAddress} onOpenHedge={handleOpenHedge} />
-          </Card>
-        );
-
-      case 'hedges':
-        return (
-          <Card>
-            <CardHeader title="Active Hedges" subtitle="Your protective positions and options" />
-            <ActiveHedges
-              address={displayAddress}
-              onOpenChat={openChat}
-            />
-          </Card>
-        );
-
-      case 'agents':
-        return (
-          <div className="space-y-3 sm:space-y-6">
-            {/* Live autonomy panel — wallet-agnostic, always visible.
-                Reads /api/dashboard/autonomy-status. Proves the machine
-                is alive for anonymous visitors. */}
-            <Card>
-              <CardHeader
-                title="Live autonomy"
-                subtitle="Real-time system health from cron_state"
-                badge={<Badge color="green">ACTIVE</Badge>}
-              />
-              <LiveAutonomyPanel />
-            </Card>
-
-            {/* Per-wallet agent activity — shown ONLY when connected.
-                The generic empty state added no signal for anonymous
-                visitors; the live panel above serves that need better. */}
-            {isConnected && (
+      case 'signals':
+        if (activeView === 'agents') {
+          return (
+            <div className="space-y-3 sm:space-y-6">
               <Card>
                 <CardHeader
-                  title="Your agent activity"
-                  subtitle="Recent tasks + ZK proofs for your wallet"
+                  title="Live autonomy"
+                  subtitle="What the trading system is doing right now"
+                  badge={<Badge color="green">ACTIVE</Badge>}
                 />
-                <AgentActivity address={displayAddress} />
+                <LiveAutonomyPanel />
               </Card>
-            )}
-
+              {isConnected && (
+                <Card>
+                  <CardHeader title="Your agent activity" subtitle="Recent tasks and proofs for your wallet" />
+                  <AgentActivity address={displayAddress} />
+                </Card>
+              )}
+              <AgentAlert message={agentMessage} onDismiss={() => setAgentMessage(null)} />
+            </div>
+          );
+        }
+        return (
+          <div className="space-y-3 sm:space-y-6">
+            <FiveMinSignalWidget />
+            <PredictionInsights onTriggerAgentAnalysis={handleAgentAnalysis} assets={portfolioAssets} />
             <AgentAlert message={agentMessage} onDismiss={() => setAgentMessage(null)} />
           </div>
         );
 
-      case 'insights':
-        return (
-          <PredictionInsights
-            onOpenHedge={handleOpenHedge}
-            onTriggerAgentAnalysis={handleAgentAnalysis}
-            assets={portfolioAssets}
-          />
-        );
+      case 'platform':
+        switch (activeView) {
+          case 'custody':
+            return <CustodyTab />;
+          case 'admin':
+            return (
+              <Card>
+                <CardHeader title="Admin" subtitle="Treasury actions need a quorum of approvers" />
+                <B2bAdminPanel />
+              </Card>
+            );
+          default:
+            return <RiskTab />;
+        }
 
-      case 'community':
-        return (
-          <Card>
-            <CardHeader
-              title="Community Pool"
-              subtitle="AI-managed collective investment fund"
-              badge={<Badge color="blue">AI DRIVEN</Badge>}
-            />
-            <CommunityPool address={displayAddress} />
-          </Card>
-        );
-
-      // Platform tabs. Extracted from former /dashboard/{portfolio,risk,custody}
-      // sub-routes. Self-contained (own header + spacing), so no Card wrapper.
-      case 'portfolio':
-        return <PortfolioTab />;
-
-      case 'risk':
-        return <RiskTab />;
-
-      case 'custody':
-        return <CustodyTab />;
-
-      case 'profile':
-        return <ProfileTab />;
-
-      case 'admin':
+      case 'account':
         return (
           <Card>
             <CardHeader
-              title="B2B Admin Controls"
-              subtitle="Privy-authenticated · quorum-gated treasury actions"
-              badge={<Badge color="teal">PRIVY QUORUM</Badge>}
+              title="Account"
+              subtitle="Your sign-in, display name and balances"
+              action={
+                <button
+                  onClick={() => setSettingsOpen(true)}
+                  className="flex items-center gap-1.5 text-sm text-ios-blue font-medium hover:opacity-80 transition-opacity"
+                >
+                  <Settings className="w-4 h-4" /> Settings
+                </button>
+              }
             />
-            <B2bAdminPanel />
-          </Card>
-        );
-
-      case 'x402':
-        return (
-          <Card>
-            <CardHeader
-              title="Hedera Agent Payments"
-              subtitle="x402 pay-per-call inference · HCS audit trail"
-              badge={<Badge color="teal">x402 · HEDERA</Badge>}
-            />
-            <HederaAgentPayments />
-          </Card>
-        );
-
-      case 'solana':
-        return (
-          <Card>
-            <CardHeader
-              title="Solana Token Pool"
-              subtitle="JIMP-denominated · signal-driven sleeve · chain-truth NAV"
-              badge={<Badge color="teal">TESTNET · DEVNET</Badge>}
-            />
-            <div className="p-4 sm:p-6">
-              <SolanaPoolView />
-            </div>
+            <ProfileTab />
           </Card>
         );
 

@@ -189,7 +189,7 @@ export function CustodyTab() {
 
   if (!wallet) {
     return (
-      <div className="max-w-5xl mx-auto px-3 sm:px-4 md:px-6 py-8 sm:py-12 min-w-0">
+      <div className="py-8 sm:py-12 min-w-0">
         <div className="bg-white border border-black/5 rounded-3xl p-6 sm:p-10 text-center min-w-0">
           <ShieldCheck className="w-8 h-8 sm:w-10 sm:h-10 text-[#86868b] mx-auto mb-3" />
           <h1 className="text-xl sm:text-2xl md:text-[28px] font-semibold text-[#1d1d1f] mb-2 break-words">
@@ -208,14 +208,11 @@ export function CustodyTab() {
 
   return (
     // Navbar clearance + horizontal tab strip live in dashboard/layout.tsx.
-    <div className="max-w-5xl mx-auto px-3 sm:px-4 md:px-6 py-4 sm:py-10 space-y-3 sm:space-y-6 min-w-0">
+    <div className="space-y-3 sm:space-y-6 min-w-0">
       <header className="min-w-0">
-        <div className="text-[11px] sm:text-[12px] text-[#86868b] uppercase tracking-wide font-medium mb-1">
-          Custody attestations
-        </div>
-        <h1 className="text-2xl sm:text-3xl md:text-[32px] font-semibold text-[#1d1d1f] tracking-[-0.02em] leading-tight break-words">
+        <h2 className="text-lg sm:text-xl font-semibold text-[#1d1d1f] tracking-[-0.01em] leading-tight break-words">
           Your custody-backed portfolios
-        </h1>
+        </h2>
         <p className="text-xs sm:text-[13px] text-[#86868b] mt-1 font-mono truncate tabular-nums">
           {wallet.slice(0, 10)}…{wallet.slice(-6)}
         </p>
@@ -296,7 +293,7 @@ export function CustodyTab() {
             Once a custodian signs an attestation and you submit it on-chain, it will appear here.
           </p>
           <a
-            href="mailto:ashishregmi2017@gmail.com?subject=ZKward%20custody%20attestation%20request"
+            href="mailto:ashish.regmi@zkward.com?subject=ZKward%20custody%20attestation%20request"
             className="inline-flex items-center gap-2 bg-[#1d1d1f] text-white px-5 py-2.5 rounded-xl text-[13px] font-semibold hover:bg-[#0A0E1A]"
           >
             <Mail className="w-4 h-4" /> Request custodian onboarding
