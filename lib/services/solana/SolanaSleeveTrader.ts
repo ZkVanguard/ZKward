@@ -182,19 +182,24 @@ export async function runSolanaSleeveTick(
       if (scanTimer) clearTimeout(scanTimer);
     }
 
-    // Highest-confidence directional signal above the floor.
-    // TODO(ledger-admission): once getLedgerHitRates(n>=500) returns cells,
-    // rank by proven per-(source,asset,horizon) hit rate instead of raw
-    // confidence — measured conf≥70 intraday aggregate sits BELOW 50%.
-    let best: { asset: string; side: Side; conf: number; snapshot: SourceSnapshot[] } | null = null;
+    // Highest-confidence directional signal above the floor, admitted and
+    // ranked by the ledger: an asset measured with no edge at any hold
+    // horizon is skipped; a measured edge scales the rank (fail-open cold).
+    const { getLedgerCells, assetHoldPlan } = await import('@/lib/services/market-data/ledger-cells');
+    const cells = await getLedgerCells().catch(() => []);
+    let best: { asset: string; side: Side; conf: number; rank: number; snapshot: SourceSnapshot[] } | null = null;
     for (const asset of ASSETS) {
       const p = preds[asset];
       if (!p || p.direction === 'NEUTRAL' || p.confidence < MIN_CONF()) continue;
-      if (!best || p.confidence > best.conf) {
+      const { plan, measured } = assetHoldPlan(cells, asset);
+      if (measured && !plan) continue;
+      const rank = p.confidence * (plan ? Math.max(0.5, Math.min(1.5, plan.hitRate / 0.5)) : 1);
+      if (!best || rank > best.rank) {
         best = {
           asset,
           side: p.direction === 'UP' ? 'LONG' : 'SHORT',
           conf: p.confidence,
+          rank,
           snapshot: (p.sources ?? []).map((s: { name?: string; type?: string; direction?: string }) => ({
             key: normalizeSourceKey(s.name ?? '', s.type ?? ''),
             direction: (s.direction ?? 'NEUTRAL') as 'UP' | 'DOWN' | 'NEUTRAL',

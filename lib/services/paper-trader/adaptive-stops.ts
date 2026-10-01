@@ -93,9 +93,15 @@ async function annualVolFor(asset: string): Promise<number | null> {
  * Returns the STATIC config values on any error — fail-open. Callers
  * substitute in the returned percentages 1:1 with the old constants.
  */
-export async function computeAdaptiveThresholds(asset: string): Promise<AdaptiveThresholds> {
+export async function computeAdaptiveThresholds(
+  asset: string,
+  opts: { holdWindowMin?: number } = {},
+): Promise<AdaptiveThresholds> {
   try {
     const annualPct = await annualVolFor(asset);
+    // The stop must survive the noise of the whole hold; the trailing arm
+    // keeps the base window so winners still lock in early.
+    const stopWindowsPerYear = (365 * 24 * 60) / (opts.holdWindowMin ?? HOLD_WINDOW_MIN);
     let stopLossPct = STATIC_STOP_LOSS_PCT;
     let trailingArmPct = STATIC_TRAILING_ARM_PCT;
     let src: AdaptiveThresholds['source'] = 'static-fallback';
@@ -104,9 +110,10 @@ export async function computeAdaptiveThresholds(asset: string): Promise<Adaptive
     if (annualPct && annualPct > 0) {
       const annualFrac = annualPct / 100;
       const expectedMoveFrac = annualFrac / Math.sqrt(WINDOWS_PER_YEAR);
+      const expectedHoldMoveFrac = annualFrac / Math.sqrt(stopWindowsPerYear);
       stopLossPct = Math.max(
         floor,
-        Math.min(MAX_STOP_PCT, expectedMoveFrac * STOP_MULTIPLE),
+        Math.min(MAX_STOP_PCT, expectedHoldMoveFrac * STOP_MULTIPLE),
       );
       trailingArmPct = Math.max(
         MIN_ARM_PCT,

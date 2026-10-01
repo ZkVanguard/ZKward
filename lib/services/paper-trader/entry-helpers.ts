@@ -38,7 +38,9 @@ import {
   PAPER_HALT_ENTRIES_IN_CHOP,
   PAPER_CHOP_STAKE_MULT,
   PAPER_PROBE_STAKE_MULT,
+  PAPER_LEDGER_GATE,
 } from './config';
+import { assetHoldPlan, getLedgerCells, type LedgerCell } from '@/lib/services/market-data/ledger-cells';
 import type { Side } from './simulated-executor';
 import { getMultiSourceValidatedPrice } from '@/lib/services/market-data/unified-price-provider';
 import { computeSignalScalar, computeCalibrationBoost } from './sizing';
@@ -59,6 +61,9 @@ export interface PickedCandidate {
   regime?: 'TRENDING_UP' | 'TRENDING_DOWN' | 'CHOP' | null;
   /** Why the entry trades at probe stake (blacklisted pair / STRONG signal). */
   probe?: string | null;
+  /** Hold horizon the ledger measured an edge at; null = heuristic hold. */
+  holdHorizonMin?: number | null;
+  ledgerHitRate?: number | null;
 }
 
 export type SelectResult =
@@ -172,6 +177,16 @@ export async function selectCandidate(
     return { ok: false, reason: 'no edge above gates' };
   }
 
+  // Ledger cells (2026-10-01): the aggregate signal's measured hit rate per
+  // asset × horizon decides admission, the hold horizon, and nudges rank.
+  let ledgerCells: readonly LedgerCell[] = [];
+  if (PAPER_LEDGER_GATE) {
+    try {
+      ledgerCells = await getLedgerCells();
+    } catch { /* fail-open: cold everywhere */ }
+  }
+  const holdPlan = (asset: string) => assetHoldPlan(ledgerCells, asset);
+
   // L6 — Multi-armed bandit multiplier on the candidate score. Historically
   // profitable (asset, side) arms get their score boosted, chronic losers
   // suppressed. Cold-start arms (<3 trades) return neutral 1.0 so the
@@ -219,9 +234,11 @@ export async function selectCandidate(
       // Rank score: when we have real data, use calibrated prob × 100 so
       // it competes on the same numeric scale as raw score. Multiply by
       // bandit arm boost so historically-profitable arms still bubble up.
-      const rankScore = calibratedProb !== null && calibrationN >= PAPER_CALIBRATED_RANK_MIN_N
+      const plan = holdPlan(candidateAsset).plan;
+      const ledgerMult = plan ? Math.max(0.5, Math.min(1.5, plan.hitRate / 0.5)) : 1;
+      const rankScore = (calibratedProb !== null && calibrationN >= PAPER_CALIBRATED_RANK_MIN_N
         ? calibratedProb * 100 * armMult
-        : rawScore * armMult;
+        : rawScore * armMult) * ledgerMult;
       rankedCandidates.push({ asset: candidateAsset, prediction: pred, score: rankScore, calibratedProb, calibrationN });
     }
     rankedCandidates.sort((a, b) => b.score - a.score);
@@ -273,6 +290,13 @@ export async function selectCandidate(
       }
     }
 
+    // Ledger admission: measured with no edge at any hold horizon → skip.
+    const { plan, measured } = holdPlan(cand.asset);
+    if (PAPER_LEDGER_GATE && measured && !plan) {
+      lastSkipReason = `ledger (${cand.asset}): aggregate signal measured with no edge at any hold horizon`;
+      continue;
+    }
+
     // Fix L (2026-09-26) — asset-side lifetime blacklist. Catches
     // (asset, side) pairs where EVERY conf bucket bleeds (e.g. BTC LONG
     // at 26% lifetime wr / -$24k across 114 trades). Broader than
@@ -321,7 +345,17 @@ export async function selectCandidate(
       rec: cand.prediction.recommendation,
       score: cand.score.toFixed(1),
     });
-    return { ok: true, picked: { ...cand, side: candSide, regime: currentRegime, probe: blacklistReject ?? strongProbe } };
+    return {
+      ok: true,
+      picked: {
+        ...cand,
+        side: candSide,
+        regime: currentRegime,
+        probe: blacklistReject ?? strongProbe,
+        holdHorizonMin: PAPER_LEDGER_GATE ? plan?.horizonMin ?? null : null,
+        ledgerHitRate: plan?.hitRate ?? null,
+      },
+    };
   }
   return { ok: false, reason: lastSkipReason };
 }

@@ -143,6 +143,9 @@ async function effectiveConfig(): Promise<Record<string, unknown>> {
       chopStakeMult: c.PAPER_CHOP_STAKE_MULT,
       probeStakeMult: c.PAPER_PROBE_STAKE_MULT,
       skipStrong: c.PAPER_SKIP_STRONG_SIGNALS,
+      ledgerGate: c.PAPER_LEDGER_GATE,
+      holdHorizons: (process.env.PAPER_TRADER_HOLD_HORIZONS_MIN || '60,240').trim(),
+      calibrationEpoch: (process.env.SOURCE_CALIBRATOR_EPOCH || '2026-09-30').trim(),
       disableHalts: c.PAPER_DISABLE_HALTS,
       // Names (never values) of PAPER_TRADER_* env overrides active on this
       // deployment — a non-empty list means env is diverging from code

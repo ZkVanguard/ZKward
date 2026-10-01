@@ -44,7 +44,15 @@ export function computeSignalScalar(confidence: number, consensus: number): numb
  * 2026-09-22. Defaults to 1 (identity) so pure-signal callers stay
  * unchanged.
  */
-export function computeMaxHoldMinutes(signalScalar: number, regimeMult: number = 1): number {
+export function computeMaxHoldMinutes(
+  signalScalar: number,
+  regimeMult: number = 1,
+  ledgerHorizonMin?: number | null,
+): number {
+  // A measured horizon beats the confidence/regime heuristic.
+  if (ledgerHorizonMin && ledgerHorizonMin > 0) {
+    return Math.min(ledgerHorizonMin, PAPER_MAX_HOLD_CEILING_MIN);
+  }
   const capped = Math.max(0.4, Math.min(2.0, signalScalar));
   const bonusRatio = (capped - 0.4) / 1.6; // 0.0 at min gate, 1.0 at max
   const base = PAPER_MAX_HOLD_MIN + bonusRatio * PAPER_MAX_HOLD_EXTRA_MIN;

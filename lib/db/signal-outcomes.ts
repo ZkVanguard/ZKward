@@ -296,11 +296,13 @@ export async function getSignalStats(windowDays = 7, source = 'polymarket-5min')
 export async function getLedgerHitRates(options: {
   windowDays?: number;
   minN?: number;
+  /** Never read rows before this (the signal definitions changed). */
+  sinceMs?: number;
 } = {}): Promise<Array<{ source: string; asset: string; horizonMin: number; n: number; hitRate: number }>> {
   await ensureSignalOutcomesTable();
   const windowDays = options.windowDays ?? 30;
   const minN = options.minN ?? 50;
-  const sinceMs = Date.now() - windowDays * 24 * 60 * 60 * 1000;
+  const sinceMs = Math.max(Date.now() - windowDays * 24 * 60 * 60 * 1000, options.sinceMs ?? 0);
   try {
     const rows = await query<{
       source: string; asset: string; horizon_min: number; n: string; hits: string;

@@ -316,16 +316,16 @@ export class PaperGatedTrader {
     // the static 1.2% left all gated stop-outs at 0 wins (6 closes,
     // -$1,769); the 2.5% floor in computeAdaptiveThresholds is the wider
     // stop the 2026-09-22 revert actually wanted.
+    // Shared hold math (Fix O, ceiling in config); a ledger-measured
+    // horizon (picked.holdHorizonMin) replaces the heuristic hold.
+    const { computeMaxHoldMinutes } = await import('./sizing');
+    const maxHoldMin = computeMaxHoldMinutes(signalScalar, 1, picked.holdHorizonMin);
+
     const { computeAdaptiveThresholds } = await import('./adaptive-stops');
-    const stopFrac = (await computeAdaptiveThresholds(asset)).stopLossPct;
+    const stopFrac = (await computeAdaptiveThresholds(asset, { holdWindowMin: maxHoldMin })).stopLossPct;
     const stopLossPrice = side === 'LONG'
       ? markPrice * (1 - stopFrac)
       : markPrice * (1 + stopFrac);
-
-    // Shared hold math (Fix O) — includes the 90min hard ceiling; the
-    // old inline formula could stretch to 117min with no cap.
-    const { computeMaxHoldMinutes } = await import('./sizing');
-    const maxHoldMin = computeMaxHoldMinutes(signalScalar);
 
     // Snapshot the per-source directions at open so recordSourceOutcome
     // can score each source's call against the actual outcome at close.

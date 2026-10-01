@@ -170,7 +170,8 @@ export const queryPostmortemStats: AgentTool<
     const sinceMs = Date.now() - days * 24 * 60 * 60 * 1000;
     const rows = await query<{ outcome_correct: boolean | null }>(
       `SELECT outcome_correct FROM signal_interpretations
-       WHERE outcome_linked_at IS NOT NULL AND outcome_linked_at >= $1`,
+       WHERE outcome_linked_at IS NOT NULL AND outcome_linked_at >= $1
+         AND (yes_price IS NOT NULL OR direction IN ('BINARY_YES', 'BINARY_NO'))`,
       [new Date(sinceMs).toISOString()],
     );
     const total = rows.length;

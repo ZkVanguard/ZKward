@@ -29,6 +29,7 @@ import type { SimulatedPosition } from '@/lib/services/paper-trader/simulated-ex
 import { markToMarket } from '@/lib/services/paper-trader/simulated-executor';
 import { getLivePrice } from '@/lib/services/market-data/unified-price-provider';
 import { PredictionAggregatorService } from '@/lib/services/market-data/PredictionAggregatorService';
+import { CALIBRATION_EPOCH } from '@/lib/services/ai/source-calibrator';
 
 export const runtime = 'nodejs';
 // Dynamic on purpose. `revalidate = 15` made this a build-time static page
@@ -70,6 +71,7 @@ async function loadLearningSnapshot() {
       `SELECT key, value FROM cron_state WHERE key LIKE 'trader:source-cal:%'`,
     );
     const sources = rows
+      .filter((r) => (r.value as unknown as { epoch?: string })?.epoch === CALIBRATION_EPOCH)
       .map((r) => {
         const v = r.value as unknown as SourceCal;
         const n = Number(v?.n ?? 0);

@@ -35,6 +35,7 @@ import {
   _MAX_MULTIPLIER,
   _NEUTRAL_HIT_RATE,
   _PRIOR_STRENGTH,
+  CALIBRATION_EPOCH,
 } from '@/lib/services/ai/source-calibrator';
 
 beforeEach(() => {
@@ -159,19 +160,19 @@ describe('getCalibratedHitRate — Bayesian shrinkage', () => {
     expect(r).toBe(_NEUTRAL_HIT_RATE);
   });
   it('with n=PRIOR and empirical=1.0, weighted midpoint of 0.5 and 1.0 = 0.75', async () => {
-    store['trader:source-cal:x'] = { n: _PRIOR_STRENGTH, wins: _PRIOR_STRENGTH, updatedAt: 0 };
+    store['trader:source-cal:x'] = { n: _PRIOR_STRENGTH, wins: _PRIOR_STRENGTH, updatedAt: 0, epoch: CALIBRATION_EPOCH };
     const r = await getCalibratedHitRate('x');
     expect(r).toBeCloseTo(0.75, 4);
   });
   it('with n=100 and empirical=0.8, shrunken hit rate close to 0.786', async () => {
-    store['trader:source-cal:x'] = { n: 100, wins: 80, updatedAt: 0 };
+    store['trader:source-cal:x'] = { n: 100, wins: 80, updatedAt: 0, epoch: CALIBRATION_EPOCH };
     const r = await getCalibratedHitRate('x');
     // Post-2026-09-22: PRIOR_STRENGTH lowered 10 → 5
     // (100*0.8 + 5*0.5) / 105 = 82.5/105 ≈ 0.7857
     expect(r).toBeCloseTo(0.786, 3);
   });
   it('with n=1000, shrinkage disappears — empirical dominates', async () => {
-    store['trader:source-cal:x'] = { n: 1000, wins: 800, updatedAt: 0 };
+    store['trader:source-cal:x'] = { n: 1000, wins: 800, updatedAt: 0, epoch: CALIBRATION_EPOCH };
     const r = await getCalibratedHitRate('x');
     // (1000*0.8 + 5*0.5) / 1005 ≈ 0.7985
     expect(r).toBeCloseTo(0.799, 3);
@@ -204,7 +205,7 @@ describe('getCalibratedMultiplier', () => {
     expect(m).toBe(1.0);
   });
   it('returns > 1 for a proven-good source (high hit rate)', async () => {
-    store['trader:source-cal:proven'] = { n: 100, wins: 80, updatedAt: 0 };
+    store['trader:source-cal:proven'] = { n: 100, wins: 80, updatedAt: 0, epoch: CALIBRATION_EPOCH };
     const m = await getCalibratedMultiplier('proven');
     expect(m).toBeGreaterThan(1.4);
     expect(m).toBeLessThanOrEqual(_MAX_MULTIPLIER);
@@ -213,7 +214,7 @@ describe('getCalibratedMultiplier', () => {
     // Post-2026-09-22: hard-cut fires when n >= 15 AND empirical < 0.40.
     // The soft MIN_MULTIPLIER floor only applies to shrunken-but-not-killed
     // sources (n < KILL_MIN_TRADES or empirical >= 0.40).
-    store['trader:source-cal:noisy'] = { n: 100, wins: 20, updatedAt: 0 };
+    store['trader:source-cal:noisy'] = { n: 100, wins: 20, updatedAt: 0, epoch: CALIBRATION_EPOCH };
     const m = await getCalibratedMultiplier('noisy');
     expect(m).toBe(0.05);
   });
@@ -231,7 +232,7 @@ describe('applyCalibrationToSources', () => {
   });
   it('shifts weight toward calibrated-good source and normalizes to sum 1', async () => {
     // Bucket the "good" source name (fallback path key: other:good)
-    store['trader:source-cal:other:good'] = { n: 100, wins: 80, updatedAt: 0 };
+    store['trader:source-cal:other:good'] = { n: 100, wins: 80, updatedAt: 0, epoch: CALIBRATION_EPOCH };
     const inp = [
       { name: 'Good', type: 'other', weight: 0.5 },
       { name: 'Neutral', type: 'other', weight: 0.5 },
@@ -245,5 +246,18 @@ describe('applyCalibrationToSources', () => {
   it('returns input unchanged on empty list', async () => {
     const out = await applyCalibrationToSources([]);
     expect(out).toEqual([]);
+  });
+});
+
+describe('calibration epoch — buckets from the wording era are ignored and reset', () => {
+  it('a bucket without the current epoch reads as no history', async () => {
+    store['trader:source-cal:legacy'] = { n: 100, wins: 20, updatedAt: 0 };
+    expect(await getCalibratedHitRate('legacy')).toBe(_NEUTRAL_HIT_RATE);
+    expect(await getCalibratedMultiplier('legacy')).toBe(1);
+  });
+  it('the next outcome restarts the bucket under the current epoch', async () => {
+    store['trader:source-cal:legacy'] = { n: 100, wins: 20, updatedAt: 0 };
+    await recordSourceOutcome({ sourceKey: 'legacy', sourceDirection: 'UP', actualDirection: 'UP' });
+    expect(store['trader:source-cal:legacy']).toMatchObject({ n: 1, wins: 1, epoch: CALIBRATION_EPOCH });
   });
 });
