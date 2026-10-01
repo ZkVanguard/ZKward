@@ -16,7 +16,7 @@ export async function GET(): Promise<NextResponse> {
     return NextResponse.json({ enabled: false });
   }
   try {
-    const [{ vaultAta, solanaCluster }, rpc, poolState, db, price] = await Promise.all([
+    const [{ vaultAta }, rpc, poolState, db, price] = await Promise.all([
       import('@/lib/services/solana/SolanaPoolService'),
       import('@/lib/services/solana/rpc'),
       import('@/lib/services/solana/pool-state'),
