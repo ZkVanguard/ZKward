@@ -16,7 +16,7 @@ export async function GET(): Promise<NextResponse> {
     return NextResponse.json({ enabled: false });
   }
   try {
-    const [{ vaultAta, solanaCluster }, rpc, poolState, db, price] = await Promise.all([
+    const [{ vaultAta }, rpc, poolState, db, price] = await Promise.all([
       import('@/lib/services/solana/SolanaPoolService'),
       import('@/lib/services/solana/rpc'),
       import('@/lib/services/solana/pool-state'),
@@ -38,8 +38,7 @@ export async function GET(): Promise<NextResponse> {
     const vaultRaw = balance ? BigInt(balance.amount) : null;
     // Share price + NAV from the ledger; chain balance above it is deposits
     // still being indexed (they belong to their depositors, not holders).
-    const sharePriceUi =
-      totalSharesRaw > 0n ? Number(accountedRaw) / Number(totalSharesRaw) : 1.0;
+    const valuation = poolState.ledgerValuation(accountedRaw, totalSharesRaw, tokenPrice?.usd ?? null);
     const vaultUi = vaultRaw !== null ? poolState.toUi(vaultRaw) : null;
     const accountedUi = poolState.toUi(accountedRaw);
     const pendingUi =
@@ -57,9 +56,9 @@ export async function GET(): Promise<NextResponse> {
       pendingTokens: pendingUi,
       solvent: vaultRaw === null ? null : vaultRaw >= accountedRaw,
       totalShares: poolState.toUi(totalSharesRaw),
-      sharePrice: sharePriceUi,
+      sharePrice: valuation.sharePrice,
       tokenUsd: tokenPrice?.usd ?? null,
-      navUsd: tokenPrice ? accountedUi * tokenPrice.usd : null,
+      navUsd: valuation.navUsd,
       priceNote: 'devnet mirror priced at the real token’s mainnet Jupiter quote',
       sleeve: sleeve
         ? {

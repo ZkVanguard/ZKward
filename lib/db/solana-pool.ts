@@ -1,8 +1,9 @@
 /**
- * Solana pool storage — deposits ledger only.
+ * Solana pool storage — deposits/withdrawals ledger + NAV history snapshots.
  *
  * Deliberately no state/balance row: the vault's token balance is read live
  * from chain (chain = truth), and total shares derive from SUM(shares_minted).
+ * nav_history is display-only (the dashboard chart), never a pricing input.
  * The transaction signature is the primary key, which makes indexing
  * replay-safe by construction (re-processing a signature is a no-op).
  */
@@ -35,6 +36,16 @@ export async function ensureSolanaPoolTables(): Promise<void> {
         created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
       );
       CREATE INDEX IF NOT EXISTS idx_solana_pool_withdrawals_wallet ON solana_pool_withdrawals(wallet);
+      CREATE TABLE IF NOT EXISTS solana_pool_nav_history (
+        id BIGSERIAL PRIMARY KEY,
+        recorded_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        share_price DOUBLE PRECISION NOT NULL,
+        nav_usd DOUBLE PRECISION,
+        accounted_tokens_raw BIGINT NOT NULL,
+        total_shares_raw BIGINT NOT NULL,
+        cluster VARCHAR(16) NOT NULL DEFAULT 'devnet'
+      );
+      CREATE INDEX IF NOT EXISTS idx_solana_pool_nav_history_at ON solana_pool_nav_history(recorded_at);
     `);
     tableReady = true;
   } catch (err) {
@@ -130,6 +141,45 @@ export async function recordWithdrawal(args: {
     [args.signature, args.wallet, args.sharesBurnedRaw.toString(), args.amountRaw.toString(), args.cluster],
   );
   return rows.length === 1;
+}
+
+const NAV_HISTORY_RETENTION_DAYS = 180;
+
+/** One NAV snapshot; prunes past the retention window in the same call. */
+export async function recordNavSnapshot(args: {
+  sharePrice: number;
+  navUsd: number | null;
+  accountedTokensRaw: bigint;
+  totalSharesRaw: bigint;
+  cluster: string;
+}): Promise<void> {
+  await ensureSolanaPoolTables();
+  await query(
+    `INSERT INTO solana_pool_nav_history (share_price, nav_usd, accounted_tokens_raw, total_shares_raw, cluster)
+     VALUES ($1, $2, $3, $4, $5)`,
+    [args.sharePrice, args.navUsd, args.accountedTokensRaw.toString(), args.totalSharesRaw.toString(), args.cluster],
+  );
+  await query(
+    `DELETE FROM solana_pool_nav_history WHERE recorded_at < NOW() - make_interval(days => $1)`,
+    [NAV_HISTORY_RETENTION_DAYS],
+  );
+}
+
+/** Bucket-averaged NAV history; `days = null` returns everything kept. */
+export async function getNavHistory(
+  days: number | null,
+  bucket: 'hour' | 'day',
+): Promise<Array<{ t: string; share_price: number; nav_usd: number | null }>> {
+  await ensureSolanaPoolTables();
+  return query(
+    `SELECT date_trunc($1, recorded_at) AS t,
+            AVG(share_price)::float AS share_price,
+            AVG(nav_usd)::float AS nav_usd
+     FROM solana_pool_nav_history
+     WHERE $2::int IS NULL OR recorded_at > NOW() - make_interval(days => $2::int)
+     GROUP BY 1 ORDER BY 1`,
+    [bucket, days],
+  );
 }
 
 export async function getRecentDeposits(limit = 20): Promise<SolanaDepositRow[]> {
