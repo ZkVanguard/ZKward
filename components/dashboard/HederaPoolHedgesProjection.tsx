@@ -14,9 +14,10 @@
  *   - Side: /api/predictions/per-asset (Polymarket + Delphi + Crypto.com
  *     + funding fusion). UP → LONG, DOWN → SHORT, NEUTRAL → LONG
  *     (defensive default; also flagged in the row).
- *   - Attestation: /api/hedera/attest-hedges posts one HCS message per
- *     basket. Judges + users click the tx to verify entry snapshot on
- *     HashScan. Shows Hedera consensus finality (typically 2-4s).
+ *   - Attestation (on request): /api/hedera/attest-hedges posts one HCS
+ *     message per basket; the receipt links the entry snapshot on HashScan
+ *     with Hedera consensus finality (typically 2-4s). Never on page view —
+ *     a visit must not cause an on-chain write.
  *
  * When a real Hedera-native perp DEX exists, swap the projections for
  * real on-chain reads. Until then this is the honest "what would happen
@@ -30,7 +31,7 @@ import { useLivePrices } from '@/lib/hooks/useLivePrices';
 
 const ACCENT = '#00A79F';
 
-type Symbol = 'BTC' | 'ETH' | 'SUI';
+type AssetSymbol = 'BTC' | 'ETH' | 'SUI';
 type Side = 'LONG' | 'SHORT' | 'HOLD';
 
 // Below this confidence, treat signal as no-conviction → HOLD (no position).
@@ -42,7 +43,7 @@ interface SignalRow { side: Side; confidence: number; direction: 'UP' | 'DOWN' |
 interface SignalMap { [k: string]: SignalRow }
 
 interface ProjectedPosition {
-  symbol: Symbol;
+  symbol: AssetSymbol;
   side: Side;
   entryPrice: number;
   sizeToken: number;
@@ -116,7 +117,7 @@ export function HederaPoolHedgesProjection({ poolNavUsd }: Props) {
   const { data: signalsRaw } = useLiveSignals(PROJECTION_ASSETS);
   const [attestation, setAttestation] = useState<Attestation | null>(null);
   const [loaded, setLoaded] = useState(false);
-  const entriesRef = useRef<Record<Symbol, number> | null>(null);
+  const entriesRef = useRef<Record<AssetSymbol, number> | null>(null);
   const attestRef = useRef<boolean>(false);
 
   const prices = pricesRaw ?? {};
@@ -151,7 +152,7 @@ export function HederaPoolHedgesProjection({ poolNavUsd }: Props) {
   const positions: ProjectedPosition[] = useMemo(() => {
     if (!entriesRef.current) return [];
     const notionalIfActive = poolNavUsd * ASSET_ALLOCATION;
-    return (['BTC', 'ETH', 'SUI'] as Symbol[]).map((symbol) => {
+    return (['BTC', 'ETH', 'SUI'] as AssetSymbol[]).map((symbol) => {
       // Entry = mark ÷ (1 + 24h change) — derives a "if we'd opened this
       // yesterday" reference price from live 24h delta. Makes P&L a
       // meaningful retrospective on real price movement.
@@ -181,20 +182,13 @@ export function HederaPoolHedgesProjection({ poolNavUsd }: Props) {
     });
   }, [poolNavUsd, loaded, signals, prices]);
 
-  useEffect(() => {
-    if (attestRef.current) return;
-    if (positions.length === 0 || !loaded) return;
-    if (poolNavUsd <= 0) return;
-    // Wait for at least one real signal to avoid attesting an all-defaults basket.
-    const anyRealSignal = positions.some((p) => p.signalConfidence > 0);
-    if (!anyRealSignal) return;
-
+  // Attest only on request, and only a basket with at least one real signal.
+  const canAttest = loaded && poolNavUsd > 0 && positions.some((p) => p.signalConfidence > 0);
+  const onAttest = async () => {
+    if (attestRef.current || !canAttest) return;
     attestRef.current = true;
-    (async () => {
-      const result = await attestBasket({ poolNavUsd, positions });
-      setAttestation(result);
-    })();
-  }, [positions, loaded, poolNavUsd]);
+    setAttestation(await attestBasket({ poolNavUsd, positions }));
+  };
 
   const totals = useMemo(() => {
     let notional = 0;
@@ -257,6 +251,15 @@ export function HederaPoolHedgesProjection({ poolNavUsd }: Props) {
             />
           </div>
 
+          {!attestation && canAttest && (
+            <button
+              onClick={onAttest}
+              className="mb-3 inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold hover:opacity-80"
+              style={{ background: `${ACCENT}0d`, color: ACCENT, border: `1px solid ${ACCENT}30` }}
+            >
+              <Anchor className="w-3.5 h-3.5" /> Anchor this snapshot on Hedera
+            </button>
+          )}
           {attestation && (
             <div
               className="mb-3 rounded-lg p-2.5 text-[11px] leading-relaxed"

@@ -50,8 +50,8 @@ const WINDOWS: Array<{ label: string; value: '7d' | '30d' | '60d' | 'all'; bucke
 ];
 
 interface NavHistoryChartProps {
-  /** Which chain's history to display. Defaults to SUI (Aiven-backed). */
-  chain?: 'sui' | 'hedera';
+  /** Which pool's history to display. Defaults to SUI. */
+  chain?: 'sui' | 'hedera' | 'solana';
 }
 
 // Hedera adapter fetch removed 2026-09-23 — /api/subgraph/hedera backend
@@ -66,9 +66,11 @@ export function NavHistoryChart({ chain = 'sui' }: NavHistoryChartProps = {}) {
   //   hedera → @zkward/hedera-graphql-adapter navHistory (HCS-anchored),
   //            with /api/hedera/nav-history as a fallback for windows before
   //            HCS started recording, and SUI as a final fallback for empty state
-  const primaryEndpoint = chain === 'hedera'
-    ? `/api/hedera/nav-history?window=${window.value}&bucket=${window.bucket}`
-    : `/api/platform/nav-history?window=${window.value}&bucket=${window.bucket}`;
+  const query = `window=${window.value}&bucket=${window.bucket}`;
+  const primaryEndpoint =
+    chain === 'hedera' ? `/api/hedera/nav-history?${query}`
+    : chain === 'solana' ? `/api/solana-pool/history?${query}`
+    : `/api/platform/nav-history?${query}`;
   const fallbackEndpoint = `/api/platform/nav-history?window=${window.value}&bucket=${window.bucket}`;
 
   const { data, isPending: loading, error } = useQuery({
@@ -107,11 +109,12 @@ export function NavHistoryChart({ chain = 'sui' }: NavHistoryChartProps = {}) {
   // (every $1 deposit = 1 share). Plotting share price for Hedera is a
   // trivially flat line. Plot total NAV instead: deposits/withdrawals show
   // as real steps, which is the metric that actually changes.
-  const plotMode: 'sharePrice' | 'navUsd' = chain === 'hedera' ? 'navUsd' : 'sharePrice';
+  // Solana shares are token-denominated, so the USD story is total value too.
+  const plotMode: 'sharePrice' | 'navUsd' = chain === 'sui' ? 'sharePrice' : 'navUsd';
   const isNavMode = plotMode === 'navUsd';
 
   const chart = useMemo(() => {
-    if (!data || data.points.length === 0) return null;
+    if (!data?.points || data.points.length === 0) return null;
     const labels = data.points.map((p) => new Date(p.t).toLocaleDateString(undefined, {
       month: 'short', day: 'numeric',
     }));
@@ -186,7 +189,7 @@ export function NavHistoryChart({ chain = 'sui' }: NavHistoryChartProps = {}) {
       <div className="flex flex-col gap-y-1 mb-3 sm:mb-4 min-w-0">
         <div className="flex items-center gap-2 flex-wrap min-w-0">
           <TrendingUp className="w-4 h-4 text-label-primary flex-shrink-0" />
-          <h2 className="text-base sm:text-[17px] font-semibold text-label-primary">{isNavMode ? 'Total NAV history' : 'Share price history'}</h2>
+          <h2 className="text-base sm:text-[17px] font-semibold text-label-primary">{isNavMode ? 'Pool value' : 'Share price'}</h2>
           {usedFallback && (
             <span
               className="text-[10px] px-2 py-0.5 rounded-full font-semibold uppercase tracking-wide"
@@ -258,6 +261,11 @@ export function NavHistoryChart({ chain = 'sui' }: NavHistoryChartProps = {}) {
             <Loader2 className="w-4 h-4 animate-spin" />
           </div>
         )}
+        {!loading && data && (data.points?.length ?? 0) === 0 && (
+          <div className="absolute inset-0 flex items-center justify-center text-[13px] text-label-tertiary text-center px-6">
+            History appears here after the first snapshots.
+          </div>
+        )}
         {chart && (
           <Line
             data={chart}
@@ -267,19 +275,11 @@ export function NavHistoryChart({ chain = 'sui' }: NavHistoryChartProps = {}) {
         )}
       </div>
       <p className="text-[11px] text-label-tertiary mt-3">
-        {isNavMode ? (
-          <>
-            Total dollars in the vault, per HCS-anchored NAV snapshot.
-            {' '}Share price stays at $1.00 by design (ERC-4626-lite math, no
-            {' '}on-chain yield accrual) — NAV is the metric that moves.
-          </>
-        ) : (
-          <>
-            Every point is a snapshot from{' '}
-            <code className="bg-[#f5f5f7] px-1.5 py-0.5 rounded">community_pool_nav_history</code>,
-            {' '}bucket-averaged. Share price is NAV / total shares. Pool inception at $1.00.
-          </>
-        )}
+        {chain === 'solana'
+          ? 'Vault value in US dollars at the token’s market price, recorded every 15 minutes.'
+          : chain === 'hedera'
+            ? 'Total value held by the vault. Each share stays at $1.00 by design, so total value is what moves.'
+            : 'Value of one pool share over time (pool value ÷ shares). The pool started at $1.00.'}
       </p>
     </section>
   );

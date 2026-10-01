@@ -1,8 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { logger } from '@/lib/utils/logger';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { 
   Shield, 
   Brain, 
@@ -157,36 +156,6 @@ export function AutoHedgePanel({ chain }: AutoHedgePanelProps = {}) {
     staleTime: 60_000,
   });
 
-  const toggleMutation = useMutation({
-    mutationFn: async (nextEnabled: boolean) => {
-      const res = await fetch('/api/community-pool/auto-hedge', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ enabled: nextEnabled }),
-      });
-      const json = await res.json();
-      if (!json.success) throw new Error(json.error || 'toggle failed');
-      return json;
-    },
-    onSuccess: (json) => {
-      // Optimistic-adjacent: patch cache directly so the UI flips without
-      // waiting for the refetch; invalidate to reconcile with server truth.
-      queryClient.setQueryData<AutoHedgeData>(autoHedgeKey, (prev) =>
-        prev ? { ...prev, enabled: json.config.enabled } : prev
-      );
-      queryClient.invalidateQueries({ queryKey: autoHedgeKey });
-    },
-    onError: (err) => {
-      logger.error('Failed to toggle auto-hedge', err instanceof Error ? err : undefined);
-    },
-  });
-  const updating = toggleMutation.isPending;
-
-  const toggleAutoHedge = () => {
-    if (!data) return;
-    toggleMutation.mutate(!data.enabled);
-  };
-
   if (loading) {
     return (
       <div className="bg-slate-800/50 rounded-2xl sm:rounded-xl p-3 sm:p-6 border border-slate-700/50 overflow-hidden min-w-0 max-w-full">
@@ -262,21 +231,11 @@ export function AutoHedgePanel({ chain }: AutoHedgePanelProps = {}) {
           <div className="flex items-start gap-3 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3">
             <AlertTriangle className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
             <div className="text-sm text-amber-100">
-              <div className="font-semibold text-amber-300">
-                Rebalancing paused. Operator wallet low on SUI gas
-              </div>
+              <div className="font-semibold text-amber-300">Rebalancing is paused</div>
               <div className="mt-1 text-amber-100/80">
-                Operator has <span className="font-mono">{gasStatus.suiBalance ?? '0'} SUI</span>
-                {gasStatus.gasFloorSui != null && (
-                  <> (floor: <span className="font-mono">{gasStatus.gasFloorSui} SUI</span>)</>
-                )}.
-                The cron will skip swaps and hedge open/close until the wallet is topped up.
+                The pool&apos;s operator wallet needs a gas top-up. Trades and hedges resume automatically once it&apos;s
+                refilled; your deposit is unaffected.
               </div>
-              {gasStatus.address && (
-                <div className="mt-1 font-mono text-xs text-amber-100/60 break-all">
-                  Top up: {gasStatus.address}
-                </div>
-              )}
             </div>
           </div>
         </div>
@@ -293,23 +252,11 @@ export function AutoHedgePanel({ chain }: AutoHedgePanelProps = {}) {
             <div className="px-3 sm:px-4 pb-3 sm:pb-4 space-y-3 sm:space-y-4 min-w-0">
               {/* Toggle and Stats Row — stack on mobile so config chips don't overflow */}
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-slate-900/50 rounded-xl sm:rounded-lg p-3 sm:p-4 min-w-0">
-                <div className="flex items-center gap-3 sm:gap-4 min-w-0">
-                  <button
-                    onClick={toggleAutoHedge}
-                    disabled={updating}
-                    className={`relative w-14 h-7 rounded-full transition-colors flex-shrink-0 ${
-                      data.enabled ? 'bg-cyan-500' : 'bg-slate-600'
-                    }`}
-                    aria-label={`${data.enabled ? 'Disable' : 'Enable'} auto-hedging`}
-                  >
-                    <motion.div
-                      className="absolute top-1 w-5 h-5 bg-white rounded-full shadow"
-                      animate={{ left: data.enabled ? '32px' : '4px' }}
-                      transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-                    />
-                  </button>
+                {/* Read-only: the switch is an operator control behind auth. */}
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${data.enabled ? 'bg-green-400' : 'bg-slate-500'}`} />
                   <span className="text-xs sm:text-sm text-slate-300 truncate">
-                    Auto-hedging {data.enabled ? 'enabled' : 'disabled'}
+                    Auto-hedging is {data.enabled ? 'on' : 'off'}
                   </span>
                 </div>
 

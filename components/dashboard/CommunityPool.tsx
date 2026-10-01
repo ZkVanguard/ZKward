@@ -39,15 +39,19 @@ import {
   PoolVolatilityContext,
   useCommunityPool,
 } from './community-pool';
-import { PieChart, Shield, Users } from 'lucide-react';
+import type { ChainKey } from './community-pool/types';
+import { POOL_CHAIN_CONFIGS } from '@/lib/contracts/community-pool-config';
+import { Activity, PieChart, Shield, TrendingUp, Users } from 'lucide-react';
+import { SolanaRecentActivity, SolanaSleevePanel } from '@/components/solana/SolanaPoolDetails';
 import { CommunityPoolSkeleton } from './community-pool/Skeletons';
 import { NavHistoryChart } from './NavHistoryChart';
 import { PaperPoolPanel } from './PaperPoolPanel'; // Lazy load heavy panels (only load when in viewport)
 const RiskMetricsPanel = lazy(() =>
   import('./RiskMetricsPanel').then((mod) => ({ default: mod.RiskMetricsPanel }))
 );
-const SolanaPoolView = lazy(() =>
-  import('@/components/solana/SolanaPoolView').then((mod) => ({ default: mod.SolanaPoolView }))
+// Solana deposit/withdraw pulls in @solana/web3.js — load only when chosen.
+const SolanaVaultActions = lazy(() =>
+  import('@/components/solana/SolanaVaultActions').then((mod) => ({ default: mod.SolanaVaultActions }))
 );
 const AutoHedgePanel = lazy(() =>
   import('./AutoHedgePanel').then((mod) => ({ default: mod.AutoHedgePanel }))
@@ -107,6 +111,27 @@ export const CommunityPool = memo(function CommunityPool({
   const privyEmbeddedAddress = usePrivyEmbeddedAddress();
 
   const pool = useCommunityPool(propAddress ?? privyEmbeddedAddress ?? undefined);
+
+  // `?chain=<key>` opens a specific pool (old `?tab=solana` links land on
+  // Solana); every pick keeps the URL in step so a pool can be shared.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const chain = params.get('chain') ?? (params.get('tab') === 'solana' ? 'solana' : null);
+    if (chain && chain !== pool.selectedChain && chain in POOL_CHAIN_CONFIGS) {
+      pool.handleChainSelect(chain as ChainKey);
+    }
+    // Read the URL once on mount; later picks go through selectChain.
+  }, []);
+  const selectChain = useCallback(
+    (key: ChainKey) => {
+      pool.handleChainSelect(key);
+      const params = new URLSearchParams(window.location.search);
+      params.set('chain', key);
+      if (params.get('tab') === 'solana') params.delete('tab');
+      window.history.replaceState(null, '', `${window.location.pathname}?${params.toString()}`);
+    },
+    [pool],
+  );
 
   // Auto-select Hedera the first time a Privy embedded wallet appears.
   // Privy wallets live on Hedera Testnet by default (privy-client-config
@@ -299,14 +324,13 @@ export const CommunityPool = memo(function CommunityPool({
   });
 
   // ============================================================================
-  // VIRTUAL POOL SHORT-CIRCUIT (Paper, Solana)
+  // PAPER POOL SHORT-CIRCUIT
   // ============================================================================
-  // Paper (paper-trader:* cron_state, portfolio -3) and the Solana token pool
-  // (its own vertical, portfolio -6) aren't CommunityPool contracts. Short-
-  // circuit BEFORE the loading gate so the on-chain fetchers never fire for
-  // them. Keeps the PoolHeader visible so users can switch back.
-  if (pool.selectedChain === 'paper' || pool.selectedChain === 'solana') {
-    const isPaper = pool.selectedChain === 'paper';
+  // Paper isn't a chain — it's a virtual pool backed by paper-trader:*
+  // cron_state + hedges (portfolio_id -3). Short-circuit BEFORE the loading
+  // gate so the on-chain fetchers never fire for this selection. Keeps the
+  // PoolHeader visible so users can switch back.
+  if (pool.selectedChain === 'paper') {
     return (
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -315,19 +339,13 @@ export const CommunityPool = memo(function CommunityPool({
       >
         <PoolHeader
           selectedChain={pool.selectedChain}
-          onChainSelect={pool.handleChainSelect}
-          chainName={isPaper ? 'Paper Pool' : 'Solana Token Pool'}
-          network={isPaper ? 'shadow' : 'devnet'}
+          onChainSelect={selectChain}
+          chainName="Paper Pool"
+          network="shadow"
           poolDeployed
         />
         <div className="p-3 sm:p-6">
-          {isPaper ? (
-            <PaperPoolPanel />
-          ) : (
-            <Suspense fallback={<div className="text-label-secondary text-sm p-4">Loading pool state…</div>}>
-              <SolanaPoolView />
-            </Suspense>
-          )}
+          <PaperPoolPanel />
         </div>
       </motion.div>
     );
@@ -354,7 +372,7 @@ export const CommunityPool = memo(function CommunityPool({
       >
         <PoolHeader
           selectedChain={pool.selectedChain}
-          onChainSelect={pool.handleChainSelect}
+          onChainSelect={selectChain}
           onRefresh={() => pool.fetchPoolData(true)}
         />
         <div className="p-4 sm:p-6">
@@ -370,6 +388,13 @@ export const CommunityPool = memo(function CommunityPool({
   // ============================================================================
   // MAIN RENDER
   // ============================================================================
+  // Reads top to bottom: what the pool is (chart + stats) → what you hold →
+  // what you can do (deposit / withdraw) → details. Heavy, rarely-needed
+  // panels start collapsed so the page is not a wall of cards.
+
+  const sui = pool.selectedChain === 'sui';
+  const hedera = pool.selectedChain === 'hedera';
+  const solana = pool.selectedChain === 'solana';
 
   return (
     <motion.div
@@ -377,21 +402,18 @@ export const CommunityPool = memo(function CommunityPool({
       animate={{ opacity: 1, y: 0 }}
       className="bg-white dark:bg-gray-800 rounded-2xl sm:rounded-xl shadow-lg overflow-hidden min-w-0 max-w-full"
     >
+      {/* AI Insights only where its backend answers (Hedera). */}
       <PoolHeader
         selectedChain={pool.selectedChain}
-        onChainSelect={pool.handleChainSelect}
+        onChainSelect={selectChain}
         onRefresh={() => pool.fetchPoolData(true)}
-        onAIClick={handleAIClick}
+        onAIClick={hedera ? handleAIClick : undefined}
         chainName={chainName}
-        network={pool.network}
-        poolDeployed={pool.poolDeployed}
+        network={solana ? 'testnet' : pool.network}
+        poolDeployed={solana ? true : pool.poolDeployed}
       />
 
-      {/* Share-price history chart owns the hero slot. Total Value and
-          Total Shares tiles that used to sit atop PoolStats were removed
-          in favour of showing the story rather than the point-in-time
-          number. Current NAV surfaces as the last tooltip on the chart. */}
-      <NavHistoryChart chain={pool.selectedChain === 'hedera' ? 'hedera' : 'sui'} />
+      <NavHistoryChart chain={hedera ? 'hedera' : solana ? 'solana' : 'sui'} />
 
       <PoolStats poolData={pool.poolData} selectedChain={pool.selectedChain} />
 
@@ -403,8 +425,6 @@ export const CommunityPool = memo(function CommunityPool({
         currentSharePrice={Number(pool.poolData?.sharePrice) || undefined}
       />
 
-      {/* Show user position if wallet is connected — kept above allocation
-          on mobile so members see their stake before the pool-wide charts. */}
       {pool.activeAddress && pool.userPosition && (
         <UserPositionCard
           userPosition={pool.userPosition}
@@ -413,45 +433,17 @@ export const CommunityPool = memo(function CommunityPool({
         />
       )}
 
-      {/* Allocation chart. Collapsed on mobile, expanded on desktop */}
-      <CollapsibleSection
-        title="Allocation"
-        icon={<PieChart className="w-4 h-4 text-indigo-500" />}
-        summary={pool.chainConfig?.assets?.join(' · ') ?? 'Multi-asset'}
-      >
-        <AllocationChart
-          allocations={pool.poolData.allocations}
-          assets={pool.chainConfig?.assets}
-        />
-      </CollapsibleSection>
-
-      {/* Active BlueFin perp hedges (SUI pool only). Renders nothing when
-          no real hedges are open or when the chain doesn't have any. */}
-      {pool.selectedChain === 'sui' && pool.poolData.hedges && pool.poolData.hedges.length > 0 && (
-        <CollapsibleSection
-          title="Active Hedges"
-          icon={<Shield className="w-4 h-4 text-purple-500" />}
-          summary={`${pool.poolData.hedges.length} pos.`}
-        >
-          <HedgesPanel hedges={pool.poolData.hedges} />
-        </CollapsibleSection>
-      )}
-
-      {/* Hedera vault has its own compact deposit/withdraw component wired
-          to SimpleUsdcVault directly. Keeps this dedicated path free of the
-          SUI + Sepolia + Cronos + WDK + permit code that the monolith
-          DepositWithdrawActions carries for backwards compatibility.
-          Prefer privyEmbeddedAddress over pool.address so Google/email
-          login users see their embedded wallet immediately even before
-          wagmi's useAccount resolves. */}
-      {pool.selectedChain === 'hedera' && pool.poolData && (
-        <HederaPoolHedgesProjection poolNavUsd={Number(pool.poolData.totalValueUSD) || 0} />
-      )}
-      {pool.selectedChain === 'hedera' ? (
+      {/* Each chain's own deposit/withdraw. Hedera prefers the Privy embedded
+          address so Google/email users see their wallet before wagmi resolves. */}
+      {hedera ? (
         <HederaVaultActions
           address={(privyEmbeddedAddress ?? pool.address) as `0x${string}` | undefined}
           onRefresh={() => pool.fetchPoolData(true)}
         />
+      ) : solana ? (
+        <Suspense fallback={<div className="p-4 border-b border-gray-100 dark:border-gray-700"><PanelSkeleton /></div>}>
+          <SolanaVaultActions />
+        </Suspense>
       ) : (
         <DepositWithdrawActions
           selectedChain={pool.selectedChain}
@@ -503,59 +495,102 @@ export const CommunityPool = memo(function CommunityPool({
         network={pool.network}
       />
 
-      {/* Hedera swaps SUI's RiskMetrics + AutoHedge (both BlueFin-shaped)
-          for a chain-native Recent Activity feed. Real events from Mirror
-          Node; refreshes every 15s. Keeps the tab useful without the
-          "insufficient data" empty state that SUI panels show on Hedera. */}
-      {!compact && pool.selectedChain === 'hedera' && <HederaRecentActivity />}
-
-      {/* One GraphQL query, two indexing backends. Proves the AI-vault
-          schema abstracts over indexing infrastructure, not just chains.
-          MultiChainVaultsPanel removed 2026-09-23: its Hedera adapter
-          comparison side depended on /api/subgraph/hedera which was
-          retired in commit 5303af22 (ETHGlobal cleanup). Component file
-          preserved for potential re-mount if the adapter route returns. */}
-
-      {/* Risk Metrics. SUI/Cronos only; needs BlueFin history */}
-      {!compact && pool.selectedChain !== 'hedera' && (
-        <div
-          ref={riskMetricsRef}
-          className="p-3 sm:p-4 md:p-5 border-b border-gray-100 dark:border-gray-700 min-h-[200px]"
-        >
-          {riskMetricsVisible ? (
-            <Suspense fallback={<PanelSkeleton />}>
-              <RiskMetricsPanel compact={false} chain={pool.selectedChain} />
-            </Suspense>
-          ) : (
-            <PanelSkeleton />
-          )}
-        </div>
-      )}
-
-      {/* Auto Hedge Panel. SUI-only feature (BlueFin auto-hedging) */}
-      {!compact && pool.selectedChain !== 'hedera' && (
-        <div
-          ref={autoHedgeRef}
-          className="p-3 sm:p-4 md:p-5 border-b border-gray-100 dark:border-gray-700 min-h-[200px]"
-        >
-          {autoHedgeVisible ? (
-            <Suspense fallback={<PanelSkeleton />}>
-              <AutoHedgePanel chain={pool.selectedChain} />
-            </Suspense>
-          ) : (
-            <PanelSkeleton />
-          )}
-        </div>
-      )}
-
-      {!compact && (
+      {/* What the pool holds. The Solana vault holds only its pool token, so
+          its trading sleeve is the story there. */}
+      {solana ? (
         <CollapsibleSection
-          title="Members & Pool Info"
+          title="Trading sleeve"
+          icon={<Activity className="w-4 h-4 text-indigo-500" />}
+          summary="BTC · ETH · SOL"
+        >
+          <div className="p-3 sm:p-4 md:p-5 border-b border-gray-100 dark:border-gray-700">
+            <SolanaSleevePanel />
+          </div>
+        </CollapsibleSection>
+      ) : (
+        <CollapsibleSection
+          title="Allocation"
+          icon={<PieChart className="w-4 h-4 text-indigo-500" />}
+          summary={pool.chainConfig?.assets?.join(' · ') ?? 'Multi-asset'}
+        >
+          <AllocationChart
+            allocations={pool.poolData.allocations}
+            assets={pool.chainConfig?.assets}
+          />
+        </CollapsibleSection>
+      )}
+
+      {/* Active BlueFin perp hedges (SUI pool only). Renders nothing when
+          no real hedges are open. */}
+      {sui && pool.poolData.hedges && pool.poolData.hedges.length > 0 && (
+        <CollapsibleSection
+          title="Active hedges"
+          icon={<Shield className="w-4 h-4 text-purple-500" />}
+          summary={`${pool.poolData.hedges.length} pos.`}
+        >
+          <HedgesPanel hedges={pool.poolData.hedges} />
+        </CollapsibleSection>
+      )}
+
+      {hedera && (
+        <CollapsibleSection
+          title="Projected hedges"
+          icon={<TrendingUp className="w-4 h-4 text-teal-600" />}
+          summary="BTC · ETH · SUI"
+          collapsibleOnDesktop
+          defaultOpenDesktop={false}
+        >
+          <HederaPoolHedgesProjection poolNavUsd={Number(pool.poolData.totalValueUSD) || 0} />
+        </CollapsibleSection>
+      )}
+
+      {!compact && (hedera || solana) && (
+        <CollapsibleSection title="Recent activity" icon={<Activity className="w-4 h-4 text-green-600" />}>
+          {hedera ? <HederaRecentActivity /> : <SolanaRecentActivity />}
+        </CollapsibleSection>
+      )}
+
+      {/* SUI risk analytics + auto-hedge (BlueFin history). Collapsed by
+          default; the panels only load once opened and scrolled into view. */}
+      {!compact && sui && (
+        <CollapsibleSection
+          title="Risk & auto-hedge"
+          icon={<Shield className="w-4 h-4 text-slate-500" />}
+          summary="Returns, drawdown, hedges"
+          collapsibleOnDesktop
+          defaultOpenDesktop={false}
+        >
+          <div ref={riskMetricsRef} className="p-3 sm:p-4 md:p-5 border-b border-gray-100 dark:border-gray-700 min-h-[200px]">
+            {riskMetricsVisible ? (
+              <Suspense fallback={<PanelSkeleton />}>
+                <RiskMetricsPanel compact={false} chain="sui" />
+              </Suspense>
+            ) : (
+              <PanelSkeleton />
+            )}
+          </div>
+          <div ref={autoHedgeRef} className="p-3 sm:p-4 md:p-5 border-b border-gray-100 dark:border-gray-700 min-h-[200px]">
+            {autoHedgeVisible ? (
+              <Suspense fallback={<PanelSkeleton />}>
+                <AutoHedgePanel chain="sui" />
+              </Suspense>
+            ) : (
+              <PanelSkeleton />
+            )}
+          </div>
+        </CollapsibleSection>
+      )}
+
+      {!compact && !solana && (
+        <CollapsibleSection
+          title="Members & pool info"
           icon={<Users className="w-4 h-4 text-yellow-500" />}
           summary={(() => {
             const n = pool.poolData?.memberCount ?? pool.leaderboard?.length ?? 0;
             return `${n.toLocaleString()} ${n === 1 ? 'member' : 'members'}`;
           })()}
+          collapsibleOnDesktop
+          defaultOpenDesktop={false}
         >
           <Leaderboard
             entries={pool.leaderboard}

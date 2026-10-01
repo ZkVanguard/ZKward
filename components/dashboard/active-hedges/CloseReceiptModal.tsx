@@ -72,7 +72,7 @@ export const CloseReceiptModal = memo(function CloseReceiptModal({
                     <div className="w-6 h-6 rounded-full bg-[#007AFF]/10 flex items-center justify-center text-[10px] font-bold text-[#007AFF]">2</div>
                     <div className="flex-1">
                       <div className="text-[11px] font-medium text-[#1d1d1f]">DEX returns collateral {receipt.realizedPnl >= 0 ? '+ profit' : '- loss'}</div>
-                      <div className="text-[9px] text-[#86868b]">Moonlander → HedgeExecutor</div>
+                      <div className="text-[9px] text-[#86868b]">Hedge venue → HedgeExecutor</div>
                     </div>
                   </div>
                   

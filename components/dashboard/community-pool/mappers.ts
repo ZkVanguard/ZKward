@@ -5,6 +5,7 @@
  * pure (apiData) → model, behavior-identical to the inline code they replaced.
  */
 import type { PoolSummary, UserPosition, PoolAllocation, PoolHedge } from './types';
+import type { SolanaPoolStatus } from '@/components/solana/status';
 
 type ApiData = Record<string, unknown>;
 
@@ -74,6 +75,20 @@ export function mapApiToPoolSummary(data: ApiData): PoolSummary {
 }
 
 /** Shape the SUI user-position API response into the UserPosition view model. */
+/** Solana token pool status → PoolSummary. `sharePrice` stays token-
+ *  denominated (JIMP per share); PoolStats labels it that way for Solana. */
+export function mapSolanaStatusToPoolSummary(s: SolanaPoolStatus): PoolSummary {
+  return {
+    totalValueUSD: s.navUsd ?? 0,
+    totalShares: s.totalShares ?? 0,
+    sharePrice: s.sharePrice ?? 1,
+    memberCount: s.memberCount ?? 0,
+    allocations: { BTC: 0, ETH: 0, SUI: 0, CRO: 0 },
+    aiLastUpdate: null,
+    aiReasoning: null,
+  };
+}
+
 export function mapApiToUserPosition(data: ApiData, walletAddress: string | null | undefined): UserPosition {
   return {
     walletAddress: walletAddress || '',

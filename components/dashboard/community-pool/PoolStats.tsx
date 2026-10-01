@@ -68,6 +68,7 @@ function Metric({ value, label, size, valueColorClass, chip }: MetricProps) {
 export const PoolStats = memo(function PoolStats({ poolData, selectedChain }: PoolStatsProps) {
   const isSui = selectedChain === 'sui';
   const isHedera = selectedChain === 'hedera';
+  const isSolana = selectedChain === 'solana';
   const isStale = Boolean(poolData.stale) && isSui;
 
   // Projected 24h return @ 2× — Hedera only, since Hedera share price is
@@ -96,10 +97,11 @@ export const PoolStats = memo(function PoolStats({ poolData, selectedChain }: Po
 
   const sharePriceDisplay = useMemo(() => {
     const price = Number(poolData.sharePrice) || (isSui ? 1 : 0);
-    return `$${price.toFixed(4)}`;
-  }, [isSui, poolData.sharePrice]);
+    // Solana shares are priced in the pool token, not dollars.
+    return isSolana ? `${price.toFixed(4)} JIMP` : `$${price.toFixed(4)}`;
+  }, [isSui, isSolana, poolData.sharePrice]);
 
-  const sharePriceSubtext = isSui ? 'Current Share Price (USDC at inception)' : 'Share Price';
+  const sharePriceSubtext = isSui ? 'Share price (started at $1.00)' : isSolana ? 'Share price' : 'Share Price';
 
   const profit = useMemo(() => {
     if (!isSui) return null;
