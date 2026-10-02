@@ -111,7 +111,8 @@ export const CommunityPool = memo(function CommunityPool({
   // completes so the deposit UI unlocks without a manual reconnect.
   const privyEmbeddedAddress = usePrivyEmbeddedAddress();
 
-  const pool = useCommunityPool(propAddress ?? privyEmbeddedAddress ?? undefined);
+  const hub = useWalletHub();
+  const pool = useCommunityPool(propAddress ?? privyEmbeddedAddress ?? undefined, hub.activeChain === 'hedera');
 
   // `?chain=<key>` opens a specific pool (old `?tab=solana` links land on
   // Solana); every pick keeps the URL in step so a pool can be shared.
@@ -139,7 +140,6 @@ export const CommunityPool = memo(function CommunityPool({
   // The pool follows the user's active network (one at a time). A shared
   // `?chain=` link wins once on arrival; any other pool can still be viewed,
   // its deposit card then guides to "Switch to <network>".
-  const hub = useWalletHub();
   const activeChain = hub.isConnected ? hub.activeChain : null;
   // Latest pool state via a ref so only a change of active network re-selects
   // the pool, never a pool pick the user just made.

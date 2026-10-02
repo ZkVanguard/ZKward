@@ -49,6 +49,11 @@ export function useWallet() {
     suiBalance,
     suiNetwork,
 
+    // Positions, hedges and risk exist for SUI and EVM wallets. On any other
+    // active network these are null/false and the surface shows its guidance.
+    portfolioAddress: isSUI ? suiAddr : isEVM ? evmAddr : null,
+    hasPortfolioWallet: isSUI || isEVM,
+
     // Helpers
     isEVM,
     isSUI,

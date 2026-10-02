@@ -45,7 +45,7 @@ import type {
 } from './positions-types';
 
 export function PositionsList({ address, onOpenHedge }: PositionsListProps) {
-  const { isConnected, evmAddress } = useWallet();
+  const { hasPortfolioWallet: isConnected, evmAddress } = useWallet();
   // Get only portfolios owned by the connected wallet (EVM-specific)
   const {
     data: userPortfolios,
