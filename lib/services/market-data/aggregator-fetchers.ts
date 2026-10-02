@@ -100,37 +100,26 @@ export async function fetchCryptoComData(assets: string[] = ['BTC', 'ETH']): Pro
 }
 
 /**
- * Binance perpetual funding + long/short account ratio.
- * Contrarian signals: funding > +0.03%/8h (~30% APR) → longs crowded → SHORT;
- * long/short ratio > 1.5 or < 0.67 → extreme retail positioning.
+ * Perpetual funding rate per asset (decimal per 8 h). The aggregator votes
+ * on it only above FUNDING_CROWDED_RATE.
  */
 export async function fetchBinancePositioning(
   assets: string[],
-): Promise<Record<string, { funding: number; longShortRatio: number }>> {
-  const out: Record<string, { funding: number; longShortRatio: number }> = {};
+): Promise<Record<string, { funding: number }>> {
+  const out: Record<string, { funding: number }> = {};
   await Promise.all(
     assets.map(async (rawAsset) => {
       const asset = rawAsset.toUpperCase();
       const symbol = `${asset}USDT`;
       try {
-        const [premiumResp, ratioResp] = await Promise.all([
-          fetch(`https://fapi.binance.com/fapi/v1/premiumIndex?symbol=${symbol}`, {
-            signal: AbortSignal.timeout(4000),
-            next: { revalidate: 60 },
-          }).catch(() => null),
-          fetch(
-            `https://fapi.binance.com/futures/data/globalLongShortAccountRatio?symbol=${symbol}&period=5m&limit=1`,
-            { signal: AbortSignal.timeout(4000), next: { revalidate: 300 } },
-          ).catch(() => null),
-        ]);
-        if (!premiumResp?.ok || !ratioResp?.ok) return;
+        const premiumResp = await fetch(`https://fapi.binance.com/fapi/v1/premiumIndex?symbol=${symbol}`, {
+          signal: AbortSignal.timeout(4000),
+          next: { revalidate: 60 },
+        }).catch(() => null);
+        if (!premiumResp?.ok) return;
         const premiumJson = (await premiumResp.json()) as { lastFundingRate?: string };
-        const ratioJson = (await ratioResp.json()) as Array<{ longShortRatio?: string }>;
         const funding = parseFloat(premiumJson.lastFundingRate ?? '');
-        const ratio = parseFloat(ratioJson[0]?.longShortRatio ?? '');
-        if (Number.isFinite(funding) && Number.isFinite(ratio) && ratio > 0) {
-          out[asset] = { funding, longShortRatio: ratio };
-        }
+        if (Number.isFinite(funding)) out[asset] = { funding };
       } catch (e) {
         logger.debug('[PredictionAggregator] Binance fetch failed', {
           asset,
