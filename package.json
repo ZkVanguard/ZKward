@@ -29,7 +29,7 @@
     "security:scan": "node scripts/security-scan.cjs",
     "security:supply-chain": "node scripts/verify-supply-chain.cjs",
     "verify:frontend": "node scripts/verify-frontend.cjs",
-    "prebuild": "node scripts/security-scan.cjs && node scripts/verify-supply-chain.cjs && node scripts/verify-frontend.cjs",
+    "prebuild": "node scripts/fetch-private-modules.cjs && node scripts/security-scan.cjs && node scripts/verify-supply-chain.cjs && node scripts/verify-frontend.cjs",
     "clean": "rimraf dist coverage .hardhat cache",
     "compile": "hardhat compile",
     "compile:circuits": "bun run scripts/utils/generate-circuits.ts",

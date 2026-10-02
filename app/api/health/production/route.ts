@@ -18,6 +18,7 @@
  *
  * Public + rate-limited. No auth required (think of it like /api/health).
  */
+import privateModulesStatus from '@/lib/generated/private-modules-status.json';
 import { NextRequest, NextResponse } from 'next/server';
 import { logger } from '@/lib/utils/logger';
 import { readLimiter } from '@/lib/security/rate-limiter';
@@ -682,6 +683,7 @@ export async function GET(req: NextRequest) {
     // tsconfig types drift bailed two prod deploys unnoticed for 2 days.
     build: {
       commit: (process.env.VERCEL_GIT_COMMIT_SHA || '').slice(0, 8) || 'local',
+      privateModules: privateModulesStatus,
       branch: process.env.VERCEL_GIT_COMMIT_REF || 'unknown',
     },
     // v0.3.0 defense gate footprint — answers "is the safety off or on
