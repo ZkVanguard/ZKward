@@ -27,9 +27,10 @@ export type WalletChain = 'hedera' | 'sui' | 'solana';
 export const WALLET_CHAINS: readonly WalletChain[] = ['hedera', 'sui', 'solana'];
 
 /** Plain-language copy for the chooser and the prompts. */
-export const CHAIN_INFO: Record<WalletChain, { name: string; pool: string; how: string; cta: string; color: string; installUrl: string; installLabel: string }> = {
+export const CHAIN_INFO: Record<WalletChain, { name: string; net: string; pool: string; how: string; cta: string; color: string; installUrl: string; installLabel: string }> = {
   hedera: {
     name: 'Hedera',
+    net: 'testnet',
     pool: 'USDC pool on Hedera testnet',
     how: 'Sign in with email or Google. We create a wallet for you, nothing to install.',
     cta: 'Sign in',
@@ -39,6 +40,7 @@ export const CHAIN_INFO: Record<WalletChain, { name: string; pool: string; how: 
   },
   sui: {
     name: 'SUI',
+    net: 'mainnet',
     pool: 'Live USDC pool on SUI mainnet',
     how: 'Uses a SUI browser wallet such as Slush, Suiet or Ethos.',
     cta: 'Connect SUI wallet',
@@ -48,6 +50,7 @@ export const CHAIN_INFO: Record<WalletChain, { name: string; pool: string; how: 
   },
   solana: {
     name: 'Solana',
+    net: 'devnet',
     pool: 'JIMP test pool on Solana devnet',
     how: 'Uses Phantom. Switch it to Devnet for the test pool.',
     cta: 'Connect Phantom',

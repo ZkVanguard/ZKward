@@ -5,6 +5,7 @@ import { DollarSign, RefreshCw, ChevronRight } from 'lucide-react';
 import { usePositions } from '@/contexts/PositionsContext';
 import { logger } from '@/lib/utils/logger';
 import { ConnectPromptButton } from '@/components/ui/ConnectPromptButton';
+import { WalletContextBadge } from '@/components/wallet/ChainBadge';
 
 interface PortfolioOverviewProps {
   address?: string;
@@ -84,6 +85,7 @@ export function PortfolioOverview({ address, onNavigateToPositions, onNavigateTo
               <div>
                 <div className="flex items-center gap-2">
                   <span className="text-[10px] sm:text-[11px] font-semibold text-[#86868b] uppercase tracking-[0.06em]">Portfolio</span>
+                  <WalletContextBadge />
                   {derived && derived.portfolioCount > 0 && (
                     <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-[#34C759]/10 rounded-full">
                       <span className="w-1.5 h-1.5 bg-[#34C759] rounded-full animate-pulse" />

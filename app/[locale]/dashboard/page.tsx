@@ -23,7 +23,8 @@ import { usePositions } from '@/contexts/PositionsContext';
 import { usePortfolioAction, type CustomActionPayload } from '@/contexts/AIDecisionsContext';
 import { logger } from '@/lib/utils/logger';
 import { useSui } from '@/app/sui-providers';
-import { useWalletHub } from '@/contexts/WalletHubContext';
+import { useWalletHub, type WalletChain } from '@/contexts/WalletHubContext';
+import { ChainBadge } from '@/components/wallet/ChainBadge';
 import type { PredictionMarket } from '@/lib/services/market-data/DelphiMarketService';
 
 // Dynamic imports for code splitting
@@ -299,6 +300,9 @@ export default function DashboardPage() {
   // clicked Sign In, causing a phantom "connected" address in the
   // sidebar. Sidebar identity requires an EXPLICIT sign-in (SUI or Privy).
   const isConnected = suiConnected || session.authenticated || hub.solana.connected;
+  // Which network the sidebar identity belongs to, and how many more are connected.
+  const primaryChain: WalletChain | null = suiConnected ? 'sui' : session.authenticated ? 'hedera' : hub.solana.connected ? 'solana' : null;
+  const extraChains = Math.max(0, [suiConnected, session.authenticated && !!session.address, hub.solana.connected].filter(Boolean).length - 1);
   const address = suiAddress || session.address || hub.solana.address || '';
   const displayBalance = suiConnected
     ? `${suiBalance} SUI`
@@ -492,7 +496,8 @@ export default function DashboardPage() {
               <SidebarWalletCard
                 address={displayAddress}
                 displayName={session.displayName}
-                isSui={suiConnected}
+                chain={primaryChain}
+                extraChains={extraChains}
                 isConnected={isConnected}
                 subLabel={isConnected ? displayBalance : 'Tap to connect'}
                 size={40}
@@ -535,7 +540,8 @@ export default function DashboardPage() {
               <SidebarWalletCard
                 address={displayAddress}
                 displayName={session.displayName}
-                isSui={suiConnected}
+                chain={primaryChain}
+                extraChains={extraChains}
                 isConnected={isConnected}
                 subLabel={isConnected ? displayBalance : 'Tap to connect'}
                 size={48}
@@ -941,14 +947,16 @@ function Badge({
 function SidebarWalletCard({
   address,
   displayName,
-  isSui,
+  chain,
+  extraChains,
   isConnected,
   subLabel,
   size,
 }: {
   address: string;
   displayName: string | null;
-  isSui: boolean;
+  chain: WalletChain | null;
+  extraChains: number;
   isConnected: boolean;
   subLabel: string;
   size: number;
@@ -959,12 +967,12 @@ function SidebarWalletCard({
   const subSize = size >= 48 ? 'text-[13px]' : 'text-xs';
   return (
     <div className="flex items-center gap-3 min-w-0">
-      {isSui ? (
+      {chain === 'sui' || chain === 'solana' ? (
         <div
-          className="rounded-full flex items-center justify-center bg-[#4DA2FF] flex-shrink-0"
-          style={{ width: size, height: size }}
+          className="rounded-full flex items-center justify-center flex-shrink-0"
+          style={{ width: size, height: size, background: chain === 'sui' ? '#4DA2FF' : '#9945FF' }}
         >
-          <span className={`text-white font-semibold ${textSize}`}>SUI</span>
+          <span className={`text-white font-semibold ${textSize}`}>{chain === 'sui' ? 'SUI' : 'SOL'}</span>
         </div>
       ) : (
         <WalletAvatar address={address || null} name={displayName} size={size} />
@@ -973,9 +981,17 @@ function SidebarWalletCard({
         <p className={`${textSize} font-semibold text-label-primary truncate tracking-[-0.01em]`}>
           {isConnected ? primary : 'Not Connected'}
         </p>
-        <p className={`${subSize} text-label-quaternary tracking-[-0.003em] truncate`}>
-          {subLabel}
-        </p>
+        {isConnected && chain ? (
+          <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
+            <ChainBadge chain={chain} />
+            {subLabel && <span className={`${subSize} text-label-quaternary tabular-nums truncate`}>{subLabel}</span>}
+            {extraChains > 0 && <span className={`${subSize} text-label-quaternary`}>+{extraChains} more</span>}
+          </div>
+        ) : (
+          <p className={`${subSize} text-label-quaternary tracking-[-0.003em] truncate`}>
+            {subLabel}
+          </p>
+        )}
       </div>
     </div>
   );

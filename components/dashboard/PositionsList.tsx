@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
+import { WalletContextBadge } from '@/components/wallet/ChainBadge';
 import {
   TrendingUp,
   TrendingDown,
@@ -445,6 +446,7 @@ export function PositionsList({ address, onOpenHedge }: PositionsListProps) {
               <span className="text-[11px] font-semibold text-[#86868b] uppercase tracking-wider">
                 {displayValues.usingPortfolioValue ? 'Portfolio Value' : 'Total Value'}
               </span>
+              <WalletContextBadge />
               <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-[#34C759]/10 rounded-full">
                 <span className="w-1 h-1 bg-[#34C759] rounded-full animate-pulse" />
                 <span className="text-[9px] font-bold text-[#34C759]">LIVE</span>

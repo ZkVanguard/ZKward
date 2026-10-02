@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useWallet } from '@/lib/hooks/useWallet';
+import { WalletContextBadge } from '@/components/wallet/ChainBadge';
 import { Briefcase, TrendingUp, TrendingDown, Layers, Shield, Activity } from 'lucide-react';
 import { logger } from '@/lib/utils/logger';
 import { ConnectPromptButton } from '@/components/ui/ConnectPromptButton';
@@ -240,7 +241,7 @@ export function PortfolioTab() {
       <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 min-w-0">
         <div className="min-w-0">
           <h2 className="text-lg sm:text-xl font-semibold text-[#1d1d1f] tracking-[-0.01em] leading-tight break-words">Everything you hold, across products</h2>
-          <p className="text-xs sm:text-[13px] text-[#86868b] mt-1 font-mono truncate tabular-nums">{wallet.slice(0, 10)}…{wallet.slice(-6)}</p>
+          <WalletContextBadge className="mt-1" />
         </div>
         {data?.asOf && (
           <div className="text-[11px] sm:text-[12px] text-[#86868b] flex-shrink-0 tabular-nums">
