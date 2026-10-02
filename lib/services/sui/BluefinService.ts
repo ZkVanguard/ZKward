@@ -39,6 +39,7 @@ import {
 import { performDryRunHedge, type DryRunParams, type DryRunResult } from '@/lib/services/sui/bluefin/dry-run-hedge';
 import { performOpenHedge } from '@/lib/services/sui/bluefin/open-hedge-impl';
 import { performCloseHedge } from '@/lib/services/sui/bluefin/close-hedge-impl';
+import { parseAccountPosition } from '@/lib/services/sui/bluefin-ticker-parsers';
 import { decodeSuiPrivateKey } from '@mysten/sui/cryptography';
 import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
 
@@ -733,8 +734,7 @@ export class BluefinService {
    * Get all open positions from account data.
    *
    * Bluefin Pro returns numeric fields in E9 format (multiplied by 1e9, as
-   * decimal strings) and does NOT return position size directly. We derive
-   * size from initial margin × leverage / entry price.
+   * decimal strings). Field mapping lives in `parseAccountPosition`.
    *
    * Uses Exchange API: /api/v1/account
    */
@@ -746,42 +746,7 @@ export class BluefinService {
         positions?: Array<Record<string, unknown>>;
       }>('GET', `/api/v1/account?accountAddress=${this.walletAddress}`, undefined, 'exchange');
 
-      const positions = account?.positions || [];
-      const e9 = (v: unknown): number => {
-        const n = parseFloat(String(v ?? '0'));
-        return Number.isFinite(n) ? n / 1e9 : 0;
-      };
-
-      return positions.map((p: Record<string, unknown>) => {
-        const symbol = String(p.symbol ?? '');
-        const side = (String(p.side ?? '').toUpperCase() === 'SHORT' ? 'SHORT' : 'LONG') as
-          | 'LONG'
-          | 'SHORT';
-        const entryPrice = e9(p.avgEntryPriceE9);
-        const markPrice = e9(p.markPriceE9);
-        const leverage = e9(p.leverageE9) || 1;
-        const initialMargin = e9(p.initialMarginE9);
-        const unrealizedPnl = e9(p.unrealizedPnlE9);
-        // Bluefin Pro doesn't expose quantity; derive: notional = margin*lev, size = notional/entry
-        const size = entryPrice > 0 ? (initialMargin * leverage) / entryPrice : 0;
-        const liqRaw = p.liquidationPriceE9 ?? p.estimatedLiquidationPriceE9;
-        const liquidationPrice = e9(liqRaw);
-        const maintMargin = e9(p.maintenanceMarginE9);
-        const marginRatio = initialMargin > 0 ? maintMargin / initialMargin : 0;
-
-        return {
-          symbol,
-          side,
-          size,
-          leverage,
-          entryPrice,
-          markPrice,
-          liquidationPrice,
-          unrealizedPnl,
-          margin: initialMargin,
-          marginRatio,
-        };
-      }) as BluefinPosition[];
+      return (account?.positions || []).map(parseAccountPosition);
     } catch (error) {
       logger.debug('Failed to get BlueFin positions', {
         error: error instanceof Error ? error.message : String(error),

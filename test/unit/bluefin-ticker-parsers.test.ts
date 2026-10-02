@@ -8,7 +8,7 @@
  * Inputs are exact values pulled from the live BlueFin API on 2026-06-01.
  */
 import { describe, it, expect } from '@jest/globals';
-import { parseTickerOpenInterest } from '@/lib/services/sui/bluefin-ticker-parsers';
+import { parseTickerOpenInterest, parseAccountPosition } from '@/lib/services/sui/bluefin-ticker-parsers';
 
 describe('parseTickerOpenInterest — real production values (2026-06-01)', () => {
   it('BTC-PERP — $1.66M OI from "1661914791900000" E9 USD value', () => {
@@ -98,5 +98,48 @@ describe('parseTickerOpenInterest — defensive edge cases', () => {
     // Even implausible-looking OI is kept when there's nothing to compare to
     const r = parseTickerOpenInterest({ openInterestE9: '999999999999999999' }, 100);
     expect(r.openInterestUsd).toBeDefined();
+  });
+});
+
+describe('parseAccountPosition — size is the venue size, not a margin derivation', () => {
+  // Venue account response, 2026-10-02: a 0.01 ETH short entered at $2,016.64
+  // with the mark at $2,756.03.
+  const ETH_SHORT = {
+    symbol: 'ETH-PERP',
+    side: 'SHORT',
+    sizeE9: '10000000',
+    avgEntryPriceE9: '2016640000000',
+    markPriceE9: '2756030000000',
+    leverageE9: '3000000000',
+    initialMarginE9: '9186766666',
+    maintenanceMarginE9: '496085400',
+    liquidationPriceE9: '4254863779174',
+    unrealizedPnlE9: '-7393900000',
+    notionalValueE9: '27560300000',
+  };
+
+  it('reads sizeE9 (the old derivation said 0.0137 here)', () => {
+    const pos = parseAccountPosition(ETH_SHORT);
+    expect(pos.size).toBeCloseTo(0.01, 9);
+    expect(pos.side).toBe('SHORT');
+    expect(pos.entryPrice).toBeCloseTo(2016.64, 6);
+  });
+
+  it('size agrees with the venue P&L and notional', () => {
+    const pos = parseAccountPosition(ETH_SHORT);
+    expect((pos.entryPrice - pos.markPrice) * pos.size).toBeCloseTo(pos.unrealizedPnl, 3);
+    expect(pos.size * pos.markPrice).toBeCloseTo(27.5603, 4);
+  });
+
+  it('without sizeE9, derives against the mark price', () => {
+    const { sizeE9: _omit, ...legacy } = ETH_SHORT;
+    expect(parseAccountPosition(legacy).size).toBeCloseTo(0.01, 4);
+  });
+
+  it('an empty position parses to zero size, leverage 1', () => {
+    const pos = parseAccountPosition({});
+    expect(pos.size).toBe(0);
+    expect(pos.leverage).toBe(1);
+    expect(pos.side).toBe('LONG');
   });
 });
