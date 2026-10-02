@@ -108,6 +108,7 @@ function main() {
   const required = lock.mode === 'required';
   const status = { mode: required ? 'required' : 'shadow', ok: false, commit: String(lock.commit).slice(0, 8) };
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'private-modules-'));
+  const startedAt = Date.now();
   try {
     const { via, dest } = fetchCommit(lock, tmp);
     status.via = via;
@@ -142,6 +143,8 @@ function main() {
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
   }
+  // How long the step adds to a build; it runs before everything else.
+  status.ms = Date.now() - startedAt;
   writeStatus(status);
   console.log(`[private-modules] ${JSON.stringify(status)}`);
   return required && !status.ok ? 1 : 0;
