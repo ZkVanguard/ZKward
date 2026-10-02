@@ -18,8 +18,10 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { usePrivy, useLogin, getAccessToken } from '@privy-io/react-auth';
-import { ShieldCheck, Users, CheckCircle2, XCircle, Loader2, LogIn, Send } from 'lucide-react';
+import { usePrivy, getAccessToken } from '@privy-io/react-auth';
+import { ShieldCheck, Users, CheckCircle2, XCircle, Loader2, Send } from 'lucide-react';
+import { ConnectPromptButton } from '@/components/ui/ConnectPromptButton';
+import { ChainSupportNote } from '@/components/wallet/ChainBadge';
 import { isPrivyEnabled } from '@/lib/evm-wallet/privy-config';
 
 // Match site primary (ios-blueHover) for CTAs. Chain-specific chips
@@ -54,7 +56,6 @@ async function fetchPolicy(): Promise<{ allowlistSize: number; quorum: number } 
 export function B2bAdminPanel() {
   const enabled = isPrivyEnabled();
   const { ready, authenticated, user } = usePrivy();
-  const { login } = useLogin();
 
   // Form state
   const [newCap, setNewCap] = useState<string>('50000');
@@ -161,14 +162,8 @@ export function B2bAdminPanel() {
           Sign in with your team email to propose or approve treasury actions.
           Each destructive action requires a quorum of allowlisted admins.
         </p>
-        <button
-          onClick={() => login()}
-          className="inline-flex items-center gap-2 px-5 h-11 rounded-[12px] text-white font-semibold text-[15px] active:scale-[0.98]"
-          style={{ background: ACCENT }}
-        >
-          <LogIn className="w-4 h-4" />
-          Sign in with email
-        </button>
+        <ChainSupportNote supports={['hedera']} className="mb-4" />
+        <ConnectPromptButton chain="hedera" reason="Admin controls use your team's Hedera sign-in (email or Google)." />
       </div>
     );
   }

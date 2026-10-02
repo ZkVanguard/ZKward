@@ -70,9 +70,9 @@ const PositionsList = nextDynamic(
   }
 );
 
-const ActiveHedges = nextDynamic(
+const ChainHedges = nextDynamic(
   () =>
-    import('@/components/dashboard/ActiveHedges').then((mod) => ({ default: mod.ActiveHedges })),
+    import('@/components/dashboard/ChainHedges').then((mod) => ({ default: mod.ChainHedges })),
   {
     loading: () => <LoadingSkeleton />,
     ssr: false,
@@ -324,6 +324,9 @@ export default function DashboardPage() {
   const [showChat, setShowChat] = useState(false);
 
   const displayAddress = address || '';
+  // Positions, risk and agent activity exist for SUI and Hedera wallets; a
+  // Solana user is guided to the Pool tab by each surface's own empty state.
+  const portfolioAddress = primaryChain === 'solana' ? '' : displayAddress;
   // SUI-only mode: portfolio asset universe is fixed to SUI/USDC.
   const portfolioAssets = ['SUI', 'USDC'];
 
@@ -360,7 +363,6 @@ export default function DashboardPage() {
     window.history.replaceState(null, '', `${window.location.pathname}${query ? `?${query}` : ''}`);
   }, []);
 
-  const openChat = useCallback(() => setShowChat(true), []);
 
   const handleAgentAnalysis = async (market: PredictionMarket) => {
     logger.info('🤖 Triggering AI Agent Analysis', { market: market.question });
@@ -695,7 +697,7 @@ export default function DashboardPage() {
   function renderContent() {
     switch (activeDest) {
       case 'pool':
-        return <CommunityPool address={displayAddress} />;
+        return <CommunityPool address={primaryChain === 'hedera' ? displayAddress : undefined} />;
 
       case 'portfolio':
         switch (activeView) {
@@ -703,14 +705,14 @@ export default function DashboardPage() {
             return (
               <Card>
                 <CardHeader title="Positions" subtitle="Your holdings and portfolios" />
-                <PositionsList address={displayAddress} />
+                <PositionsList address={portfolioAddress} />
               </Card>
             );
           case 'hedges':
             return (
               <Card>
                 <CardHeader title="Active hedges" subtitle="Positions that protect your portfolio" />
-                <ActiveHedges address={displayAddress} onOpenChat={openChat} />
+                <ChainHedges onGoToPool={() => handleNavChange('pool')} />
               </Card>
             );
           case 'products':
@@ -720,7 +722,7 @@ export default function DashboardPage() {
               <div className="space-y-3 sm:space-y-6">
                 <Card>
                   <PortfolioOverview
-                    address={displayAddress}
+                    address={portfolioAddress}
                     onNavigateToPositions={() => handleNavChange('portfolio', 'positions')}
                     onNavigateToHedges={() => handleNavChange('portfolio', 'hedges')}
                   />
@@ -729,7 +731,7 @@ export default function DashboardPage() {
                   <Card className="flex flex-col">
                     <CardHeader title="Risk" />
                     <div className="flex-1">
-                      <RiskMetrics address={displayAddress} />
+                      <RiskMetrics address={portfolioAddress} />
                     </div>
                   </Card>
                   <Card className="flex flex-col">
@@ -745,7 +747,7 @@ export default function DashboardPage() {
                       }
                     />
                     <div className="flex-1">
-                      <ActiveHedges address={displayAddress} compact onOpenChat={openChat} />
+                      <ChainHedges compact onGoToPool={() => handleNavChange('pool')} />
                     </div>
                   </Card>
                 </div>
@@ -768,7 +770,7 @@ export default function DashboardPage() {
               {isConnected && (
                 <Card>
                   <CardHeader title="Your agent activity" subtitle="Recent tasks and proofs for your wallet" />
-                  <AgentActivity address={displayAddress} />
+                  <AgentActivity address={portfolioAddress} />
                 </Card>
               )}
               <AgentAlert message={agentMessage} onDismiss={() => setAgentMessage(null)} />

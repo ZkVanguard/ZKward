@@ -134,7 +134,7 @@ function useDebouncedValue<T>(value: T, delay: number): T {
 }
 
 export function AIDecisionsProvider({ children }: { children: React.ReactNode }) {
-  const { address } = useWallet();
+  const { portfolioAddress: address } = useWallet();
   const { positionsData } = usePositions();
   
   // State

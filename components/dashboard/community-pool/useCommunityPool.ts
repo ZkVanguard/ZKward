@@ -49,7 +49,7 @@ import type { SolanaPoolStatus } from '@/components/solana/status'; // =========
 // HOOK
 // ============================================================================
 
-export function useCommunityPool(propAddress?: string) {
+export function useCommunityPool(propAddress?: string, evmActive: boolean = true) {
   const [poolState, dispatchPool] = useReducer(poolReducer, initialPoolState);
   const [txState, dispatchTx] = useReducer(txReducer, initialTxState);
 
@@ -72,7 +72,9 @@ export function useCommunityPool(propAddress?: string) {
   // embedded-wallet address when the user signed in with email/Google).
   // Falling back to the wagmi-connected address keeps external-wallet users
   // (MetaMask etc.) working unchanged.
-  const address = (propAddress || connectedAddress) as `0x${string}` | undefined;
+  // One network at a time: without Hedera active there is no EVM identity,
+  // even if an injected EVM wallet auto-connected in the background.
+  const address = (evmActive ? propAddress || connectedAddress : undefined) as `0x${string}` | undefined;
   const wdkChainId = useChainId();
   const chainId = chain?.id ?? wdkChainId;
   const { signMessageAsync } = useSignMessage();
