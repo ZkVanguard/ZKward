@@ -15,6 +15,7 @@
 
 import { useCallback, useState } from 'react';
 import { usePrivy, useLogin, useLogout, useWallets, useLoginWithOAuth } from '@privy-io/react-auth';
+import { useWalletHubSafe } from '@/contexts/WalletHubContext';
 import { Copy, Check, LogOut, Mail } from 'lucide-react';
 
 // Match the site's primary CTA (Deposit USDC, Enter app, main nav links)
@@ -22,7 +23,6 @@ import { Copy, Check, LogOut, Mail } from 'lucide-react';
 // Kept as a hex constant instead of a Tailwind class so it can be passed to
 // inline `style` alongside the shared button shape.
 const PRIVY_ACCENT = '#0069D9'; // ios-blueHover — one shade darker for AA contrast on white
-const PRIVY_ACCENT_HOVER = '#0055B3';
 
 function truncate(addr: string | undefined): string {
   if (!addr) return '';
@@ -33,6 +33,7 @@ export function PrivyConnectSection() {
   const { ready, authenticated, user } = usePrivy();
   const { login } = useLogin();
   const { logout } = useLogout();
+  const hub = useWalletHubSafe();
   const { wallets } = useWallets();
   // Privy's built-in Google flow — driven by our OWN Google Cloud OAuth
   // client (Client ID + Secret pasted under Login methods → Google in
@@ -170,6 +171,17 @@ export function PrivyConnectSection() {
                 </div>
               )}
 
+              {hub && (
+                <button
+                  onClick={() => {
+                    setShowMenu(false);
+                    hub.openChooser();
+                  }}
+                  className="w-full py-2 mb-1 bg-system-bg-secondary dark:bg-[#2c2c2e] hover:bg-[#E5E5EA] rounded-lg text-[13px] font-medium flex items-center justify-center gap-1.5"
+                >
+                  Switch network
+                </button>
+              )}
               <button
                 onClick={() => {
                   logout();

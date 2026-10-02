@@ -5,6 +5,7 @@ import { ShieldCheck, Copy, AlertTriangle, FileText, ExternalLink, Mail, Downloa
 import { useSui } from '@/app/sui-providers';
 import { logger } from '@/lib/utils/logger';
 import { ConnectPromptButton } from '@/components/ui/ConnectPromptButton';
+import { ChainSupportNote } from '@/components/wallet/ChainBadge';
 
 interface AttestationView {
   objectId: string;
@@ -186,6 +187,7 @@ export function CustodyTab() {
             off-chain assets. The asset list stays private to you + the custodian;
             only the cryptographic hash hits chain.
           </p>
+<ChainSupportNote supports={['sui']} className="mb-4" />
           <ConnectPromptButton chain="sui" reason="Custody attestations live on SUI, so this page needs a SUI wallet." />
         </div>
       </div>

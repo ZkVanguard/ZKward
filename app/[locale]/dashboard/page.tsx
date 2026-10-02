@@ -25,6 +25,7 @@ import { logger } from '@/lib/utils/logger';
 import { useSui } from '@/app/sui-providers';
 import { useWalletHub, type WalletChain } from '@/contexts/WalletHubContext';
 import { ChainBadge } from '@/components/wallet/ChainBadge';
+import { ReconnectBanner } from '@/components/wallet/ReconnectBanner';
 import type { PredictionMarket } from '@/lib/services/market-data/DelphiMarketService';
 
 // Dynamic imports for code splitting
@@ -487,8 +488,9 @@ export default function DashboardPage() {
           <div className="p-4 border-b border-black/5">
             <button
               type="button"
-              onClick={() => { if (!isConnected) hub.openChooser(); }}
-              className={`w-full text-left rounded-xl ${isConnected ? 'cursor-default' : 'hover:bg-system-bg-secondary transition-colors'}`}
+              onClick={() => hub.openChooser(isConnected ? { reason: 'Switch to another network. Every tab follows your choice.' } : undefined)}
+              title={isConnected ? 'Switch network' : 'Connect a wallet'}
+              className="w-full text-left rounded-xl hover:bg-system-bg-secondary transition-colors"
             >
               <SidebarWalletCard
                 address={displayAddress}
@@ -530,8 +532,9 @@ export default function DashboardPage() {
           <div className="p-5 border-b border-black/5">
             <button
               type="button"
-              onClick={() => { if (!isConnected) hub.openChooser(); }}
-              className={`w-full text-left rounded-xl ${isConnected ? 'cursor-default' : 'hover:bg-system-bg-secondary transition-colors'}`}
+              onClick={() => hub.openChooser(isConnected ? { reason: 'Switch to another network. Every tab follows your choice.' } : undefined)}
+              title={isConnected ? 'Switch network' : 'Connect a wallet'}
+              className="w-full text-left rounded-xl hover:bg-system-bg-secondary transition-colors"
             >
               <SidebarWalletCard
                 address={displayAddress}
@@ -570,6 +573,7 @@ export default function DashboardPage() {
         {/* Main Content */}
         <main className="flex-1 min-w-0 min-h-[calc(100vh-52px)] pt-12 lg:pt-0 pb-[calc(52px+env(safe-area-inset-bottom))] lg:pb-0">
           <div className="max-w-[1280px] mx-auto px-3 sm:px-5 py-3 sm:py-6 lg:px-8 lg:py-10">
+            <ReconnectBanner />
             {/* Page Header — desktop-only large title. Uses the design
                 token `text-large-title` (34px, per-Apple line-height +
                 tracking). Sentence-case, tight tracking, no gradient. */}
@@ -977,6 +981,7 @@ function SidebarWalletCard({
         {isConnected && chain ? (
           <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
             <ChainBadge chain={chain} />
+            <span className={`${subSize} text-ios-blue`}>Switch</span>
             {subLabel && <span className={`${subSize} text-label-quaternary tabular-nums truncate`}>{subLabel}</span>}
           </div>
         ) : (

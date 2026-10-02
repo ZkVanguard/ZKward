@@ -1,5 +1,6 @@
 import { Wallet, Sparkles, Plus, Target, Shield, Zap, BarChart2 } from 'lucide-react';
 import { ConnectPromptButton } from '@/components/ui/ConnectPromptButton';
+import { ChainSupportNote } from '@/components/wallet/ChainBadge';
 import { AdvancedPortfolioCreator } from '../portfolio-creator';
 
 export function NotConnectedState() {
@@ -15,6 +16,7 @@ export function NotConnectedState() {
         Your token positions and strategies appear once a wallet is connected
       </p>
 
+<ChainSupportNote supports={['hedera', 'sui']} className="mb-4" />
       <ConnectPromptButton reason="Sign in on Hedera or connect a SUI wallet to see your positions." />
 
       {/* AI Assistant CTA - available even without wallet */}
