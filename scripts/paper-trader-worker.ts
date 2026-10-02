@@ -1,6 +1,7 @@
 #!/usr/bin/env bun
 /**
- * Standalone paper-trader worker. Replaces the Vercel cron route.
+ * Standalone paper-trader worker: the fallback driver for books -3 and -4.
+ * The fast-tick cron is the driver; this ticks only when that cron is quiet.
  *
  * Runs one tick of PaperTrader (-3) + PaperGatedTrader (-4) then exits.
  * Invoke every 5 min from jobs.zkward.com (SSH exec or local HTTP call
@@ -76,6 +77,21 @@ async function main() {
   if (!process.env.DATABASE_URL && process.env.PROD_DATABASE_URL) {
     process.env.DATABASE_URL = process.env.PROD_DATABASE_URL;
     logger.info('[worker] using PROD_DATABASE_URL (DATABASE_URL not set)');
+  }
+
+  // Standby. The 60 s fast-tick cron drives the same two books; while its
+  // heartbeat is fresh this worker must not tick, or both close the same
+  // position seconds apart and count the trade twice. It takes over only
+  // when the cron has gone quiet.
+  const standbyMs = Number(process.env.PAPER_WORKER_STANDBY_MS) || 3 * 60_000;
+  const { getCronState } = await import('@/lib/db/cron-state');
+  const lastFastTick = Number(await getCronState<number>('cron:lastRun:paper-fast-tick').catch(() => 0)) || 0;
+  if (Date.now() - lastFastTick < standbyMs) {
+    logger.info('[worker] standby: fast tick is alive', {
+      lastFastTickAgoSec: Math.round((Date.now() - lastFastTick) / 1000),
+    });
+    await closePool().catch(() => {});
+    process.exit(0);
   }
 
   let ok = true;
