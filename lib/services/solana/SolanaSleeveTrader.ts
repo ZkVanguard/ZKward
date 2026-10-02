@@ -185,13 +185,16 @@ export async function runSolanaSleeveTick(
     // Highest-confidence directional signal above the floor, admitted and
     // ranked by the ledger: an asset measured with no edge at any hold
     // horizon is skipped; a measured edge scales the rank (fail-open cold).
-    const { getLedgerCells, assetHoldPlan } = await import('@/lib/services/market-data/ledger-cells');
-    const cells = await getLedgerCells().catch(() => []);
-    let best: { asset: string; side: Side; conf: number; rank: number; snapshot: SourceSnapshot[] } | null = null;
+    const { getLedgerCells, getRecentLedgerCells, assetHoldPlan } = await import('@/lib/services/market-data/ledger-cells');
+    const [cells, recent] = await Promise.all([getLedgerCells().catch(() => []), getRecentLedgerCells().catch(() => [])]);
+    let best: {
+      asset: string; side: Side; conf: number; rank: number; snapshot: SourceSnapshot[];
+      horizonMin: number | null; hitRate: number | null;
+    } | null = null;
     for (const asset of ASSETS) {
       const p = preds[asset];
       if (!p || p.direction === 'NEUTRAL' || p.confidence < MIN_CONF()) continue;
-      const { plan, measured } = assetHoldPlan(cells, asset);
+      const { plan, measured } = assetHoldPlan(cells, asset, undefined, recent);
       if (measured && !plan) continue;
       const rank = p.confidence * (plan ? Math.max(0.5, Math.min(1.5, plan.hitRate / 0.5)) : 1);
       if (!best || rank > best.rank) {
@@ -200,6 +203,8 @@ export async function runSolanaSleeveTick(
           side: p.direction === 'UP' ? 'LONG' : 'SHORT',
           conf: p.confidence,
           rank,
+          horizonMin: plan?.horizonMin ?? null,
+          hitRate: plan?.hitRate ?? null,
           snapshot: (p.sources ?? []).map((s: { name?: string; type?: string; direction?: string }) => ({
             key: normalizeSourceKey(s.name ?? '', s.type ?? ''),
             direction: (s.direction ?? 'NEUTRAL') as 'UP' | 'DOWN' | 'NEUTRAL',
@@ -239,7 +244,8 @@ export async function runSolanaSleeveTick(
         stopLoss: stopLossPrice,
         simulationMode: true,
         chain: 'solana-devnet',
-        reason: `sleeve entry conf=${best.conf}`,
+        reason: `sleeve entry conf=${best.conf}${best.horizonMin ? ` | ledger ${best.horizonMin}m@${Math.round((best.hitRate ?? 0) * 100)}%` : ''}`,
+        metadata: { holdPlan: { horizonMin: best.horizonMin, hitRate: best.hitRate } },
       });
     } catch (e) {
       logger.warn('[SolanaSleeve] hedge row create failed (position still tracked)', {

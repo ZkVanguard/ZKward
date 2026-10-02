@@ -38,33 +38,63 @@ export const HOLD_HORIZON_CANDIDATES_MIN: readonly number[] = (process.env.PAPER
   .filter((n) => Number.isFinite(n) && n > 0);
 /** A horizon counts as an edge only above a coin flip. */
 export const LEDGER_MIN_EDGE = 0.5;
+/**
+ * Recency gate (2026-10-02): the 14-day cell can average across regimes —
+ * BTC's 240 m hit rate ran 65% → 61% → 56% across successive 12 h buckets
+ * while the 24 h horizon flipped from 39% to 72%. A horizon is admitted only
+ * if it also holds above a coin flip over this recent window, when the
+ * window has enough rows to say anything.
+ */
+export const LEDGER_RECENT_HOURS = num('SIGNAL_LEDGER_RECENT_HOURS', 48);
+export const LEDGER_RECENT_MIN_N = num('SIGNAL_LEDGER_RECENT_MIN_N', 20);
 
 const CACHE_TTL_MS = 60_000;
-let cache: { at: number; cells: LedgerCell[] } | null = null;
-let inflight: Promise<LedgerCell[]> | null = null;
 
-/** Cells with n ≥ LEDGER_MIN_N since the epoch; cached 60s, fail-open to the last good read. */
-export async function getLedgerCells(now: number = Date.now()): Promise<LedgerCell[]> {
-  if (cache && now - cache.at < CACHE_TTL_MS) return cache.cells;
-  if (inflight) return inflight;
-  inflight = getLedgerHitRates({ windowDays: LEDGER_WINDOW_DAYS, minN: LEDGER_MIN_N, sinceMs: LEDGER_EPOCH_MS })
-    .then((cells) => {
-      cache = { at: Date.now(), cells };
-      return cells;
-    })
-    .catch((e) => {
-      logger.warn('[LedgerCells] fetch failed (fail-open)', { error: e instanceof Error ? e.message : String(e) });
-      return cache?.cells ?? [];
-    })
-    .finally(() => {
-      inflight = null;
-    });
-  return inflight;
+/** 60 s cache around one hit-rate read; fails open to the last good read. */
+function cachedCells(load: () => Promise<LedgerCell[]>, label: string) {
+  let cache: { at: number; cells: LedgerCell[] } | null = null;
+  let inflight: Promise<LedgerCell[]> | null = null;
+  const get = async (now: number = Date.now()): Promise<LedgerCell[]> => {
+    if (cache && now - cache.at < CACHE_TTL_MS) return cache.cells;
+    if (inflight) return inflight;
+    inflight = load()
+      .then((cells) => {
+        cache = { at: Date.now(), cells };
+        return cells;
+      })
+      .catch((e) => {
+        logger.warn(`[LedgerCells] ${label} fetch failed (fail-open)`, { error: e instanceof Error ? e.message : String(e) });
+        return cache?.cells ?? [];
+      })
+      .finally(() => {
+        inflight = null;
+      });
+    return inflight;
+  };
+  const reset = () => {
+    cache = null;
+    inflight = null;
+  };
+  return { get, reset };
 }
 
+const windowCells = cachedCells(
+  () => getLedgerHitRates({ windowDays: LEDGER_WINDOW_DAYS, minN: LEDGER_MIN_N, sinceMs: LEDGER_EPOCH_MS }),
+  'window',
+);
+const recentCells = cachedCells(
+  () => getLedgerHitRates({ windowDays: LEDGER_RECENT_HOURS / 24, minN: LEDGER_RECENT_MIN_N, sinceMs: LEDGER_EPOCH_MS }),
+  'recent',
+);
+
+/** Cells with n ≥ LEDGER_MIN_N over LEDGER_WINDOW_DAYS since the epoch. */
+export const getLedgerCells = windowCells.get;
+/** Cells with n ≥ LEDGER_RECENT_MIN_N over the last LEDGER_RECENT_HOURS. */
+export const getRecentLedgerCells = recentCells.get;
+
 export function _resetLedgerCellsCache(): void {
-  cache = null;
-  inflight = null;
+  windowCells.reset();
+  recentCells.reset();
 }
 
 export function findCell(cells: readonly LedgerCell[], source: string, asset: string, horizonMin: number): LedgerCell | null {
@@ -83,22 +113,33 @@ export interface HoldPlan {
  * signal. `measured` says whether the ledger has enough data on this asset
  * at all: measured + no plan = the signal has no edge here, skip it;
  * unmeasured = cold asset, caller falls back to its default hold.
+ * `recent` cells (last LEDGER_RECENT_HOURS) veto a horizon whose edge has
+ * gone: a recent cell with n ≥ LEDGER_RECENT_MIN_N at or below a coin flip
+ * drops that horizon from the candidates; a thin or absent recent cell
+ * leaves the window decision alone.
  */
 export function assetHoldPlan(
   cells: readonly LedgerCell[],
   asset: string,
   candidates: readonly number[] = HOLD_HORIZON_CANDIDATES_MIN,
+  recent: readonly LedgerCell[] = [],
 ): { plan: HoldPlan | null; measured: boolean } {
   const upper = asset.toUpperCase();
   const measured = cells.filter(
     (c) => c.source === 'aggregate' && c.asset.toUpperCase() === upper && candidates.includes(c.horizonMin) && c.n >= LEDGER_MIN_N,
   );
   if (measured.length === 0) return { plan: null, measured: false };
-  const best = measured.reduce((a, b) => (b.hitRate > a.hitRate ? b : a));
-  if (best.hitRate <= LEDGER_MIN_EDGE) return { plan: null, measured: true };
+  const holdsRecently = (c: LedgerCell): boolean => {
+    const r = findCell(recent, 'aggregate', upper, c.horizonMin);
+    return !r || r.n < LEDGER_RECENT_MIN_N || r.hitRate > LEDGER_MIN_EDGE;
+  };
+  const eligible = measured.filter((c) => c.hitRate > LEDGER_MIN_EDGE && holdsRecently(c));
+  if (eligible.length === 0) return { plan: null, measured: true };
+  const best = eligible.reduce((a, b) => (b.hitRate > a.hitRate ? b : a));
   return { plan: { horizonMin: best.horizonMin, hitRate: best.hitRate, n: best.n }, measured: true };
 }
 
 export async function ledgerHoldPlan(asset: string): Promise<{ plan: HoldPlan | null; measured: boolean }> {
-  return assetHoldPlan(await getLedgerCells(), asset);
+  const [cells, recent] = await Promise.all([getLedgerCells(), getRecentLedgerCells()]);
+  return assetHoldPlan(cells, asset, undefined, recent);
 }

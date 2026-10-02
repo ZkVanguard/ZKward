@@ -106,6 +106,7 @@ import {
   PAPER_ROLLING_LOSS_HALT_HOURS,
   PAPER_DISABLE_HALTS,
   PAPER_MIN_FLIP_AGE_SEC,
+  PAPER_FLIP_EXIT_ENABLED,
   PAPER_MIN_FLIP_CONFIDENCE,
   PAPER_TRAILING_STOP_GIVEBACK_PCT,
   PAPER_REGRET_COOLDOWN_PCT,
@@ -126,6 +127,8 @@ import {
 import {
   computeSignalScalar,
   computeMaxHoldMinutes,
+  holdPlanTag,
+  holdPlanMeta,
   computeCalibrationBoost,
 } from './sizing';
 
@@ -538,8 +541,9 @@ export class PaperTrader {
     //       higher than the 55 entry gate) to justify the round-trip cost.
     // Both env-tunable. Max-hold still catches anything that goes stale.
     const posAgeSec = (now - pos.openedAt) / 1000;
-    if (posAgeSec < PAPER_MIN_FLIP_AGE_SEC) {
-      // Too fresh to flip — ride out this tick. Falls through to hold.
+    if (!PAPER_FLIP_EXIT_ENABLED || posAgeSec < PAPER_MIN_FLIP_AGE_SEC) {
+      // Flip exit off (PAPER_TRADER_FLIP_EXIT) or too fresh to flip — falls
+      // through to hold; stop, trailing and max-hold still close.
     } else {
       try {
         // scanAndPickBest.all returns ALL asset predictions regardless of
@@ -822,9 +826,10 @@ export class PaperTrader {
         entryPrice: markPrice,
         stopLoss: stopLossPrice,
         simulationMode: true,
-        reason: `paper: ${rec} conf=${picked.prediction.confidence.toFixed(0)} score=${picked.score.toFixed(1)}${picked.probe ? ' | probe' : ''}`,
+        reason: `paper: ${rec} conf=${picked.prediction.confidence.toFixed(0)} score=${picked.score.toFixed(1)}${picked.probe ? ' | probe' : ''}${holdPlanTag(maxHoldMin, picked.holdHorizonMin, picked.ledgerHitRate)}`,
         predictionMarket: 'paper-aggregate',
         chain: PAPER_CHAIN,
+        metadata: { holdPlan: holdPlanMeta(maxHoldMin, picked.holdHorizonMin, picked.ledgerHitRate) },
       });
     } catch (e) {
       logger.warn('[PaperTrader] createHedge failed (state kept)', { error: errMsg(e) });
