@@ -24,6 +24,7 @@ import { useUserSession } from '@/lib/hooks/useUserSession';
 import { useSuiSafe } from '@/app/sui-providers';
 import { connectWallet as connectPhantom, getProvider as getPhantom } from '@/components/solana/wallet';
 import { ChainChooser } from '@/components/wallet/ChainChooser';
+import { CONSENT_EVENT, CONSENT_KEY } from '@/components/CookieConsent';
 
 export type WalletChain = 'hedera' | 'sui' | 'solana';
 export const WALLET_CHAINS: readonly WalletChain[] = ['hedera', 'sui', 'solana'];
@@ -171,9 +172,23 @@ export function WalletHubProvider({ children }: { children: ReactNode }) {
     setHydrated(true);
     // First visit on this device: ask which network to use, once. The
     // dashboard stays browsable behind it and the choice is never forced.
-    if (!stored && !readFlag(ONBOARDED_KEY)) {
-      setChooser({ open: true, chain: null, reason: null, welcome: true });
+    // One first-visit prompt at a time: it waits for the cookie choice.
+    if (stored || readFlag(ONBOARDED_KEY)) return;
+    const welcome = () => {
+      if (!readFlag(ONBOARDED_KEY) && !readStoredChain()) setChooser({ open: true, chain: null, reason: null, welcome: true });
+    };
+    let cookiesDecided = false;
+    try {
+      cookiesDecided = localStorage.getItem(CONSENT_KEY) !== null;
+    } catch {
+      cookiesDecided = true;
     }
+    if (cookiesDecided) {
+      welcome();
+      return;
+    }
+    window.addEventListener(CONSENT_EVENT, welcome, { once: true });
+    return () => window.removeEventListener(CONSENT_EVENT, welcome);
   }, []);
   const setActive = useCallback((chain: WalletChain | null) => {
     setActiveChainState(chain);
