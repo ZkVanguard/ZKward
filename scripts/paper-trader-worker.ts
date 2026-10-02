@@ -120,6 +120,8 @@ async function main() {
       ledgerGate: cfg.PAPER_LEDGER_GATE,
       flipExit: cfg.PAPER_FLIP_EXIT_ENABLED,
       ledgerRecentHours: (process.env.SIGNAL_LEDGER_RECENT_HOURS || '48').trim(),
+      ledgerMinWindows: (process.env.SIGNAL_LEDGER_MIN_WINDOWS || '20').trim(),
+      ledgerFrictionBp: (process.env.SIGNAL_LEDGER_FRICTION_BP || '17').trim(),
       holdHorizons: (process.env.PAPER_TRADER_HOLD_HORIZONS_MIN || '60,240').trim(),
       calibrationEpoch: (process.env.SOURCE_CALIBRATOR_EPOCH || '2026-09-30').trim(),
       disableHalts: cfg.PAPER_DISABLE_HALTS,

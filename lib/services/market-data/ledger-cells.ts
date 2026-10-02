@@ -1,15 +1,19 @@
 /**
- * Signal-ledger cells — per-(source, asset, horizon) hit rates from
- * `signal_outcomes`, the measured evidence the traders act on.
+ * Signal-ledger cells — per-(source, asset, horizon) evidence from
+ * `signal_outcomes`, what the traders act on. Rows from before the signal
+ * epoch are ignored — the aggregator changed meaning on 2026-09-30 16:55Z.
  *
- * 2026-10-01: 12.7k resolved rows since the odds-based signals shipped
- * said the aggregate signal is right 58–61% of the time at 240 min on
- * BTC/ETH and a coin flip at 30–60 min, while the paper books held for
- * 73–96 min and closed 80% of max-hold exits red. Holds, admission and
- * source weights now read these cells: trade the horizon where the signal
- * works, skip assets where it measurably doesn't, weight sources by what
- * they actually hit. Rows from before the signal epoch are ignored — the
- * aggregator changed meaning on 2026-09-30 16:55Z.
+ * Admission is by expectancy, on independent evidence (2026-10-02). The
+ * first version admitted a horizon on hit rate > 50% over n >= 50 rows.
+ * Rows overlap, so "BTC 240 min, 55%, n = 202" was nine independent
+ * windows with a mean return of -4 bp in the signal's direction, and the
+ * books paid about 17 bp of round-trip friction per trade to hold it: a
+ * 36% win rate is what a zero-edge trade earns at that cost. A horizon is
+ * now admitted only when, across enough non-overlapping windows, the mean
+ * return in the signal's direction less one standard error exceeds
+ * friction. The ledger scores every signal whether or not anything
+ * trades, so skipping an asset never starves the evidence that would
+ * re-admit it.
  */
 import { getLedgerHitRates } from '@/lib/db/signal-outcomes';
 import { logger } from '@/lib/utils/logger';
@@ -20,6 +24,12 @@ export interface LedgerCell {
   horizonMin: number;
   n: number;
   hitRate: number;
+  /** Non-overlapping horizon-length windows behind the cell. */
+  windows?: number;
+  /** Mean return in the signal's direction across those windows, in bp. */
+  meanBp?: number;
+  /** Standard error of that mean, in bp. */
+  seBp?: number;
 }
 
 const num = (key: string, dflt: number): number => {
@@ -36,8 +46,17 @@ export const HOLD_HORIZON_CANDIDATES_MIN: readonly number[] = (process.env.PAPER
   .split(',')
   .map((s) => Number(s.trim()))
   .filter((n) => Number.isFinite(n) && n > 0);
-/** A horizon counts as an edge only above a coin flip. */
-export const LEDGER_MIN_EDGE = 0.5;
+/** Independent windows a cell needs before it says anything about an asset. */
+export const LEDGER_MIN_WINDOWS = num('SIGNAL_LEDGER_MIN_WINDOWS', 20);
+/** Round-trip cost a trade must clear: taker fees both sides plus slippage. */
+export const LEDGER_FRICTION_BP = num('SIGNAL_LEDGER_FRICTION_BP', 17);
+/** Recent windows needed before the recency check can veto a horizon. */
+export const LEDGER_RECENT_MIN_WINDOWS = num('SIGNAL_LEDGER_RECENT_MIN_WINDOWS', 8);
+
+/** What a trade at this cell is expected to keep after friction, at one standard error of caution. */
+export function netEdgeBp(c: LedgerCell): number {
+  return (c.meanBp ?? 0) - (c.seBp ?? Number.POSITIVE_INFINITY) - LEDGER_FRICTION_BP;
+}
 /**
  * Recency gate (2026-10-02): the 14-day cell can average across regimes —
  * BTC's 240 m hit rate ran 65% → 61% → 56% across successive 12 h buckets
@@ -106,17 +125,19 @@ export interface HoldPlan {
   horizonMin: number;
   hitRate: number;
   n: number;
+  windows: number;
+  meanBp: number;
 }
 
 /**
- * The hold horizon with the best measured edge for an asset's aggregate
- * signal. `measured` says whether the ledger has enough data on this asset
- * at all: measured + no plan = the signal has no edge here, skip it;
- * unmeasured = cold asset, caller falls back to its default hold.
+ * The hold horizon with the best measured expectancy for an asset's
+ * aggregate signal. `measured` says whether the ledger has enough
+ * independent windows on this asset at any candidate horizon: measured + no
+ * plan = nothing here clears friction, skip it; unmeasured = cold asset,
+ * caller falls back to its default hold.
  * `recent` cells (last LEDGER_RECENT_HOURS) veto a horizon whose edge has
- * gone: a recent cell with n ≥ LEDGER_RECENT_MIN_N at or below a coin flip
- * drops that horizon from the candidates; a thin or absent recent cell
- * leaves the window decision alone.
+ * gone: a recent cell with enough windows and a mean at or below zero drops
+ * that horizon; a thin or absent recent cell leaves the decision alone.
  */
 export function assetHoldPlan(
   cells: readonly LedgerCell[],
@@ -126,17 +147,22 @@ export function assetHoldPlan(
 ): { plan: HoldPlan | null; measured: boolean } {
   const upper = asset.toUpperCase();
   const measured = cells.filter(
-    (c) => c.source === 'aggregate' && c.asset.toUpperCase() === upper && candidates.includes(c.horizonMin) && c.n >= LEDGER_MIN_N,
+    (c) =>
+      c.source === 'aggregate' && c.asset.toUpperCase() === upper && candidates.includes(c.horizonMin) &&
+      (c.windows ?? 0) >= LEDGER_MIN_WINDOWS,
   );
   if (measured.length === 0) return { plan: null, measured: false };
   const holdsRecently = (c: LedgerCell): boolean => {
     const r = findCell(recent, 'aggregate', upper, c.horizonMin);
-    return !r || r.n < LEDGER_RECENT_MIN_N || r.hitRate > LEDGER_MIN_EDGE;
+    return !r || (r.windows ?? 0) < LEDGER_RECENT_MIN_WINDOWS || (r.meanBp ?? 0) > 0;
   };
-  const eligible = measured.filter((c) => c.hitRate > LEDGER_MIN_EDGE && holdsRecently(c));
+  const eligible = measured.filter((c) => netEdgeBp(c) > 0 && holdsRecently(c));
   if (eligible.length === 0) return { plan: null, measured: true };
-  const best = eligible.reduce((a, b) => (b.hitRate > a.hitRate ? b : a));
-  return { plan: { horizonMin: best.horizonMin, hitRate: best.hitRate, n: best.n }, measured: true };
+  const best = eligible.reduce((a, b) => (netEdgeBp(b) > netEdgeBp(a) ? b : a));
+  return {
+    plan: { horizonMin: best.horizonMin, hitRate: best.hitRate, n: best.n, windows: best.windows ?? 0, meanBp: best.meanBp ?? 0 },
+    measured: true,
+  };
 }
 
 export async function ledgerHoldPlan(asset: string): Promise<{ plan: HoldPlan | null; measured: boolean }> {

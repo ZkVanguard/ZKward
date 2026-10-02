@@ -288,17 +288,26 @@ export async function getSignalStats(windowDays = 7, source = 'polymarket-5min')
 }
 
 /**
- * Per-(source, asset, horizon) hit rates — the admission-decision read.
- * Only resolved rows count. Used by the (upcoming) proof-based source
- * admission gate: a source trades only where its ledger cell shows
- * hit ≥ threshold with enough samples.
+ * Per-(source, asset, horizon) evidence — the admission-decision read.
+ * Only resolved rows count.
+ *
+ * `n` and `hitRate` count every row, but rows overlap: a signal scored every
+ * few minutes at a 240 min horizon shares almost its whole window with its
+ * neighbours, so 200 rows over two days are about nine independent
+ * observations. `windows` counts non-overlapping horizon-length buckets,
+ * and `meanBp` / `seBp` are the mean and standard error, across those
+ * buckets, of the price return in the signal's direction. A hit rate can sit
+ * above 50% while that mean is negative; the mean is what a trade earns.
  */
 export async function getLedgerHitRates(options: {
   windowDays?: number;
   minN?: number;
   /** Never read rows before this (the signal definitions changed). */
   sinceMs?: number;
-} = {}): Promise<Array<{ source: string; asset: string; horizonMin: number; n: number; hitRate: number }>> {
+} = {}): Promise<Array<{
+  source: string; asset: string; horizonMin: number; n: number; hitRate: number;
+  windows: number; meanBp: number; seBp: number;
+}>> {
   await ensureSignalOutcomesTable();
   const windowDays = options.windowDays ?? 30;
   const minN = options.minN ?? 50;
@@ -306,22 +315,41 @@ export async function getLedgerHitRates(options: {
   try {
     const rows = await query<{
       source: string; asset: string; horizon_min: number; n: string; hits: string;
+      windows: string; mean_bp: string | null; sd_bp: string | null;
     }>(
-      `SELECT source, asset, horizon_min, COUNT(*)::text AS n,
-              SUM(CASE WHEN correct THEN 1 ELSE 0 END)::text AS hits
-       FROM signal_outcomes
-       WHERE status = 'resolved' AND window_end_time >= $1 AND asset IS NOT NULL
+      `WITH buckets AS (
+         SELECT source, asset, horizon_min,
+                FLOOR(window_end_time / (horizon_min * 60000.0)) AS bucket,
+                COUNT(*) AS n,
+                SUM(CASE WHEN correct THEN 1 ELSE 0 END) AS hits,
+                AVG(CASE WHEN direction IN ('UP', 'DOWN') AND entry_price > 0 AND exit_price IS NOT NULL
+                         THEN (exit_price - entry_price) / entry_price * 10000
+                              * (CASE WHEN direction = 'UP' THEN 1 ELSE -1 END) END) AS ret_bp
+         FROM signal_outcomes
+         WHERE status = 'resolved' AND window_end_time >= $1 AND asset IS NOT NULL AND horizon_min > 0
+         GROUP BY source, asset, horizon_min, bucket
+       )
+       SELECT source, asset, horizon_min, SUM(n)::text AS n, SUM(hits)::text AS hits,
+              COUNT(ret_bp)::text AS windows, AVG(ret_bp)::text AS mean_bp, STDDEV_SAMP(ret_bp)::text AS sd_bp
+       FROM buckets
        GROUP BY source, asset, horizon_min
-       HAVING COUNT(*) >= $2`,
+       HAVING SUM(n) >= $2`,
       [sinceMs, minN],
     );
-    return rows.map((r) => ({
-      source: r.source,
-      asset: r.asset,
-      horizonMin: Number(r.horizon_min),
-      n: Number(r.n),
-      hitRate: Number(r.n) > 0 ? Number(r.hits) / Number(r.n) : 0,
-    }));
+    return rows.map((r) => {
+      const windows = Number(r.windows) || 0;
+      return {
+        source: r.source,
+        asset: r.asset,
+        horizonMin: Number(r.horizon_min),
+        n: Number(r.n),
+        hitRate: Number(r.n) > 0 ? Number(r.hits) / Number(r.n) : 0,
+        windows,
+        meanBp: Number(r.mean_bp) || 0,
+        // One window has no spread to measure: treat it as no evidence.
+        seBp: windows > 1 ? (Number(r.sd_bp) || 0) / Math.sqrt(windows) : Number.POSITIVE_INFINITY,
+      };
+    });
   } catch (err) {
     logger.warn('[SignalOutcomes] getLedgerHitRates failed', { error: err instanceof Error ? err.message : err });
     return [];

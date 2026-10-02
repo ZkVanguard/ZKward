@@ -280,10 +280,10 @@ export const PAPER_MAX_HOLD_CEILING_MIN = Number(
   process.env.PAPER_TRADER_MAX_HOLD_CEILING_MIN || 240,
 );
 
-// Ledger admission (2026-10-01): skip an asset whose aggregate signal the
-// ledger has measured (n >= SIGNAL_LEDGER_MIN_N) with no edge at any hold
-// horizon, and hold to the horizon where it has one. Cold assets pass on
-// the heuristic hold. PAPER_TRADER_LEDGER_GATE=0 disables.
+// Ledger admission: skip an asset whose aggregate signal the ledger has
+// measured, over enough independent windows, with no return above friction
+// at any hold horizon, and hold to the horizon where it has one. Cold assets
+// pass on the heuristic hold. PAPER_TRADER_LEDGER_GATE=0 disables.
 export const PAPER_LEDGER_GATE = (process.env.PAPER_TRADER_LEDGER_GATE || '1').trim() !== '0';
 /**
  * Signal-flip exit in the paper books. Off since 2026-10-02: 0 wins in 7

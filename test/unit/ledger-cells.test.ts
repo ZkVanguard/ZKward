@@ -1,75 +1,102 @@
 /**
- * Ledger cells decide the hold horizon and admission: pick the horizon
- * with the best measured edge, skip measured assets with none, let cold
- * assets through on the default hold.
+ * Ledger admission: a horizon is traded only when, across enough
+ * independent windows, the mean return in the signal's direction clears
+ * friction with a standard error to spare. Hit rate alone admits noise.
  */
 import { describe, it, expect } from '@jest/globals';
-import { assetHoldPlan, findCell, LEDGER_MIN_N, LEDGER_RECENT_MIN_N, type LedgerCell } from '@/lib/services/market-data/ledger-cells';
-import { computeMaxHoldMinutes } from '@/lib/services/paper-trader/sizing';
-import { PAPER_MAX_HOLD_CEILING_MIN } from '@/lib/services/paper-trader/config';
+import {
+  assetHoldPlan,
+  findCell,
+  netEdgeBp,
+  LEDGER_FRICTION_BP,
+  LEDGER_MIN_WINDOWS,
+  LEDGER_RECENT_MIN_WINDOWS,
+  type LedgerCell,
+} from '@/lib/services/market-data/ledger-cells';
 
-const cell = (asset: string, horizonMin: number, hitRate: number, n = 100, source = 'aggregate'): LedgerCell =>
-  ({ source, asset, horizonMin, hitRate, n });
+const cell = (
+  asset: string,
+  horizonMin: number,
+  meanBp: number,
+  over: Partial<LedgerCell> = {},
+): LedgerCell => ({ source: 'aggregate', asset, horizonMin, n: 200, hitRate: 0.55, windows: 40, meanBp, seBp: 4, ...over });
 
-const CELLS: LedgerCell[] = [
-  cell('BTC', 60, 0.51),
-  cell('BTC', 240, 0.61),
-  cell('BTC', 1440, 0.32),
-  cell('ETH', 60, 0.48),
-  cell('ETH', 240, 0.49),
-  cell('DOGE', 240, 0.57, LEDGER_MIN_N - 1),
-  cell('XRP', 60, 0.76, 59, 'on_chain:bybit-xrp-funding'),
-];
+describe('netEdgeBp', () => {
+  it('is the mean less one standard error less friction', () => {
+    expect(netEdgeBp(cell('BTC', 60, 40))).toBeCloseTo(40 - 4 - LEDGER_FRICTION_BP, 6);
+  });
+  it('a cell without return evidence has no edge', () => {
+    expect(netEdgeBp({ source: 'aggregate', asset: 'BTC', horizonMin: 60, n: 500, hitRate: 0.9 })).toBe(Number.NEGATIVE_INFINITY);
+  });
+});
 
 describe('assetHoldPlan', () => {
-  it('picks the horizon with the best edge among the candidates', () => {
-    expect(assetHoldPlan(CELLS, 'BTC')).toEqual({ plan: { horizonMin: 240, hitRate: 0.61, n: 100 }, measured: true });
+  it('the case that prompted the rule: 55% over 202 rows was 9 windows at -4 bp, so nothing is admitted', () => {
+    const cells = [
+      cell('BTC', 240, -4.1, { n: 202, hitRate: 0.55, windows: 9, seBp: 8.3 }),
+      cell('BTC', 60, 0.6, { n: 198, hitRate: 0.475, windows: 40, seBp: 3.8 }),
+    ];
+    expect(assetHoldPlan(cells, 'BTC')).toEqual({ plan: null, measured: true });
   });
-  it('never picks a horizon outside the candidates (24h is inverted)', () => {
-    expect(assetHoldPlan(CELLS, 'btc', [60])).toEqual({ plan: { horizonMin: 60, hitRate: 0.51, n: 100 }, measured: true });
+
+  it('a hit rate above a coin flip does not admit a horizon whose mean is below friction', () => {
+    expect(assetHoldPlan([cell('ETH', 60, 12, { hitRate: 0.62 })], 'ETH')).toEqual({ plan: null, measured: true });
   });
-  it('measured asset with no edge → no plan (the entry gate skips it)', () => {
-    expect(assetHoldPlan(CELLS, 'ETH')).toEqual({ plan: null, measured: true });
+
+  it('admits the horizon whose expectancy clears friction, and reports the evidence', () => {
+    const { plan, measured } = assetHoldPlan([cell('BTC', 60, 30), cell('BTC', 240, 60)], 'btc');
+    expect(measured).toBe(true);
+    expect(plan).toEqual({ horizonMin: 240, hitRate: 0.55, n: 200, windows: 40, meanBp: 60 });
   });
-  it('cold asset (below LEDGER_MIN_N or absent) → unmeasured, caller keeps its default hold', () => {
-    expect(assetHoldPlan(CELLS, 'DOGE')).toEqual({ plan: null, measured: false });
-    expect(assetHoldPlan(CELLS, 'SOL')).toEqual({ plan: null, measured: false });
+
+  it('prefers a smaller mean with a tight error over a larger mean that is mostly noise', () => {
+    const cells = [cell('SOL', 60, 40, { seBp: 3 }), cell('SOL', 240, 70, { seBp: 45 })];
+    expect(assetHoldPlan(cells, 'SOL').plan?.horizonMin).toBe(60);
   });
-  it('only the aggregate row decides holds, not single sources', () => {
-    expect(assetHoldPlan(CELLS, 'XRP')).toEqual({ plan: null, measured: false });
-    expect(findCell(CELLS, 'on_chain:bybit-xrp-funding', 'xrp', 60)?.hitRate).toBe(0.76);
+
+  it('respects the candidate horizons', () => {
+    const cells = [cell('BTC', 60, 30), cell('BTC', 240, 60)];
+    expect(assetHoldPlan(cells, 'BTC', [60]).plan?.horizonMin).toBe(60);
+  });
+
+  it('too few independent windows at every candidate horizon means unmeasured: the caller keeps its default', () => {
+    const cells = [cell('DOGE', 240, 90, { n: 500, windows: LEDGER_MIN_WINDOWS - 1 })];
+    expect(assetHoldPlan(cells, 'DOGE')).toEqual({ plan: null, measured: false });
+    expect(assetHoldPlan(cells, 'XRP')).toEqual({ plan: null, measured: false });
+  });
+
+  it('one measured horizon without an edge outweighs an unmeasured one that looks good', () => {
+    const cells = [cell('ETH', 60, 2), cell('ETH', 240, 90, { windows: 5 })];
+    expect(assetHoldPlan(cells, 'ETH')).toEqual({ plan: null, measured: true });
+  });
+
+  it('only the aggregate signal decides admission; other sources are reachable by findCell', () => {
+    const cells = [cell('XRP', 60, 80, { source: 'on_chain:funding' })];
+    expect(assetHoldPlan(cells, 'XRP')).toEqual({ plan: null, measured: false });
+    expect(findCell(cells, 'on_chain:funding', 'xrp', 60)?.meanBp).toBe(80);
   });
 });
 
 describe('assetHoldPlan recency gate', () => {
-  it('a horizon whose edge is gone in the recent window is passed over for the next one that still works', () => {
-    const recent = [cell('BTC', 240, 0.42, 25), cell('BTC', 60, 0.55, 25)];
-    expect(assetHoldPlan(CELLS, 'BTC', undefined, recent)).toEqual({ plan: { horizonMin: 60, hitRate: 0.51, n: 100 }, measured: true });
-  });
-  it('a thin recent cell (below LEDGER_RECENT_MIN_N) does not override the window decision', () => {
-    const recent = [cell('BTC', 240, 0.3, LEDGER_RECENT_MIN_N - 1)];
-    expect(assetHoldPlan(CELLS, 'BTC', undefined, recent).plan?.horizonMin).toBe(240);
-  });
-  it('every candidate failing recently → measured, no plan (the entry gate skips the asset)', () => {
-    const recent = [cell('BTC', 240, 0.4, 30), cell('BTC', 60, 0.45, 30)];
-    expect(assetHoldPlan(CELLS, 'BTC', undefined, recent)).toEqual({ plan: null, measured: true });
-  });
-  it('a recent cell above a coin flip keeps the window choice', () => {
-    const recent = [cell('BTC', 240, 0.58, 40)];
-    expect(assetHoldPlan(CELLS, 'BTC', undefined, recent).plan?.horizonMin).toBe(240);
-  });
-});
+  const cells = [cell('BTC', 60, 30), cell('BTC', 240, 60)];
 
-describe('computeMaxHoldMinutes with a ledger horizon', () => {
-  it('the ledger horizon replaces the heuristic hold, capped by the ceiling', () => {
-    expect(computeMaxHoldMinutes(0.4, 1, 240)).toBe(Math.min(240, PAPER_MAX_HOLD_CEILING_MIN));
-    expect(computeMaxHoldMinutes(2.0, 3, 60)).toBe(60);
+  it('a recent cell whose mean has gone to zero or below drops that horizon', () => {
+    const recent = [cell('BTC', 240, -5, { windows: LEDGER_RECENT_MIN_WINDOWS })];
+    expect(assetHoldPlan(cells, 'BTC', undefined, recent).plan?.horizonMin).toBe(60);
   });
-  it('without a ledger horizon the heuristic hold still applies', () => {
-    expect(computeMaxHoldMinutes(0.4, 1)).toBe(45);
-    expect(computeMaxHoldMinutes(0.4, 1, null)).toBe(45);
+
+  it('a thin recent cell does not override the window decision', () => {
+    const recent = [cell('BTC', 240, -50, { windows: LEDGER_RECENT_MIN_WINDOWS - 1 })];
+    expect(assetHoldPlan(cells, 'BTC', undefined, recent).plan?.horizonMin).toBe(240);
   });
-  it('the default ceiling is the 4-hour horizon the ledger measured', () => {
-    expect(PAPER_MAX_HOLD_CEILING_MIN).toBe(240);
+
+  it('every horizon vetoed means measured with no plan', () => {
+    const recent = [cell('BTC', 240, -5, { windows: 12 }), cell('BTC', 60, 0, { windows: 30 })];
+    expect(assetHoldPlan(cells, 'BTC', undefined, recent)).toEqual({ plan: null, measured: true });
+  });
+
+  it('a recent cell still positive keeps the horizon', () => {
+    const recent = [cell('BTC', 240, 8, { windows: 12 })];
+    expect(assetHoldPlan(cells, 'BTC', undefined, recent).plan?.horizonMin).toBe(240);
   });
 });
