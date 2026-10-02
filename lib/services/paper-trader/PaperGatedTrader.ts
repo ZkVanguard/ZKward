@@ -38,6 +38,7 @@ import { errMsg } from '@/lib/utils/error-handler';
 import { selectCandidate, priceCandidate, sizeCandidate } from './entry-helpers';
 import { simulateOpen, simulateClose, markToMarket, type SimulatedPosition, type Side } from './simulated-executor';
 import { majorityAgreementPct } from './signal-quality';
+import { targetExitLevels, takeProfitHit } from './target-exit';
 import { runAgentGate } from '@/app/api/cron/polymarket-edge-trader/handlers/agent-gate';
 import {
   PAPER_UNIVERSE,
@@ -151,6 +152,17 @@ export class PaperGatedTrader {
       }
     }
 
+    // 1b. Target-exit take-profit: such a position closes here, at the stop
+    //     above or at the time limit below, and skips every other exit.
+    const onTarget = pos.takeProfitPrice !== undefined;
+    if (takeProfitHit(pos, markPrice)) {
+      return PaperGatedTrader.closeAtMark(
+        pos, markPrice, nav, now,
+        `take-profit: mark $${markPrice.toFixed(4)} reached $${(pos.takeProfitPrice ?? 0).toFixed(4)}`,
+        orderId,
+      );
+    }
+
     // 2. Trailing stop. Fix O (2026-09-27): arm on the position's own
     //    notional, not NAV — the NAV-relative arm never fired once.
     //    Shared threshold math in adaptive-stops.ts.
@@ -161,7 +173,7 @@ export class PaperGatedTrader {
     const currentTrough = Math.min(priorTrough, mtm.unrealizedPnlUsd);
     const { trailingArmThresholdUsd, underwaterTightenTrip } = await import('./adaptive-stops');
     const trailingArmed = currentPeak >= trailingArmThresholdUsd(pos.notionalUsd);
-    if (trailingArmed && mtm.unrealizedPnlUsd < currentPeak * (1 - PAPER_TRAILING_STOP_GIVEBACK_PCT)) {
+    if (!onTarget && trailingArmed && mtm.unrealizedPnlUsd < currentPeak * (1 - PAPER_TRAILING_STOP_GIVEBACK_PCT)) {
       return PaperGatedTrader.closeAtMark(
         pos, markPrice, nav, now,
         `trailing-stop: peak +$${currentPeak.toFixed(2)}, gave back to +$${mtm.unrealizedPnlUsd.toFixed(2)}`,
@@ -181,7 +193,7 @@ export class PaperGatedTrader {
 
     // 2.5. Adaptive underwater tighten — same shared trip check as
     //      PaperTrader (Fix O: notional-relative depth + 45min age).
-    if (!trailingArmed && currentPeak <= 0) {
+    if (!onTarget && !trailingArmed && currentPeak <= 0) {
       const ageMin = (now - pos.openedAt) / 60_000;
       const lossUsd = -mtm.unrealizedPnlUsd;
       if (underwaterTightenTrip({ ageMin, lossUsd, notionalUsd: pos.notionalUsd })) {
@@ -208,7 +220,7 @@ export class PaperGatedTrader {
     // that fired -$35/-$38 BTC losses inside 15 min of open.
     const posAgeSec = (now - pos.openedAt) / 1000;
     const { PAPER_MIN_FLIP_AGE_SEC, PAPER_MIN_FLIP_CONFIDENCE, PAPER_FLIP_EXIT_ENABLED } = await import('./config');
-    if (PAPER_FLIP_EXIT_ENABLED && posAgeSec >= PAPER_MIN_FLIP_AGE_SEC) {
+    if (!onTarget && PAPER_FLIP_EXIT_ENABLED && posAgeSec >= PAPER_MIN_FLIP_AGE_SEC) {
       try {
         // scanAndPickBest.all returns ALL asset predictions regardless of
         // gates (gates only affect .best), so apply the flip-specific
@@ -319,13 +331,15 @@ export class PaperGatedTrader {
     // Shared hold math (Fix O, ceiling in config); a ledger-measured
     // horizon (picked.holdHorizonMin) replaces the heuristic hold.
     const { computeMaxHoldMinutes, holdPlanTag, holdPlanMeta } = await import('./sizing');
-    const maxHoldMin = computeMaxHoldMinutes(signalScalar, 1, picked.holdHorizonMin);
+    const { PAPER_EXIT_MODE } = await import('./config');
+    const target = PAPER_EXIT_MODE === 'target' ? targetExitLevels(side, markPrice) : null;
+    const maxHoldMin = target?.maxHoldMin ?? computeMaxHoldMinutes(signalScalar, 1, picked.holdHorizonMin);
 
     const { computeAdaptiveThresholds } = await import('./adaptive-stops');
     const stopFrac = (await computeAdaptiveThresholds(asset, { holdWindowMin: maxHoldMin })).stopLossPct;
-    const stopLossPrice = side === 'LONG'
+    const stopLossPrice = target?.stopLossPrice ?? (side === 'LONG'
       ? markPrice * (1 - stopFrac)
-      : markPrice * (1 + stopFrac);
+      : markPrice * (1 + stopFrac));
 
     // Snapshot the per-source directions at open so recordSourceOutcome
     // can score each source's call against the actual outcome at close.
@@ -347,6 +361,7 @@ export class PaperGatedTrader {
       entryConsensus: (picked.prediction as { consensus?: number }).consensus,
       maxHoldMin,
       stopLossPrice,
+      ...(target ? { takeProfitPrice: target.takeProfitPrice } : {}),
     };
 
     const orderId = `${ORDER_ID_PREFIX}${asset}_${Math.floor(now / 1000)}`;
@@ -375,6 +390,7 @@ export class PaperGatedTrader {
         leverage: PAPER_LEVERAGE,
         entryPrice: markPrice,
         stopLoss: stopLossPrice,
+        takeProfit: target?.takeProfitPrice,
         simulationMode: true,
         reason: `paper-gated: ${rec} conf=${picked.prediction.confidence.toFixed(0)} score=${picked.score.toFixed(1)} | gate=allow${holdPlanTag(maxHoldMin, picked.holdHorizonMin, picked.ledgerHitRate)}`,
         predictionMarket: 'paper-aggregate',

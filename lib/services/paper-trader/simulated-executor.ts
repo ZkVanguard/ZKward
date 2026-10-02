@@ -109,6 +109,8 @@ export interface SimulatedPosition {
   // TP capped fat-tail winners for -$18K net; trailing-stop handles
   // winner ratcheting instead. Optional for backward-compat.
   stopLossPrice?: number;
+  /** Set only on target-exit positions: they close here, at the stop or at the time limit. */
+  takeProfitPrice?: number;
 }
 
 export interface SimulatedCloseResult {

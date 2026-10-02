@@ -18,6 +18,7 @@ import type { SimulatedPosition, SimulatedCloseResult } from './simulated-execut
 
 export function categorizeCloseReason(rawReason: string): string {
   const r = rawReason.toLowerCase();
+  if (r.includes('take-profit')) return 'take-profit';
   if (r.includes('stop-loss')) return 'stop-loss';
   if (r.includes('trailing-stop')) return 'trailing-stop';
   if (r.includes('underwater-tighten')) return 'underwater-tighten';
