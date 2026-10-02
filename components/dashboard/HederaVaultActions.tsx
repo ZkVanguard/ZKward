@@ -16,6 +16,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { ConnectPromptButton } from '@/components/ui/ConnectPromptButton';
 import { parseUnits, formatUnits, erc20Abi, encodeFunctionData } from 'viem';
 import {
   useAccount,
@@ -637,7 +638,10 @@ export function HederaVaultActions({ address: propAddress, onRefresh }: Props) {
             )}
           </>
         ) : (
-          <span className="text-label-tertiary">Sign in to see balance.</span>
+          <span className="inline-flex items-center gap-2 flex-wrap text-label-tertiary">
+            Sign in to see your balance.
+            <ConnectPromptButton chain="hedera" size="sm" reason="The Hedera pool uses your email or Google sign-in. We create the wallet for you." />
+          </span>
         )}
       </div>
 

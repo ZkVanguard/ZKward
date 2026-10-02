@@ -53,10 +53,10 @@ export function PortfolioOverview({ address, onNavigateToPositions, onNavigateTo
             </div>
             <div className="min-w-0">
               <h1 className="text-[22px] sm:text-[28px] font-semibold text-[#1d1d1f] mb-1 tracking-[-0.02em]">Dashboard</h1>
-              <p className="text-[15px] text-[#86868b] leading-[1.4]">Connect your wallet to view portfolio</p>
+              <p className="text-[15px] text-[#86868b] leading-[1.4]">Connect a wallet to see your balances and P&amp;L</p>
             </div>
           </div>
-          <ConnectPromptButton />
+          <ConnectPromptButton reason="Sign in on Hedera or connect a SUI wallet to see your portfolio." />
         </div>
       </div>
     );

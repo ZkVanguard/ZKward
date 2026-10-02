@@ -99,7 +99,7 @@ export const RiskMetrics = memo(function RiskMetrics({ address }: { address?: st
         <p className="text-[13px] sm:text-caption-1 text-label-tertiary text-center max-w-[240px]">
           Connect a wallet to see VaR, volatility, risk score and Sharpe ratio computed live from your portfolio.
         </p>
-        <ConnectPromptButton />
+        <ConnectPromptButton reason="Risk metrics are computed live from the positions of a connected wallet." />
       </div>
     );
   }

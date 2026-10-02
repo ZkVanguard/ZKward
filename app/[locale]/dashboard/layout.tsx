@@ -9,6 +9,7 @@ import type { ReactNode } from 'react';
 import { PositionsProvider } from '@/contexts/PositionsContext';
 import { AIDecisionsProvider } from '@/contexts/AIDecisionsContext';
 import { WalletProviders } from '@/app/wallet-providers';
+import { WalletHubProvider } from '@/contexts/WalletHubContext';
 import { Navbar } from '@/components/Navbar';
 
 // Navbar rendered here (not in the parent locale layout) so ConnectButton's
@@ -17,12 +18,14 @@ import { Navbar } from '@/components/Navbar';
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   return (
     <WalletProviders>
-      <Navbar />
-      <PositionsProvider>
-        <AIDecisionsProvider>
-          {children}
-        </AIDecisionsProvider>
-      </PositionsProvider>
+      <WalletHubProvider>
+        <Navbar />
+        <PositionsProvider>
+          <AIDecisionsProvider>
+            {children}
+          </AIDecisionsProvider>
+        </PositionsProvider>
+      </WalletHubProvider>
     </WalletProviders>
   );
 }

@@ -5,7 +5,8 @@ import { useSignMessage } from '@/lib/evm-wallet/hooks';
 import { useWallet } from '@/lib/hooks/useWallet';
 import { useCreatePortfolio } from '../../../lib/contracts/hooks';
 import { useRWAManager } from '../../../lib/contracts/suiHooks';
-import { CheckCircle, XCircle, Sparkles, Lock } from 'lucide-react';
+import { CheckCircle, XCircle, Sparkles } from 'lucide-react';
+import { ConnectPromptButton } from '@/components/ui/ConnectPromptButton';
 import { motion, AnimatePresence } from 'framer-motion';
 import { logger } from '../../../lib/utils/logger';
 import type { StrategyConfig, AssetFilter, AIPreset, AdvancedPortfolioCreatorProps } from './types';
@@ -189,13 +190,10 @@ export function AdvancedPortfolioCreator({ isOpen, onOpenChange, hideTrigger = f
 
   if (!evmConnected && !suiConnected) {
     return hideTrigger ? null : (
-      <button
-        className="px-5 sm:px-6 py-2.5 sm:py-3 bg-[#86868b] rounded-[12px] font-semibold text-[14px] sm:text-[15px] text-white flex items-center gap-2 cursor-not-allowed"
-        disabled
-      >
-        <Lock className="w-4 h-4 sm:w-5 sm:h-5" />
-        Connect Wallet to Create Portfolio
-      </button>
+      <ConnectPromptButton
+        label="Connect a wallet to create a portfolio"
+        reason="Creating a portfolio needs your Hedera sign-in or a SUI wallet."
+      />
     );
   }
 

@@ -23,6 +23,7 @@ import { usePositions } from '@/contexts/PositionsContext';
 import { usePortfolioAction, type CustomActionPayload } from '@/contexts/AIDecisionsContext';
 import { logger } from '@/lib/utils/logger';
 import { useSui } from '@/app/sui-providers';
+import { useWalletHub } from '@/contexts/WalletHubContext';
 import type { PredictionMarket } from '@/lib/services/market-data/DelphiMarketService';
 
 // Dynamic imports for code splitting
@@ -289,6 +290,7 @@ export default function DashboardPage() {
   const suiAddress = sui.address;
   const suiConnected = sui.isConnected;
   const suiBalance = sui.balance;
+  const hub = useWalletHub();
 
   // Primary display address. SUI wins if connected (SUI-native pages),
   // otherwise the unified Privy session. Deliberately does NOT fall back
@@ -296,8 +298,8 @@ export default function DashboardPage() {
   // EIP-6963) auto-connect on page load even when the user hasn't
   // clicked Sign In, causing a phantom "connected" address in the
   // sidebar. Sidebar identity requires an EXPLICIT sign-in (SUI or Privy).
-  const isConnected = suiConnected || session.authenticated;
-  const address = suiAddress || session.address || '';
+  const isConnected = suiConnected || session.authenticated || hub.solana.connected;
+  const address = suiAddress || session.address || hub.solana.address || '';
   const displayBalance = suiConnected
     ? `${suiBalance} SUI`
     : session.authenticated && session.balances.ready
@@ -482,14 +484,20 @@ export default function DashboardPage() {
 
           {/* Wallet Info — mobile drawer */}
           <div className="p-4 border-b border-black/5">
-            <SidebarWalletCard
-              address={displayAddress}
-              displayName={session.displayName}
-              isSui={suiConnected}
-              isConnected={isConnected}
-              subLabel={isConnected ? displayBalance : 'Connect Wallet'}
-              size={40}
-            />
+            <button
+              type="button"
+              onClick={() => { if (!isConnected) hub.openChooser(); }}
+              className={`w-full text-left rounded-xl ${isConnected ? 'cursor-default' : 'hover:bg-system-bg-secondary transition-colors'}`}
+            >
+              <SidebarWalletCard
+                address={displayAddress}
+                displayName={session.displayName}
+                isSui={suiConnected}
+                isConnected={isConnected}
+                subLabel={isConnected ? displayBalance : 'Tap to connect'}
+                size={40}
+              />
+            </button>
           </div>
 
           <nav className="flex-1 py-2 overflow-y-auto">
@@ -519,14 +527,20 @@ export default function DashboardPage() {
         <aside className="hidden lg:flex w-64 h-[calc(100vh-52px)] sticky top-[52px] flex-col bg-white border-r border-black/5 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
           {/* Wallet Section — desktop */}
           <div className="p-5 border-b border-black/5">
-            <SidebarWalletCard
-              address={displayAddress}
-              displayName={session.displayName}
-              isSui={suiConnected}
-              isConnected={isConnected}
-              subLabel={isConnected ? displayBalance : 'Connect Wallet'}
-              size={48}
-            />
+            <button
+              type="button"
+              onClick={() => { if (!isConnected) hub.openChooser(); }}
+              className={`w-full text-left rounded-xl ${isConnected ? 'cursor-default' : 'hover:bg-system-bg-secondary transition-colors'}`}
+            >
+              <SidebarWalletCard
+                address={displayAddress}
+                displayName={session.displayName}
+                isSui={suiConnected}
+                isConnected={isConnected}
+                subLabel={isConnected ? displayBalance : 'Tap to connect'}
+                size={48}
+              />
+            </button>
           </div>
 
           <nav className="flex-1 py-4 overflow-y-auto">

@@ -9,13 +9,13 @@ export function NotConnectedState() {
         <Wallet className="w-10 h-10 text-[#86868b]" />
       </div>
       <h3 className="text-[22px] font-semibold text-[#1d1d1f] mb-2 tracking-[-0.02em]">
-        Connect Your Wallet
+        Connect a wallet
       </h3>
       <p className="text-[15px] text-[#86868b] max-w-[280px] mx-auto mb-6">
-        Connect your wallet to view your token positions and portfolio strategies
+        Your token positions and strategies appear once a wallet is connected
       </p>
 
-      <ConnectPromptButton />
+      <ConnectPromptButton reason="Sign in on Hedera or connect a SUI wallet to see your positions." />
 
       {/* AI Assistant CTA - available even without wallet */}
       <div className="mt-6 pt-6 border-t border-[#e8e8ed]">

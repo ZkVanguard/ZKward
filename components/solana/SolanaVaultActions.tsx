@@ -10,7 +10,8 @@
  */
 import { useEffect, useState } from 'react';
 import { AlertTriangle, Check, Copy, Droplets, ExternalLink, Loader2, Minus, Plus, Wallet } from 'lucide-react';
-import { connectWallet, depositTokens, getProvider, signWithdrawMessage } from './wallet';
+import { depositTokens, signWithdrawMessage } from './wallet';
+import { useWalletHub } from '@/contexts/WalletHubContext';
 import { explorerAddress, explorerTx, shortAddr, useSolanaPoolStatus } from './status';
 
 const SOLANA_ACCENT = '#9945FF';
@@ -31,7 +32,10 @@ export function SolanaVaultActions() {
   const { data: status } = useSolanaPoolStatus();
   const cluster = status?.cluster ?? 'devnet';
   const testnet = status?.testnet !== false;
-  const [wallet, setWallet] = useState<string | null>(null);
+  // The Solana wallet lives in the dashboard wallet hub, so the navbar and
+  // this card always agree on what is connected.
+  const hub = useWalletHub();
+  const wallet = hub.solana.address;
   const [balance, setBalance] = useState<MyBalance | null>(null);
   const [mode, setMode] = useState<'deposit' | 'withdraw'>('deposit');
   const [amount, setAmount] = useState('');
@@ -45,16 +49,6 @@ export function SolanaVaultActions() {
       if (r.ok) setBalance((await r.json()) as MyBalance);
     } catch { /* next poll */ }
   };
-
-  useEffect(() => {
-    // Returning visitors: reconnect silently if they already trusted the site.
-    const p = getProvider();
-    if (p && !p.publicKey) {
-      p.connect({ onlyIfTrusted: true })
-        .then(({ publicKey }) => setWallet(publicKey.toBase58()))
-        .catch(() => undefined);
-    }
-  }, []);
 
   useEffect(() => {
     if (!wallet) return;
@@ -77,9 +71,13 @@ export function SolanaVaultActions() {
 
   const onConnect = () =>
     run('connect', async () => {
-      const w = await connectWallet();
-      setWallet(w);
-      return { kind: 'ok', text: `Connected ${shortAddr(w)}` };
+      const res = await hub.connect('solana');
+      if (!res.ok) {
+        // No Phantom, or the user dismissed it: the chooser explains and links the install.
+        hub.openChooser({ chain: 'solana', reason: 'This test pool runs on Solana devnet and needs Phantom.' });
+        throw new Error(res.error);
+      }
+      return { kind: 'ok', text: 'Solana wallet connected' };
     });
 
   const onFaucet = () =>
@@ -181,7 +179,8 @@ export function SolanaVaultActions() {
       ) : (
         <div className="rounded-xl border p-3 flex flex-wrap items-center gap-3" style={{ borderColor: `${SOLANA_ACCENT}30`, background: `${SOLANA_ACCENT}08` }}>
           <div className="flex-1 min-w-[200px] text-[12px] text-label-secondary">
-            Connect a Solana wallet to deposit.{testnet && ' Phantom works best — switch it to Devnet for this test pool.'}
+            {hub.anyConnected ? 'This pool runs on Solana, so it needs a Solana wallet too.' : 'Connect a Solana wallet to deposit.'}
+            {testnet && ' Phantom works best — switch it to Devnet for this test pool.'}
           </div>
           <button
             onClick={onConnect}
