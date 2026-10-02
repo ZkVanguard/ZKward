@@ -29,10 +29,8 @@ import { AgentRecommendationModal } from './positions-list/AgentRecommendationMo
 import { NotConnectedState, NoPortfoliosEmptyState } from './positions-list/EmptyStates';
 import { WalletBalancesList } from './positions-list/WalletBalancesList';
 import { buildPortfolioDetail } from './positions-list/helpers';
-import {
-  DelphiMarketService,
-  type PredictionMarket,
-} from '@/lib/services/market-data/DelphiMarketService';
+import type { PredictionMarket } from '@/lib/types/market-signals';
+import { fetchRelevantMarkets } from '@/lib/api/market-signals';
 import { usePositions } from '@/contexts/PositionsContext';
 import { usePortfolioAction, type CustomActionPayload } from '@/contexts/AIDecisionsContext';
 import { logger } from '@/lib/utils/logger';
@@ -131,7 +129,7 @@ export function PositionsList({ address, onOpenHedge }: PositionsListProps) {
       });
       let predictions: PredictionMarket[] = [];
       try {
-        predictions = await DelphiMarketService.getRelevantMarkets(portfolioAssets);
+        predictions = await fetchRelevantMarkets(portfolioAssets);
         logger.info(`Got ${predictions.length} predictions from Polymarket/Delphi`, {
           component: 'PositionsList',
           data: predictions

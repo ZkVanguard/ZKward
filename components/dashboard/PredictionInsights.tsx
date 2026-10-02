@@ -2,7 +2,8 @@
 
 import { useState, useCallback, useEffect, memo } from 'react';
 import { logger } from '@/lib/utils/logger';
-import { DelphiMarketService, PredictionMarket } from '@/lib/services/market-data/DelphiMarketService';
+import type { PredictionMarket } from '@/lib/types/market-signals';
+import { fetchRelevantMarkets, fetchTopMarkets, formatTimeAgo } from '@/lib/api/market-signals';
 import { usePolling, useLoading } from '@/lib/hooks';
 import { useMarketInsights } from '@/contexts/AIDecisionsContext';
 import { 
@@ -111,8 +112,8 @@ export const PredictionInsights = memo(function PredictionInsights({
 
     try {
       const markets = showAll 
-        ? await DelphiMarketService.getTopMarkets(20)
-        : await DelphiMarketService.getRelevantMarkets(assets);
+        ? await fetchTopMarkets(20)
+        : await fetchRelevantMarkets(assets);
       
       // 'crypto-analysis' entries are questions generated from a price ticker
       // with invented odds — not prediction markets.
@@ -663,7 +664,7 @@ export const PredictionInsights = memo(function PredictionInsights({
                           </span>
                         ))}
                         <span className="text-[10px] text-[#86868b]">
-                          {DelphiMarketService.formatTimeAgo(prediction.lastUpdate)}
+                          {formatTimeAgo(prediction.lastUpdate)}
                         </span>
                       </div>
                       

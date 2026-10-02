@@ -31,6 +31,8 @@ export async function GET(req: NextRequest) {
       return NextResponse.json(
         {
           success: false,
+          detail: null,
+          historyDetail: history,
           direction: null,
           message: 'No active 5-min market window found',
           history: {
@@ -46,6 +48,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(
       {
         success: true,
+        detail: signal,
+        historyDetail: history,
         direction: signal.direction,
         signal: signal.direction,
         probability: signal.probability,

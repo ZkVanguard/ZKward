@@ -26,7 +26,7 @@ import { useSui } from '@/app/sui-providers';
 import { useWalletHub, type WalletChain } from '@/contexts/WalletHubContext';
 import { ChainBadge } from '@/components/wallet/ChainBadge';
 import { ReconnectBanner } from '@/components/wallet/ReconnectBanner';
-import type { PredictionMarket } from '@/lib/services/market-data/DelphiMarketService';
+import type { PredictionMarket } from '@/lib/types/market-signals';
 
 // Dynamic imports for code splitting
 const AgentActivity = nextDynamic(

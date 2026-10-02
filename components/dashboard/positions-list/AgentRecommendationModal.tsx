@@ -1,6 +1,6 @@
 import { Sparkles } from 'lucide-react';
 import type { AgentRecommendation, OnChainPortfolio } from '../positions-types';
-import type { PredictionMarket } from '@/lib/services/market-data/DelphiMarketService';
+import type { PredictionMarket } from '@/lib/types/market-signals';
 
 interface AgentRecommendationModalProps {
   recommendation: AgentRecommendation;
