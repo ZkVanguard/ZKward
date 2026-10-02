@@ -19,6 +19,8 @@ const ENGINE = [
   '@/lib/services/trading/',
   '@/lib/services/hedging/',
   '@/lib/services/sui/cron/',
+  '@/lib/services/agents/',
+  '@/lib/services/alerting/',
   '@/agents/',
 ];
 
