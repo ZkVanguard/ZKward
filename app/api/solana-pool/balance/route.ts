@@ -1,10 +1,29 @@
-/** Per-wallet pool position: net shares + current token value. Public read. */
+/** Per-wallet pool position: net shares + current token value + JIMP still in the wallet. Public read. */
 import { NextRequest, NextResponse } from 'next/server';
 import { errMsg } from '@/lib/utils/error-handler';
 import { envFlag } from '@/lib/utils/env-flag';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+
+/**
+ * JIMP sitting in the wallet (not deposited). The faucet and a withdrawal
+ * land here, so without it the card shows no change after either. null when
+ * the chain read failed; 0 only when the wallet simply has no token account.
+ */
+async function walletTokenBalanceUi(wallet: string): Promise<number | null> {
+  const mint = (process.env.SOLANA_POOL_TOKEN_MINT || '').trim();
+  if (!mint) return null;
+  try {
+    const { PublicKey } = await import('@solana/web3.js');
+    const { getAssociatedTokenAddressSync } = await import('@/lib/services/solana/spl');
+    const { getTokenAccountBalance } = await import('@/lib/services/solana/rpc');
+    const ata = getAssociatedTokenAddressSync(new PublicKey(mint), new PublicKey(wallet)).toBase58();
+    return (await getTokenAccountBalance(ata)).uiAmount;
+  } catch (e) {
+    return /could not find account/i.test(errMsg(e)) ? 0 : null;
+  }
+}
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
   if (!envFlag('SOLANA_POOL_ENABLED')) return NextResponse.json({ enabled: false });
@@ -29,6 +48,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       sharesUi: toUi(owned),
       tokenValueUi: toUi(valueRaw),
       poolSharePct: total > 0n ? Number((owned * 10_000n) / total) / 100 : 0,
+      walletTokenUi: await walletTokenBalanceUi(wallet),
     });
   } catch (e) {
     return NextResponse.json({ error: errMsg(e) }, { status: 500 });

@@ -20,6 +20,8 @@ interface MyBalance {
   sharesUi: number;
   tokenValueUi: number;
   poolSharePct: number;
+  /** JIMP in the wallet, not deposited. null = chain read failed. */
+  walletTokenUi: number | null;
 }
 
 type Busy = null | 'connect' | 'faucet' | 'deposit' | 'withdraw';
@@ -89,7 +91,8 @@ export function SolanaVaultActions() {
       });
       const j = await r.json();
       if (!r.ok) throw new Error(j.error || 'Faucet failed — try again in a minute');
-      return { kind: 'ok', text: `Sent ${Number(j.amountUi).toLocaleString()} test JIMP to your wallet`, tx: j.txSignature };
+      if (wallet) await refreshBalance(wallet);
+      return { kind: 'ok', text: `Added ${Number(j.amountUi).toLocaleString()} test JIMP to your wallet — deposit some below`, tx: j.txSignature };
     });
 
   const onDeposit = () =>
@@ -136,11 +139,14 @@ export function SolanaVaultActions() {
   };
 
   const shares = balance?.sharesUi ?? 0;
+  const walletTokens = balance?.walletTokenUi ?? null;
+  const maxAmount = mode === 'deposit' ? (walletTokens ?? 0) : shares;
   const parsed = Number(amount);
   const entered = Number.isFinite(parsed) && parsed > 0;
   const disabledReason: string | null =
     !wallet ? 'Connect your Solana wallet first'
     : !entered ? (mode === 'deposit' ? 'Enter how much JIMP to deposit' : 'Enter how many shares to withdraw')
+    : mode === 'deposit' && walletTokens !== null && parsed > walletTokens ? `Your wallet holds ${walletTokens.toLocaleString(undefined, { maximumFractionDigits: 2 })} JIMP`
     : mode === 'withdraw' && parsed > shares ? `You have ${shares.toLocaleString(undefined, { maximumFractionDigits: 4 })} shares`
     : mode === 'withdraw' && status?.solvent === false ? 'Withdrawals are paused while the vault re-balances'
     : busy ? 'Working…'
@@ -200,6 +206,14 @@ export function SolanaVaultActions() {
               {(balance?.poolSharePct ?? 0).toFixed(2)}% of the pool
             </span>
           )}
+          {walletTokens !== null && (
+            <span
+              className="inline-flex items-center px-2 py-1 rounded-full bg-system-bg-secondary tabular-nums"
+              title="JIMP in your wallet, not yet deposited"
+            >
+              Wallet {walletTokens.toLocaleString(undefined, { maximumFractionDigits: 2 })} JIMP
+            </span>
+          )}
           {testnet && (
             <button
               onClick={onFaucet}
@@ -210,6 +224,27 @@ export function SolanaVaultActions() {
               {busy === 'faucet' ? <Loader2 className="w-3 h-3 animate-spin" /> : <Droplets className="w-3 h-3" />}
               Get test JIMP
             </button>
+          )}
+        </div>
+      )}
+
+      {notice && (
+        <div
+          className={`text-[12px] rounded-xl p-2.5 flex items-center gap-2 flex-wrap ${
+            notice.kind === 'ok' ? 'text-green-800 bg-[#34C759]/10' : 'text-red-700 bg-[#FF3B30]/10'
+          }`}
+        >
+          {notice.kind === 'ok' ? <Check className="w-3.5 h-3.5" /> : <AlertTriangle className="w-3.5 h-3.5" />}
+          <span>{notice.text}</span>
+          {notice.tx && (
+            <a
+              href={explorerTx(notice.tx, cluster)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-0.5 underline decoration-dotted"
+            >
+              view <ExternalLink className="w-3 h-3" />
+            </a>
           )}
         </div>
       )}
@@ -249,9 +284,9 @@ export function SolanaVaultActions() {
             disabled={busy !== null}
             className="flex-1 min-w-0 h-11 px-3 rounded-[10px] border border-black/10 dark:border-white/15 bg-system-bg-secondary tabular-nums focus:outline-none"
           />
-          {mode === 'withdraw' && shares > 0 && (
+          {maxAmount > 0 && (
             <button
-              onClick={() => setAmount(String(shares))}
+              onClick={() => setAmount(String(maxAmount))}
               className="flex-shrink-0 px-3 h-11 rounded-[10px] bg-system-bg-secondary text-[12px] font-medium text-label-secondary hover:bg-[#E5E5EA] active:scale-[0.98]"
             >
               Max
@@ -285,26 +320,6 @@ export function SolanaVaultActions() {
         </div>
       )}
 
-      {notice && (
-        <div
-          className={`text-[12px] rounded-xl p-2.5 flex items-center gap-2 flex-wrap ${
-            notice.kind === 'ok' ? 'text-green-800 bg-[#34C759]/10' : 'text-red-700 bg-[#FF3B30]/10'
-          }`}
-        >
-          {notice.kind === 'ok' ? <Check className="w-3.5 h-3.5" /> : <AlertTriangle className="w-3.5 h-3.5" />}
-          <span>{notice.text}</span>
-          {notice.tx && (
-            <a
-              href={explorerTx(notice.tx, cluster)}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-0.5 underline decoration-dotted"
-            >
-              view <ExternalLink className="w-3 h-3" />
-            </a>
-          )}
-        </div>
-      )}
     </div>
   );
 }
