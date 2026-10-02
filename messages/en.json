@@ -531,6 +531,35 @@
         "protected": "Your Privacy is Protected",
         "protectedDesc": "All sensitive data is encrypted. ZK proofs ensure your positions remain private while still being verifiable on-chain."
       }
+    },
+    "marketBoard": {
+      "title": "Market lean",
+      "subtitle": "Which way the signal stack leans for each asset, and which markets say so",
+      "updated": "Updated {s} s ago",
+      "refresh": "Refresh",
+      "leanUp": "Leaning up",
+      "leanDown": "Leaning down",
+      "noLean": "No lean",
+      "confidence": "{pct}% confidence",
+      "agree": "{n} of {total} sources agree",
+      "split": "{total} sources, split",
+      "sources": "Sources",
+      "noSources": "No sources are reporting on this asset right now",
+      "weight": "{pct}% weight",
+      "error": "The signals could not be loaded.",
+      "retry": "Try again",
+      "staleAfterError": "The last refresh failed; these numbers are from the previous one.",
+      "footer": "A lean is the weighted vote of the sources listed. The signal ledger scores every source against the price that followed; a lean is not a forecast.",
+      "overall": {
+        "up": "Market leaning up",
+        "down": "Market leaning down",
+        "mixed": "Market mixed"
+      },
+      "dir": {
+        "up": "up",
+        "down": "down",
+        "flat": "flat"
+      }
     }
   },
   "common": {

@@ -8,7 +8,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 const root = process.cwd();
-const component = fs.readFileSync(path.join(root, 'components/landing/DataSourceMarquee.tsx'), 'utf8');
+const component = fs.readFileSync(path.join(root, 'lib/api/signal-providers.ts'), 'utf8');
 const slugs = [...component.matchAll(/slug: '([a-z-]+)'/g)].map((m) => m[1]);
 const roles = [...component.matchAll(/role: '([a-zA-Z]+)'/g)].map((m) => m[1]);
 

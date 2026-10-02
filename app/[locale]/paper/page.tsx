@@ -13,6 +13,8 @@
  * Piggybacked on the polymarket-edge-trader 5-min tick.
  */
 import { useEffect, useMemo, useState } from 'react';
+import { fetchPerAssetSignals } from '@/lib/api/market-signals';
+import type { PerAssetSignal } from '@/lib/types/market-signals';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -82,7 +84,6 @@ interface Status {
     reason: string;
   }>;
   perAsset: Record<string, { trades: number; wins: number; cumRealizedUsd: number }>;
-  signals: Record<string, { recommendation: string; confidence: number; sources: number }>;
   navSeries: Array<{ ts: number; nav: number }>;
 }
 
@@ -102,6 +103,7 @@ function fmtDur(seconds: number): string {
 
 export default function PaperTraderPage() {
   const [status, setStatus] = useState<Status | null>(null);
+  const [signals, setSignals] = useState<Record<string, PerAssetSignal>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -121,6 +123,7 @@ export default function PaperTraderPage() {
 
   useEffect(() => {
     load();
+    fetchPerAssetSignals().then(setSignals).catch(() => setSignals({}));
     const iv = setInterval(load, 30_000);
     return () => clearInterval(iv);
   }, []);
@@ -342,11 +345,11 @@ export default function PaperTraderPage() {
         })()}
 
         {/* Live signals */}
-        {Object.keys(status.signals).length > 0 && (
+        {Object.keys(signals).length > 0 && (
           <div className="bg-system-bg-secondary rounded-ios-xl p-4 sm:p-5 border border-separator-opaque/30">
             <div className="text-xs text-label-secondary uppercase mb-2">Current Signals</div>
             <div className="grid grid-cols-2 md:grid-cols-5 gap-3 text-sm">
-              {Object.entries(status.signals).map(([asset, s]) => (
+              {Object.entries(signals).map(([asset, s]) => (
                 <div key={asset} className="bg-system-bg-primary rounded-ios p-2 border border-separator-opaque/30">
                   <div className="font-bold">{asset}</div>
                   <div className="text-xs text-label-secondary">{s.recommendation}</div>
@@ -354,7 +357,7 @@ export default function PaperTraderPage() {
                     <span className="text-label-tertiary">conf </span>
                     <span>{s.confidence}%</span>
                     <span className="text-label-tertiary"> · src </span>
-                    <span>{s.sources}</span>
+                    <span>{s.sources.length}</span>
                   </div>
                 </div>
               ))}

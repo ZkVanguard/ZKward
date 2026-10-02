@@ -107,6 +107,35 @@
         "protected": "Ihre Privatsphäre ist geschützt",
         "protectedDesc": "Alle sensiblen Daten sind verschlüsselt. ZK-Beweise stellen sicher, dass Ihre Positionen privat bleiben und dennoch on-chain überprüfbar sind."
       }
+    },
+    "marketBoard": {
+      "title": "Markttendenz",
+      "subtitle": "Wohin die Signale je Asset tendieren – und welche Märkte das sagen",
+      "updated": "Vor {s} s aktualisiert",
+      "refresh": "Aktualisieren",
+      "leanUp": "Tendenz aufwärts",
+      "leanDown": "Tendenz abwärts",
+      "noLean": "Keine Tendenz",
+      "confidence": "{pct} % Konfidenz",
+      "agree": "{n} von {total} Quellen stimmen überein",
+      "split": "{total} Quellen, uneins",
+      "sources": "Quellen",
+      "noSources": "Derzeit meldet keine Quelle zu diesem Asset",
+      "weight": "{pct} % Gewicht",
+      "error": "Die Signale konnten nicht geladen werden.",
+      "retry": "Erneut versuchen",
+      "staleAfterError": "Die letzte Aktualisierung ist fehlgeschlagen; diese Zahlen stammen von der vorherigen.",
+      "footer": "Die Tendenz ist das gewichtete Votum der gelisteten Quellen. Das Signal-Ledger bewertet jede Quelle am anschließenden Kurs; eine Tendenz ist keine Prognose.",
+      "overall": {
+        "up": "Markt tendiert aufwärts",
+        "down": "Markt tendiert abwärts",
+        "mixed": "Markt gemischt"
+      },
+      "dir": {
+        "up": "auf",
+        "down": "ab",
+        "flat": "flach"
+      }
     }
   },
   "common": {

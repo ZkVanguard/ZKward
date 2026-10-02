@@ -107,6 +107,35 @@
         "protected": "Votre vie privée est protégée",
         "protectedDesc": "Toutes les données sensibles sont chiffrées. Les preuves ZK garantissent que vos positions restent privées tout en étant vérifiables sur la chaîne."
       }
+    },
+    "marketBoard": {
+      "title": "Tendance du marché",
+      "subtitle": "Dans quel sens penchent les signaux pour chaque actif, et quels marchés le disent",
+      "updated": "Mis à jour il y a {s} s",
+      "refresh": "Actualiser",
+      "leanUp": "Tendance haussière",
+      "leanDown": "Tendance baissière",
+      "noLean": "Aucune tendance",
+      "confidence": "{pct} % de confiance",
+      "agree": "{n} sources sur {total} sont d’accord",
+      "split": "{total} sources partagées",
+      "sources": "Sources",
+      "noSources": "Aucune source ne se prononce sur cet actif pour le moment",
+      "weight": "{pct} % de poids",
+      "error": "Impossible de charger les signaux.",
+      "retry": "Réessayer",
+      "staleAfterError": "La dernière actualisation a échoué ; ces chiffres viennent de la précédente.",
+      "footer": "La tendance est le vote pondéré des sources listées. Le registre des signaux note chaque source d’après le prix qui a suivi ; une tendance n’est pas une prévision.",
+      "overall": {
+        "up": "Marché à tendance haussière",
+        "down": "Marché à tendance baissière",
+        "mixed": "Marché partagé"
+      },
+      "dir": {
+        "up": "hausse",
+        "down": "baisse",
+        "flat": "stable"
+      }
     }
   },
   "common": {

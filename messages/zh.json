@@ -107,6 +107,35 @@
         "protected": "您的隐私受到保护",
         "protectedDesc": "所有敏感数据均已加密。ZK 证明确保您的头寸保持私密,同时可在链上验证。"
       }
+    },
+    "marketBoard": {
+      "title": "市场倾向",
+      "subtitle": "每个资产的信号倾向哪一方，以及哪些市场这么说",
+      "updated": "{s} 秒前更新",
+      "refresh": "刷新",
+      "leanUp": "偏多",
+      "leanDown": "偏空",
+      "noLean": "无倾向",
+      "confidence": "置信度 {pct}%",
+      "agree": "{total} 个来源中 {n} 个一致",
+      "split": "{total} 个来源，意见分歧",
+      "sources": "来源",
+      "noSources": "目前没有来源报告该资产",
+      "weight": "权重 {pct}%",
+      "error": "无法加载信号。",
+      "retry": "重试",
+      "staleAfterError": "上次刷新失败，当前数字来自上一次。",
+      "footer": "倾向是所列来源的加权投票。信号账本用随后的价格为每个来源打分；倾向不是预测。",
+      "overall": {
+        "up": "市场偏多",
+        "down": "市场偏空",
+        "mixed": "市场分歧"
+      },
+      "dir": {
+        "up": "上",
+        "down": "下",
+        "flat": "持平"
+      }
     }
   },
   "common": {
