@@ -11,7 +11,7 @@
 import { useEffect, useState } from 'react';
 import { AlertTriangle, Check, Copy, Droplets, ExternalLink, Loader2, Minus, Plus, Wallet } from 'lucide-react';
 import { depositTokens, signWithdrawMessage } from './wallet';
-import { useWalletHub } from '@/contexts/WalletHubContext';
+import { CHAIN_INFO, useWalletHub } from '@/contexts/WalletHubContext';
 import { explorerAddress, explorerTx, shortAddr, useSolanaPoolStatus } from './status';
 
 const SOLANA_ACCENT = '#9945FF';
@@ -179,7 +179,9 @@ export function SolanaVaultActions() {
       ) : (
         <div className="rounded-xl border p-3 flex flex-wrap items-center gap-3" style={{ borderColor: `${SOLANA_ACCENT}30`, background: `${SOLANA_ACCENT}08` }}>
           <div className="flex-1 min-w-[200px] text-[12px] text-label-secondary">
-            {hub.anyConnected ? 'This pool runs on Solana, so it needs a Solana wallet too.' : 'Connect a Solana wallet to deposit.'}
+            {hub.isConnected && hub.activeChain && hub.activeChain !== 'solana'
+              ? `You're using ${CHAIN_INFO[hub.activeChain].name}. This pool runs on Solana, so switch to deposit.`
+              : 'Connect a Solana wallet to deposit.'}
             {testnet && ' Phantom works best — switch it to Devnet for this test pool.'}
           </div>
           <button
@@ -189,7 +191,7 @@ export function SolanaVaultActions() {
             style={{ background: SOLANA_ACCENT }}
           >
             {busy === 'connect' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wallet className="w-4 h-4" />}
-            Connect Solana wallet
+            {hub.isConnected && hub.activeChain !== 'solana' ? 'Switch to Solana' : 'Connect Solana wallet'}
           </button>
         </div>
       )}

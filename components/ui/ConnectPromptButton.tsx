@@ -31,7 +31,8 @@ export const ConnectPromptButton = memo(function ConnectPromptButton({
   className = '',
 }: Props) {
   const hub = useWalletHubSafe();
-  const text = label ?? (chain ? CHAIN_INFO[chain].cta : 'Connect wallet');
+  const onAnother = !!hub?.isConnected && !!chain && hub.activeChain !== chain;
+  const text = label ?? (chain ? (onAnother ? `Switch to ${CHAIN_INFO[chain].name}` : CHAIN_INFO[chain].cta) : hub?.isConnected ? 'Switch network' : 'Connect wallet');
   const onClick = () => {
     if (hub) {
       hub.openChooser({ chain, reason });

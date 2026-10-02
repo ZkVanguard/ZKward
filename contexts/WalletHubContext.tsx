@@ -1,14 +1,16 @@
 'use client';
 
 /**
- * One source of truth for "what is connected" across the dashboard.
+ * One active network per user, and one place that knows which.
  *
- * Three wallet systems feed it: Privy (Hedera, embedded EVM wallet behind
- * the email/Google sign-in), dapp-kit (SUI browser wallets) and the injected
- * Phantom provider (Solana). Every surface asks the hub instead of its own
- * hook, so connecting once in the navbar counts everywhere. `openChooser`
- * is the single connect flow: the navbar opens it with no preference, a
- * section opens it pre-selected on the chain it needs.
+ * Three wallet systems feed the hub: Privy (Hedera, embedded EVM wallet
+ * behind the email/Google sign-in), dapp-kit (SUI browser wallets) and the
+ * injected Phantom provider (Solana). Exactly one chain is ACTIVE at a time:
+ * choosing a network in the chooser makes it active and disconnects the
+ * previous one, the choice is remembered on this device, and every surface
+ * reads `activeChain` / `active` instead of its own hook. A surface that
+ * needs a different chain guides the user to switch, never to "connect a
+ * second wallet".
  *
  * Dashboard-only: it relies on PrivyProvider + SuiWalletProviders from
  * app/wallet-providers.tsx, like useUserSession does.
@@ -25,15 +27,18 @@ import { ChainChooser } from '@/components/wallet/ChainChooser';
 
 export type WalletChain = 'hedera' | 'sui' | 'solana';
 export const WALLET_CHAINS: readonly WalletChain[] = ['hedera', 'sui', 'solana'];
+/** Which chain wins when several come back connected after a reload and no preference is stored. */
+const ADOPTION_ORDER: readonly WalletChain[] = ['sui', 'hedera', 'solana'];
+const ACTIVE_KEY = 'zkward.activeChain';
 
-/** Plain-language copy for the chooser and the prompts. */
+/** Plain-language copy for the chooser, prompts and badges. */
 export const CHAIN_INFO: Record<WalletChain, { name: string; net: string; pool: string; how: string; cta: string; color: string; installUrl: string; installLabel: string }> = {
   hedera: {
     name: 'Hedera',
     net: 'testnet',
     pool: 'USDC pool on Hedera testnet',
     how: 'Sign in with email or Google. We create a wallet for you, nothing to install.',
-    cta: 'Sign in',
+    cta: 'Sign in with Hedera',
     color: '#1d1d1f',
     installUrl: '',
     installLabel: '',
@@ -43,7 +48,7 @@ export const CHAIN_INFO: Record<WalletChain, { name: string; net: string; pool: 
     net: 'mainnet',
     pool: 'Live USDC pool on SUI mainnet',
     how: 'Uses a SUI browser wallet such as Slush, Suiet or Ethos.',
-    cta: 'Connect SUI wallet',
+    cta: 'Use SUI',
     color: '#4DA2FF',
     installUrl: 'https://slush.app/',
     installLabel: 'Get Slush',
@@ -53,7 +58,7 @@ export const CHAIN_INFO: Record<WalletChain, { name: string; net: string; pool: 
     net: 'devnet',
     pool: 'JIMP test pool on Solana devnet',
     how: 'Uses Phantom. Switch it to Devnet for the test pool.',
-    cta: 'Connect Phantom',
+    cta: 'Use Solana',
     color: '#9945FF',
     installUrl: 'https://phantom.app/download',
     installLabel: 'Get Phantom',
@@ -76,12 +81,18 @@ export interface ChooserState {
 export type ConnectResult = { ok: true } | { ok: false; error: string };
 
 export interface WalletHub {
+  /** The one network in use. Set as soon as the user picks it, even while the wallet is still connecting. */
+  activeChain: WalletChain | null;
+  /** The active network's wallet; null until it is connected. */
+  active: ChainWallet | null;
+  /** activeChain is set and its wallet is connected. */
+  isConnected: boolean;
   hedera: ChainWallet;
   sui: ChainWallet;
   solana: ChainWallet;
-  anyConnected: boolean;
   /** SUI wallets the browser exposes; the chooser lists them when there is more than one. */
   suiWallets: WalletWithRequiredFeatures[];
+  /** Switch to `chain`: disconnect the current network, make `chain` active, connect it. */
   connect: (chain: WalletChain, pick?: WalletWithRequiredFeatures) => Promise<ConnectResult>;
   disconnect: (chain: WalletChain) => Promise<void>;
   chooser: ChooserState;
@@ -92,6 +103,15 @@ export interface WalletHub {
 }
 
 const Ctx = createContext<WalletHub | null>(null);
+
+function readStoredChain(): WalletChain | null {
+  try {
+    const v = localStorage.getItem(ACTIVE_KEY);
+    return v && (WALLET_CHAINS as readonly string[]).includes(v) ? (v as WalletChain) : null;
+  } catch {
+    return null;
+  }
+}
 
 export function WalletHubProvider({ children }: { children: ReactNode }) {
   // Hedera: Privy session (embedded wallet) — the navbar's "Sign in".
@@ -124,6 +144,22 @@ export function WalletHubProvider({ children }: { children: ReactNode }) {
       .catch(() => undefined);
   }, []);
 
+  const [activeChain, setActiveChainState] = useState<WalletChain | null>(null);
+  const [hydrated, setHydrated] = useState(false);
+  useEffect(() => {
+    setActiveChainState(readStoredChain());
+    setHydrated(true);
+  }, []);
+  const setActive = useCallback((chain: WalletChain | null) => {
+    setActiveChainState(chain);
+    try {
+      if (chain) localStorage.setItem(ACTIVE_KEY, chain);
+      else localStorage.removeItem(ACTIVE_KEY);
+    } catch {
+      /* per-device convenience only */
+    }
+  }, []);
+
   const [errors, setErrors] = useState<Partial<Record<WalletChain, string>>>({});
   const [chooser, setChooser] = useState<ChooserState>({ open: false, chain: null, reason: null });
 
@@ -143,44 +179,9 @@ export function WalletHubProvider({ children }: { children: ReactNode }) {
     () => ({ address: solanaAddress, connected: !!solanaAddress, busy: solanaBusy }),
     [solanaAddress, solanaBusy],
   );
-  const connectedCount = Number(hedera.connected) + Number(suiWallet.connected) + Number(solana.connected);
+  const wallets = useMemo(() => ({ hedera, sui: suiWallet, solana }), [hedera, suiWallet, solana]);
 
-  const connect = useCallback(
-    async (chain: WalletChain, pick?: WalletWithRequiredFeatures): Promise<ConnectResult> => {
-      setErrors((e) => ({ ...e, [chain]: undefined }));
-      try {
-        if (chain === 'hedera') {
-          login();
-          return { ok: true };
-        }
-        if (chain === 'sui') {
-          const wallet = pick ?? (suiWallets.length === 1 ? suiWallets[0] : null);
-          if (!wallet) {
-            if (suiWallets.length === 0) throw new Error('No SUI wallet found in this browser.');
-            // Several wallets detected: the chooser lists them, the user picks one.
-            setChooser((c) => (c.open ? c : { open: true, chain: 'sui', reason: c.reason }));
-            return { ok: true };
-          }
-          await connectSuiWallet({ wallet });
-          return { ok: true };
-        }
-        setSolanaBusy(true);
-        try {
-          setSolanaAddress(await connectPhantom());
-        } finally {
-          setSolanaBusy(false);
-        }
-        return { ok: true };
-      } catch (e) {
-        const error = e instanceof Error ? e.message : 'Could not connect';
-        setErrors((prev) => ({ ...prev, [chain]: error }));
-        return { ok: false, error };
-      }
-    },
-    [login, suiWallets, connectSuiWallet],
-  );
-
-  const disconnect = useCallback(
+  const disconnectRaw = useCallback(
     async (chain: WalletChain) => {
       if (chain === 'hedera') await session.logout();
       else if (chain === 'sui') sui?.disconnectWallet();
@@ -192,32 +193,106 @@ export function WalletHubProvider({ children }: { children: ReactNode }) {
     [session, sui],
   );
 
-  // The chooser closes itself once the user has connected what they came for:
-  // the requested chain, or any new chain when opened without a preference.
-  const countAtOpen = useRef(0);
-  const openChooser = useCallback(
-    (opts?: { chain?: WalletChain; reason?: string }) => {
-      countAtOpen.current = connectedCount;
-      setChooser({ open: true, chain: opts?.chain ?? null, reason: opts?.reason ?? null });
-    },
-    [connectedCount],
-  );
-  const closeChooser = useCallback(() => setChooser({ open: false, chain: null, reason: null }), []);
+  // Enforce "one network at a time". Runs whenever a connection appears or
+  // drops: keeps the active chain, drops any other connected wallet, and
+  // adopts a connected wallet when nothing is active (ADOPTION_ORDER).
+  // Paused while a switch is in flight so the half-done state is not
+  // mistaken for a user choice.
+  const switching = useRef(false);
   useEffect(() => {
-    if (!chooser.open) return;
-    const wanted = chooser.chain;
-    const satisfied = wanted
-      ? (wanted === 'hedera' ? hedera : wanted === 'sui' ? suiWallet : solana).connected
-      : connectedCount > countAtOpen.current;
-    if (satisfied) closeChooser();
-  }, [chooser.open, chooser.chain, hedera, suiWallet, solana, connectedCount, closeChooser]);
+    if (!hydrated || !session.ready || switching.current) return;
+    const connected = WALLET_CHAINS.filter((c) => wallets[c].connected);
+    if (activeChain && wallets[activeChain].connected) {
+      for (const other of connected) if (other !== activeChain) void disconnectRaw(other);
+      return;
+    }
+    if (connected.length === 0) return;
+    const pick = ADOPTION_ORDER.find((c) => connected.includes(c))!;
+    setActive(pick);
+    for (const other of connected) if (other !== pick) void disconnectRaw(other);
+  }, [hydrated, session.ready, activeChain, wallets, disconnectRaw, setActive]);
 
+  const connect = useCallback(
+    async (chain: WalletChain, pick?: WalletWithRequiredFeatures): Promise<ConnectResult> => {
+      setErrors((e) => ({ ...e, [chain]: undefined }));
+      switching.current = true;
+      try {
+        for (const other of WALLET_CHAINS) if (other !== chain && wallets[other].connected) await disconnectRaw(other);
+        setActive(chain);
+        if (chain === 'hedera') {
+          if (!wallets.hedera.connected) login();
+          return { ok: true };
+        }
+        if (chain === 'sui') {
+          if (wallets.sui.connected) return { ok: true };
+          const wallet = pick ?? (suiWallets.length === 1 ? suiWallets[0] : null);
+          if (!wallet) {
+            if (suiWallets.length === 0) throw new Error('No SUI wallet found in this browser.');
+            // Several wallets detected: the chooser lists them, the user picks one.
+            setChooser((c) => (c.open ? c : { open: true, chain: 'sui', reason: c.reason }));
+            return { ok: true };
+          }
+          await connectSuiWallet({ wallet });
+          return { ok: true };
+        }
+        if (wallets.solana.connected) return { ok: true };
+        setSolanaBusy(true);
+        try {
+          setSolanaAddress(await connectPhantom());
+        } finally {
+          setSolanaBusy(false);
+        }
+        return { ok: true };
+      } catch (e) {
+        const error = e instanceof Error ? e.message : 'Could not connect';
+        setErrors((prev) => ({ ...prev, [chain]: error }));
+        return { ok: false, error };
+      } finally {
+        switching.current = false;
+      }
+    },
+    [wallets, disconnectRaw, setActive, login, suiWallets, connectSuiWallet],
+  );
+
+  const disconnect = useCallback(
+    async (chain: WalletChain) => {
+      await disconnectRaw(chain);
+      if (chain === activeChain) setActive(null);
+    },
+    [disconnectRaw, activeChain, setActive],
+  );
+
+  const openChooser = useCallback((opts?: { chain?: WalletChain; reason?: string }) => {
+    setChooser({ open: true, chain: opts?.chain ?? null, reason: opts?.reason ?? null });
+  }, []);
+  const closeChooser = useCallback(() => setChooser({ open: false, chain: null, reason: null }), []);
+  // The chooser closes itself once the network the user came for is active and connected.
+  const openedWith = useRef<{ chain: WalletChain | null; active: WalletChain | null; connected: boolean } | null>(null);
+  useEffect(() => {
+    if (!chooser.open) {
+      openedWith.current = null;
+      return;
+    }
+    if (!openedWith.current) {
+      openedWith.current = { chain: chooser.chain, active: activeChain, connected: !!(activeChain && wallets[activeChain].connected) };
+      return;
+    }
+    const o = openedWith.current;
+    const target = o.chain ?? activeChain;
+    const satisfied =
+      !!target && activeChain === target && wallets[target].connected && (o.chain ? true : !(o.connected && o.active === target));
+    if (satisfied) closeChooser();
+  }, [chooser.open, chooser.chain, activeChain, wallets, closeChooser]);
+
+  const active = activeChain ? wallets[activeChain] : null;
   const value = useMemo<WalletHub>(
     () => ({
+      activeChain,
+      active: active && active.connected ? active : null,
+      isConnected: !!active?.connected,
       hedera,
       sui: suiWallet,
       solana,
-      anyConnected: connectedCount > 0,
       suiWallets,
       connect,
       disconnect,
@@ -226,7 +301,7 @@ export function WalletHubProvider({ children }: { children: ReactNode }) {
       closeChooser,
       errors,
     }),
-    [hedera, suiWallet, solana, connectedCount, suiWallets, connect, disconnect, chooser, openChooser, closeChooser, errors],
+    [activeChain, active, hedera, suiWallet, solana, suiWallets, connect, disconnect, chooser, openChooser, closeChooser, errors],
   );
 
   return (

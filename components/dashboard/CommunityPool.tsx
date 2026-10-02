@@ -19,6 +19,7 @@
  */
 
 import { useState, memo, useEffect, useCallback, useRef, Suspense, lazy } from 'react';
+import { useWalletHub } from '@/contexts/WalletHubContext';
 import { usePrivyEmbeddedAddress } from '@/lib/evm-wallet/usePrivyEmbeddedAddress';
 import { HederaVaultActions } from './HederaVaultActions';
 import { HederaPoolHedgesProjection } from './HederaPoolHedgesProjection';
@@ -114,10 +115,12 @@ export const CommunityPool = memo(function CommunityPool({
 
   // `?chain=<key>` opens a specific pool (old `?tab=solana` links land on
   // Solana); every pick keeps the URL in step so a pool can be shared.
+  const urlPinned = useRef(false);
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const chain = params.get('chain') ?? (params.get('tab') === 'solana' ? 'solana' : null);
     if (chain && chain !== pool.selectedChain && chain in POOL_CHAIN_CONFIGS) {
+      urlPinned.current = true;
       pool.handleChainSelect(chain as ChainKey);
     }
     // Read the URL once on mount; later picks go through selectChain.
@@ -132,6 +135,25 @@ export const CommunityPool = memo(function CommunityPool({
     },
     [pool],
   );
+
+  // The pool follows the user's active network (one at a time). A shared
+  // `?chain=` link wins once on arrival; any other pool can still be viewed,
+  // its deposit card then guides to "Switch to <network>".
+  const hub = useWalletHub();
+  const activeChain = hub.isConnected ? hub.activeChain : null;
+  // Latest pool state via a ref so only a change of active network re-selects
+  // the pool, never a pool pick the user just made.
+  const followRef = useRef({ selected: pool.selectedChain, selectChain });
+  followRef.current = { selected: pool.selectedChain, selectChain };
+  useEffect(() => {
+    if (!activeChain) return;
+    if (urlPinned.current) {
+      urlPinned.current = false;
+      return;
+    }
+    const { selected, selectChain: pick } = followRef.current;
+    if (activeChain in POOL_CHAIN_CONFIGS && selected !== activeChain) pick(activeChain as ChainKey);
+  }, [activeChain]);
 
   // Auto-select Hedera the first time a Privy embedded wallet appears.
   // Privy wallets live on Hedera Testnet by default (privy-client-config

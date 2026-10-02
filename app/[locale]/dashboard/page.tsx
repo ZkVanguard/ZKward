@@ -288,8 +288,6 @@ export default function DashboardPage() {
 
   // SUI wallet state
   const sui = useSui();
-  const suiAddress = sui.address;
-  const suiConnected = sui.isConnected;
   const suiBalance = sui.balance;
   const hub = useWalletHub();
 
@@ -299,14 +297,13 @@ export default function DashboardPage() {
   // EIP-6963) auto-connect on page load even when the user hasn't
   // clicked Sign In, causing a phantom "connected" address in the
   // sidebar. Sidebar identity requires an EXPLICIT sign-in (SUI or Privy).
-  const isConnected = suiConnected || session.authenticated || hub.solana.connected;
-  // Which network the sidebar identity belongs to, and how many more are connected.
-  const primaryChain: WalletChain | null = suiConnected ? 'sui' : session.authenticated ? 'hedera' : hub.solana.connected ? 'solana' : null;
-  const extraChains = Math.max(0, [suiConnected, session.authenticated && !!session.address, hub.solana.connected].filter(Boolean).length - 1);
-  const address = suiAddress || session.address || hub.solana.address || '';
-  const displayBalance = suiConnected
+  // One network at a time: the sidebar identity is the active network's wallet.
+  const primaryChain: WalletChain | null = hub.isConnected ? hub.activeChain : null;
+  const isConnected = primaryChain !== null;
+  const address = hub.active?.address ?? '';
+  const displayBalance = primaryChain === 'sui'
     ? `${suiBalance} SUI`
-    : session.authenticated && session.balances.ready
+    : primaryChain === 'hedera' && session.balances.ready
       ? `${session.balances.hbarHuman.toFixed(4)} HBAR`
       : '';
 
@@ -495,9 +492,8 @@ export default function DashboardPage() {
             >
               <SidebarWalletCard
                 address={displayAddress}
-                displayName={session.displayName}
+                displayName={primaryChain === 'hedera' ? session.displayName : null}
                 chain={primaryChain}
-                extraChains={extraChains}
                 isConnected={isConnected}
                 subLabel={isConnected ? displayBalance : 'Tap to connect'}
                 size={40}
@@ -539,9 +535,8 @@ export default function DashboardPage() {
             >
               <SidebarWalletCard
                 address={displayAddress}
-                displayName={session.displayName}
+                displayName={primaryChain === 'hedera' ? session.displayName : null}
                 chain={primaryChain}
-                extraChains={extraChains}
                 isConnected={isConnected}
                 subLabel={isConnected ? displayBalance : 'Tap to connect'}
                 size={48}
@@ -948,7 +943,6 @@ function SidebarWalletCard({
   address,
   displayName,
   chain,
-  extraChains,
   isConnected,
   subLabel,
   size,
@@ -956,7 +950,6 @@ function SidebarWalletCard({
   address: string;
   displayName: string | null;
   chain: WalletChain | null;
-  extraChains: number;
   isConnected: boolean;
   subLabel: string;
   size: number;
@@ -985,7 +978,6 @@ function SidebarWalletCard({
           <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
             <ChainBadge chain={chain} />
             {subLabel && <span className={`${subSize} text-label-quaternary tabular-nums truncate`}>{subLabel}</span>}
-            {extraChains > 0 && <span className={`${subSize} text-label-quaternary`}>+{extraChains} more</span>}
           </div>
         ) : (
           <p className={`${subSize} text-label-quaternary tracking-[-0.003em] truncate`}>
