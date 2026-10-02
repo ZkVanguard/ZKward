@@ -3,51 +3,55 @@
 import { useAccount } from '@/lib/evm-wallet/hooks';
 import { useSuiSafe } from '@/app/sui-providers';
 import { usePrivyEmbeddedAddress } from '@/lib/evm-wallet/usePrivyEmbeddedAddress';
+import { useWalletHubSafe } from '@/contexts/WalletHubContext';
 
 /**
- * Unified wallet hook that works with both EVM (Cronos) and SUI wallets.
- * Use this hook when you need to support both chains.
- * 
- * Priority: SUI wallet takes precedence if connected, otherwise falls back to EVM.
+ * The wallet of the user's ACTIVE network (see WalletHubContext): one chain
+ * at a time. `address` / `chainType` describe that chain; the per-chain
+ * fields are null unless that chain is the active one, so SUI/EVM-only
+ * surfaces fall back to their prompt when the user is on another network.
+ *
+ * Without the hub (marketing routes) it degrades to SUI first, then EVM,
+ * where the Hedera sign-in (Privy embedded wallet) is the primary EVM
+ * identity and wagmi's injected address the fallback.
  */
 export function useWallet() {
-  // EVM wallet state. The Hedera sign-in (Privy embedded wallet) is the
-  // primary EVM identity; wagmi's injected address is the fallback for the
-  // few surfaces that sign with it.
+  const hub = useWalletHubSafe();
   const privyAddress = usePrivyEmbeddedAddress();
   const { address: wagmiAddress, isConnected: wagmiConnected } = useAccount();
-  const evmAddress = privyAddress ?? wagmiAddress;
-  const evmConnected = !!privyAddress || wagmiConnected;
-  
-  // SUI wallet state (safely handle if not in provider - returns null)
   const sui = useSuiSafe();
-  const suiAddress = sui?.address ?? null;
-  const suiConnected = sui?.isConnected ?? false;
+
+  const evmAddr = privyAddress ?? (wagmiAddress ? wagmiAddress.toString() : null);
+  const evmConn = !!privyAddress || wagmiConnected;
+  const suiAddr = sui?.address ?? null;
+  const suiConn = sui?.isConnected ?? false;
   const suiBalance = sui?.balance ?? '0';
   const suiNetwork = sui?.network ?? 'testnet';
-  
-  // Combined state - SUI takes priority if connected
-  const isConnected = suiConnected || evmConnected;
-  const address = suiConnected ? suiAddress : (evmAddress ? evmAddress.toString() : null);
-  const chainType = suiConnected ? 'sui' : (evmConnected ? 'evm' : null);
-  
+
+  const activeChain = hub ? hub.activeChain : suiConn ? 'sui' : evmConn ? 'hedera' : null;
+  const isSUI = activeChain === 'sui' && suiConn;
+  const isEVM = activeChain === 'hedera' && evmConn;
+  const isSolana = activeChain === 'solana' && !!hub?.solana.connected;
+  const address = isSUI ? suiAddr : isEVM ? evmAddr : isSolana ? hub?.solana.address ?? null : null;
+  const chainType: 'sui' | 'evm' | 'solana' | null = isSUI ? 'sui' : isEVM ? 'evm' : isSolana ? 'solana' : null;
+
   return {
-    // Combined state
+    // Active-chain state
     address,
-    isConnected,
+    isConnected: !!address,
     chainType,
-    
-    // Individual chain states
-    evmAddress: evmAddress ? evmAddress.toString() : null,
-    evmConnected,
-    suiAddress,
-    suiConnected,
+
+    // Per-chain state, only for the active chain
+    evmAddress: isEVM ? evmAddr : null,
+    evmConnected: isEVM,
+    suiAddress: isSUI ? suiAddr : null,
+    suiConnected: isSUI,
     suiBalance,
     suiNetwork,
-    
+
     // Helpers
-    isEVM: evmConnected && !suiConnected,
-    isSUI: suiConnected,
+    isEVM,
+    isSUI,
   };
 }
 

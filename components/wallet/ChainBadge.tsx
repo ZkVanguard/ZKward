@@ -3,9 +3,8 @@
 /**
  * Chain context, said out loud. `ChainBadge` names a network (and its
  * mainnet/testnet/devnet tier) next to an address; `WalletContextBadge`
- * tells a portfolio surface which wallet it is showing — these views pick
- * one wallet (SUI first, then the Hedera sign-in), and without the badge
- * the user cannot tell which one they are looking at.
+ * tells a portfolio surface which network's wallet it is showing, with a
+ * link to switch. One network is active at a time (WalletHubContext).
  */
 
 import { useWallet } from '@/lib/hooks/useWallet';
@@ -39,17 +38,14 @@ export function ChainBadge({
   );
 }
 
-/** "Showing SUI mainnet 0x12…ab · Manage wallets" for the portfolio surfaces. */
+/** "Showing SUI mainnet 0x12…ab · Switch network" for the portfolio surfaces. */
 export function WalletContextBadge({ className = '' }: { className?: string }) {
   const w = useWallet();
   const hub = useWalletHubSafe();
-  if (!w.address) return null;
-  const chain: WalletChain = w.isSUI ? 'sui' : 'hedera';
+  if (!w.address || !w.chainType) return null;
+  const chain: WalletChain = w.chainType === 'sui' ? 'sui' : w.chainType === 'solana' ? 'solana' : 'hedera';
   // An injected EVM wallet that is not the Privy sign-in is still an EVM wallet; say so.
   const isPrivy = !!hub?.hedera.address && hub.hedera.address.toLowerCase() === (w.evmAddress ?? '').toLowerCase();
-  const others = hub
-    ? [hub.hedera.connected && chain !== 'hedera', hub.sui.connected && chain !== 'sui', hub.solana.connected].filter(Boolean).length
-    : 0;
   return (
     <span className={`inline-flex items-center gap-2 flex-wrap ${className}`}>
       <span className="text-[11px] text-[#86868b]">Showing</span>
@@ -61,13 +57,13 @@ export function WalletContextBadge({ className = '' }: { className?: string }) {
       ) : (
         <ChainBadge chain={chain} address={w.address} />
       )}
-      {hub && others > 0 && (
+      {hub && (
         <button
           type="button"
-          onClick={() => hub.openChooser({ reason: 'These pages show one wallet at a time: your SUI wallet first, otherwise your Hedera sign-in. Disconnect one to see the other.' })}
+          onClick={() => hub.openChooser({ reason: 'Your dashboard follows one network at a time. Switching disconnects the current one.' })}
           className="text-[11px] font-medium text-ios-blue hover:underline"
         >
-          Manage wallets
+          Switch network
         </button>
       )}
     </span>

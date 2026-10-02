@@ -1,9 +1,10 @@
 'use client';
 
 /**
- * The one connect sheet. Asks which network the user wants, in plain words,
- * and shows what is already connected. Opened by the navbar (no preference)
- * or by a section that needs a specific chain (pre-selected, with a reason).
+ * The network selector — the only connect UI on the dashboard. One network
+ * is active at a time: picking another one switches to it (and disconnects
+ * the current one). Opened by the navbar (no preference) or by a surface
+ * that needs a specific chain (pre-selected, with a reason).
  */
 
 import { Check, ExternalLink, Loader2, LogOut, Wallet, X } from 'lucide-react';
@@ -16,10 +17,13 @@ export function ChainChooser() {
   const { chooser } = hub;
   if (!chooser.open) return null;
 
-  // The chain this page needs goes first.
-  const order: WalletChain[] = chooser.chain
-    ? [chooser.chain, ...WALLET_CHAINS.filter((c) => c !== chooser.chain)]
-    : [...WALLET_CHAINS];
+  // The chain this page needs goes first, then the active one.
+  const order: WalletChain[] = [...WALLET_CHAINS].sort((a, b) => rank(a) - rank(b));
+  function rank(c: WalletChain) {
+    if (c === chooser.chain) return 0;
+    if (c === hub.activeChain) return 1;
+    return 2;
+  }
 
   return (
     <div
@@ -40,10 +44,10 @@ export function ChainChooser() {
         <div className="flex items-start justify-between gap-3 mb-4">
           <div>
             <h2 id="chain-chooser-title" className="text-[20px] font-semibold text-[#1d1d1f] tracking-[-0.01em]">
-              {chooser.chain ? `Connect to ${CHAIN_INFO[chooser.chain].name}` : 'Connect a wallet'}
+              {chooser.chain ? `Use ${CHAIN_INFO[chooser.chain].name}` : hub.isConnected ? 'Switch network' : 'Choose your network'}
             </h2>
             <p className="text-[13px] text-[#6e6e73] mt-1 leading-snug">
-              {chooser.reason ?? 'Pick the network you want to use. You can connect more than one.'}
+              {chooser.reason ?? 'You use one network at a time. Switching disconnects the current one.'}
             </p>
           </div>
           <button
@@ -69,12 +73,17 @@ function ChainCard({ chain, highlighted }: { chain: WalletChain; highlighted: bo
   const hub = useWalletHub();
   const info = CHAIN_INFO[chain];
   const w = hub[chain];
+  const isActive = hub.activeChain === chain && w.connected;
+  const pending = hub.activeChain === chain && !w.connected && w.busy;
   const error = hub.errors[chain];
-  const pickers = chain === 'sui' && !w.connected ? hub.suiWallets : [];
+  const pickers = chain === 'sui' && !isActive ? hub.suiWallets : [];
+  const switchLabel = hub.isConnected && hub.activeChain !== chain ? `Switch to ${info.name}` : info.cta;
 
   return (
     <div
-      className={`rounded-2xl border p-4 ${highlighted ? 'border-[#007AFF] bg-[#007AFF]/[0.04]' : 'border-black/10 bg-white'}`}
+      className={`rounded-2xl border p-4 ${
+        highlighted ? 'border-[#007AFF] bg-[#007AFF]/[0.04]' : isActive ? 'border-[#34C759]/40 bg-[#34C759]/[0.04]' : 'border-black/10 bg-white'
+      }`}
     >
       <div className="flex items-start gap-3">
         <div
@@ -86,21 +95,22 @@ function ChainCard({ chain, highlighted }: { chain: WalletChain; highlighted: bo
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-[15px] font-semibold text-[#1d1d1f]">{info.name}</span>
-            {highlighted && (
-              <span className="text-[11px] font-semibold text-[#007AFF] bg-[#007AFF]/10 rounded-full px-2 py-0.5">
-                Needed here
+            <span className="text-[11px] text-[#86868b]">{info.net}</span>
+            {isActive && (
+              <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-green-800 bg-[#34C759]/10 rounded-full px-2 py-0.5">
+                <Check className="w-3 h-3" /> Active
               </span>
             )}
-            {w.connected && (
-              <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-green-800 bg-[#34C759]/10 rounded-full px-2 py-0.5">
-                <Check className="w-3 h-3" /> Connected
+            {highlighted && !isActive && (
+              <span className="text-[11px] font-semibold text-[#007AFF] bg-[#007AFF]/10 rounded-full px-2 py-0.5">
+                Needed here
               </span>
             )}
           </div>
           <div className="text-[13px] text-[#1d1d1f] mt-0.5">{info.pool}</div>
           <div className="text-[12px] text-[#6e6e73] mt-0.5 leading-snug">{info.how}</div>
 
-          {w.connected && w.address && (
+          {isActive && w.address && (
             <div className="mt-3 flex items-center gap-2 flex-wrap">
               <code className="font-mono text-[12px] text-[#1d1d1f] bg-[#f5f5f7] rounded-lg px-2 py-1">{short(w.address)}</code>
               <button
@@ -112,7 +122,7 @@ function ChainCard({ chain, highlighted }: { chain: WalletChain; highlighted: bo
             </div>
           )}
 
-          {!w.connected && pickers.length > 1 && (
+          {!isActive && pickers.length > 1 && (
             <div className="mt-3 flex flex-wrap gap-2">
               {pickers.map((wallet) => (
                 <button
@@ -127,15 +137,15 @@ function ChainCard({ chain, highlighted }: { chain: WalletChain; highlighted: bo
             </div>
           )}
 
-          {!w.connected && pickers.length <= 1 && (
+          {!isActive && pickers.length <= 1 && (
             <button
               onClick={() => void hub.connect(chain)}
               disabled={w.busy}
               className="mt-3 inline-flex items-center gap-2 h-10 px-4 rounded-xl text-white text-[13px] font-semibold active:scale-[0.98] disabled:opacity-60"
               style={{ background: highlighted ? '#007AFF' : info.color }}
             >
-              {w.busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wallet className="w-4 h-4" />}
-              {w.busy ? 'Connecting…' : info.cta}
+              {pending || w.busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wallet className="w-4 h-4" />}
+              {pending || w.busy ? 'Connecting…' : switchLabel}
             </button>
           )}
 

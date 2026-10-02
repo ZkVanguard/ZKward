@@ -11,7 +11,6 @@ import {
   Check,
   LogOut,
   AlertTriangle,
-  Plus,
 } from 'lucide-react';
 import {
   useWallets,
@@ -429,9 +428,9 @@ export function ConnectButton() {
           mounted there. */}
       {canShowEvm && hub && (
         <div className="relative flex items-center gap-2">
-          {/* Each connected network is its own chip (chains are independent);
-              one Connect — or + once something is connected — opens the
-              chain chooser, the dashboard's single connect flow. */}
+          {/* One network is active at a time: its wallet is the only chip.
+              Connect opens the network chooser, the dashboard's single
+              connect flow; switching happens inside the chooser. */}
           {hub.hedera.connected && <PrivyConnectSection />}
           {hub.solana.connected && hub.solana.address && (
             <button
@@ -447,7 +446,7 @@ export function ConnectButton() {
               </span>
             </button>
           )}
-          {!hub.anyConnected ? (
+          {!hub.isConnected && (
             <button
               data-connect-cta="true"
               onClick={() => hub.openChooser()}
@@ -456,18 +455,6 @@ export function ConnectButton() {
               <Wallet className="w-4 h-4" />
               <span>Connect</span>
             </button>
-          ) : (
-            (!hub.hedera.connected || !hub.sui.connected || !hub.solana.connected) && (
-              <button
-                data-connect-cta="true"
-                onClick={() => hub.openChooser()}
-                className="h-11 w-11 border border-black/10 dark:border-white/15 hover:bg-system-bg-secondary dark:hover:bg-[#2c2c2e] rounded-[12px] text-label-secondary flex items-center justify-center active:scale-[0.98]"
-                title="Connect another network"
-                aria-label="Connect another network"
-              >
-                <Plus className="w-4 h-4" />
-              </button>
-            )
           )}
         </div>
       )}
