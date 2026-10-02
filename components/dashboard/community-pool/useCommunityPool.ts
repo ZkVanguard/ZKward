@@ -111,7 +111,6 @@ export function useCommunityPool(propAddress?: string, evmActive: boolean = true
   const suiIsConnected = suiContext?.isConnected ?? false;
   const suiBalance = suiContext?.balance ?? '0';
   const suiExecuteTransaction = suiContext?.executeTransaction;
-  const suiSponsoredExecute = suiContext?.sponsoredExecute;
   const suiNetwork = suiContext?.network ?? 'testnet';
   const suiIsWrongNetwork = suiContext?.isWrongNetwork ?? false;
   const _suiSetNetwork = suiContext?.setNetwork;
@@ -1598,22 +1597,7 @@ export function useCommunityPool(propAddress?: string, evmActive: boolean = true
         arguments: [tx.object(poolStateId), tx.pure.u64(sharesScaled), tx.object(clockId)],
       });
 
-      // Step 3: Execute transaction. Prefer sponsored execution so users don't
-      // need to hold SUI just to redeem shares. The withdraw payload IS USDC,
-      // so it's weird UX to require a separate token for gas. Fall back to
-      // wallet-paid gas if sponsorship fails (server unreachable, admin low
-      // on SUI, etc.).
-      let result;
-      if (suiSponsoredExecute) {
-        try {
-          result = await suiSponsoredExecute(tx);
-        } catch (sponsorErr) {
-          logger.warn('Sponsored withdraw failed, falling back to wallet-paid gas', sponsorErr);
-          result = await suiExecuteTransaction(tx);
-        }
-      } else {
-        result = await suiExecuteTransaction(tx);
-      }
+      const result = await suiExecuteTransaction(tx);
 
       if (result.success) {
         dispatchTx({ type: 'SET_TX_STATUS', payload: 'complete' });
@@ -1667,7 +1651,6 @@ export function useCommunityPool(propAddress?: string, evmActive: boolean = true
     suiIsConnected,
     suiAddress,
     suiExecuteTransaction,
-    suiSponsoredExecute,
     txState.suiWithdrawShares,
     suiNetwork,
     poolState.poolData,
