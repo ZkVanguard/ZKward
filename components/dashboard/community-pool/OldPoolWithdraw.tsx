@@ -22,7 +22,6 @@ export function OldPoolWithdraw() {
   const sui = useSuiSafe();
 
   const [poolInfo, setPoolInfo] = useState<OldPoolInfo | null>(null);
-  const [loading, setLoading] = useState(false);
   const [withdrawing, setWithdrawing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -32,7 +31,6 @@ export function OldPoolWithdraw() {
 
   // Fetch old pool state
   const fetchOldPool = useCallback(async () => {
-    setLoading(true);
     try {
       const rpc = await fetch('/api/rpc/sui', {
         method: 'POST',
@@ -86,8 +84,6 @@ export function OldPoolWithdraw() {
       setPoolInfo({ balance, hedged, totalShares, memberShares, memberAddress });
     } catch {
       setError('Failed to fetch old pool data');
-    } finally {
-      setLoading(false);
     }
   }, [walletAddress]);
 
@@ -183,14 +179,9 @@ export function OldPoolWithdraw() {
     }
   };
 
-  // Don't render if pool is empty/drained
-  if (poolDrained) return null;
-
-  // Don't render while loading initial state
-  if (loading && !poolInfo) return null;
-
-  // Don't show if no balance
-  if (poolInfo && poolInfo.balance <= 0) return null;
+  // Only a connected member with shares can act here (handleWithdraw requires
+  // the same); dust left in the old object is not a reason to show everyone a card.
+  if (poolDrained || !poolInfo || poolInfo.balance <= 0 || poolInfo.memberShares <= 0) return null;
 
   return (
     <div className="mt-4 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 rounded-lg p-4 border border-amber-200 dark:border-amber-700">
@@ -212,37 +203,26 @@ export function OldPoolWithdraw() {
       <div className="grid grid-cols-2 gap-2 mb-3 text-xs">
         <div className="bg-white/60 dark:bg-gray-800/60 rounded p-2">
           <span className="text-gray-500 dark:text-gray-400">Balance</span>
-          <p className="font-medium text-gray-900 dark:text-white">${poolInfo?.balance.toFixed(2) ?? '...'}</p>
+          <p className="font-medium text-gray-900 dark:text-white">${poolInfo.balance.toFixed(2)}</p>
         </div>
         <div className="bg-white/60 dark:bg-gray-800/60 rounded p-2">
           <span className="text-gray-500 dark:text-gray-400">Your Shares</span>
-          <p className="font-medium text-gray-900 dark:text-white">{poolInfo?.memberShares.toFixed(2) ?? '0'}</p>
+          <p className="font-medium text-gray-900 dark:text-white">{poolInfo.memberShares.toFixed(2)}</p>
         </div>
       </div>
 
-      {!walletAddress ? (
-        <p className="text-xs text-amber-600 dark:text-amber-400">
-          Connect your SUI wallet to check if you have funds in the old pool.
-        </p>
-      ) : poolInfo && poolInfo.memberShares > 0 ? (
-        <button
-          onClick={handleWithdraw}
-          disabled={withdrawing || poolInfo.balance <= 0}
-          className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-amber-600 hover:bg-amber-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded-lg transition-colors text-sm"
-        >
-          {withdrawing ? (
-            <Loader2 className="w-4 h-4 animate-spin" />
-          ) : (
-            <Minus className="w-4 h-4" />
-          )}
-          {withdrawing ? 'Withdrawing...' : `Withdraw ~$${Math.min(poolInfo.balance, poolInfo.memberShares).toFixed(2)} USDC`}
-        </button>
-      ) : (
-        <p className="text-xs text-gray-500 dark:text-gray-400">
-          Your connected wallet ({walletAddress.slice(0, 8)}...{walletAddress.slice(-6)}) has no shares in the old pool.
-          The depositor was 0x880c...8aac.
-        </p>
-      )}
+      <button
+        onClick={handleWithdraw}
+        disabled={withdrawing}
+        className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-amber-600 hover:bg-amber-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded-lg transition-colors text-sm"
+      >
+        {withdrawing ? (
+          <Loader2 className="w-4 h-4 animate-spin" />
+        ) : (
+          <Minus className="w-4 h-4" />
+        )}
+        {withdrawing ? 'Withdrawing...' : `Withdraw ~$${Math.min(poolInfo.balance, poolInfo.memberShares).toFixed(2)} USDC`}
+      </button>
 
       {error && (
         <p className="mt-2 text-xs text-red-600 dark:text-red-400">{error}</p>
