@@ -458,19 +458,18 @@ export function PositionsList({ address, onOpenHedge }: PositionsListProps) {
               })}
             </div>
             <div className="flex items-center gap-3 mt-1.5 text-[12px] text-[#86868b]">
-              {/* Daily PnL (actual profit/loss) */}
-              {derived?.pnl && derived.pnl.daily !== 0 && (
+              {derived?.pnl && derived.pnl.total !== 0 && (
                 <>
                   <span
-                    className={`font-semibold flex items-center gap-1 ${derived.pnl.daily >= 0 ? 'text-[#34C759]' : 'text-[#FF3B30]'}`}
+                    className={`font-semibold flex items-center gap-1 ${derived.pnl.total >= 0 ? 'text-green-700' : 'text-red-700'}`}
                   >
                     <BarChart2 className="w-3 h-3" />
-                    {derived.pnl.daily >= 0 ? '+' : ''}$
-                    {Math.abs(derived.pnl.daily).toLocaleString(undefined, {
+                    {derived.pnl.total >= 0 ? '+' : '−'}$
+                    {Math.abs(derived.pnl.total).toLocaleString(undefined, {
                       minimumFractionDigits: 2,
                       maximumFractionDigits: 2,
                     })}{' '}
-                    PnL
+                    unrealized
                   </span>
                   <span className="text-[#86868b]/60">•</span>
                 </>

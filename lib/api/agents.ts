@@ -109,7 +109,7 @@ export async function getAgentActivity(_address: string) {
       agentType: 'system',
       action: 'Monitoring',
       description: 'AI agents standing by - use chat to analyze portfolio or create hedges',
-      status: 'completed' as const,
+      status: 'queued' as const,
       timestamp: new Date(),
       type: 'system',
       priority: 0,

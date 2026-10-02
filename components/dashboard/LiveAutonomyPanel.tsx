@@ -17,7 +17,7 @@
 import { memo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
-  Activity, CheckCircle2, AlertCircle, TrendingUp, TrendingDown,
+  Activity, AlertCircle, TrendingUp, TrendingDown,
   Minus, ShieldAlert, Bot, Zap,
 } from 'lucide-react';
 
@@ -132,7 +132,7 @@ export const LiveAutonomyPanel = memo(function LiveAutonomyPanel() {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <KpiTile
           icon={<Zap className="w-4 h-4" />}
-          label="Crons healthy"
+          label="Jobs healthy"
           value={`${freshCrons}/${crons.length}`}
           tone={freshCrons === crons.length ? 'good' : 'warn'}
         />
@@ -152,7 +152,7 @@ export const LiveAutonomyPanel = memo(function LiveAutonomyPanel() {
           icon={<ShieldAlert className="w-4 h-4" />}
           label="Active hedges"
           value={String(hedges.active)}
-          hint={hedges.activeOnChainDust > 0 ? `+${hedges.activeOnChainDust} dust` : undefined}
+          hint={hedges.activeOnChainDust > 0 ? `+${hedges.activeOnChainDust} tiny leftover` : undefined}
         />
       </div>
 
@@ -160,16 +160,16 @@ export const LiveAutonomyPanel = memo(function LiveAutonomyPanel() {
       {(alarms.starvationAlerted || alarms.haltsActive > 0 || alarms.dustFlags > 0 || alarms.profitLockActive) && (
         <div className="flex flex-wrap gap-2">
           {alarms.starvationAlerted && (
-            <AlarmChip tone="warn" text="Trader starved (auto-topup pending)" />
+            <AlarmChip tone="warn" text="Live trader paused: needs collateral" />
           )}
           {alarms.haltsActive > 0 && (
-            <AlarmChip tone="warn" text={`${alarms.haltsActive} halt${alarms.haltsActive === 1 ? '' : 's'} active`} />
+            <AlarmChip tone="warn" text={`${alarms.haltsActive} safety halt${alarms.haltsActive === 1 ? '' : 's'} active`} />
           )}
           {alarms.dustFlags > 0 && (
-            <AlarmChip tone="info" text={`${alarms.dustFlags} dust flag${alarms.dustFlags === 1 ? '' : 's'} (venue-locked)`} />
+            <AlarmChip tone="info" text={`${alarms.dustFlags} tiny leftover position${alarms.dustFlags === 1 ? '' : 's'} the venue can't close`} />
           )}
           {alarms.profitLockActive && (
-            <AlarmChip tone="info" text="Profit-lock active" />
+            <AlarmChip tone="info" text="Profit protection active" />
           )}
         </div>
       )}
@@ -194,7 +194,7 @@ export const LiveAutonomyPanel = memo(function LiveAutonomyPanel() {
 
         <section>
           <SectionHeader
-            title="Cron heartbeats"
+            title="Background jobs"
             caption={`${crons.length} background worker${crons.length === 1 ? '' : 's'} · scroll for more`}
           />
           {/* Container + gradient fade at bottom to signal overflow.
@@ -241,13 +241,21 @@ export const LiveAutonomyPanel = memo(function LiveAutonomyPanel() {
             <> Lifetime hedges: {hedges.closedLifetime} closed ({hedges.realizedPnlLifetime >= 0 ? '+' : '−'}${Math.abs(hedges.realizedPnlLifetime).toFixed(2)}).</>
           )}
           {trader.lastSkipReason && (
-            <> Last skip: <span className="text-label-tertiary">{trader.lastSkipReason}</span></>
+            <> Last skip: <span className="text-label-tertiary">{humanizeSkipReason(trader.lastSkipReason)}</span></>
           )}
         </p>
       </div>
     </div>
   );
 });
+
+/** Operator strings from the trader tick, in dashboard language. */
+function humanizeSkipReason(reason: string): string {
+  const collateral = reason.match(/^free=\$([\d.]+) < effective-min=\$([\d.]+)/);
+  if (collateral) return `Needs collateral: $${collateral[1]} free, $${collateral[2]} required`;
+  if (reason === 'no edge above gates') return 'No signal strong enough to trade';
+  return reason;
+}
 
 function KpiTile({
   icon, label, value, tone = 'neutral', hint,

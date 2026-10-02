@@ -76,10 +76,10 @@ export const CloseConfirmModal = memo(function CloseConfirmModal({
                 <div className="p-3 bg-[#AF52DE]/10 rounded-xl space-y-2">
                   <div className="flex items-center gap-2">
                     <Lock className="w-4 h-4 text-[#AF52DE]" />
-                    <span className="text-[12px] font-semibold text-[#AF52DE]">⚡ x402 Gasless Close &amp; Withdraw</span>
+                    <span className="text-[12px] font-semibold text-[#AF52DE]">⚡ Gasless close &amp; withdraw</span>
                   </div>
                   <p className="text-[11px] text-[#1d1d1f]">
-                    This will execute <code className="text-[10px] bg-[#AF52DE]/10 px-1 py-0.5 rounded">closeHedge()</code> via x402 gasless relay. 
+                    This will execute <code className="text-[10px] bg-[#AF52DE]/10 px-1 py-0.5 rounded">closeHedge()</code> through the gasless relay. 
                     Your collateral {hedge.pnl >= 0 ? '+ profit' : '- loss'} will be transferred directly back to your wallet — <strong>zero gas fees</strong>.
                   </p>
                   <div className="flex items-center gap-1 text-[10px] text-[#86868b]">

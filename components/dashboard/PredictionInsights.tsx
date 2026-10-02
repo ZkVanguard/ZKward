@@ -176,6 +176,10 @@ export const PredictionInsights = memo(function PredictionInsights({
     }
   };
 
+  // Without an onOpenHedge handler the only thing a tap can do is run the agents.
+  const primaryLabel = (p: PredictionMarket) =>
+    p.recommendation === 'HEDGE' && onOpenHedge ? 'Open Hedge' : 'Run agent analysis';
+
   const handleAction = (prediction: PredictionMarket, action: 'hedge' | 'monitor' | 'dismiss') => {
     if (onTriggerAgentAnalysis) {
       onTriggerAgentAnalysis(prediction);
@@ -759,7 +763,7 @@ export const PredictionInsights = memo(function PredictionInsights({
                 </div>
                 <div>
                   <h3 className="text-[17px] font-semibold text-[#1d1d1f]">
-                    {selectedPrediction.recommendation === 'HEDGE' ? 'Open Hedge' : 'Add to Watchlist'}
+                    {primaryLabel(selectedPrediction)}
                   </h3>
                   <p className="text-[12px] text-[#86868b]">AI Recommendation</p>
                 </div>
@@ -837,7 +841,7 @@ export const PredictionInsights = memo(function PredictionInsights({
                       : 'bg-[#FF9500] active:bg-[#E08600]'
                   }`}
                 >
-                  {selectedPrediction.recommendation === 'HEDGE' ? 'Open Hedge' : 'Add to Watchlist'}
+                  {primaryLabel(selectedPrediction)}
                 </button>
                 <button
                   onClick={() => setSelectedPrediction(null)}

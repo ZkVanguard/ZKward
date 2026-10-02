@@ -119,7 +119,7 @@ export const CloseReceiptModal = memo(function CloseReceiptModal({
                   <div className="p-3 bg-[#AF52DE]/5 rounded-xl border border-[#AF52DE]/10">
                     <div className="flex items-center gap-1.5 mb-2">
                       <Zap className="w-3.5 h-3.5 text-[#AF52DE]" />
-                      <span className="text-[11px] font-semibold text-[#AF52DE]">x402 Gasless</span>
+                      <span className="text-[11px] font-semibold text-[#AF52DE]">Gasless</span>
                     </div>
                     <div className="flex items-center justify-between text-[11px]">
                       <span className="text-[#86868b]">Your gas cost</span>

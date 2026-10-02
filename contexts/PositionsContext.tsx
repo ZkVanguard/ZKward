@@ -8,26 +8,6 @@ import { useUserPortfolios } from '@/lib/contracts/hooks';
 import { logger } from '@/lib/utils/logger';
 import { refreshCoordinator } from '@/lib/services/refresh-coordinator';
 
-// Performance metrics from on-chain history API
-interface PerformanceMetrics {
-  currentValue: number;
-  initialValue: number;
-  highestValue: number;
-  lowestValue: number;
-  totalPnL: number;
-  totalPnLPercentage: number;
-  dailyPnL: number;
-  dailyPnLPercentage: number;
-  weeklyPnL: number;
-  weeklyPnLPercentage: number;
-  monthlyPnL: number;
-  monthlyPnLPercentage: number;
-  volatility: number;
-  sharpeRatio: number;
-  maxDrawdown: number;
-  winRate: number;
-}
-
 interface Position {
   symbol: string;
   balance: string;
@@ -56,12 +36,8 @@ interface DerivedData {
   riskScore: number;
   portfolioCount: number;
   activeHedgesCount: number;
-  // PnL metrics
+  /** Unrealized P&L across every product the wallet holds (from /api/portfolio/unified). */
   pnl: {
-    daily: number;
-    dailyPercentage: number;
-    weekly: number;
-    weeklyPercentage: number;
     total: number;
     totalPercentage: number;
   };
@@ -86,7 +62,7 @@ export function PositionsProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeHedgesCount, setActiveHedgesCount] = useState<number>(0);
-  const [pnlMetrics, setPnlMetrics] = useState<PerformanceMetrics | null>(null);
+  const [pnlMetrics, setPnlMetrics] = useState<{ total: number; totalPercentage: number } | null>(null);
   const lastFetchRef = useRef<number>(0);
   const _fetchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
@@ -165,61 +141,28 @@ export function PositionsProvider({ children }: { children: React.ReactNode }) {
         setPositionsData(data);
       });
       
-      // OPTIMIZATION: Fire-and-forget portfolio history POST to eliminate waterfall
-      // PnL metrics are fetched async without blocking the main positions render.
-      // Server route can take >10s under BlueFin+DB load — abort at 10s so the
-      // browser doesn't hold a dying connection until Vercel's 30s gateway
-      // timeout returns 504 (which shows as a red error in DevTools even
-      // though the caller doesn't await it).
-      if (data.totalValue > 0) {
-        const historyController = new AbortController();
-        const historyTimeout = setTimeout(() => historyController.abort(), 10_000);
-        fetch('/api/portfolio/history', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            address,
-            totalValue: data.totalValue,
-            positions: data.positions || [],
-          }),
-          signal: historyController.signal,
-        }).then(snapshotRes => {
-          clearTimeout(historyTimeout);
-          if (snapshotRes.ok) {
-            return snapshotRes.json();
-          }
-          return null;
-        }).then(snapshotData => {
-          if (snapshotData?.metrics) {
-            // Update PnL metrics from API response (real on-chain data)
-            setPnlMetrics({
-              currentValue: data.totalValue,
-              initialValue: snapshotData.metrics.initialValue || data.totalValue,
-              highestValue: data.totalValue,
-              lowestValue: data.totalValue,
-              totalPnL: snapshotData.metrics.totalPnL || 0,
-              totalPnLPercentage: snapshotData.metrics.totalPnLPercentage || 0,
-              dailyPnL: snapshotData.metrics.dailyPnL || 0,
-              dailyPnLPercentage: snapshotData.metrics.dailyPnLPercentage || 0,
-              weeklyPnL: 0,
-              weeklyPnLPercentage: 0,
-              monthlyPnL: 0,
-              monthlyPnLPercentage: 0,
-              volatility: 0,
-              sharpeRatio: 0,
-              maxDrawdown: 0,
-              winRate: 50,
-            });
-          }
-        }).catch(historyError => {
-          clearTimeout(historyTimeout);
-          // AbortError at 10s is expected under load — don't warn on it.
-          if (historyError?.name !== 'AbortError') {
-            logger.warn('Failed to record portfolio snapshot', { error: String(historyError) });
-          }
-        });
+      // Unrealized P&L across every product the wallet holds. Not awaited:
+      // positions render first, the P&L line fills in when the aggregate
+      // (pool share + hedges + EVM portfolios) comes back.
+      if (data.totalValue > 0 && address) {
+        const pnlController = new AbortController();
+        const pnlTimeout = setTimeout(() => pnlController.abort(), 10_000);
+        fetch(`/api/portfolio/unified?wallet=${encodeURIComponent(address)}`, { signal: pnlController.signal })
+          .then((res) => (res.ok ? res.json() : null))
+          .then((unified) => {
+            const totals = unified?.totals;
+            if (totals && typeof totals.unrealizedPnl === 'number') {
+              setPnlMetrics({ total: totals.unrealizedPnl, totalPercentage: Number(totals.unrealizedPnlPct) || 0 });
+            }
+          })
+          .catch((e) => {
+            if (e?.name !== 'AbortError') {
+              logger.warn('Failed to load portfolio P&L', { error: String(e) });
+            }
+          })
+          .finally(() => clearTimeout(pnlTimeout));
       }
-      
+
       // Cache for 45 seconds (increased from 30s)
       cache.set(cacheKey, data, 45000);
     } catch (err) {
@@ -432,22 +375,7 @@ export function PositionsProvider({ children }: { children: React.ReactNode }) {
     
     healthScore = Math.max(0, Math.min(100, healthScore));
 
-    // PnL metrics from history service
-    const pnl = pnlMetrics ? {
-      daily: pnlMetrics.dailyPnL,
-      dailyPercentage: pnlMetrics.dailyPnLPercentage,
-      weekly: pnlMetrics.weeklyPnL,
-      weeklyPercentage: pnlMetrics.weeklyPnLPercentage,
-      total: pnlMetrics.totalPnL,
-      totalPercentage: pnlMetrics.totalPnLPercentage,
-    } : {
-      daily: 0,
-      dailyPercentage: 0,
-      weekly: 0,
-      weeklyPercentage: 0,
-      total: 0,
-      totalPercentage: 0,
-    };
+    const pnl = pnlMetrics ?? { total: 0, totalPercentage: 0 };
 
     return {
       topAssets,

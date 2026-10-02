@@ -1,9 +1,10 @@
 'use client';
 
+import type { ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   Activity, Shield, TrendingUp, TrendingDown, AlertTriangle,
-  CheckCircle2, Clock, Layers, Database, Zap, Eye,
+  CheckCircle2, ChevronRight, Layers, Database, Zap, Eye,
 } from 'lucide-react';
 import { logger } from '@/lib/utils/logger';
 import { NavHistoryChart } from '@/components/dashboard/NavHistoryChart';
@@ -660,9 +661,14 @@ export function RiskTab() {
           {data.hedgeHistory && <HedgeHistoryPanel h={data.hedgeHistory} />}
 
           {/* v0.3.0 defense stack. Gate footprint + drift counters + incident summary */}
-          {data.defense && <DefenseStatusPanel d={data.defense} i={data.incidents} />}
+          {data.defense && (
+            <Disclosure title="Defense stack" caption="gates · drift counters · incidents">
+              <DefenseStatusPanel d={data.defense} i={data.incidents} />
+            </Disclosure>
+          )}
 
           {/* Two-column: reconciliation + ZK attestations */}
+          <Disclosure title="Reconciliation & ZK attestations" caption="three reconcile loops · recent proofs">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {/* Reconciliation */}
             <section className="bg-white border border-black/5 rounded-2xl p-5">
@@ -727,18 +733,19 @@ export function RiskTab() {
               </p>
             </section>
           </div>
+          </Disclosure>
 
           {/* Paper trader — mirror of the pool section but for the shadow book */}
-          {data.paperTrader && <PaperTraderPanel p={data.paperTrader} />}
+          {data.paperTrader && (
+            <Disclosure title="Paper trading books" caption="shadow books, net of live-taker friction">
+              <PaperTraderPanel p={data.paperTrader} />
+            </Disclosure>
+          )}
 
           {/* Signals strip — all assets in the trader universe, not just BTC/ETH */}
           {Object.keys(data.signals).length > 0 && (
+            <Disclosure title="Live prediction signal" caption="per asset · fused: Polymarket + Manifold + funding + momentum">
             <section className="bg-white border border-black/5 rounded-2xl p-5">
-              <div className="flex items-center gap-2 mb-3">
-                <Clock className="w-4 h-4 text-[#1d1d1f]" />
-                <h2 className="text-[17px] font-semibold text-[#1d1d1f]">Live prediction signal</h2>
-                <span className="text-[11px] text-[#86868b]">per asset · fused: Polymarket + Manifold + funding + momentum</span>
-              </div>
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
                 {Object.entries(data.signals).map(([asset, s]) => {
                   const dirColor = s.direction === 'UP' ? 'text-green-700'
@@ -756,6 +763,7 @@ export function RiskTab() {
                 })}
               </div>
             </section>
+            </Disclosure>
           )}
 
           <footer className="text-center text-[11px] text-[#86868b] pt-4">
@@ -765,5 +773,19 @@ export function RiskTab() {
         </>
       )}
     </div>
+  );
+}
+
+/** Native disclosure: operator-depth panels start closed so the page reads top-down. */
+function Disclosure({ title, caption, children }: { title: string; caption?: string; children: ReactNode }) {
+  return (
+    <details className="group">
+      <summary className="list-none cursor-pointer select-none flex flex-wrap items-center gap-x-2 py-2 text-[15px] font-semibold text-[#1d1d1f] [&::-webkit-details-marker]:hidden">
+        <ChevronRight className="w-4 h-4 text-[#86868b] transition-transform group-open:rotate-90" />
+        {title}
+        {caption && <span className="text-[12px] font-normal text-[#86868b]">{caption}</span>}
+      </summary>
+      <div className="mt-2 space-y-4">{children}</div>
+    </details>
   );
 }

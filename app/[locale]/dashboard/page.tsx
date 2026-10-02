@@ -10,7 +10,6 @@ import {
   MessageSquare,
   ChevronRight,
   X,
-  Settings,
   Users,
   ShieldCheck,
   MoreHorizontal,
@@ -97,14 +96,6 @@ const EnhancedChat = nextDynamic(
     import('@/components/dashboard/EnhancedChat').then((mod) => ({ default: mod.EnhancedChat })),
   {
     loading: () => null,
-    ssr: false,
-  }
-);
-
-const SettingsModal = nextDynamic(
-  () =>
-    import('@/components/dashboard/SettingsModal').then((mod) => ({ default: mod.SettingsModal })),
-  {
     ssr: false,
   }
 );
@@ -325,7 +316,6 @@ export default function DashboardPage() {
   const [activeDest, setActiveDest] = useState<DestId>('pool');
   const [activeView, setActiveView] = useState<string | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(false);
   const [agentMessage, setAgentMessage] = useState<string | null>(null);
   const [showChat, setShowChat] = useState(false);
 
@@ -367,7 +357,6 @@ export default function DashboardPage() {
   }, []);
 
   const openChat = useCallback(() => setShowChat(true), []);
-  const closeSettings = useCallback(() => setSettingsOpen(false), []);
 
   const handleAgentAnalysis = async (market: PredictionMarket) => {
     logger.info('🤖 Triggering AI Agent Analysis', { market: market.question });
@@ -448,7 +437,7 @@ export default function DashboardPage() {
       {/* Mobile Header - Slim page-title bar. Primary navigation now lives in
           the bottom tab bar (see <MobileTabBar/> below). We keep only the
           current page title and the chat action here. Access to the drawer
-          (secondary items: portfolio/risk/custody/settings) is via the 'More'
+          (secondary items: portfolio/risk/custody/account) is via the 'More'
           tab in the bottom bar. */}
       <header className="lg:hidden fixed top-[52px] left-0 right-0 z-40 bg-white/95 backdrop-blur-xl border-b border-black/5">
         <div className="flex items-center justify-between px-4 h-12">
@@ -521,20 +510,6 @@ export default function DashboardPage() {
               );
             })}
           </nav>
-
-          {/* Mobile Menu Footer */}
-          <div className="p-4 border-t border-black/5">
-            <button
-              onClick={() => {
-                setSettingsOpen(true);
-                setMobileMenuOpen(false);
-              }}
-              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-system-bg-secondary rounded-[18px] transition-colors"
-            >
-              <Settings className="w-5 h-5 text-label-quaternary" />
-              <span className="font-medium text-label-primary">Settings</span>
-            </button>
-          </div>
         </div>
       </aside>
 
@@ -574,18 +549,6 @@ export default function DashboardPage() {
                 </button>
               );
             })}
-
-            <div className="my-4 mx-4 border-t border-black/5" />
-
-            <button
-              onClick={() => setSettingsOpen(true)}
-              className="w-[calc(100%-16px)] mx-2 flex items-center gap-3 px-4 py-2.5 rounded-[12px] text-left hover:bg-system-bg-secondary transition-colors duration-200"
-            >
-              <Settings className="w-5 h-5 text-label-quaternary" strokeWidth={2} />
-              <span className="text-[15px] font-medium text-label-primary tracking-[-0.01em]">
-                Settings
-              </span>
-            </button>
           </nav>
         </aside>
 
@@ -625,7 +588,7 @@ export default function DashboardPage() {
 
       {/* iOS-style bottom tab bar — primary nav on mobile. 4 tabs + More.
           The "More" button opens the drawer where the wallet controls,
-          portfolio/risk/custody sub-pages, and settings live. Reduces the
+          portfolio/risk/custody/account sub-pages live. Reduces the
           old 4-tap "menu → drawer → tab → close" flow to 1 tap. */}
       <MobileTabBar
         items={destinations.slice(0, 4)}
@@ -706,11 +669,6 @@ export default function DashboardPage() {
         >
           <MessageSquare className="w-5 h-5 lg:w-6 lg:h-6" />
         </button>
-      )}
-
-      {/* Settings Modal */}
-      {settingsOpen && (
-        <SettingsModal isOpen={settingsOpen} onClose={closeSettings} />
       )}
     </div>
   );
@@ -827,14 +785,6 @@ export default function DashboardPage() {
             <CardHeader
               title="Account"
               subtitle="Your sign-in, display name and balances"
-              action={
-                <button
-                  onClick={() => setSettingsOpen(true)}
-                  className="flex items-center gap-1.5 text-sm text-ios-blue font-medium hover:opacity-80 transition-opacity"
-                >
-                  <Settings className="w-4 h-4" /> Settings
-                </button>
-              }
             />
             <ProfileTab />
           </Card>
