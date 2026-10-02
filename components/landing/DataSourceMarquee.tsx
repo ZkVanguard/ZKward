@@ -40,6 +40,8 @@ function Tile({ source, copy }: { source: SignalProvider; copy?: boolean }) {
         width={Math.round(height * source.ratio)}
         height={height}
         unoptimized
+        // The second copy starts off-screen; lazy loading would leave its tiles blank as they scroll in.
+        loading="eager"
         style={{ height, width: 'auto' }}
       />
       {source.markOnly && (
