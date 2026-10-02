@@ -26,8 +26,8 @@ coverageThreshold = { }
 timeout = 30000
 
 [install.cache]
-# Enable global cache for faster installs
-dir = "~/.bun/install/cache"
+# No `dir`: bun does not expand `~`, so a "~/..." path created a literal `~`
+# folder inside the repo. The default cache is already global.
 
 # Disable cache for CI environments
 # disable = true

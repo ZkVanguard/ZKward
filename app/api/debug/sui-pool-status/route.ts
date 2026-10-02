@@ -14,7 +14,6 @@ import {
 import { BluefinService } from '@/lib/services/sui/BluefinService';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-export const revalidate = 0;
 
 const BUILD_TIMESTAMP = new Date().toISOString();
 

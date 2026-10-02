@@ -15,7 +15,6 @@ const COLLATERAL_TOKEN_ADDRESS = process.env.COLLATERAL_TOKEN_ADDRESS || '0x2821
 
 // Disable caching for this API route
 export const dynamic = 'force-dynamic';
-export const revalidate = 0;
 
 // Module-level singleton viem client (reused across requests)
 let _viemClient: PublicClient | null = null;
