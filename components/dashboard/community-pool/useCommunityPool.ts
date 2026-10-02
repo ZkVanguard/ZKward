@@ -441,10 +441,9 @@ export function useCommunityPool(propAddress?: string, evmActive: boolean = true
             .then((memJson) => {
               if (!mountedRef.current) return;
               const raw = memJson?.data?.members;
-              if (!memJson?.success || !Array.isArray(raw)) {
-                dispatchPool({ type: 'SET_LEADERBOARD', payload: [] });
-                return;
-              }
+              // A failed read keeps the list already shown; clearing it
+              // would read as "no members".
+              if (!memJson?.success || !Array.isArray(raw)) return;
               const entries = raw
                 .filter(
                   (m: { isMember?: boolean; shares?: number }) =>
