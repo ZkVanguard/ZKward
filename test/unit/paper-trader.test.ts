@@ -35,6 +35,10 @@ process.env.PAPER_TRADER_FLIP_EXIT = '1';
 // Fix O: max-hold ceiling (default 90) would clip the legacy scalar
 // assertions below; pin it out of the way. Ceiling has its own test.
 process.env.PAPER_TRADER_MAX_HOLD_CEILING_MIN = '10000';
+// These tests assert the single-tick open and the legacy exits; resting
+// execution (the default since 2026-10-02) has its own file,
+// paper-resting-orders.test.ts.
+process.env.PAPER_TRADER_EXECUTION = 'market';
 
 import { describe, it, expect, jest, beforeEach } from '@jest/globals';
 

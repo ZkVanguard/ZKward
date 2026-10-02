@@ -28,7 +28,8 @@ import { selectCandidate, priceCandidate, sizeCandidate } from './entry-helpers'
 import { createHedge } from '@/lib/db/hedges';
 import { orphanCloseIfExists } from './orphan-cleanup';
 import { recordCloseLearning, settleHedgeRow, categorizeCloseReason } from './close-pipeline';
-import { targetExitLevels, takeProfitHit } from './target-exit';
+import { targetExitLevels, takeProfitFill } from './target-exit';
+import { checkRestingEntry, placeRestingEntry, type EntryPlan } from './resting-orders';
 import { query } from '@/lib/db/postgres';
 import { logger } from '@/lib/utils/logger';
 import { errMsg } from '@/lib/utils/error-handler';
@@ -109,6 +110,8 @@ import {
   PAPER_MIN_FLIP_AGE_SEC,
   PAPER_FLIP_EXIT_ENABLED,
   PAPER_EXIT_MODE,
+  PAPER_EXECUTION,
+  KEY_RESTING_ENTRY,
   PAPER_MIN_FLIP_CONFIDENCE,
   PAPER_TRAILING_STOP_GIVEBACK_PCT,
   PAPER_REGRET_COOLDOWN_PCT,
@@ -462,14 +465,16 @@ export class PaperTrader {
     //     other exit: each of those would end the trade early and pull the
     //     realized win rate away from what the shape was measured to give.
     const onTarget = pos.takeProfitPrice !== undefined;
-    if (takeProfitHit(pos, markPrice)) {
+    const tpFill = takeProfitFill(pos, markPrice);
+    if (tpFill) {
       return PaperTrader.closeAtMark(
         pos,
-        markPrice,
+        tpFill.price,
         nav,
         now,
         `take-profit: mark $${markPrice.toFixed(4)} reached $${(pos.takeProfitPrice ?? 0).toFixed(4)}`,
         orderId,
+        tpFill.resting,
       );
     }
 
@@ -697,6 +702,23 @@ export class PaperTrader {
     // Persist any daily-peak refresh from loadStats().
     await setCronState(KEY_STATS, stats);
 
+    // A resting entry from an earlier tick is resolved before anything new
+    // is considered: filled = open it, still resting = wait, lapsed = move on.
+    const resting = await checkRestingEntry(KEY_RESTING_ENTRY, now, async (a) => {
+      const p = await priceCandidate(a);
+      return p.ok ? p.markPrice : null;
+    });
+    if (resting.state === 'waiting') {
+      const { plan, limitPrice } = resting.entry;
+      return { action: 'held', reason: `resting ${plan.side} entry on ${plan.asset} @ $${limitPrice.toFixed(4)}`, nav };
+    }
+    if (resting.state === 'filled') {
+      const { plan, limitPrice } = resting.entry;
+      if (!concurrencyFilter?.rejectionReason(plan.asset, plan.side)) {
+        return PaperTrader.openPosition(plan, limitPrice, nav, now, true);
+      }
+    }
+
     // 1. Signal scan + rank + filter → picked candidate (or skip reason).
     //    Helper handles: skip-STRONG, signal-quality, concurrency, signal-history,
     //    calibrator, AND the extra gates below (streak/trend/vol/regret) via
@@ -766,6 +788,39 @@ export class PaperTrader {
       direction: (s.direction ?? 'NEUTRAL') as 'UP' | 'DOWN' | 'NEUTRAL',
     }));
 
+    const plan: EntryPlan = {
+      asset, side, rec, notionalUsd, conf, cons, signalScalar, sourceSnapshot,
+      score: picked.score,
+      probe: picked.probe,
+      holdHorizonMin: picked.holdHorizonMin,
+      ledgerHitRate: picked.ledgerHitRate,
+    };
+    logger.info('[PaperTrader] entry sized', {
+      asset, side,
+      volMult: volMult.toFixed(2),
+      calibrationBoost: calibrationBoost.toFixed(2),
+      execution: PAPER_EXECUTION,
+    });
+    if (PAPER_EXECUTION === 'resting') {
+      await placeRestingEntry(KEY_RESTING_ENTRY, plan, markPrice, now);
+      return { action: 'held', reason: `resting ${side} entry placed on ${asset} @ $${markPrice.toFixed(4)}`, nav };
+    }
+    return PaperTrader.openPosition(plan, markPrice, nav, now, false);
+  }
+
+  /**
+   * Opens `plan` at `markPrice`. `resting` = the entry filled as a resting
+   * order at that price (maker fee, no slippage); otherwise a market fill.
+   */
+  private static async openPosition(
+    plan: EntryPlan,
+    markPrice: number,
+    nav: number,
+    now: number,
+    resting: boolean,
+  ): Promise<TickResult> {
+    const { asset, side, rec, notionalUsd, conf, cons, signalScalar, sourceSnapshot } = plan;
+
     // Price-anchored stop-loss computed from the adaptive vol threshold
     // AT OPEN. The prior implementation only compared mtm.unrealizedPnlUsd
     // against -nav*stopLossPct — a NAV-blow-up threshold, not a per-trade
@@ -791,12 +846,12 @@ export class PaperTrader {
     // floors; the raised floor is the wider stop that revert wanted.
     // Regime-scale the max-hold: CHOP shrinks 0.75× (~34min), TREND
     // expands 1.5× (~68min). maxHoldMult was dead until 2026-09-22.
-    // A ledger-measured horizon (picked.holdHorizonMin) replaces all of it.
+    // A ledger-measured horizon (plan.holdHorizonMin) replaces all of it.
     const { getCurrentRegime, getRegimeMultipliers } = await import('./regime');
     const { regime } = await getCurrentRegime(now);
     const regMults = getRegimeMultipliers(regime);
     const target = PAPER_EXIT_MODE === 'target' ? targetExitLevels(side, markPrice) : null;
-    const maxHoldMin = target?.maxHoldMin ?? computeMaxHoldMinutes(signalScalar, regMults.maxHoldMult, picked.holdHorizonMin);
+    const maxHoldMin = target?.maxHoldMin ?? computeMaxHoldMinutes(signalScalar, regMults.maxHoldMult, plan.holdHorizonMin);
 
     const { computeAdaptiveThresholds } = await import('./adaptive-stops');
     const stopFrac = (await computeAdaptiveThresholds(asset, { holdWindowMin: maxHoldMin })).stopLossPct;
@@ -804,7 +859,7 @@ export class PaperTrader {
 
     const position: SimulatedPosition = {
       ...simulateOpen(
-        { asset, side, notionalUsd, leverage: PAPER_LEVERAGE, entryPrice: markPrice },
+        { asset, side, notionalUsd, leverage: PAPER_LEVERAGE, entryPrice: markPrice, resting },
         now,
       ),
       sourceSnapshot,
@@ -848,10 +903,13 @@ export class PaperTrader {
         stopLoss: stopLossPrice,
         takeProfit: target?.takeProfitPrice,
         simulationMode: true,
-        reason: `paper: ${rec} conf=${picked.prediction.confidence.toFixed(0)} score=${picked.score.toFixed(1)}${picked.probe ? ' | probe' : ''}${holdPlanTag(maxHoldMin, picked.holdHorizonMin, picked.ledgerHitRate)}`,
+        reason: `paper: ${rec} conf=${conf.toFixed(0)} score=${plan.score.toFixed(1)}${plan.probe ? ' | probe' : ''}${holdPlanTag(maxHoldMin, plan.holdHorizonMin, plan.ledgerHitRate)}`,
         predictionMarket: 'paper-aggregate',
         chain: PAPER_CHAIN,
-        metadata: { holdPlan: holdPlanMeta(maxHoldMin, picked.holdHorizonMin, picked.ledgerHitRate) },
+        metadata: {
+          holdPlan: holdPlanMeta(maxHoldMin, plan.holdHorizonMin, plan.ledgerHitRate),
+          execution: resting ? 'resting' : 'market',
+        },
       });
     } catch (e) {
       logger.warn('[PaperTrader] createHedge failed (state kept)', { error: errMsg(e) });
@@ -863,10 +921,9 @@ export class PaperTrader {
       notionalUsd: notionalUsd.toFixed(2),
       entryPrice: markPrice,
       recommendation: rec,
-      score: picked.score.toFixed(1),
+      score: plan.score.toFixed(1),
       signalScalar: signalScalar.toFixed(2),
-      volMult: volMult.toFixed(2),
-      calibrationBoost: calibrationBoost.toFixed(2),
+      resting,
       maxHoldMin: (position.maxHoldMin ?? PAPER_MAX_HOLD_MIN).toFixed(0),
     });
 
@@ -881,7 +938,6 @@ export class PaperTrader {
         confidence: conf,
         consensus: cons,
         signalScalar,
-        volMult,
         recommendation: rec,
       },
       { at: now, kind: 'open', asset, side, notionalUsd },
@@ -1054,8 +1110,9 @@ export class PaperTrader {
     now: number,
     reason: string,
     passedOrderId?: string,
+    resting: boolean = false,
   ): Promise<TickResult> {
-    const result = simulateClose(pos, exitPrice, now);
+    const result = simulateClose(pos, exitPrice, now, resting);
     const newNav = nav + result.realizedPnlUsd;
 
     // Passed-in orderId is the source of truth. In legacy mode it may

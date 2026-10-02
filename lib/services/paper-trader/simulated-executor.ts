@@ -11,9 +11,13 @@
  *   • Perp funding ~11% APR average, prorated per second on open notional
  *   • LONG pays funding (bull-regime convention), SHORT collects
  *   • Adverse slippage per side, per asset (spread + impact) — see below
+ *   • A resting-order fill pays the maker fee and no slippage; what it
+ *     costs instead is the fill rule in resting-orders.ts
  */
 
 export const FEE_BPS_PER_SIDE = 6.5;
+/** Resting-order fee. The venue lists 0.5 bp; the books assume double. */
+export const MAKER_FEE_BPS_PER_SIDE = Number(process.env.PAPER_MAKER_FEE_BPS || 1);
 export const FUNDING_APR = 0.11;
 const SECONDS_PER_YEAR = 365 * 24 * 60 * 60;
 
@@ -48,6 +52,16 @@ export function computeSlippageUsd(notionalUsd: number, asset: string): number {
   return notionalUsd * (slippageBpsForAsset(asset) / 10_000);
 }
 
+/**
+ * True once the mark has traded THROUGH a resting order's price by the
+ * asset's slippage allowance. A touch is not a fill: the order may sit
+ * behind others at that price.
+ */
+export function restingFilled(order: 'buy' | 'sell', limitPrice: number, markPrice: number, asset: string): boolean {
+  const through = slippageBpsForAsset(asset) / 10_000;
+  return order === 'buy' ? markPrice <= limitPrice * (1 - through) : markPrice >= limitPrice * (1 + through);
+}
+
 export type Side = 'LONG' | 'SHORT';
 
 export interface SimulatedFillParams {
@@ -56,6 +70,8 @@ export interface SimulatedFillParams {
   notionalUsd: number;
   leverage: number;
   entryPrice: number;
+  /** The entry filled as a resting order: maker fee, no slippage. */
+  resting?: boolean;
 }
 
 export interface SourceSnapshot {
@@ -181,8 +197,8 @@ export function simulateOpen(
     notionalUsd: params.notionalUsd,
     leverage: params.leverage,
     openedAt: nowMs,
-    openFeeUsd: computeFeeUsd(params.notionalUsd),
-    slippageOpenUsd: computeSlippageUsd(params.notionalUsd, params.asset),
+    openFeeUsd: computeFeeUsd(params.notionalUsd, params.resting ? MAKER_FEE_BPS_PER_SIDE : FEE_BPS_PER_SIDE),
+    slippageOpenUsd: params.resting ? 0 : computeSlippageUsd(params.notionalUsd, params.asset),
   };
 }
 
@@ -190,6 +206,8 @@ export function simulateClose(
   position: SimulatedPosition,
   exitPrice: number,
   nowMs: number,
+  /** The exit filled as a resting order at `exitPrice`: maker fee, no slippage. */
+  resting: boolean = false,
 ): SimulatedCloseResult {
   if (exitPrice <= 0) {
     throw new Error(`simulateClose: invalid exitPrice ${exitPrice}`);
@@ -201,10 +219,10 @@ export function simulateClose(
     exitPrice,
     position.notionalUsd,
   );
-  const closeFeeUsd = computeFeeUsd(position.notionalUsd);
+  const closeFeeUsd = computeFeeUsd(position.notionalUsd, resting ? MAKER_FEE_BPS_PER_SIDE : FEE_BPS_PER_SIDE);
   const fundingUsd = computeFundingUsd(position.notionalUsd, position.side, holdMs);
   const slippageUsd =
-    (position.slippageOpenUsd ?? 0) + computeSlippageUsd(position.notionalUsd, position.asset);
+    (position.slippageOpenUsd ?? 0) + (resting ? 0 : computeSlippageUsd(position.notionalUsd, position.asset));
   const realizedPnlUsd =
     grossPnlUsd - position.openFeeUsd - closeFeeUsd - slippageUsd + fundingUsd;
   return {

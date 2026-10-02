@@ -136,6 +136,8 @@ async function main() {
       ledgerGate: cfg.PAPER_LEDGER_GATE,
       flipExit: cfg.PAPER_FLIP_EXIT_ENABLED,
       exitMode: cfg.PAPER_EXIT_MODE,
+      execution: cfg.PAPER_EXECUTION,
+      restingEntryWaitMin: cfg.PAPER_RESTING_ENTRY_WAIT_MIN,
       targetTpBp: cfg.PAPER_TARGET_TP_BP,
       targetStopBp: cfg.PAPER_TARGET_STOP_BP,
       targetMaxHoldMin: cfg.PAPER_TARGET_MAX_HOLD_MIN,

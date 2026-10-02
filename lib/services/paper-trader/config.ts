@@ -290,6 +290,16 @@ export const PAPER_TARGET_STOP_BP = Number(process.env.PAPER_TRADER_TARGET_STOP_
 /** Time limit; a trade still open then closes at the mark. */
 export const PAPER_TARGET_MAX_HOLD_MIN = Number(process.env.PAPER_TRADER_TARGET_MAX_HOLD_MIN || 1440);
 
+// Execution style. 'resting' (default): the entry and the take-profit are
+// resting limit orders (maker fee, no slippage, filled only on a
+// trade-through; see resting-orders.ts for the measurement). 'market'
+// restores market orders everywhere. The stop and the time limit are
+// market orders in both.
+export const PAPER_EXECUTION: 'resting' | 'market' =
+  (process.env.PAPER_TRADER_EXECUTION || 'resting').trim().toLowerCase() === 'market' ? 'market' : 'resting';
+/** An entry that has not filled after this long is cancelled. */
+export const PAPER_RESTING_ENTRY_WAIT_MIN = Number(process.env.PAPER_TRADER_RESTING_ENTRY_WAIT_MIN || 15);
+
 export const PAPER_MAX_HOLD_CEILING_MIN = Number(
   process.env.PAPER_TRADER_MAX_HOLD_CEILING_MIN || 240,
 );
@@ -368,6 +378,7 @@ export const KEY_LAST_SKIP = 'paper-trader:last-skip';
 // KEY_POSITION + KEY_ORDER_ID untouched. Migration is automatic on
 // first tick after concurrent mode enables.
 export const KEY_POSITIONS = 'paper-trader:active-positions';
+export const KEY_RESTING_ENTRY = 'paper-trader:resting-entry';
 
 export const NAV_SERIES_MAX = 500;
 
