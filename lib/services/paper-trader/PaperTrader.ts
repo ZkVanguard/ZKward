@@ -28,6 +28,7 @@ import { selectCandidate, priceCandidate, sizeCandidate } from './entry-helpers'
 import { createHedge } from '@/lib/db/hedges';
 import { orphanCloseIfExists } from './orphan-cleanup';
 import { recordCloseLearning, settleHedgeRow, categorizeCloseReason } from './close-pipeline';
+import { targetExitLevels, takeProfitHit } from './target-exit';
 import { query } from '@/lib/db/postgres';
 import { logger } from '@/lib/utils/logger';
 import { errMsg } from '@/lib/utils/error-handler';
@@ -107,6 +108,7 @@ import {
   PAPER_DISABLE_HALTS,
   PAPER_MIN_FLIP_AGE_SEC,
   PAPER_FLIP_EXIT_ENABLED,
+  PAPER_EXIT_MODE,
   PAPER_MIN_FLIP_CONFIDENCE,
   PAPER_TRAILING_STOP_GIVEBACK_PCT,
   PAPER_REGRET_COOLDOWN_PCT,
@@ -455,6 +457,22 @@ export class PaperTrader {
       }
     }
 
+    // 1b. Target-exit take-profit. A position that carries one closes at the
+    //     target, the stop above or the time limit below, and skips every
+    //     other exit: each of those would end the trade early and pull the
+    //     realized win rate away from what the shape was measured to give.
+    const onTarget = pos.takeProfitPrice !== undefined;
+    if (takeProfitHit(pos, markPrice)) {
+      return PaperTrader.closeAtMark(
+        pos,
+        markPrice,
+        nav,
+        now,
+        `take-profit: mark $${markPrice.toFixed(4)} reached $${(pos.takeProfitPrice ?? 0).toFixed(4)}`,
+        orderId,
+      );
+    }
+
     // (No hard take-profit — see JSDoc on the entry-side stopLossPrice
     // computation. Trailing-stop below handles the "let winners run,
     // ratchet at give-back" case without capping the fat-tail winners
@@ -475,6 +493,7 @@ export class PaperTrader {
     const { trailingArmThresholdUsd, underwaterTightenTrip } = await import('./adaptive-stops');
     const trailingArmed = currentPeak >= trailingArmThresholdUsd(pos.notionalUsd);
     if (
+      !onTarget &&
       trailingArmed &&
       mtm.unrealizedPnlUsd < currentPeak * (1 - PAPER_TRAILING_STOP_GIVEBACK_PCT)
     ) {
@@ -505,7 +524,7 @@ export class PaperTrader {
     //      15 closes, 0 wins, -$2,660 since the 9/22 reset. Thresholds
     //      live in config (PAPER_TIGHTEN_AGE_MIN / _NOTIONAL_FRAC); the
     //      shared trip check is in adaptive-stops.ts.
-    if (orderId && !trailingArmed && currentPeak <= 0) {
+    if (orderId && !onTarget && !trailingArmed && currentPeak <= 0) {
       const ageMin = (now - pos.openedAt) / 60_000;
       const lossUsd = -mtm.unrealizedPnlUsd; // positive = deeper underwater
       if (underwaterTightenTrip({ ageMin, lossUsd, notionalUsd: pos.notionalUsd })) {
@@ -541,7 +560,7 @@ export class PaperTrader {
     //       higher than the 55 entry gate) to justify the round-trip cost.
     // Both env-tunable. Max-hold still catches anything that goes stale.
     const posAgeSec = (now - pos.openedAt) / 1000;
-    if (!PAPER_FLIP_EXIT_ENABLED || posAgeSec < PAPER_MIN_FLIP_AGE_SEC) {
+    if (onTarget || !PAPER_FLIP_EXIT_ENABLED || posAgeSec < PAPER_MIN_FLIP_AGE_SEC) {
       // Flip exit off (PAPER_TRADER_FLIP_EXIT) or too fresh to flip — falls
       // through to hold; stop, trailing and max-hold still close.
     } else {
@@ -776,11 +795,12 @@ export class PaperTrader {
     const { getCurrentRegime, getRegimeMultipliers } = await import('./regime');
     const { regime } = await getCurrentRegime(now);
     const regMults = getRegimeMultipliers(regime);
-    const maxHoldMin = computeMaxHoldMinutes(signalScalar, regMults.maxHoldMult, picked.holdHorizonMin);
+    const target = PAPER_EXIT_MODE === 'target' ? targetExitLevels(side, markPrice) : null;
+    const maxHoldMin = target?.maxHoldMin ?? computeMaxHoldMinutes(signalScalar, regMults.maxHoldMult, picked.holdHorizonMin);
 
     const { computeAdaptiveThresholds } = await import('./adaptive-stops');
     const stopFrac = (await computeAdaptiveThresholds(asset, { holdWindowMin: maxHoldMin })).stopLossPct;
-    const stopLossPrice = side === 'LONG' ? markPrice * (1 - stopFrac) : markPrice * (1 + stopFrac);
+    const stopLossPrice = target?.stopLossPrice ?? (side === 'LONG' ? markPrice * (1 - stopFrac) : markPrice * (1 + stopFrac));
 
     const position: SimulatedPosition = {
       ...simulateOpen(
@@ -793,6 +813,7 @@ export class PaperTrader {
       entryConsensus: cons,
       maxHoldMin,
       stopLossPrice,
+      ...(target ? { takeProfitPrice: target.takeProfitPrice } : {}),
     };
 
     const orderId = `paper_${asset}_${Math.floor(now / 1000)}`;
@@ -825,6 +846,7 @@ export class PaperTrader {
         leverage: PAPER_LEVERAGE,
         entryPrice: markPrice,
         stopLoss: stopLossPrice,
+        takeProfit: target?.takeProfitPrice,
         simulationMode: true,
         reason: `paper: ${rec} conf=${picked.prediction.confidence.toFixed(0)} score=${picked.score.toFixed(1)}${picked.probe ? ' | probe' : ''}${holdPlanTag(maxHoldMin, picked.holdHorizonMin, picked.ledgerHitRate)}`,
         predictionMarket: 'paper-aggregate',
