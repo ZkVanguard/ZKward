@@ -112,6 +112,14 @@ export const maxDuration = 30;
 
 export async function GET(request: NextRequest): Promise<NextResponse<EdgeResult>> {
   const ranAt = new Date().toISOString();
+  const auth = await verifyCronRequest(request, 'PolymarketEdgeTrader');
+  if (auth !== true) {
+    return NextResponse.json(
+      { success: false, ranAt, attempted: false, reason: 'Unauthorized' },
+      { status: 401 },
+    );
+  }
+  // After auth: an unauthenticated hit must not make the job look alive.
   // AWAIT the heartbeat — fire-and-forget gets dropped by Vercel's
   // serverless suspension after response (observed 2026-06-22: trader
   // ran successfully via manual trigger, returned full payload, but
@@ -120,14 +128,6 @@ export async function GET(request: NextRequest): Promise<NextResponse<EdgeResult
   // suspended). Awaiting adds ~50ms but guarantees the heartbeat
   // lands.
   await setCronState('cron:lastRun:polymarket-edge-trader', Date.now()).catch(() => {});
-
-  const auth = await verifyCronRequest(request, 'PolymarketEdgeTrader');
-  if (auth !== true) {
-    return NextResponse.json(
-      { success: false, ranAt, attempted: false, reason: 'Unauthorized' },
-      { status: 401 },
-    );
-  }
 
   // Paper traders tick via their dedicated 60s `paper-fast-tick` cron
   // (jobs.zkward.com schedule). The QStash-era piggyback that ran them

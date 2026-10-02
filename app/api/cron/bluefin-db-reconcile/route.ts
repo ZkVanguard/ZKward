@@ -92,7 +92,6 @@ function matchesPosition(hedge: Hedge, positions: LivePosition[]): boolean {
 
 export async function GET(request: NextRequest): Promise<NextResponse<ReconcileResult>> {
   const ranAt = new Date().toISOString();
-  void setCronState(CRON_KEY_LAST_RUN, Date.now()).catch(() => {});
 
   const auth = await verifyCronRequest(request, 'BluefinDbReconcile');
   if (auth !== true) {
@@ -105,6 +104,8 @@ export async function GET(request: NextRequest): Promise<NextResponse<ReconcileR
       { status: 401 },
     );
   }
+  // After auth: an unauthenticated hit must not make the job look alive.
+  void setCronState(CRON_KEY_LAST_RUN, Date.now()).catch(() => {});
 
   try {
     const bf = BluefinService.getInstance();

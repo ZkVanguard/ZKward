@@ -716,7 +716,6 @@ async function monitorPools(): Promise<{
  */
 export async function GET(request: NextRequest): Promise<NextResponse<PoolMonitorResult>> {
   const startTime = Date.now();
-  void setCronState('cron:lastRun:pool-nav-monitor', Date.now()).catch(() => {});
 
   // Security: Verify QStash signature or CRON_SECRET
   const authResult = await verifyCronRequest(request, 'PoolNAVMonitor');
@@ -734,6 +733,8 @@ export async function GET(request: NextRequest): Promise<NextResponse<PoolMonito
       { status: 401 }
     );
   }
+  // After auth: an unauthenticated hit must not make the job look alive.
+  void setCronState('cron:lastRun:pool-nav-monitor', Date.now()).catch(() => {});
 
   logger.info('[PoolNAVMonitor] Starting pool NAV monitoring');
 
