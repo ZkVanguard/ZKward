@@ -40,7 +40,7 @@ import {
   PAPER_PROBE_STAKE_MULT,
   PAPER_LEDGER_GATE,
 } from './config';
-import { assetHoldPlan, getLedgerCells, type LedgerCell } from '@/lib/services/market-data/ledger-cells';
+import { assetHoldPlan, getLedgerCells, getRecentLedgerCells, type LedgerCell } from '@/lib/services/market-data/ledger-cells';
 import type { Side } from './simulated-executor';
 import { getMultiSourceValidatedPrice } from '@/lib/services/market-data/unified-price-provider';
 import { computeSignalScalar, computeCalibrationBoost } from './sizing';
@@ -180,12 +180,13 @@ export async function selectCandidate(
   // Ledger cells (2026-10-01): the aggregate signal's measured hit rate per
   // asset × horizon decides admission, the hold horizon, and nudges rank.
   let ledgerCells: readonly LedgerCell[] = [];
+  let recentCells: readonly LedgerCell[] = [];
   if (PAPER_LEDGER_GATE) {
     try {
-      ledgerCells = await getLedgerCells();
+      [ledgerCells, recentCells] = await Promise.all([getLedgerCells(), getRecentLedgerCells()]);
     } catch { /* fail-open: cold everywhere */ }
   }
-  const holdPlan = (asset: string) => assetHoldPlan(ledgerCells, asset);
+  const holdPlan = (asset: string) => assetHoldPlan(ledgerCells, asset, undefined, recentCells);
 
   // L6 — Multi-armed bandit multiplier on the candidate score. Historically
   // profitable (asset, side) arms get their score boosted, chronic losers

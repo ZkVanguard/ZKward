@@ -77,6 +77,11 @@ const CONFIG = {
   // at $2016.64 for 74 days because updatePrice couldn't get a fresh
   // ticker but getLivePrice happily returned the ancient value.
   MAX_LIVE_PRICE_STALENESS_MS: 60_000,
+  // How long getLivePrice waits for one forced REST refresh when the cache
+  // is stale. Serverless instances freeze between invocations, so the poll
+  // timer cannot keep the cache warm; without this the paper books skipped
+  // whole ticks ("stale mark price (held)") and their stops could not fire.
+  LIVE_PRICE_REFRESH_TIMEOUT_MS: 4000,
   
   // Validation thresholds
   MAX_SPREAD_PERCENT: 1.0,    // Warn if spread > 1%
@@ -109,6 +114,7 @@ class UnifiedPriceProvider extends EventEmitter {
   private pollTimer: NodeJS.Timeout | null = null;
   private trackedSymbols: Set<string> = new Set(CONFIG.DEFAULT_SYMBOLS);
   private lastApiCall = 0;
+  private restInflight: Promise<void> | null = null;
   private initialized = false;
   private initPromise: Promise<void> | null = null;
 
@@ -310,12 +316,19 @@ class UnifiedPriceProvider extends EventEmitter {
     }
   }
 
-  async fetchPricesFromREST(): Promise<void> {
-    // Rate limit: max 1 call per second
+  async fetchPricesFromREST(opts: { force?: boolean } = {}): Promise<void> {
+    if (this.restInflight) return this.restInflight;
+    // Rate limit: max 1 call per second; a forced refresh (stale read) bypasses it.
     const now = Date.now();
-    if (now - this.lastApiCall < 1000) return;
+    if (!opts.force && now - this.lastApiCall < 1000) return;
     this.lastApiCall = now;
+    this.restInflight = this.fetchTickersInto(now).finally(() => {
+      this.restInflight = null;
+    });
+    return this.restInflight;
+  }
 
+  private async fetchTickersInto(now: number): Promise<void> {
     try {
       const response = await fetch('https://api.crypto.com/exchange/v1/public/get-tickers', {
         headers: { 'Content-Type': 'application/json' },
@@ -637,19 +650,29 @@ export function getUnifiedPriceProvider(): UnifiedPriceProvider {
 export async function getLivePrice(symbol: string): Promise<number> {
   const provider = getUnifiedPriceProvider();
   await provider.initialize();
-  const price = provider.getPrice(symbol);
-  if (!price || !Number.isFinite(price.price) || price.price <= 0) return 0;
-  const staleness = Date.now() - price.timestamp;
-  if (staleness > CONFIG.MAX_LIVE_PRICE_STALENESS_MS) {
-    logger.warn('[UnifiedPrice] getLivePrice rejected stale price', {
+  const fresh = (p: LivePrice): boolean =>
+    Number.isFinite(p.price) && p.price > 0 && Date.now() - p.timestamp <= CONFIG.MAX_LIVE_PRICE_STALENESS_MS;
+  let price = provider.getPrice(symbol);
+  if (!price || !fresh(price)) {
+    // One bounded refresh beats skipping the tick: a skipped tick leaves a
+    // paper position un-closeable while the market moves against it.
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    await Promise.race([
+      provider.fetchPricesFromREST({ force: true }).catch(() => undefined),
+      new Promise<void>((resolve) => {
+        timer = setTimeout(resolve, CONFIG.LIVE_PRICE_REFRESH_TIMEOUT_MS);
+      }),
+    ]);
+    if (timer) clearTimeout(timer);
+    price = provider.getPrice(symbol);
+  }
+  if (!price || !fresh(price)) {
+    logger.warn('[UnifiedPrice] getLivePrice: no fresh price after refresh', {
       symbol,
-      cachedPrice: price.price,
-      stalenessMs: staleness,
+      cachedPrice: price?.price ?? null,
+      stalenessMs: price ? Date.now() - price.timestamp : null,
       maxStalenessMs: CONFIG.MAX_LIVE_PRICE_STALENESS_MS,
     });
-    // Kick a background refresh so subsequent calls can succeed. Don't
-    // await — the current caller already needs to skip.
-    void provider.fetchPricesFromREST().catch(() => undefined);
     return 0;
   }
   return price.price;

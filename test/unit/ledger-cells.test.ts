@@ -4,7 +4,7 @@
  * assets through on the default hold.
  */
 import { describe, it, expect } from '@jest/globals';
-import { assetHoldPlan, findCell, LEDGER_MIN_N, type LedgerCell } from '@/lib/services/market-data/ledger-cells';
+import { assetHoldPlan, findCell, LEDGER_MIN_N, LEDGER_RECENT_MIN_N, type LedgerCell } from '@/lib/services/market-data/ledger-cells';
 import { computeMaxHoldMinutes } from '@/lib/services/paper-trader/sizing';
 import { PAPER_MAX_HOLD_CEILING_MIN } from '@/lib/services/paper-trader/config';
 
@@ -38,6 +38,25 @@ describe('assetHoldPlan', () => {
   it('only the aggregate row decides holds, not single sources', () => {
     expect(assetHoldPlan(CELLS, 'XRP')).toEqual({ plan: null, measured: false });
     expect(findCell(CELLS, 'on_chain:bybit-xrp-funding', 'xrp', 60)?.hitRate).toBe(0.76);
+  });
+});
+
+describe('assetHoldPlan recency gate', () => {
+  it('a horizon whose edge is gone in the recent window is passed over for the next one that still works', () => {
+    const recent = [cell('BTC', 240, 0.42, 25), cell('BTC', 60, 0.55, 25)];
+    expect(assetHoldPlan(CELLS, 'BTC', undefined, recent)).toEqual({ plan: { horizonMin: 60, hitRate: 0.51, n: 100 }, measured: true });
+  });
+  it('a thin recent cell (below LEDGER_RECENT_MIN_N) does not override the window decision', () => {
+    const recent = [cell('BTC', 240, 0.3, LEDGER_RECENT_MIN_N - 1)];
+    expect(assetHoldPlan(CELLS, 'BTC', undefined, recent).plan?.horizonMin).toBe(240);
+  });
+  it('every candidate failing recently → measured, no plan (the entry gate skips the asset)', () => {
+    const recent = [cell('BTC', 240, 0.4, 30), cell('BTC', 60, 0.45, 30)];
+    expect(assetHoldPlan(CELLS, 'BTC', undefined, recent)).toEqual({ plan: null, measured: true });
+  });
+  it('a recent cell above a coin flip keeps the window choice', () => {
+    const recent = [cell('BTC', 240, 0.58, 40)];
+    expect(assetHoldPlan(CELLS, 'BTC', undefined, recent).plan?.horizonMin).toBe(240);
   });
 });
 

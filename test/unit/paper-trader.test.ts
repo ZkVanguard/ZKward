@@ -29,6 +29,9 @@ process.env.PAPER_TRADER_ASSET_SIDE_BLACKLIST_SEEDS = '';
 // Flip tests assert the flip MECHANICS at NOW+16min fixtures; pin the age
 // gate at the pre-2026-09-27 value (prod default is now 1800s).
 process.env.PAPER_TRADER_MIN_FLIP_AGE_SEC = '900';
+// The flip exit is off by default since 2026-10-02 (0/7 since the odds-based
+// signals); these tests assert its mechanics, so turn it on here.
+process.env.PAPER_TRADER_FLIP_EXIT = '1';
 // Fix O: max-hold ceiling (default 90) would clip the legacy scalar
 // assertions below; pin it out of the way. Ceiling has its own test.
 process.env.PAPER_TRADER_MAX_HOLD_CEILING_MIN = '10000';

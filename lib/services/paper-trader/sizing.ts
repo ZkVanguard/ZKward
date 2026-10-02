@@ -100,3 +100,14 @@ export async function computeCalibrationBoost(
     return 1.0;
   }
 }
+
+/** Reason-string tag for an open: `| hold 240m ledger 240m@61%`. Greppable in `hedges.reason`. */
+export function holdPlanTag(maxHoldMin: number, horizonMin?: number | null, hitRate?: number | null): string {
+  const ledger = horizonMin ? ` ledger ${horizonMin}m@${Math.round((hitRate ?? 0) * 100)}%` : '';
+  return ` | hold ${Math.round(maxHoldMin)}m${ledger}`;
+}
+
+/** `metadata.holdPlan` on the hedges row — lets analyses group closes by the planned horizon. */
+export function holdPlanMeta(maxHoldMin: number, horizonMin?: number | null, hitRate?: number | null) {
+  return { maxHoldMin: Math.round(maxHoldMin), horizonMin: horizonMin ?? null, hitRate: hitRate ?? null };
+}

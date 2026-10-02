@@ -118,6 +118,8 @@ async function main() {
       probeStakeMult: cfg.PAPER_PROBE_STAKE_MULT,
       skipStrong: cfg.PAPER_SKIP_STRONG_SIGNALS,
       ledgerGate: cfg.PAPER_LEDGER_GATE,
+      flipExit: cfg.PAPER_FLIP_EXIT_ENABLED,
+      ledgerRecentHours: (process.env.SIGNAL_LEDGER_RECENT_HOURS || '48').trim(),
       holdHorizons: (process.env.PAPER_TRADER_HOLD_HORIZONS_MIN || '60,240').trim(),
       calibrationEpoch: (process.env.SOURCE_CALIBRATOR_EPOCH || '2026-09-30').trim(),
       disableHalts: cfg.PAPER_DISABLE_HALTS,

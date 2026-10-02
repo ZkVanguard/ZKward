@@ -285,6 +285,16 @@ export const PAPER_MAX_HOLD_CEILING_MIN = Number(
 // horizon, and hold to the horizon where it has one. Cold assets pass on
 // the heuristic hold. PAPER_TRADER_LEDGER_GATE=0 disables.
 export const PAPER_LEDGER_GATE = (process.env.PAPER_TRADER_LEDGER_GATE || '1').trim() !== '0';
+/**
+ * Signal-flip exit in the paper books. Off since 2026-10-02: 0 wins in 7
+ * flips (−$49) since the odds-based signals shipped. The flip reads the
+ * short-horizon aggregate, which the ledger measures as a coin flip, to
+ * close positions that are held to the horizon where the signal works.
+ * PAPER_TRADER_FLIP_EXIT=1 re-enables it.
+ */
+export const PAPER_FLIP_EXIT_ENABLED = ['1', 'true', 'yes', 'on'].includes(
+  (process.env.PAPER_TRADER_FLIP_EXIT || '').trim().toLowerCase(),
+);
 
 // ── Regret cooldown ─────────────────────────────────────────────────
 export const PAPER_REGRET_COOLDOWN_PCT = Number(

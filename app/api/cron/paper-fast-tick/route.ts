@@ -144,6 +144,8 @@ async function effectiveConfig(): Promise<Record<string, unknown>> {
       probeStakeMult: c.PAPER_PROBE_STAKE_MULT,
       skipStrong: c.PAPER_SKIP_STRONG_SIGNALS,
       ledgerGate: c.PAPER_LEDGER_GATE,
+      flipExit: c.PAPER_FLIP_EXIT_ENABLED,
+      ledgerRecentHours: (process.env.SIGNAL_LEDGER_RECENT_HOURS || '48').trim(),
       holdHorizons: (process.env.PAPER_TRADER_HOLD_HORIZONS_MIN || '60,240').trim(),
       calibrationEpoch: (process.env.SOURCE_CALIBRATOR_EPOCH || '2026-09-30').trim(),
       disableHalts: c.PAPER_DISABLE_HALTS,

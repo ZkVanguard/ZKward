@@ -207,8 +207,8 @@ export class PaperGatedTrader {
     // 09-22). Gated was silently keeping the pre-anti-whipsaw behavior
     // that fired -$35/-$38 BTC losses inside 15 min of open.
     const posAgeSec = (now - pos.openedAt) / 1000;
-    const { PAPER_MIN_FLIP_AGE_SEC, PAPER_MIN_FLIP_CONFIDENCE } = await import('./config');
-    if (posAgeSec >= PAPER_MIN_FLIP_AGE_SEC) {
+    const { PAPER_MIN_FLIP_AGE_SEC, PAPER_MIN_FLIP_CONFIDENCE, PAPER_FLIP_EXIT_ENABLED } = await import('./config');
+    if (PAPER_FLIP_EXIT_ENABLED && posAgeSec >= PAPER_MIN_FLIP_AGE_SEC) {
       try {
         // scanAndPickBest.all returns ALL asset predictions regardless of
         // gates (gates only affect .best), so apply the flip-specific
@@ -318,7 +318,7 @@ export class PaperGatedTrader {
     // stop the 2026-09-22 revert actually wanted.
     // Shared hold math (Fix O, ceiling in config); a ledger-measured
     // horizon (picked.holdHorizonMin) replaces the heuristic hold.
-    const { computeMaxHoldMinutes } = await import('./sizing');
+    const { computeMaxHoldMinutes, holdPlanTag, holdPlanMeta } = await import('./sizing');
     const maxHoldMin = computeMaxHoldMinutes(signalScalar, 1, picked.holdHorizonMin);
 
     const { computeAdaptiveThresholds } = await import('./adaptive-stops');
@@ -376,9 +376,10 @@ export class PaperGatedTrader {
         entryPrice: markPrice,
         stopLoss: stopLossPrice,
         simulationMode: true,
-        reason: `paper-gated: ${rec} conf=${picked.prediction.confidence.toFixed(0)} score=${picked.score.toFixed(1)} | gate=allow`,
+        reason: `paper-gated: ${rec} conf=${picked.prediction.confidence.toFixed(0)} score=${picked.score.toFixed(1)} | gate=allow${holdPlanTag(maxHoldMin, picked.holdHorizonMin, picked.ledgerHitRate)}`,
         predictionMarket: 'paper-aggregate',
         chain: CHAIN,
+        metadata: { holdPlan: holdPlanMeta(maxHoldMin, picked.holdHorizonMin, picked.ledgerHitRate) },
       });
     } catch (e) {
       logger.warn('[PaperGatedTrader] createHedge failed (state kept)', { error: errMsg(e) });
