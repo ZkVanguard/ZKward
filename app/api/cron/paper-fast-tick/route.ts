@@ -146,6 +146,8 @@ async function effectiveConfig(): Promise<Record<string, unknown>> {
       ledgerGate: c.PAPER_LEDGER_GATE,
       flipExit: c.PAPER_FLIP_EXIT_ENABLED,
       exitMode: c.PAPER_EXIT_MODE,
+      execution: c.PAPER_EXECUTION,
+      restingEntryWaitMin: c.PAPER_RESTING_ENTRY_WAIT_MIN,
       targetTpBp: c.PAPER_TARGET_TP_BP,
       targetStopBp: c.PAPER_TARGET_STOP_BP,
       targetMaxHoldMin: c.PAPER_TARGET_MAX_HOLD_MIN,

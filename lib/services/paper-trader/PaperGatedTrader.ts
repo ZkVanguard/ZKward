@@ -38,7 +38,8 @@ import { errMsg } from '@/lib/utils/error-handler';
 import { selectCandidate, priceCandidate, sizeCandidate } from './entry-helpers';
 import { simulateOpen, simulateClose, markToMarket, type SimulatedPosition, type Side } from './simulated-executor';
 import { majorityAgreementPct } from './signal-quality';
-import { targetExitLevels, takeProfitHit } from './target-exit';
+import { targetExitLevels, takeProfitFill } from './target-exit';
+import { checkRestingEntry, placeRestingEntry, type EntryPlan } from './resting-orders';
 import { runAgentGate } from '@/app/api/cron/polymarket-edge-trader/handlers/agent-gate';
 import {
   PAPER_UNIVERSE,
@@ -60,6 +61,7 @@ const KEY_NAV           = 'paper-gated-trader:nav-usd';
 const KEY_STATS         = 'paper-gated-trader:stats';
 const KEY_LAST_RUN      = 'cron:lastRun:paper-gated-trader';
 const KEY_LAST_SKIP     = 'paper-gated-trader:last-skip';
+const KEY_RESTING_ENTRY = 'paper-gated-trader:resting-entry';
 
 const PORTFOLIO_ID = -4;
 const CHAIN = 'hedera-testnet';
@@ -155,11 +157,13 @@ export class PaperGatedTrader {
     // 1b. Target-exit take-profit: such a position closes here, at the stop
     //     above or at the time limit below, and skips every other exit.
     const onTarget = pos.takeProfitPrice !== undefined;
-    if (takeProfitHit(pos, markPrice)) {
+    const tpFill = takeProfitFill(pos, markPrice);
+    if (tpFill) {
       return PaperGatedTrader.closeAtMark(
-        pos, markPrice, nav, now,
+        pos, tpFill.price, nav, now,
         `take-profit: mark $${markPrice.toFixed(4)} reached $${(pos.takeProfitPrice ?? 0).toFixed(4)}`,
         orderId,
+        tpFill.resting,
       );
     }
 
@@ -262,6 +266,20 @@ export class PaperGatedTrader {
     // quality, etc.) so by the time it returns ok, the candidate has
     // already cleared the raw-paper gates. The gated-mode delta is
     // ONLY the runAgentGate call added below.
+    // A resting entry from an earlier tick is resolved first: filled = open
+    // it, still resting = wait, lapsed = look for a new candidate.
+    const resting = await checkRestingEntry(KEY_RESTING_ENTRY, now, async (a) => {
+      const p = await priceCandidate(a);
+      return p.ok ? p.markPrice : null;
+    });
+    if (resting.state === 'waiting') {
+      const { plan, limitPrice } = resting.entry;
+      return { action: 'held', reason: `resting ${plan.side} entry on ${plan.asset} @ $${limitPrice.toFixed(4)}`, nav };
+    }
+    if (resting.state === 'filled') {
+      return PaperGatedTrader.openPosition(resting.entry.plan, resting.entry.limitPrice, nav, now, true);
+    }
+
     const selection = await selectCandidate(now);
     if (!selection.ok) return { action: 'skipped', reason: selection.reason, nav };
     const picked = selection.picked;
@@ -324,16 +342,53 @@ export class PaperGatedTrader {
       };
     }
 
+    const { normalizeSourceKey } = await import('@/lib/services/ai/source-calibrator');
+    const plan: EntryPlan = {
+      asset, side, rec, notionalUsd, signalScalar,
+      conf: picked.prediction.confidence,
+      cons: (picked.prediction as { consensus?: number }).consensus ?? 0,
+      score: picked.score,
+      probe: picked.probe,
+      holdHorizonMin: picked.holdHorizonMin,
+      ledgerHitRate: picked.ledgerHitRate,
+      // Per-source directions at entry, so each source's call can be scored
+      // against the outcome at close.
+      sourceSnapshot: (picked.prediction.sources ?? []).map((s) => ({
+        key: normalizeSourceKey(s.name, s.type ?? ''),
+        direction: s.direction,
+      })),
+    };
+    const { PAPER_EXECUTION } = await import('./config');
+    if (PAPER_EXECUTION === 'resting') {
+      await placeRestingEntry(KEY_RESTING_ENTRY, plan, markPrice, now);
+      return { action: 'held', nav, reason: `resting ${side} entry placed on ${asset} @ $${markPrice.toFixed(4)}` };
+    }
+    return PaperGatedTrader.openPosition(plan, markPrice, nav, now, false);
+  }
+
+  /**
+   * Opens `plan` at `markPrice`. `resting` = the entry filled as a resting
+   * order at that price (maker fee, no slippage); otherwise a market fill.
+   */
+  private static async openPosition(
+    plan: EntryPlan,
+    markPrice: number,
+    nav: number,
+    now: number,
+    resting: boolean,
+  ): Promise<TickResult> {
+    const { asset, side, rec, notionalUsd, conf, cons, signalScalar, sourceSnapshot } = plan;
+
     // Fix O (2026-09-27): adaptive stop at entry, parity with raw paper —
     // the static 1.2% left all gated stop-outs at 0 wins (6 closes,
     // -$1,769); the 2.5% floor in computeAdaptiveThresholds is the wider
     // stop the 2026-09-22 revert actually wanted.
     // Shared hold math (Fix O, ceiling in config); a ledger-measured
-    // horizon (picked.holdHorizonMin) replaces the heuristic hold.
+    // horizon (plan.holdHorizonMin) replaces the heuristic hold.
     const { computeMaxHoldMinutes, holdPlanTag, holdPlanMeta } = await import('./sizing');
     const { PAPER_EXIT_MODE } = await import('./config');
     const target = PAPER_EXIT_MODE === 'target' ? targetExitLevels(side, markPrice) : null;
-    const maxHoldMin = target?.maxHoldMin ?? computeMaxHoldMinutes(signalScalar, 1, picked.holdHorizonMin);
+    const maxHoldMin = target?.maxHoldMin ?? computeMaxHoldMinutes(signalScalar, 1, plan.holdHorizonMin);
 
     const { computeAdaptiveThresholds } = await import('./adaptive-stops');
     const stopFrac = (await computeAdaptiveThresholds(asset, { holdWindowMin: maxHoldMin })).stopLossPct;
@@ -341,24 +396,15 @@ export class PaperGatedTrader {
       ? markPrice * (1 - stopFrac)
       : markPrice * (1 + stopFrac));
 
-    // Snapshot the per-source directions at open so recordSourceOutcome
-    // can score each source's call against the actual outcome at close.
-    // Was missing until 2026-09-22 — gated closes never fed source-cal.
-    const { normalizeSourceKey } = await import('@/lib/services/ai/source-calibrator');
-    const sourceSnapshot = (picked.prediction.sources ?? []).map((s) => ({
-      key: normalizeSourceKey(s.name, s.type ?? ''),
-      direction: s.direction,
-    }));
-
     const position: SimulatedPosition = {
       ...simulateOpen(
-        { asset, side, notionalUsd, leverage: PAPER_LEVERAGE, entryPrice: markPrice },
+        { asset, side, notionalUsd, leverage: PAPER_LEVERAGE, entryPrice: markPrice, resting },
         now,
       ),
       sourceSnapshot,
       peakUnrealizedPnl: 0,
-      entryConfidence: picked.prediction.confidence,
-      entryConsensus: (picked.prediction as { consensus?: number }).consensus,
+      entryConfidence: conf,
+      entryConsensus: cons,
       maxHoldMin,
       stopLossPrice,
       ...(target ? { takeProfitPrice: target.takeProfitPrice } : {}),
@@ -392,10 +438,13 @@ export class PaperGatedTrader {
         stopLoss: stopLossPrice,
         takeProfit: target?.takeProfitPrice,
         simulationMode: true,
-        reason: `paper-gated: ${rec} conf=${picked.prediction.confidence.toFixed(0)} score=${picked.score.toFixed(1)} | gate=allow${holdPlanTag(maxHoldMin, picked.holdHorizonMin, picked.ledgerHitRate)}`,
+        reason: `paper-gated: ${rec} conf=${conf.toFixed(0)} score=${plan.score.toFixed(1)} | gate=allow${holdPlanTag(maxHoldMin, plan.holdHorizonMin, plan.ledgerHitRate)}`,
         predictionMarket: 'paper-aggregate',
         chain: CHAIN,
-        metadata: { holdPlan: holdPlanMeta(maxHoldMin, picked.holdHorizonMin, picked.ledgerHitRate) },
+        metadata: {
+          holdPlan: holdPlanMeta(maxHoldMin, plan.holdHorizonMin, plan.ledgerHitRate),
+          execution: resting ? 'resting' : 'market',
+        },
       });
     } catch (e) {
       logger.warn('[PaperGatedTrader] createHedge failed (state kept)', { error: errMsg(e) });
@@ -419,8 +468,9 @@ export class PaperGatedTrader {
     now: number,
     reason: string,
     orderId?: string,
+    resting: boolean = false,
   ): Promise<TickResult> {
-    const closeResult = simulateClose(pos, markPrice, now);
+    const closeResult = simulateClose(pos, markPrice, now, resting);
     const realizedPnl = closeResult.realizedPnlUsd;
     const newNav = priorNav + realizedPnl;
 

@@ -14,8 +14,8 @@
  * minus friction, exactly as before. Read the win rate together with the
  * average trade.
  */
-import type { Side, SimulatedPosition } from './simulated-executor';
-import { PAPER_TARGET_MAX_HOLD_MIN, PAPER_TARGET_STOP_BP, PAPER_TARGET_TP_BP } from './config';
+import { restingFilled, type Side, type SimulatedPosition } from './simulated-executor';
+import { PAPER_EXECUTION, PAPER_TARGET_MAX_HOLD_MIN, PAPER_TARGET_STOP_BP, PAPER_TARGET_TP_BP } from './config';
 
 export interface TargetExitLevels {
   takeProfitPrice: number;
@@ -38,8 +38,21 @@ export function targetExitLevels(
   };
 }
 
-/** True once the mark has reached the position's take-profit. Positions without one never hit. */
-export function takeProfitHit(pos: Pick<SimulatedPosition, 'side' | 'takeProfitPrice'>, markPrice: number): boolean {
-  if (!pos.takeProfitPrice) return false;
-  return pos.side === 'LONG' ? markPrice >= pos.takeProfitPrice : markPrice <= pos.takeProfitPrice;
+/**
+ * The take-profit fill at this mark, or null. Resting execution: the order
+ * sits at the target, fills only on a trade-through and at the target
+ * price. Market execution: closes at the mark once it reaches the target.
+ * Positions without a take-profit never fill.
+ */
+export function takeProfitFill(
+  pos: Pick<SimulatedPosition, 'asset' | 'side' | 'takeProfitPrice'>,
+  markPrice: number,
+  execution: 'resting' | 'market' = PAPER_EXECUTION,
+): { price: number; resting: boolean } | null {
+  const tp = pos.takeProfitPrice;
+  if (!tp) return null;
+  if (execution === 'resting') {
+    return restingFilled(pos.side === 'LONG' ? 'sell' : 'buy', tp, markPrice, pos.asset) ? { price: tp, resting: true } : null;
+  }
+  return (pos.side === 'LONG' ? markPrice >= tp : markPrice <= tp) ? { price: markPrice, resting: false } : null;
 }
