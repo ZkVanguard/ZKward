@@ -402,12 +402,12 @@ export const CommunityPool = memo(function CommunityPool({
       animate={{ opacity: 1, y: 0 }}
       className="bg-white dark:bg-gray-800 rounded-2xl sm:rounded-xl shadow-lg overflow-hidden min-w-0 max-w-full"
     >
-      {/* AI Insights only where its backend answers (Hedera). */}
+      {/* AI Insights where a backend answers: Hedera (signal-driven) and SUI (SuiPoolAgent). */}
       <PoolHeader
         selectedChain={pool.selectedChain}
         onChainSelect={selectChain}
         onRefresh={() => pool.fetchPoolData(true)}
-        onAIClick={hedera ? handleAIClick : undefined}
+        onAIClick={hedera || sui ? handleAIClick : undefined}
         chainName={chainName}
         network={solana ? 'testnet' : pool.network}
         poolDeployed={solana ? true : pool.poolDeployed}

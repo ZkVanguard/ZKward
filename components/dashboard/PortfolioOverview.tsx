@@ -100,20 +100,13 @@ export function PortfolioOverview({ address, onNavigateToPositions, onNavigateTo
                   }
                 </div>
                 {/* PnL Display */}
-                {derived && derived.pnl && (derived.pnl.daily !== 0 || derived.pnl.total !== 0) && (
-                  <div className="flex items-center gap-3 mt-1">
-                    <div className={`flex items-center gap-1 ${derived.pnl.daily >= 0 ? 'text-[#34C759]' : 'text-[#FF3B30]'}`}>
-                      <span className="text-[12px] sm:text-[13px] font-semibold">
-                        {derived.pnl.daily >= 0 ? '+' : ''}{derived.pnl.dailyPercentage.toFixed(2)}%
-                      </span>
-                      <span className="text-[10px] sm:text-[11px] opacity-70">24h</span>
-                    </div>
-                    <div className={`flex items-center gap-1 ${derived.pnl.weekly >= 0 ? 'text-[#34C759]' : 'text-[#FF3B30]'}`}>
-                      <span className="text-[12px] sm:text-[13px] font-semibold">
-                        {derived.pnl.weekly >= 0 ? '+' : ''}{derived.pnl.weeklyPercentage.toFixed(2)}%
-                      </span>
-                      <span className="text-[10px] sm:text-[11px] opacity-70">7d</span>
-                    </div>
+                {derived && derived.pnl.total !== 0 && (
+                  <div className={`flex items-center gap-1 mt-1 ${derived.pnl.total >= 0 ? 'text-green-700' : 'text-red-700'}`}>
+                    <span className="text-[12px] sm:text-[13px] font-semibold tabular-nums">
+                      {derived.pnl.total >= 0 ? '+' : '−'}${Math.abs(derived.pnl.total).toFixed(2)}
+                      {' '}({derived.pnl.totalPercentage >= 0 ? '+' : ''}{derived.pnl.totalPercentage.toFixed(2)}%)
+                    </span>
+                    <span className="text-[10px] sm:text-[11px] opacity-70">unrealized</span>
                   </div>
                 )}
               </div>

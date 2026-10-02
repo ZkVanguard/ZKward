@@ -297,6 +297,59 @@ async function buildHederaRecommendation(request: NextRequest) {
   };
 }
 
+// ─── SUI path — the SuiPoolAgent decision the pool cron acts on ──
+async function buildSuiRecommendation(request: NextRequest) {
+  const origin = request.nextUrl.origin;
+  const [summaryRes, allocRes] = await Promise.all([
+    fetch(`${origin}/api/sui/community-pool?network=mainnet`, { cache: 'no-store' }).catch(() => null),
+    fetch(`${origin}/api/sui/community-pool?network=mainnet&action=allocation`, { cache: 'no-store' }).catch(() => null),
+  ]);
+  const summary = summaryRes ? await summaryRes.json().catch(() => ({})) : {};
+  const alloc = allocRes ? await allocRes.json().catch(() => ({})) : {};
+  const nav = Number(summary?.data?.totalNAVUsd) || 0;
+  const current = (summary?.data?.allocation ?? {}) as Record<string, number>;
+  const decision = (alloc?.data ?? {}) as {
+    allocation?: Record<string, number>;
+    confidence?: number;
+    reasoning?: string;
+    shouldRebalance?: boolean;
+    source?: string;
+  };
+  const proposed = decision.allocation ?? {};
+  if (Object.keys(proposed).length === 0) throw new Error('SUI allocation unavailable');
+
+  // The agent allocates the deployed sleeve; whatever it leaves out stays USDC.
+  const deployed = Object.values(proposed).reduce((sum, v) => sum + (Number(v) || 0), 0);
+  const allocations: Record<string, number> = { ...proposed, USDC: Math.max(0, 100 - deployed) };
+  const assets = Array.from(new Set([...Object.keys(allocations), ...Object.keys(current)]));
+  const changes = assets.map((asset) => {
+    const currentPercent = Number(current[asset]) || 0;
+    const proposedPercent = Number(allocations[asset]) || 0;
+    return { asset, currentPercent, proposedPercent, change: proposedPercent - currentPercent };
+  });
+
+  const usdcNow = Number(current.USDC) || 0;
+  const clampNote = usdcNow > 50
+    ? ` The live pool holds ${usdcNow.toFixed(0)}% USDC: at $${nav.toFixed(2)} NAV, venue minimum sizes and the hedgeability gate cap what actually gets deployed.`
+    : '';
+
+  return {
+    success: true,
+    recommendation: {
+      allocations,
+      shouldRebalance: Boolean(decision.shouldRebalance),
+      reasoning: (decision.reasoning || `Target ${Object.entries(proposed).map(([a, pct]) => `${a} ${pct}%`).join(' · ')}.`) + clampNote,
+      confidence: Math.round(Number(decision.confidence) || 0),
+      indicators: [],
+      changes,
+    },
+    currentPool: { totalNAV: nav, allocations: current },
+    timestamp: Date.now(),
+    source: decision.source === 'ai-agent' ? 'sui-pool-agent' : 'sui-static-allocation',
+    note: 'Same SuiPoolAgent decision the pool cron executes; rebalances only at confidence ≥65% with a non-opposing signal.',
+  };
+}
+
 /**
  * GET - Get current AI recommendation without applying
  */
@@ -316,6 +369,9 @@ export async function GET(request: NextRequest) {
     if (chain === 'hedera') {
       const hederaResponse = await buildHederaRecommendation(request);
       return NextResponse.json(hederaResponse);
+    }
+    if (chain === 'sui') {
+      return NextResponse.json(await buildSuiRecommendation(request));
     }
 
     // OPTIMIZATION: Return cached response if fresh (2 minute TTL)

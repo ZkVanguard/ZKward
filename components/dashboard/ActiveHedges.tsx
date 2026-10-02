@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, memo, useMemo, useRef, useEffect, useCallback } from 'react';
-import { Shield, TrendingUp, TrendingDown, CheckCircle, ExternalLink, RefreshCw, Wallet, Lock, Clock } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { Shield, TrendingUp, TrendingDown, CheckCircle, ExternalLink, Lock } from 'lucide-react';
+import { AnimatePresence } from 'framer-motion';
 import { useQueryClient } from '@tanstack/react-query';
 import { usePolling, useToggle } from '@/lib/hooks';
 import { useApiAuth } from '@/lib/hooks/useApiAuth';
@@ -730,13 +730,15 @@ export const ActiveHedges = memo(function ActiveHedges({ address, compact = fals
                     <h3 className="text-[13px] sm:text-[15px] font-semibold text-[#1d1d1f] tracking-[-0.01em]">
                       Active Positions
                     </h3>
-                    <button
-                      onClick={() => onCreateHedge?.()}
-                      className="px-3 py-1.5 bg-[#007AFF] text-white rounded-[10px] text-[12px] font-semibold hover:opacity-90 active:scale-[0.98] transition-all flex items-center gap-1.5"
-                    >
-                      <Shield className="w-3.5 h-3.5" />
-                      <span>Create Hedge</span>
-                    </button>
+                    {onCreateHedge && (
+                      <button
+                        onClick={onCreateHedge}
+                        className="px-3 py-1.5 bg-[#007AFF] text-white rounded-[10px] text-[12px] font-semibold hover:opacity-90 active:scale-[0.98] transition-all flex items-center gap-1.5"
+                      >
+                        <Shield className="w-3.5 h-3.5" />
+                        <span>Create Hedge</span>
+                      </button>
+                    )}
                   </div>
                   <div className="flex gap-2 sm:gap-3 overflow-x-auto pb-2 scrollbar-hide -mx-3 sm:-mx-5 px-3 sm:px-5">
                     {activeHedges.slice(0, 5).map((hedge) => (
@@ -793,13 +795,15 @@ export const ActiveHedges = memo(function ActiveHedges({ address, compact = fals
                   </h3>
                   <span className="text-[11px] text-[#86868b]">{closedHedges.length} total</span>
                 </div>
-                <button
-                  onClick={() => onCreateHedge?.()}
-                  className="px-3 py-1.5 bg-[#007AFF] text-white rounded-[10px] text-[12px] font-semibold hover:opacity-90 active:scale-[0.98] transition-all flex items-center gap-1.5"
-                >
-                  <Shield className="w-3.5 h-3.5" />
-                  <span>Create Hedge</span>
-                </button>
+                {onCreateHedge && (
+                  <button
+                    onClick={onCreateHedge}
+                    className="px-3 py-1.5 bg-[#007AFF] text-white rounded-[10px] text-[12px] font-semibold hover:opacity-90 active:scale-[0.98] transition-all flex items-center gap-1.5"
+                  >
+                    <Shield className="w-3.5 h-3.5" />
+                    <span>Create Hedge</span>
+                  </button>
+                )}
               </div>
               <div className="space-y-2">
                 {closedHedges.map((hedge) => (
@@ -942,7 +946,7 @@ export const ActiveHedges = memo(function ActiveHedges({ address, compact = fals
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-1">
               <CheckCircle className="w-3.5 h-3.5 text-[#34C759]" />
-              <span>x402 gasless</span>
+              <span>Gasless</span>
             </div>
             <div className="flex items-center gap-1">
               <Shield className="w-3.5 h-3.5 text-[#007AFF]" />

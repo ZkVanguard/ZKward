@@ -15,15 +15,17 @@ export function EmptyHedgesState({ onCreateHedge, onOpenChat }: EmptyHedgesState
         No Active Hedges
       </h3>
       <p className="text-[13px] sm:text-[14px] text-[#86868b] leading-[1.4] max-w-[240px] mb-3 sm:mb-4">
-        Create manual hedges or wait for AI recommendations to protect your portfolio
+        Hedges open automatically from AI recommendations and show up here
       </p>
-      <button
-        onClick={() => onCreateHedge?.()}
-        className="mb-3 px-4 py-2 bg-[#007AFF] text-white rounded-[12px] text-[13px] sm:text-[14px] font-semibold hover:opacity-90 active:scale-[0.98] transition-all flex items-center gap-2"
-      >
-        <Shield className="w-4 h-4" />
-        Create Manual Hedge
-      </button>
+      {onCreateHedge && (
+        <button
+          onClick={onCreateHedge}
+          className="mb-3 px-4 py-2 bg-[#007AFF] text-white rounded-[12px] text-[13px] sm:text-[14px] font-semibold hover:opacity-90 active:scale-[0.98] transition-all flex items-center gap-2"
+        >
+          <Shield className="w-4 h-4" />
+          Create Manual Hedge
+        </button>
+      )}
       <div className="flex items-center gap-2 text-[12px] sm:text-[13px] text-[#86868b]">
         <button
           onClick={() => onOpenChat?.()}

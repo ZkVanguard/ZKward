@@ -37,13 +37,6 @@ function truncate(hex: string, head = 10, tail = 6): string {
 
 function AttestationCard({ a }: { a: AttestationView }) {
   const expired = !a.isValid;
-  const [copiedField, setCopiedField] = useState<string | null>(null);
-
-  const copyValue = (val: string, label: string) => {
-    navigator.clipboard.writeText(val);
-    setCopiedField(label);
-    setTimeout(() => setCopiedField(null), 1500);
-  };
 
   // Download a canonical JSON artifact that a counterparty can verify off-chain.
   // Includes everything an auditor needs: object id, custodian pubkey, asset-list
@@ -143,13 +136,6 @@ function AttestationCard({ a }: { a: AttestationView }) {
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#1d1d1f] text-white text-[12px] font-medium hover:bg-[#0A0E1A] active:scale-[0.98] transition-all"
           >
             <Download className="w-3.5 h-3.5" /> Download JSON
-          </button>
-          <button
-            onClick={() => copyValue(`${window.location.origin}/custody/verify?object=${a.objectId}`, 'share')}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-black/10 text-[#1d1d1f] text-[12px] font-medium hover:bg-[#f5f5f7] active:scale-[0.98] transition-all"
-          >
-            <Copy className="w-3.5 h-3.5" />
-            {copiedField === 'share' ? 'Copied ✓' : 'Copy share link'}
           </button>
         </div>
         <span className="text-[11px] text-[#86868b] sm:text-right">
@@ -267,18 +253,15 @@ export function CustodyTab() {
             <AlertTriangle className="w-5 h-5 mt-0.5 flex-shrink-0" />
             <div>
               <h3 className="text-[15px] font-semibold mb-1">
-                Custody attestor not deployed yet
+                Custody attestations are not live yet
               </h3>
               <p className="text-[13px]">
-                The <code className="bg-white/50 px-1.5 py-0.5 rounded">rwa_custody_attestor.move</code>
-                contract has been written, audited via internal review, and is ready to deploy as a
-                Tranche 2/3 grant deliverable. See
-                <code className="bg-white/50 px-1.5 py-0.5 rounded mx-1">docs/CUSTODY_ATTESTATION_SPEC.md</code>
-                for the deployment runbook.
+                The on-chain attestation contract is written and internally reviewed; it goes live after external audit.
+                Until then there is nothing to list here.
               </p>
               <p className="text-[12px] text-amber-700 mt-2">
-                Once deployed, this page will list active attestations for your wallet. The off-chain verification and
-                message-building API endpoints are already live.
+                The off-chain verification and message-building endpoints already work, so a custodian can prepare an
+                attestation today and submit it once the contract is live.
               </p>
             </div>
           </div>
@@ -315,9 +298,8 @@ export function CustodyTab() {
       )}
 
       <footer className="text-center text-[11px] text-[#86868b] pt-4">
-        Custody attestations issued via <code className="bg-[#f5f5f7] px-1.5 py-0.5 rounded">rwa_custody_attestor.move</code> ·
-        Asset lists stay off-chain · ed25519 + SHA-256 canonical encoding ·
-        Auditable by any counterparty without revealing portfolio composition.
+        Asset lists stay off-chain; only a hash is published · Signatures are ed25519 over a canonical SHA-256 encoding ·
+        Any counterparty can verify without seeing portfolio composition.
       </footer>
     </div>
   );
