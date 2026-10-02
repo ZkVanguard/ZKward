@@ -106,6 +106,9 @@ interface RiskOverview {
     totalUnrealizedPnlUsd: number;
     coverageRatio: number;
     positions: HedgeRow[];
+    orphanCount?: number;
+    orphanNotionalUsd?: number;
+    orphanUnrealizedPnlUsd?: number;
   };
   reconciliation: {
     cronHealth: CronHealth[];
@@ -637,8 +640,18 @@ export function RiskTab() {
                 </span>
               </div>
             </div>
+            {(data.hedge.orphanCount ?? 0) > 0 && (
+              <p className="text-[12px] text-[#6e6e73] mb-3 leading-snug">
+                Also open, not managed by the strategy: {data.hedge.orphanCount} leftover position{data.hedge.orphanCount === 1 ? '' : 's'} the venue
+                can&apos;t close · {fmtUsd(data.hedge.orphanNotionalUsd ?? 0)} notional ·{' '}
+                <span className={(data.hedge.orphanUnrealizedPnlUsd ?? 0) >= 0 ? 'text-green-700' : 'text-red-700'}>
+                  {fmtUsd(data.hedge.orphanUnrealizedPnlUsd ?? 0)}
+                </span>{' '}
+                unrealized. They count toward pool value and are listed on the Pool page.
+              </p>
+            )}
             {data.hedge.positions.length === 0 ? (
-              <div className="text-[#86868b] text-xs sm:text-[13px] py-4 text-center">No active hedges.</div>
+              <div className="text-[#86868b] text-xs sm:text-[13px] py-4 text-center">No strategy-managed hedges right now.</div>
             ) : (
               <div className="-mx-3 sm:mx-0 overflow-x-auto">
                 <div className="min-w-[520px] sm:min-w-0 px-3 sm:px-0">

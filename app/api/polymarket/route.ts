@@ -108,8 +108,11 @@ export async function GET(req: NextRequest) {
     const count = Array.isArray(data) ? data.length : 1;
     logger.info(`[Polymarket Proxy] Returned ${count} market(s)`);
 
-    // Short cache for slug lookups (5-min markets), longer for generic
-    const maxAge = upstream.searchParams.has('slug') ? 15 : 300;
+    // 5-minute markets move every few seconds: 15 s + stale-while-revalidate
+    // showed odds up to 45 s old (0.37 here vs 0.51 at the venue). Other slug
+    // lookups keep 15 s, generic lists 5 min.
+    const slugParam = upstream.searchParams.get('slug') ?? '';
+    const maxAge = /-5m-\d+$/.test(slugParam) ? 5 : slugParam ? 15 : 300;
 
     return NextResponse.json(data, {
       headers: {
