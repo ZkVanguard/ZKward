@@ -88,9 +88,10 @@ const MAX_MULTIPLIER = 2.0;
 export const CALIBRATION_EPOCH = (process.env.SOURCE_CALIBRATOR_EPOCH || '2026-09-30').trim();
 
 /** Ledger cells (signal_outcomes) outrank per-trade buckets: thousands of
- *  fixed-horizon resolutions vs tens of trades. Below this measured hit rate
- *  a source is removed from the aggregation for that asset. */
-const LEDGER_HARD_FILTER_HIT_RATE = Number(process.env.SOURCE_LEDGER_HARD_FILTER_HIT_RATE || 0.48);
+ *  fixed-horizon resolutions vs tens of trades. A source whose timing is
+ *  measured wrong-way is removed for that asset; one measured right gets
+ *  this multiplier; everything else keeps its base weight. */
+const LEDGER_PROVEN_MULTIPLIER = Number(process.env.SOURCE_LEDGER_PROVEN_MULTIPLIER || 1.5);
 
 export interface SourceCalibrationBucket {
   n: number;
@@ -286,15 +287,16 @@ export async function applyCalibrationToSources<
   const ledgerKill = new Set<string>();
   if (opts.asset) {
     try {
-      const { getLedgerCells, findCell } = await import('@/lib/services/market-data/ledger-cells');
+      const { getLedgerCells, findCell, timingVerdict } = await import('@/lib/services/market-data/ledger-cells');
       const cells = await getLedgerCells();
-      const horizon = opts.horizonMin ?? 240;
+      const horizon = opts.horizonMin ?? 60;
       for (const s of sources) {
         const key = normalizeSourceKey(s.name, s.type ?? '');
         const cell = findCell(cells, key, opts.asset, horizon);
         if (!cell) continue;
-        if (cell.hitRate < LEDGER_HARD_FILTER_HIT_RATE) ledgerKill.add(key);
-        else ledgerMult.set(key, hitRateToMultiplier(cell.hitRate));
+        const verdict = timingVerdict(cell);
+        if (verdict === 'wrong-way') ledgerKill.add(key);
+        else ledgerMult.set(key, verdict === 'proven' ? LEDGER_PROVEN_MULTIPLIER : 1);
       }
     } catch (e) {
       logger.debug('[SourceCalibrator] ledger cells unavailable (per-trade buckets only)', {

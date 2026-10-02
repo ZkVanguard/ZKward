@@ -190,8 +190,8 @@ export async function runSolanaSleeveTick(
     }
 
     // Highest-confidence directional signal above the floor, admitted and
-    // ranked by the ledger: an asset measured with no edge at any hold
-    // horizon is skipped; a measured edge scales the rank (fail-open cold).
+    // ranked by the ledger: an asset measured wrong-way at every hold
+    // horizon is skipped (fail-open cold).
     const { getLedgerCells, getRecentLedgerCells, assetHoldPlan } = await import('@/lib/services/market-data/ledger-cells');
     const [cells, recent] = await Promise.all([getLedgerCells().catch(() => []), getRecentLedgerCells().catch(() => [])]);
     let best: {

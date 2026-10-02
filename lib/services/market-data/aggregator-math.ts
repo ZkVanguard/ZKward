@@ -10,6 +10,23 @@ import {
 import type { PredictionSource, AggregatedPrediction } from './PredictionAggregatorService';
 
 /**
+ * Funding per 8 h at which a perpetual market counts as crowded (about 33%
+ * APR). The three funding votes used thresholds of 0.2 to 0.5 bp, below the
+ * rate these markets pay when nothing is happening, so they voted DOWN
+ * about half of every day for a month (94% of their votes) and never once
+ * saw a crowded market. Measured over 30 days of settled rates on five
+ * assets that vote had no timing edge (-0.9 ± 1.5 bp at 60 min), and on the
+ * signal ledger the positioning votes alone, traded, lost about 40 bp a trade.
+ */
+export const FUNDING_CROWDED_RATE = Number((process.env.AGG_FUNDING_CROWDED_RATE || '').trim()) || 0.0003;
+
+/** Contrarian direction for a crowded funding rate; null when the market is not crowded. */
+export function crowdedFundingDirection(ratePer8h: number): 'UP' | 'DOWN' | null {
+  if (!Number.isFinite(ratePer8h) || Math.abs(ratePer8h) <= FUNDING_CROWDED_RATE) return null;
+  return ratePer8h > 0 ? 'DOWN' : 'UP';
+}
+
+/**
  * Weighted-aggregate a source list into a single directional call.
  *
  * Consensus is fraction of sources AGREEING with the chosen aggregate direction
