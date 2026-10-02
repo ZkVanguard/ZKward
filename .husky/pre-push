@@ -14,6 +14,15 @@
 # code to origin in the first place — the corruption is caught locally.
 #
 # To bypass in a real emergency: SUPPLY_CHAIN_BYPASS=1 git push
+
+# The hackathon archive is a read-only reference. A push there is always a
+# mistake, so this check comes before the scan bypass and has none of its own.
+case "$2" in
+  *zkward-ethglobal*)
+    echo "❌ pre-push: refusing to push to the read-only archive remote ($1)."
+    exit 1
+    ;;
+esac
 if [ "$SUPPLY_CHAIN_BYPASS" = "1" ]; then
   echo "⚠️  pre-push: security scan BYPASSED (SUPPLY_CHAIN_BYPASS=1)"
   exit 0

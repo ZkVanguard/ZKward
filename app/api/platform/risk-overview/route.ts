@@ -29,11 +29,10 @@ import { query } from '@/lib/db/postgres';
 import { getLiveAssetSignals } from '@/lib/services/market-data/live-signals';
 
 export const runtime = 'nodejs';
-// 30s ISR — matches the underlying NAV cron cadence (30min) and the
-// frontend's 60s polling. force-dynamic was neutralising the existing
-// Cache-Control header, so every /dashboard load hit the DB. With
-// revalidate, N users → 1 DB query per 30s window.
-export const revalidate = 30;
+// Dynamic on purpose: no `revalidate`. A revalidate export makes the GET a
+// build-time static page whose regeneration can silently never land. The
+// explicit Cache-Control header on the response caches it at the CDN, so
+// N viewers still cost one DB read per 30 s window.
 export const maxDuration = 15;
 
 interface CronHealth {
