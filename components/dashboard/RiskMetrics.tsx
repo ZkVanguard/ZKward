@@ -4,6 +4,7 @@ import { useMemo, memo } from 'react';
 import { AlertTriangle, TrendingUp, Shield, Activity } from 'lucide-react';
 import { usePositions } from '@/contexts/PositionsContext';
 import { ConnectPromptButton } from '@/components/ui/ConnectPromptButton';
+import { ChainSupportNote } from '@/components/wallet/ChainBadge';
 
 interface RiskMetric {
   label: string;
@@ -99,6 +100,7 @@ export const RiskMetrics = memo(function RiskMetrics({ address }: { address?: st
         <p className="text-[13px] sm:text-caption-1 text-label-tertiary text-center max-w-[240px]">
           Connect a wallet to see VaR, volatility, risk score and Sharpe ratio computed live from your portfolio.
         </p>
+<ChainSupportNote supports={['hedera', 'sui']} className="mb-4" />
         <ConnectPromptButton reason="Risk metrics are computed live from the positions of a connected wallet." />
       </div>
     );

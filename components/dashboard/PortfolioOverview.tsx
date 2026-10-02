@@ -5,7 +5,7 @@ import { DollarSign, RefreshCw, ChevronRight } from 'lucide-react';
 import { usePositions } from '@/contexts/PositionsContext';
 import { logger } from '@/lib/utils/logger';
 import { ConnectPromptButton } from '@/components/ui/ConnectPromptButton';
-import { WalletContextBadge } from '@/components/wallet/ChainBadge';
+import { WalletContextBadge, ChainSupportNote } from '@/components/wallet/ChainBadge';
 
 interface PortfolioOverviewProps {
   address?: string;
@@ -57,6 +57,7 @@ export function PortfolioOverview({ address, onNavigateToPositions, onNavigateTo
               <p className="text-[15px] text-[#86868b] leading-[1.4]">Connect a wallet to see your balances and P&amp;L</p>
             </div>
           </div>
+<ChainSupportNote supports={['hedera', 'sui']} className="mb-4" />
           <ConnectPromptButton reason="Sign in on Hedera or connect a SUI wallet to see your portfolio." />
         </div>
       </div>

@@ -44,10 +44,13 @@ export function ChainChooser() {
         <div className="flex items-start justify-between gap-3 mb-4">
           <div>
             <h2 id="chain-chooser-title" className="text-[20px] font-semibold text-[#1d1d1f] tracking-[-0.01em]">
-              {chooser.chain ? `Use ${CHAIN_INFO[chooser.chain].name}` : hub.isConnected ? 'Switch network' : 'Choose your network'}
+              {chooser.welcome ? 'Welcome to ZKward' : chooser.chain ? `Use ${CHAIN_INFO[chooser.chain].name}` : hub.isConnected ? 'Switch network' : 'Choose your network'}
             </h2>
             <p className="text-[13px] text-[#6e6e73] mt-1 leading-snug">
-              {chooser.reason ?? 'You use one network at a time. Switching disconnects the current one.'}
+              {chooser.reason ??
+                (chooser.welcome
+                  ? 'Choose the network you want to use. Every tab follows your choice, and you can switch any time from the top bar.'
+                  : 'You use one network at a time. Switching disconnects the current one.')}
             </p>
           </div>
           <button
@@ -64,6 +67,15 @@ export function ChainChooser() {
             <ChainCard key={chain} chain={chain} highlighted={chooser.chain === chain} />
           ))}
         </div>
+        {chooser.welcome && (
+          <button
+            type="button"
+            onClick={hub.closeChooser}
+            className="mt-4 w-full h-10 rounded-xl text-[13px] font-medium text-[#6e6e73] hover:bg-[#f5f5f7]"
+          >
+            Browse first, decide later
+          </button>
+        )}
       </div>
     </div>
   );

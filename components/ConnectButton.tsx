@@ -611,6 +611,17 @@ export function ConnectButton() {
                         </a>
                       </div>
 
+                      {hub && (
+                        <button
+                          onClick={() => {
+                            setShowSelector(false);
+                            hub.openChooser();
+                          }}
+                          className="w-full py-2 mb-1 bg-system-bg-secondary dark:bg-[#2c2c2e] hover:bg-[#E5E5EA] rounded-lg text-[13px] font-medium flex items-center justify-center gap-1.5"
+                        >
+                          Switch network
+                        </button>
+                      )}
                       <button
                         onClick={() => {
                           disconnectSui();

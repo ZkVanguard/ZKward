@@ -4,7 +4,9 @@ import { useState, useEffect } from 'react';
 import { Link } from '@/i18n/routing';
 import { useTranslations } from 'next-intl';
 
-const CONSENT_KEY = 'zkward_cookie_consent';
+export const CONSENT_KEY = 'zkward_cookie_consent';
+/** Fired on window when the visitor saves a cookie choice. */
+export const CONSENT_EVENT = 'cookie-consent-updated';
 
 interface ConsentSettings {
   necessary: boolean;    // Always true, required for operation
@@ -47,7 +49,7 @@ export function CookieConsent() {
     setShowBanner(false);
     
     // Dispatch event for analytics service to pick up
-    window.dispatchEvent(new CustomEvent('cookie-consent-updated', { detail: withTimestamp }));
+    window.dispatchEvent(new CustomEvent(CONSENT_EVENT, { detail: withTimestamp }));
   };
 
   const acceptAll = () => {
@@ -232,8 +234,8 @@ export function useConsent() {
       setConsent(e.detail);
     };
 
-    window.addEventListener('cookie-consent-updated', handleUpdate as EventListener);
-    return () => window.removeEventListener('cookie-consent-updated', handleUpdate as EventListener);
+    window.addEventListener(CONSENT_EVENT, handleUpdate as EventListener);
+    return () => window.removeEventListener(CONSENT_EVENT, handleUpdate as EventListener);
   }, []);
 
   return consent;

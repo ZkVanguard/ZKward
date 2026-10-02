@@ -24,12 +24,15 @@ import { useUserSession } from '@/lib/hooks/useUserSession';
 import { useSuiSafe } from '@/app/sui-providers';
 import { connectWallet as connectPhantom, getProvider as getPhantom } from '@/components/solana/wallet';
 import { ChainChooser } from '@/components/wallet/ChainChooser';
+import { CONSENT_EVENT, CONSENT_KEY } from '@/components/CookieConsent';
 
 export type WalletChain = 'hedera' | 'sui' | 'solana';
 export const WALLET_CHAINS: readonly WalletChain[] = ['hedera', 'sui', 'solana'];
 /** Which chain wins when several come back connected after a reload and no preference is stored. */
 const ADOPTION_ORDER: readonly WalletChain[] = ['sui', 'hedera', 'solana'];
 const ACTIVE_KEY = 'zkward.activeChain';
+/** Set once the user has chosen (or dismissed the choice); the welcome chooser never shows again on this device. */
+const ONBOARDED_KEY = 'zkward.onboarded';
 
 /** Plain-language copy for the chooser, prompts and badges. */
 export const CHAIN_INFO: Record<WalletChain, { name: string; net: string; pool: string; how: string; cta: string; color: string; installUrl: string; installLabel: string }> = {
@@ -76,6 +79,8 @@ export interface ChooserState {
   open: boolean;
   chain: WalletChain | null;
   reason: string | null;
+  /** First visit on this device: framed as a welcome, with a "browse first" exit. */
+  welcome: boolean;
 }
 
 export type ConnectResult = { ok: true } | { ok: false; error: string };
@@ -103,6 +108,21 @@ export interface WalletHub {
 }
 
 const Ctx = createContext<WalletHub | null>(null);
+
+function readFlag(key: string): boolean {
+  try {
+    return localStorage.getItem(key) === '1';
+  } catch {
+    return false;
+  }
+}
+function writeFlag(key: string): void {
+  try {
+    localStorage.setItem(key, '1');
+  } catch {
+    /* per-device convenience only */
+  }
+}
 
 function readStoredChain(): WalletChain | null {
   try {
@@ -147,8 +167,28 @@ export function WalletHubProvider({ children }: { children: ReactNode }) {
   const [activeChain, setActiveChainState] = useState<WalletChain | null>(null);
   const [hydrated, setHydrated] = useState(false);
   useEffect(() => {
-    setActiveChainState(readStoredChain());
+    const stored = readStoredChain();
+    setActiveChainState(stored);
     setHydrated(true);
+    // First visit on this device: ask which network to use, once. The
+    // dashboard stays browsable behind it and the choice is never forced.
+    // One first-visit prompt at a time: it waits for the cookie choice.
+    if (stored || readFlag(ONBOARDED_KEY)) return;
+    const welcome = () => {
+      if (!readFlag(ONBOARDED_KEY) && !readStoredChain()) setChooser({ open: true, chain: null, reason: null, welcome: true });
+    };
+    let cookiesDecided = false;
+    try {
+      cookiesDecided = localStorage.getItem(CONSENT_KEY) !== null;
+    } catch {
+      cookiesDecided = true;
+    }
+    if (cookiesDecided) {
+      welcome();
+      return;
+    }
+    window.addEventListener(CONSENT_EVENT, welcome, { once: true });
+    return () => window.removeEventListener(CONSENT_EVENT, welcome);
   }, []);
   const setActive = useCallback((chain: WalletChain | null) => {
     setActiveChainState(chain);
@@ -161,7 +201,7 @@ export function WalletHubProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const [errors, setErrors] = useState<Partial<Record<WalletChain, string>>>({});
-  const [chooser, setChooser] = useState<ChooserState>({ open: false, chain: null, reason: null });
+  const [chooser, setChooser] = useState<ChooserState>({ open: false, chain: null, reason: null, welcome: false });
 
   const hedera: ChainWallet = useMemo(
     () => ({
@@ -216,6 +256,7 @@ export function WalletHubProvider({ children }: { children: ReactNode }) {
     async (chain: WalletChain, pick?: WalletWithRequiredFeatures): Promise<ConnectResult> => {
       setErrors((e) => ({ ...e, [chain]: undefined }));
       switching.current = true;
+      writeFlag(ONBOARDED_KEY);
       try {
         for (const other of WALLET_CHAINS) if (other !== chain && wallets[other].connected) await disconnectRaw(other);
         setActive(chain);
@@ -229,7 +270,7 @@ export function WalletHubProvider({ children }: { children: ReactNode }) {
           if (!wallet) {
             if (suiWallets.length === 0) throw new Error('No SUI wallet found in this browser.');
             // Several wallets detected: the chooser lists them, the user picks one.
-            setChooser((c) => (c.open ? c : { open: true, chain: 'sui', reason: c.reason }));
+            setChooser((c) => (c.open ? c : { open: true, chain: 'sui', reason: c.reason, welcome: false }));
             return { ok: true };
           }
           await connectSuiWallet({ wallet });
@@ -263,9 +304,12 @@ export function WalletHubProvider({ children }: { children: ReactNode }) {
   );
 
   const openChooser = useCallback((opts?: { chain?: WalletChain; reason?: string }) => {
-    setChooser({ open: true, chain: opts?.chain ?? null, reason: opts?.reason ?? null });
+    setChooser({ open: true, chain: opts?.chain ?? null, reason: opts?.reason ?? null, welcome: false });
   }, []);
-  const closeChooser = useCallback(() => setChooser({ open: false, chain: null, reason: null }), []);
+  const closeChooser = useCallback(() => {
+    writeFlag(ONBOARDED_KEY);
+    setChooser({ open: false, chain: null, reason: null, welcome: false });
+  }, []);
   // The chooser closes itself once the network the user came for is active and connected.
   const openedWith = useRef<{ chain: WalletChain | null; active: WalletChain | null; connected: boolean } | null>(null);
   useEffect(() => {

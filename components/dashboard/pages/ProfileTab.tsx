@@ -15,6 +15,7 @@ import { WalletAvatar } from '@/components/ui/WalletAvatar';
 import { useUserSession } from '@/lib/hooks/useUserSession';
 import { useSetWalletProfile } from '@/lib/hooks/useWalletProfile';
 import { ConnectPromptButton } from '@/components/ui/ConnectPromptButton';
+import { ChainSupportNote } from '@/components/wallet/ChainBadge';
 
 const HEDERA_ACCENT = '#00A79F';
 
@@ -40,6 +41,7 @@ export function ProfileTab() {
           name, and manage your session.
         </p>
         <div className="inline-block">
+<ChainSupportNote supports={['hedera']} className="mb-4" />
           <ConnectPromptButton chain="hedera" reason="Your account is your Hedera sign-in (email or Google). We create the wallet for you." />
         </div>
       </div>

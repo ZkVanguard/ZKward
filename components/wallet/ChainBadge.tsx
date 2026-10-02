@@ -4,7 +4,9 @@
  * Chain context, said out loud. `ChainBadge` names a network (and its
  * mainnet/testnet/devnet tier) next to an address; `WalletContextBadge`
  * tells a portfolio surface which network's wallet it is showing, with a
- * link to switch. One network is active at a time (WalletHubContext).
+ * link to switch; `ChainSupportNote` explains an empty view when the active
+ * network is not one the view supports. One network is active at a time
+ * (WalletHubContext).
  */
 
 import { useWallet } from '@/lib/hooks/useWallet';
@@ -67,5 +69,23 @@ export function WalletContextBadge({ className = '' }: { className?: string }) {
         </button>
       )}
     </span>
+  );
+}
+
+/**
+ * One line under an empty state: why this view has nothing on the user's
+ * current network, and where that network's data lives. Renders nothing
+ * when the active network is supported or nothing is connected.
+ */
+export function ChainSupportNote({ supports, className = '' }: { supports: readonly WalletChain[]; className?: string }) {
+  const hub = useWalletHubSafe();
+  if (!hub?.isConnected || !hub.activeChain || supports.includes(hub.activeChain)) return null;
+  const names = supports.map((c) => CHAIN_INFO[c].name).join(' and ');
+  const here = CHAIN_INFO[hub.activeChain].name;
+  const where = hub.activeChain === 'solana' ? ' Your Solana pool position lives in the Pool tab.' : '';
+  return (
+    <p className={`text-[13px] text-[#6e6e73] ${className}`}>
+      You&apos;re on {here}. This view works with {names}.{where}
+    </p>
   );
 }

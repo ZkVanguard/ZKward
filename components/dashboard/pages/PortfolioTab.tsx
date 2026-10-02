@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useWallet } from '@/lib/hooks/useWallet';
-import { WalletContextBadge } from '@/components/wallet/ChainBadge';
+import { WalletContextBadge, ChainSupportNote } from '@/components/wallet/ChainBadge';
 import { Briefcase, TrendingUp, TrendingDown, Layers, Shield, Activity } from 'lucide-react';
 import { logger } from '@/lib/utils/logger';
 import { ConnectPromptButton } from '@/components/ui/ConnectPromptButton';
@@ -229,6 +229,7 @@ export function PortfolioTab() {
           <p className="text-[#86868b] text-sm sm:text-[15px] leading-relaxed mb-6">
             Aggregates your positions across the SUI USDC pool, private hedges, and any custom portfolios into one view.
           </p>
+<ChainSupportNote supports={['hedera', 'sui']} className="mb-4" />
           <ConnectPromptButton reason="Sign in on Hedera or connect a SUI wallet. Your pool shares, hedges and portfolios appear here." />
         </div>
       </div>
