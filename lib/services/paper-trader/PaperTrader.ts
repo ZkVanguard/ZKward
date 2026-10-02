@@ -33,8 +33,7 @@ import { checkRestingEntry, placeRestingEntry, type EntryPlan } from './resting-
 import { query } from '@/lib/db/postgres';
 import { logger } from '@/lib/utils/logger';
 import { errMsg } from '@/lib/utils/error-handler';
-import { notifyDiscord } from '@/lib/utils/discord-notify';
-import { notifyPaper, flushPaperDigestIfDue } from './discord-digest';
+import { notifyPaper, notifyPaperOpen, notifyPaperClose, postPaperScoreboardIfDue } from './notifications';
 import {
   simulateOpen,
   simulateClose,
@@ -260,9 +259,7 @@ export class PaperTrader {
   static async runTick(now: number = Date.now()): Promise<TickResult> {
     let result: TickResult = { action: 'skipped', reason: 'unset' };
     try {
-      // Flush accumulated OPEN/CLOSE digest events if due (opt-in via
-      // PAPER_TRADER_DISCORD_DIGEST=1). No-op when digest disabled.
-      await flushPaperDigestIfDue(now);
+      await postPaperScoreboardIfDue(now);
 
       // L13 — rolling-drawdown kill switch. If the last 7-day PnL is
       // more than 2× worse than the previous 7-day period, halt for
@@ -675,7 +672,7 @@ export class PaperTrader {
         drawdownPct: (dailyDrawdown * 100).toFixed(1),
         haltedUntilMs: stats.haltedUntilMs,
       });
-      void notifyDiscord(
+      void notifyPaper(
         `Paper HALT (profit-lock) • daily peak $${(dailyPeak / 1000).toFixed(1)}k → NAV $${(nav / 1000).toFixed(1)}k • drawdown ${(dailyDrawdown * 100).toFixed(1)}% • resumes ${new Date(stats.haltedUntilMs).toISOString()}`,
         'KILL',
         { source: 'paper-trader', dailyPeak, nav, drawdownPct: dailyDrawdown },
@@ -691,7 +688,7 @@ export class PaperTrader {
         consecutiveLosses: stats.consecutiveLosses,
         haltHours: PAPER_HALT_HOURS,
       });
-      void notifyDiscord(
+      void notifyPaper(
         `Paper HALT (streak) • ${stats.consecutiveLosses} consecutive losses • cooling off ${PAPER_HALT_HOURS}h`,
         'KILL',
         { source: 'paper-trader', consecutiveLosses: stats.consecutiveLosses },
@@ -761,7 +758,7 @@ export class PaperTrader {
     // 3. Multi-source validated price at open — catches stale-cache bugs.
     const priceResult = await priceCandidate(asset);
     if (!priceResult.ok) {
-      void notifyDiscord(
+      void notifyPaper(
         `Paper SKIP ${asset} ${side} — ${priceResult.reason}`,
         'WARN',
         { source: 'paper-trader', asset, error: priceResult.reason },
@@ -927,21 +924,7 @@ export class PaperTrader {
       maxHoldMin: (position.maxHoldMin ?? PAPER_MAX_HOLD_MIN).toFixed(0),
     });
 
-    void notifyPaper(
-      `Paper OPEN ${asset} ${side} @ $${markPrice.toFixed(2)} • notional $${(notionalUsd / 1000).toFixed(1)}k • conf ${conf.toFixed(0)} • cons ${cons.toFixed(0)}`,
-      'TRADE',
-      {
-        source: 'paper-trader',
-        asset,
-        side,
-        notionalUsd,
-        confidence: conf,
-        consensus: cons,
-        signalScalar,
-        recommendation: rec,
-      },
-      { at: now, kind: 'open', asset, side, notionalUsd },
-    ).catch(() => undefined);
+    void notifyPaperOpen('PaperTrader', position, resting);
 
     return {
       action: 'opened',
@@ -1001,8 +984,7 @@ export class PaperTrader {
         await setCronState(HALT_KEY, now + haltMs);
         const msg = `rolling-drawdown: 7d PnL $${recent.toFixed(0)} vs prior 7d $${prior.toFixed(0)} — halted 24h`;
         try {
-          const { notifyDiscord } = await import('@/lib/utils/discord-notify');
-          await notifyDiscord(msg, 'KILL', { component: 'paper-trader' });
+          await notifyPaper(`Paper HALT • ${msg}`, 'KILL', { component: 'paper-trader' });
         } catch { /* discord failure non-fatal */ }
         return msg;
       }
@@ -1074,8 +1056,7 @@ export class PaperTrader {
         : 'usd';
       const msg = `short-window-loss halt (${trippedBy}): ${lossCount} losses / $${lossSum.toFixed(0)} in ${PAPER_ROLLING_LOSS_WINDOW_MIN}min — halted ${Math.round(haltMs / 60_000)}min`;
       try {
-        const { notifyDiscord } = await import('@/lib/utils/discord-notify');
-        await notifyDiscord(msg, 'KILL', {
+        await notifyPaper(`Paper HALT • ${msg}`, 'KILL', {
           component: 'paper-trader',
           lossCount, lossSumUsd: lossSum,
           windowMin: PAPER_ROLLING_LOSS_WINDOW_MIN,
@@ -1175,34 +1156,7 @@ export class PaperTrader {
       newNavUsd: newNav.toFixed(2),
     });
 
-    // Notify Discord — TRADE level for wins, WARN for losses. Stop-loss
-    // and trailing-stop closes get their own log line via `reason` so
-    // operators can distinguish them from natural signal-flip exits.
-    // TRADE-level closes buffer into digest when PAPER_TRADER_DISCORD_DIGEST=1;
-    // WARN (losses) always fires immediately so drawdowns are visible.
-    const level = result.realizedPnlUsd >= 0 ? 'TRADE' : 'WARN';
-    void notifyPaper(
-      `Paper CLOSE ${pos.asset} ${pos.side} • ${result.realizedPnlUsd >= 0 ? '+' : ''}$${result.realizedPnlUsd.toFixed(2)} • ${reason} • NAV $${(newNav / 1000).toFixed(1)}k`,
-      level,
-      {
-        source: 'paper-trader',
-        asset: pos.asset,
-        side: pos.side,
-        realizedUsd: result.realizedPnlUsd,
-        reason,
-        holdSec: result.holdSeconds,
-        newNavUsd: newNav,
-      },
-      {
-        at: now,
-        kind: 'close',
-        asset: pos.asset,
-        side: pos.side,
-        notionalUsd: pos.notionalUsd,
-        pnlUsd: result.realizedPnlUsd,
-        reason,
-      },
-    ).catch(() => undefined);
+    void notifyPaperClose('PaperTrader', PAPER_PORTFOLIO_ID, result, reason, now);
 
     return { action: 'closed', reason, detail: result, nav: newNav };
   }

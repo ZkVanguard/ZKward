@@ -40,6 +40,7 @@ import { simulateOpen, simulateClose, markToMarket, type SimulatedPosition, type
 import { majorityAgreementPct } from './signal-quality';
 import { targetExitLevels, takeProfitFill } from './target-exit';
 import { checkRestingEntry, placeRestingEntry, type EntryPlan } from './resting-orders';
+import { notifyPaperOpen, notifyPaperClose } from './notifications';
 import { runAgentGate } from '@/app/api/cron/polymarket-edge-trader/handlers/agent-gate';
 import {
   PAPER_UNIVERSE,
@@ -455,6 +456,8 @@ export class PaperGatedTrader {
       stopLossPrice: stopLossPrice.toFixed(4), maxHoldMin: maxHoldMin.toFixed(0),
     });
 
+    void notifyPaperOpen('PaperGated', position, resting);
+
     return {
       action: 'opened', nav,
       reason: `gated ${rec} on ${asset} — notional $${notionalUsd.toFixed(2)}`,
@@ -527,6 +530,8 @@ export class PaperGatedTrader {
       asset: pos.asset, side: pos.side, realizedPnl: realizedPnl.toFixed(2),
       newNav: newNav.toFixed(2), reason,
     });
+
+    void notifyPaperClose('PaperGated', PORTFOLIO_ID, closeResult, reason, now);
 
     return { action: 'closed', reason, nav: newNav };
   }
