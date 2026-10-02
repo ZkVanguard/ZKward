@@ -257,6 +257,17 @@
         "label": "sources with mature track records"
       }
     },
+    "sources": {
+      "eyebrow": "Сигналы из",
+      "caption": "Рынки предсказаний · книги ордеров · фандинг · скью опционов",
+      "roles": {
+        "predictionMarket": "Рынок предсказаний",
+        "perpetuals": "Бессрочные фьючерсы",
+        "options": "Опционы",
+        "spot": "Спотовые цены",
+        "venue": "Площадка хеджирования"
+      }
+    },
     "cta": {
       "depositUsdc": "See live signals",
       "howItWorks": "How it works",

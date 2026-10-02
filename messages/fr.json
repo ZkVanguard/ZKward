@@ -257,6 +257,17 @@
         "label": "sources with mature track records"
       }
     },
+    "sources": {
+      "eyebrow": "Signaux issus de",
+      "caption": "Marchés prédictifs · carnets d’ordres · funding · skew des options",
+      "roles": {
+        "predictionMarket": "Marché prédictif",
+        "perpetuals": "Futures perpétuels",
+        "options": "Options",
+        "spot": "Prix spot",
+        "venue": "Plateforme de couverture"
+      }
+    },
     "cta": {
       "depositUsdc": "See live signals",
       "howItWorks": "How it works",

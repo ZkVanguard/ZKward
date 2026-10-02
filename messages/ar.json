@@ -257,6 +257,17 @@
         "label": "sources with mature track records"
       }
     },
+    "sources": {
+      "eyebrow": "مصادر الإشارات",
+      "caption": "أسواق التنبؤ · دفاتر الأوامر · التمويل · انحراف الخيارات",
+      "roles": {
+        "predictionMarket": "سوق تنبؤ",
+        "perpetuals": "عقود دائمة",
+        "options": "خيارات",
+        "spot": "أسعار فورية",
+        "venue": "منصة التحوط"
+      }
+    },
     "cta": {
       "depositUsdc": "See live signals",
       "howItWorks": "How it works",

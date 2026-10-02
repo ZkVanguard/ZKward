@@ -11,6 +11,7 @@ import {
   Sparkles, Layers, Lock,
 } from 'lucide-react';
 import { InstallAppButton } from './InstallAppButton';
+import { DataSourceMarquee } from './landing/DataSourceMarquee';
 import { Reveal, LiveIndicator, StatusPill, TrustBadge } from './ui/landing';
 
 // Linear's signature spring curve. Read as: quick out, slow in — feels
@@ -87,17 +88,6 @@ const TVL_CAP_USD = 100_000;
 // (nominative fair use — describing which services we consume, not
 // asserting endorsement). Ordered by weight class: prediction markets
 // first, then venues, then options.
-const DATA_SOURCES: Array<{ name: string; color: string }> = [
-  { name: 'Polymarket',  color: '#2D9CDB' },
-  { name: 'Kalshi',      color: '#00B87A' },
-  { name: 'Manifold',    color: '#4F46E5' },
-  { name: 'Delphi',      color: '#FF6B00' },
-  { name: 'Binance',     color: '#F3BA2F' },
-  { name: 'Bybit',       color: '#F7A600' },
-  { name: 'BlueFin',     color: '#3B82F6' },
-  { name: 'Deribit',     color: '#00D4AA' },
-  { name: 'Crypto.com',  color: '#003CDA' },
-];
 
 // ───────────────────────────────────────────────────────────────────────────
 // Live SUI Community Pool landing page. Apple-themed, single focus.
@@ -581,35 +571,7 @@ export const SuiPoolLanding = memo(function SuiPoolLanding() {
             </div>
           </div>
 
-          {/* ─── READS FROM: data-source row ─── */}
-          {/* Brand chip strip — each source rendered as a bordered tile
-              with a brand-colored dot. Real "trusted by" lockup pattern
-              (Stripe, Vercel etc use it when raw logos aren't sourced).
-              Genuine social proof — these are the actual providers the
-              aggregator consumes every tick. */}
-          <div className="mx-auto max-w-[1100px] mb-12 sm:mb-16">
-            <p className="text-center text-[10px] sm:text-caption-2 font-semibold uppercase tracking-[0.14em] text-label-tertiary mb-4 sm:mb-5">
-              Signal sources
-            </p>
-            <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-2.5">
-              {DATA_SOURCES.map((s) => (
-                <span
-                  key={s.name}
-                  className="group inline-flex items-center gap-2 h-9 sm:h-10 pl-3 pr-4 rounded-full border border-separator-opaque/40 bg-white/60 backdrop-blur-sm text-label-secondary text-[13px] sm:text-[14px] font-medium tracking-[-0.005em] hover:border-separator-opaque hover:bg-white transition-colors"
-                >
-                  <span
-                    aria-hidden
-                    className="w-1.5 h-1.5 rounded-full shrink-0 group-hover:scale-125 transition-transform"
-                    style={{ backgroundColor: s.color }}
-                  />
-                  {s.name}
-                </span>
-              ))}
-            </div>
-            <p className="text-center text-[11px] sm:text-caption-1 text-label-tertiary mt-3 sm:mt-4">
-              Prediction markets · orderbook microstructure · funding · options implied vol
-            </p>
-          </div>
+          <DataSourceMarquee />
 
           {/* Start-here — 3 clear entry paths. Fixes the mismatch where
               the hero CTA said "See live signals" but the footer CTA asked

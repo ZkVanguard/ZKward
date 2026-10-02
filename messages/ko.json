@@ -257,6 +257,17 @@
         "label": "sources with mature track records"
       }
     },
+    "sources": {
+      "eyebrow": "시그널 출처",
+      "caption": "예측 시장 · 호가창 · 펀딩 · 옵션 스큐",
+      "roles": {
+        "predictionMarket": "예측 시장",
+        "perpetuals": "무기한 선물",
+        "options": "옵션",
+        "spot": "현물 가격",
+        "venue": "헤지 거래소"
+      }
+    },
     "cta": {
       "depositUsdc": "See live signals",
       "howItWorks": "How it works",

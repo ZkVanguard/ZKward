@@ -257,6 +257,17 @@
         "label": "sources with mature track records"
       }
     },
+    "sources": {
+      "eyebrow": "シグナルの情報源",
+      "caption": "予測市場 · 板情報 · ファンディング · オプションスキュー",
+      "roles": {
+        "predictionMarket": "予測市場",
+        "perpetuals": "無期限先物",
+        "options": "オプション",
+        "spot": "現物価格",
+        "venue": "ヘッジ取引所"
+      }
+    },
     "cta": {
       "depositUsdc": "See live signals",
       "howItWorks": "How it works",

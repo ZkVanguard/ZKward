@@ -257,6 +257,17 @@
         "label": "sources with mature track records"
       }
     },
+    "sources": {
+      "eyebrow": "信号来源",
+      "caption": "预测市场 · 订单簿 · 资金费率 · 期权偏度",
+      "roles": {
+        "predictionMarket": "预测市场",
+        "perpetuals": "永续合约",
+        "options": "期权",
+        "spot": "现货价格",
+        "venue": "对冲交易所"
+      }
+    },
     "cta": {
       "depositUsdc": "See live signals",
       "howItWorks": "How it works",

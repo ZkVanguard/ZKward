@@ -270,6 +270,21 @@ h1, h2, h3, h4, h5, h6 { font-weight: 600; }
   from { opacity: 0; transform: translateX(30px); }
   to   { opacity: 1; transform: translateX(0); }
 }
+/* Landing data-source strip: one seamless loop (the track holds two copies
+   and moves by half its width), paused on hover and focus; under reduced
+   motion it stands still as a wrapped row and the second copy is dropped. */
+@keyframes sourceMarquee {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+.source-marquee-track { animation: sourceMarquee 40s linear infinite; will-change: transform; }
+.source-marquee:hover .source-marquee-track,
+.source-marquee:focus-within .source-marquee-track { animation-play-state: paused; }
+@media (prefers-reduced-motion: reduce) {
+  .source-marquee { mask-image: none !important; -webkit-mask-image: none !important; }
+  .source-marquee-track { animation: none; width: 100%; flex-wrap: wrap; justify-content: center; }
+  .source-marquee-track > [aria-hidden="true"] { display: none; }
+}
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(20px); }
   to   { opacity: 1; transform: translateY(0); }

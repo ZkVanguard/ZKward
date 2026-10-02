@@ -257,6 +257,17 @@
         "label": "sources with mature track records"
       }
     },
+    "sources": {
+      "eyebrow": "सिग्नल स्रोत",
+      "caption": "प्रेडिक्शन मार्केट · ऑर्डर बुक · फंडिंग · ऑप्शन स्क्यू",
+      "roles": {
+        "predictionMarket": "प्रेडिक्शन मार्केट",
+        "perpetuals": "परपेचुअल फ्यूचर्स",
+        "options": "ऑप्शंस",
+        "spot": "स्पॉट कीमतें",
+        "venue": "हेजिंग वेन्यू"
+      }
+    },
     "cta": {
       "depositUsdc": "See live signals",
       "howItWorks": "How it works",

@@ -43,6 +43,17 @@
         "label": "sources with mature track records"
       }
     },
+    "sources": {
+      "eyebrow": "सिग्नल स्रोत",
+      "caption": "प्रेडिक्सन मार्केट · अर्डर बुक · फन्डिङ · अप्सन स्क्यू",
+      "roles": {
+        "predictionMarket": "प्रेडिक्सन मार्केट",
+        "perpetuals": "परपेचुअल फ्युचर्स",
+        "options": "अप्सन",
+        "spot": "स्पट मूल्य",
+        "venue": "हेजिङ भेन्यु"
+      }
+    },
     "cta": {
       "depositUsdc": "See live signals",
       "howItWorks": "How it works",

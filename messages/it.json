@@ -257,6 +257,17 @@
         "label": "sources with mature track records"
       }
     },
+    "sources": {
+      "eyebrow": "Segnali da",
+      "caption": "Mercati predittivi · order book · funding · skew delle opzioni",
+      "roles": {
+        "predictionMarket": "Mercato predittivo",
+        "perpetuals": "Futures perpetui",
+        "options": "Opzioni",
+        "spot": "Prezzi spot",
+        "venue": "Venue di copertura"
+      }
+    },
     "cta": {
       "depositUsdc": "See live signals",
       "howItWorks": "How it works",
