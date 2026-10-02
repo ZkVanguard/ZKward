@@ -41,6 +41,7 @@ export class SuiUsdcPoolService {
   private config: (typeof SUI_USDC_POOL_CONFIG)[SuiNetworkType];
   private fallbackService: SuiCommunityPoolService;
   private cachedUsdcPoolStateId: string | null = null;
+  private lastGoodMembers: SuiMemberPosition[] | null = null;
 
   constructor(network: SuiNetworkType = 'mainnet') {
     this.network = network;
@@ -447,10 +448,10 @@ export class SuiUsdcPoolService {
         try {
           const stats = await this.getPoolStats();
           const fields = await this.fetchObjectFields(poolStateId!);
-          if (!fields) return defaultPosition;
+          if (!fields) throw new Error('pool object unavailable');
 
           const membersTableId = fields.members?.fields?.id?.id;
-          if (!membersTableId) return defaultPosition;
+          if (!membersTableId) throw new Error('members table id missing');
 
           const response = await suiFetchWithTimeout(this.config.rpcUrl, {
             method: 'POST',
@@ -463,6 +464,11 @@ export class SuiUsdcPoolService {
             }),
           });
           const data = await response.json();
+          // A rate-limited or failed read is not "not a member". Throw so the
+          // failure is never cached as a zero position for the TTL.
+          if (data.error || data.result === undefined) {
+            throw new Error(`member read failed: ${data.error?.message ?? 'no result'}`);
+          }
           const memberFields =
             data.result?.data?.content?.fields?.value?.fields || data.result?.data?.content?.fields;
 
@@ -486,11 +492,11 @@ export class SuiUsdcPoolService {
           };
         } catch (err) {
           logger.error('[SuiUsdcPool] Failed to fetch member:', err);
-          return defaultPosition;
+          throw err;
         }
       },
       SUI_MEMBER_TTL
-    );
+    ).catch(() => defaultPosition);
   }
 
   /** Get all members of the USDC pool.
@@ -511,48 +517,80 @@ export class SuiUsdcPoolService {
     if (!poolStateId) return [];
 
     const cacheKey = `sui-usdc-all-members-${this.network}`;
-    return suiCachedFetch(
-      cacheKey,
-      async () => {
-        try {
-          const fields = await this.fetchObjectFields(poolStateId);
-          if (!fields) return [];
-          const membersTableId = fields.members?.fields?.id?.id;
-          if (!membersTableId) return [];
+    try {
+      const members = await suiCachedFetch(cacheKey, () => this.readAllMembers(poolStateId), SUI_MEMBER_TTL);
+      this.lastGoodMembers = members;
+      return members;
+    } catch (err) {
+      // A failed or partial read is never cached and never presented as the
+      // full list: fall back to the last complete one.
+      logger.error('[SuiUsdcPool] getAllMembers failed', err);
+      return this.lastGoodMembers ?? [];
+    }
+  }
 
-          // Enumerate dynamic-field names (= member addresses) on the USDC
-          // pool's members table. With a 100-row page limit; the pool's
-          // TVL cap of $10k initially keeps this small.
-          const dfRes = await suiFetchWithTimeout(this.config.rpcUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              jsonrpc: '2.0',
-              id: 1,
-              method: 'suix_getDynamicFields',
-              params: [membersTableId, null, 100],
-            }),
-          });
-          const dfJson = await dfRes.json();
-          const dfData = dfJson.result?.data || [];
+  /**
+   * One batched read of the members table. Throws on any RPC error or an
+   * incomplete result. The previous version fetched each member in parallel
+   * and treated a rate-limited read as "not a member", so under RPC 429s the
+   * list silently dropped holders (seen in production: the 91% holder).
+   */
+  private async readAllMembers(poolStateId: string): Promise<SuiMemberPosition[]> {
+    const [stats, fields] = await Promise.all([this.getPoolStats(), this.fetchObjectFields(poolStateId)]);
+    if (!fields) throw new Error('pool object unavailable');
+    const membersTableId = fields.members?.fields?.id?.id;
+    if (!membersTableId) throw new Error('members table id missing');
+    const expected = Number(fields.members?.fields?.size ?? 0);
 
-          const addresses = dfData
-            .map((f: { name?: { value?: string } }) => f.name?.value)
-            .filter((a: string | undefined): a is string => typeof a === 'string');
+    const rpc = async (method: string, params: unknown[]) => {
+      const res = await suiFetchWithTimeout(this.config.rpcUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
+      });
+      const json = await res.json();
+      if (json.error || json.result === undefined) {
+        throw new Error(`${method}: ${json.error?.message ?? 'no result'}`);
+      }
+      return json.result;
+    };
 
-          // Reuse the per-member fetcher — it already reads the right table,
-          // computes valueUsdc, and caches per-address. N+1 over a small N.
-          const positions = await Promise.all(
-            addresses.map((a: string) => this.getMemberPosition(a))
-          );
-          return positions.filter((p) => p.isMember && p.shares > 0);
-        } catch (err) {
-          logger.error('[SuiUsdcPool] getAllMembers failed', err);
-          return [];
-        }
-      },
-      SUI_MEMBER_TTL
-    );
+    // 100-row page; the pool's $10k TVL cap keeps the table far below that.
+    const page = await rpc('suix_getDynamicFields', [membersTableId, null, 100]);
+    const ids: string[] = (page.data || [])
+      .map((f: { objectId?: string }) => f.objectId)
+      .filter((id: string | undefined): id is string => typeof id === 'string');
+    if (ids.length === 0) {
+      if (expected > 0) throw new Error('members table read returned no rows');
+      return [];
+    }
+
+    const objects: Array<{ data?: { content?: { fields?: { name?: unknown; value?: { fields?: Record<string, unknown> } } } } }> =
+      await rpc('sui_multiGetObjects', [ids, { showContent: true }]);
+    const positions = objects.map((o): SuiMemberPosition => {
+      const row = o.data?.content?.fields;
+      const m = row?.value?.fields;
+      if (!m || typeof row?.name !== 'string') throw new Error('member row unreadable');
+      const shares = Number(m.shares || 0) / Math.pow(10, USDC_DECIMALS);
+      const valueUsdc = shares * stats.sharePriceUsdc;
+      return {
+        address: row.name,
+        shares,
+        depositedSui: Number(m.deposited_usdc || 0) / Math.pow(10, USDC_DECIMALS),
+        withdrawnSui: Number(m.withdrawn_usdc || 0) / Math.pow(10, USDC_DECIMALS),
+        joinedAt: Number(m.joined_at || 0),
+        lastDepositAt: Number(m.last_deposit_at || 0),
+        highWaterMark: Number(m.high_water_mark || 0) / 1e6,
+        valueSui: valueUsdc,
+        valueUsd: valueUsdc,
+        percentage: stats.totalShares > 0 ? (shares / stats.totalShares) * 100 : 0,
+        isMember: shares > 0,
+      };
+    });
+    if (expected > 0 && expected <= 100 && positions.length !== expected) {
+      throw new Error(`members read incomplete: ${positions.length}/${expected}`);
+    }
+    return positions.filter((pos) => pos.shares > 0);
   }
 
   /**

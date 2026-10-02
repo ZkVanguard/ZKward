@@ -26,6 +26,7 @@ import { logger } from '@/lib/utils/logger';
 import { safeErrorResponse } from '@/lib/security/safe-error';
 import { readLimiter } from '@/lib/security/rate-limiter';
 import { query } from '@/lib/db/postgres';
+import { getLiveAssetSignals } from '@/lib/services/market-data/live-signals';
 
 export const runtime = 'nodejs';
 // 30s ISR — matches the underlying NAV cron cadence (30min) and the
@@ -75,6 +76,10 @@ interface RiskOverviewResponse {
     totalUnrealizedPnlUsd: number;
     coverageRatio: number;
     positions: HedgeRow[];
+    /** Venue-locked leftovers (reconstructed_*): real exposure, not strategy-managed. */
+    orphanCount: number;
+    orphanNotionalUsd: number;
+    orphanUnrealizedPnlUsd: number;
   };
   reconciliation: {
     cronHealth: CronHealth[];
@@ -270,20 +275,30 @@ async function getPoolMetrics() {
   // cron (source='sui-usdc-pool'). Lifetime totals + ATH come from a direct
   // on-chain RPC read so we don't pay the BlueFin auth cost.
   try {
-    const [latest, onChain] = await Promise.all([
+    const [latest, onChain, verifiedPeak] = await Promise.all([
       query<{ total_nav: string; share_price: string; member_count: number }>(
         `SELECT total_nav, share_price, member_count FROM community_pool_nav_history
           WHERE chain = 'sui' AND source = 'sui-usdc-pool'
           ORDER BY timestamp DESC LIMIT 1`,
       ),
       readPoolStaticsOnChain(),
+      // Same "verified ATH" the Pool page uses: the on-chain high-water mark
+      // is a ratchet that baked in a phantom NAV spike, so the two pages
+      // showed two different drawdowns for the same pool.
+      query<{ sp: string | null }>(
+        `SELECT MAX(share_price)::text sp FROM community_pool_nav_history
+          WHERE chain = 'sui' AND (source IS NULL OR source NOT LIKE '%:clamped')`,
+      ),
     ]);
     const navUsd = Number(latest[0]?.total_nav) || 0;
     const sharePrice = Number(latest[0]?.share_price) || 1;
     const memberCount = Number(latest[0]?.member_count) || 0;
-    const peakSharePrice = onChain?.allTimeHighSharePrice && onChain.allTimeHighSharePrice > 0
-      ? onChain.allTimeHighSharePrice
-      : sharePrice;
+    const verified = Number(verifiedPeak[0]?.sp) || 0;
+    const peakSharePrice = verified > 0
+      ? verified
+      : onChain?.allTimeHighSharePrice && onChain.allTimeHighSharePrice > 0
+        ? onChain.allTimeHighSharePrice
+        : sharePrice;
     const netCapital = onChain ? onChain.totalDeposited - onChain.totalWithdrawn : 0;
     const drawdownPct = peakSharePrice > 0
       ? Math.max(0, ((peakSharePrice - sharePrice) / peakSharePrice) * 100)
@@ -334,6 +349,33 @@ async function getActiveHedges(): Promise<HedgeRow[]> {
   }
 }
 
+/**
+ * Venue positions the reconciler re-adopted (`reconstructed_*`): real
+ * exposure that counts toward NAV but is not strategy-managed, so it is
+ * left out of the active list. Disclosed as a total so "0 active hedges"
+ * never hides an open position.
+ */
+async function getVenueLockedHedges(): Promise<{ count: number; notionalUsd: number; unrealizedPnlUsd: number }> {
+  try {
+    const rows = await query<{ n: string; notional: string | null; pnl: string | null }>(
+      `SELECT COUNT(*)::text n, SUM(notional_value)::text notional, SUM(current_pnl)::text pnl
+         FROM hedges
+        WHERE chain = 'sui'
+          AND status = 'active'
+          AND market LIKE '%-PERP'
+          AND COALESCE(notional_value, 0) >= 1
+          AND order_id LIKE 'reconstructed_%'`,
+    );
+    return {
+      count: Number(rows[0]?.n) || 0,
+      notionalUsd: Number(rows[0]?.notional) || 0,
+      unrealizedPnlUsd: Number(rows[0]?.pnl) || 0,
+    };
+  } catch {
+    return { count: 0, notionalUsd: 0, unrealizedPnlUsd: 0 };
+  }
+}
+
 async function getCronHealth(): Promise<CronHealth[]> {
   // The crons that actually move capital or gate risk
   const critical = [
@@ -343,9 +385,7 @@ async function getCronHealth(): Promise<CronHealth[]> {
     { key: 'cron:lastRun:bluefin-db-reconcile', warnMin: 30, staleMin: 60 },
     { key: 'cron:lastRun:sui-hedge-reconcile', warnMin: 90, staleMin: 180 },
     { key: 'cron:lastRun:pool-nav-monitor', warnMin: 25, staleMin: 60 },
-    { key: 'cron:lastRun:hedge-monitor', warnMin: 25, staleMin: 60 },
     { key: 'cron:lastRun:liquidation-guard', warnMin: 20, staleMin: 60 },
-    { key: 'cron:lastRun:health-monitor', warnMin: 20, staleMin: 60 },
   ];
 
   try {
@@ -651,20 +691,10 @@ async function getPaperTraderSection(): Promise<RiskOverviewResponse['paperTrade
 
 async function getLatestSignals(): Promise<RiskOverviewResponse['signals']> {
   try {
-    // Real per-asset signals from the aggregator, one row per asset the
-    // trader watches. Was previously duplicating a single cross-asset
-    // prediction across BTC + ETH.
-    const [{ PredictionAggregatorService }, { PAPER_UNIVERSE }] = await Promise.all([
-      import('@/lib/services/market-data/PredictionAggregatorService'),
-      import('@/lib/services/paper-trader/config'),
-    ]);
-    const preds = await PredictionAggregatorService.getPerAssetPredictions(PAPER_UNIVERSE);
-    const out: RiskOverviewResponse['signals'] = {};
-    for (const [asset, p] of Object.entries(preds ?? {})) {
-      const dir = String(p.direction || 'NEUTRAL');
-      out[asset] = { direction: dir, confidence: Math.round(Number(p.confidence) || 0) };
-    }
-    return out;
+    const live = await getLiveAssetSignals();
+    return Object.fromEntries(
+      Object.entries(live).map(([asset, v]) => [asset, { direction: v.direction, confidence: v.confidence }]),
+    );
   } catch {
     return {};
   }
@@ -675,9 +705,10 @@ export async function GET(request: NextRequest): Promise<NextResponse<RiskOvervi
   if (limited) return limited as NextResponse<RiskOverviewResponse | { error: string }>;
 
   try {
-    const [pool, hedges, cronHealth, zkAttestations, signals, defense, incidents, composition, hedgeHistory, paperTrader] = await Promise.all([
+    const [pool, hedges, venueLocked, cronHealth, zkAttestations, signals, defense, incidents, composition, hedgeHistory, paperTrader] = await Promise.all([
       getPoolMetrics(),
       getActiveHedges(),
+      getVenueLockedHedges(),
       getCronHealth(),
       getZkAttestations(),
       getLatestSignals(),
@@ -713,6 +744,9 @@ export async function GET(request: NextRequest): Promise<NextResponse<RiskOvervi
         totalUnrealizedPnlUsd: totalHedgePnl,
         coverageRatio: pool.navUsd > 0 ? totalHedgeNotional / pool.navUsd : 0,
         positions: hedges,
+        orphanCount: venueLocked.count,
+        orphanNotionalUsd: venueLocked.notionalUsd,
+        orphanUnrealizedPnlUsd: venueLocked.unrealizedPnlUsd,
       },
       reconciliation: {
         cronHealth,

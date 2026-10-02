@@ -18,6 +18,8 @@ import { NextResponse } from 'next/server';
 import { getCronStateByPrefix, getCronStateOr } from '@/lib/db/cron-state';
 import { query } from '@/lib/db/postgres';
 import { logger } from '@/lib/utils/logger';
+import { isLiveJob, staleLimitMin } from '@/lib/services/alerting/cron-cadence';
+import { getLiveAssetSignals, type LiveAssetSignal } from '@/lib/services/market-data/live-signals';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -64,13 +66,17 @@ export async function GET() {
   try {
     // ── 1. Cron heartbeats ──
     const cronMap = await getCronStateByPrefix<number>('cron:lastRun:');
+    // Scheduled jobs only: retired routes, claim markers and sub-task keys
+    // also live under cron:lastRun:* and made "jobs healthy" read 20/23
+    // forever. Staleness uses the heartbeat monitor's own per-job cadence.
     const crons: CronHeartbeat[] = Array.from(cronMap.entries())
-      .map(([key, value]) => {
-        const name = key.replace('cron:lastRun:', '');
-        const lastRunMs = Number(value);
+      .map(([key, value]) => ({ name: key.replace('cron:lastRun:', ''), lastRunMs: Number(value) }))
+      .filter(({ name }) => isLiveJob(name))
+      .map(({ name, lastRunMs }) => {
         const ageMinutes = Math.round((Date.now() - lastRunMs) / 60_000);
+        const limit = staleLimitMin(name);
         const status: CronHeartbeat['status'] =
-          ageMinutes <= 20 ? 'fresh' : ageMinutes <= 120 ? 'stale' : 'silent';
+          ageMinutes <= limit ? 'fresh' : ageMinutes <= limit * 6 ? 'stale' : 'silent';
         return { name, lastRunMs, ageMinutes, status };
       })
       .sort((a, b) => a.ageMinutes - b.ageMinutes);
@@ -129,22 +135,16 @@ export async function GET() {
       Number(starvationFlag) > 0 && now - Number(starvationFlag) < 24 * 60 * 60 * 1000;
 
     // ── 5. Signals per asset ──
-    interface AgentDirective {
-      recommendedSide?: 'LONG' | 'SHORT' | null;
-      confidence?: number;
-      reason?: string;
-    }
-    interface AgentDirectives {
-      byAsset?: Record<string, AgentDirective>;
-    }
-    const directives = await getCronStateOr<AgentDirectives>('agent-directives:by-asset', {});
-    const byAsset = directives.byAsset || {};
+    // Live from the aggregator — the same read the Risk view uses. The
+    // stored agent directives this used to render were last written when
+    // the lead cycle ran (2026-09-22) and were shown as live.
+    const live = await getLiveAssetSignals().catch(() => ({} as Record<string, LiveAssetSignal>));
     const signals: AutonomyStatus['signals'] = {};
-    for (const [asset, d] of Object.entries(byAsset)) {
+    for (const [asset, sig] of Object.entries(live)) {
       signals[asset] = {
-        side: d.recommendedSide ?? null,
-        confidence: Number(d.confidence ?? 0),
-        reason: String(d.reason ?? '').slice(0, 80),
+        side: sig.direction === 'UP' ? 'LONG' : sig.direction === 'DOWN' ? 'SHORT' : null,
+        confidence: sig.confidence,
+        reason: sig.recommendation.slice(0, 80),
       };
     }
 

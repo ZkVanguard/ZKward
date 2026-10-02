@@ -24,6 +24,7 @@ import { verifyCronRequest } from '@/lib/qstash';
 import { notifyDiscord } from '@/lib/utils/discord-notify';
 import { getCronState, setCronState } from '@/lib/db/cron-state';
 import { query } from '@/lib/db/postgres';
+import { EXPECTED_CADENCE_MIN, STALE_MULTIPLIER } from '@/lib/services/alerting/cron-cadence';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -32,32 +33,6 @@ export const maxDuration = 30;
 const KEY_LAST_RUN = 'cron:lastRun:heartbeat-monitor';
 const KEY_LAST_ALERT = 'heartbeat-monitor:last-alert-ms';
 
-// Per-cron expected cadence in minutes. Anything > cadence × STALE_MULTIPLIER
-// fires an alert. Add new crons here as they're added.
-// Set to 0 to skip (known-dormant, don't alert).
-const EXPECTED_CADENCE_MIN: Record<string, number> = {
-  'agent-signal-tick':        2,
-  'polymarket-edge-trader':   5,
-  'bluefin-health':           5,
-  'paper-trader':             5,   // piggybacks on polymarket-edge-trader
-  'liquidation-guard':       10,
-  'pool-nav-monitor':        15,
-  'bluefin-db-reconcile':    15,
-  'alert-response-loop':     15,
-  'heartbeat-monitor':        5,   // watches itself
-  'sui-community-pool':      30,
-  'sui-hedge-reconcile':     60,
-  'sui-collect-fees':      1440,   // daily
-  'poly-discover':           60,   // best-guess; adjust when schedule confirmed
-  'solana-pool':              1,   // 60s schedule; enabled at prod go-live 2026-09-29
-  // Known-dormant — don't alert:
-  'hedge-monitor':            0,
-  'health-monitor':           0,
-  'lead-cycle':               0,
-  'resolve-outcomes':         0,
-};
-
-const STALE_MULTIPLIER = 3;       // > 3× cadence = stale
 const RE_ALERT_MS = 30 * 60_000;  // 30 min between repeat alerts
 
 interface StaleCron {
