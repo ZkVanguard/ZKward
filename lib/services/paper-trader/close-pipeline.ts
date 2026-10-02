@@ -109,8 +109,14 @@ export interface SettleHedgeRowArgs {
  * Single atomic hedges-row settlement: status + pnl + funding + close-reason
  * + metadata merge. One UPDATE by design — a split write once left rows
  * "closed but reason-less" (2026-09-17).
+ *
+ * Returns false only when the row was ALREADY closed: two overlapping ticks
+ * can both decide to close the same position, and the loser must not count
+ * the trade again (five rows were settled twice by 2026-10-02, each adding a
+ * phantom trade to the book's stats). A missing row or a DB error returns
+ * true — the caller's own state is then the only record of the close.
  */
-export async function settleHedgeRow(args: SettleHedgeRowArgs): Promise<void> {
+export async function settleHedgeRow(args: SettleHedgeRowArgs): Promise<boolean> {
   const { orderId, pos, result, reason } = args;
   try {
     const exitPrice = result.exitPrice;
@@ -141,8 +147,9 @@ export async function settleHedgeRow(args: SettleHedgeRowArgs): Promise<void> {
     }
 
     const category = categorizeCloseReason(reason);
-    await query(
-      `UPDATE hedges
+    const rows = await query<{ updated: number; present: boolean }>(
+      `WITH upd AS (
+       UPDATE hedges
        SET status = 'closed',
            realized_pnl = $1,
            current_pnl = $1,
@@ -152,7 +159,10 @@ export async function settleHedgeRow(args: SettleHedgeRowArgs): Promise<void> {
            reason = COALESCE(reason,'') || ' | close: ' || $3,
            close_reason = $6,
            metadata = COALESCE(metadata, '{}'::jsonb) || $5::jsonb
-       WHERE order_id = $4`,
+       WHERE order_id = $4 AND status <> 'closed'
+       RETURNING 1)
+       SELECT (SELECT COUNT(*) FROM upd)::int AS updated,
+              EXISTS (SELECT 1 FROM hedges WHERE order_id = $4) AS present`,
       [
         result.realizedPnlUsd,
         result.fundingUsd,
@@ -162,10 +172,17 @@ export async function settleHedgeRow(args: SettleHedgeRowArgs): Promise<void> {
         category,
       ],
     );
+    const outcome = rows?.[0];
+    if (outcome && outcome.updated === 0 && outcome.present) {
+      logger.warn('[close-pipeline] row already closed by an overlapping tick — not counted again', { orderId });
+      return false;
+    }
+    return true;
   } catch (e) {
     logger.warn('[close-pipeline] hedges settlement failed', {
       error: errMsg(e),
       orderId,
     });
+    return true;
   }
 }
