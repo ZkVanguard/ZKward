@@ -326,7 +326,7 @@ export const PAPER_REGRET_COOLDOWN_PCT = Number(
 export const PAPER_REGRET_WINDOW = Number(process.env.PAPER_TRADER_REGRET_WINDOW || 20);
 
 // Hours between scoreboard posts for the simulated books (0 = never).
-export const PAPER_SCOREBOARD_HOURS = Number(process.env.PAPER_TRADER_SCOREBOARD_HOURS || 6);
+export const PAPER_SCOREBOARD_HOURS = Number(process.env.PAPER_TRADER_SCOREBOARD_HOURS || 4);
 
 /**
  * Per-asset volatility multiplier — the "vol parity" fix. SOL and small-caps

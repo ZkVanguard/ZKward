@@ -63,16 +63,26 @@ export interface BookOpenPosition {
   asset: string;
   side: string;
   openedAtMs: number;
+  entryPrice: number;
+  notionalUsd: number;
 }
 
 /** Active rows of the given books. Throws when the read fails. */
 export async function bookOpenPositions(portfolioIds: readonly number[]): Promise<BookOpenPosition[]> {
-  const rows = await query<{ portfolio_id: number; asset: string; side: string; opened_ms: number }>(
-    `SELECT portfolio_id, asset, side, (EXTRACT(EPOCH FROM created_at) * 1000)::float8 AS opened_ms
+  const rows = await query<{ portfolio_id: number; asset: string; side: string; opened_ms: number; entry: number | null; notional: number | null }>(
+    `SELECT portfolio_id, asset, side, (EXTRACT(EPOCH FROM created_at) * 1000)::float8 AS opened_ms,
+            entry_price::float8 AS entry, notional_value::float8 AS notional
        FROM hedges
       WHERE portfolio_id = ANY($1) AND status = 'active'
       ORDER BY created_at`,
     [portfolioIds],
   );
-  return rows.map((r) => ({ portfolioId: r.portfolio_id, asset: r.asset, side: r.side, openedAtMs: Number(r.opened_ms) }));
+  return rows.map((r) => ({
+    portfolioId: r.portfolio_id,
+    asset: r.asset,
+    side: r.side,
+    openedAtMs: Number(r.opened_ms),
+    entryPrice: Number(r.entry) || 0,
+    notionalUsd: Number(r.notional) || 0,
+  }));
 }
