@@ -23,6 +23,7 @@ export interface InjectedProvider {
   connect(opts?: { onlyIfTrusted?: boolean }): Promise<{ publicKey: { toBase58(): string } }>;
   disconnect(): Promise<void>;
   signAndSendTransaction(tx: Transaction): Promise<{ signature: string }>;
+  signTransaction?(tx: Transaction): Promise<Transaction>;
   signMessage(msg: Uint8Array, display?: 'utf8'): Promise<{ signature: Uint8Array }>;
 }
 
@@ -42,10 +43,18 @@ export async function connectWallet(): Promise<string> {
   return publicKey.toBase58();
 }
 
+/** Below this the wallet cannot pay a transaction fee (5,000 lamports). */
+const MIN_FEE_LAMPORTS = 10_000;
+
 /**
  * Build + send a JIMP deposit: SPL transfer from the user's token account
  * to the vault ATA. Creates the user's ATA idempotently first (covers
  * fresh faucet wallets), fee paid by the user in devnet SOL.
+ *
+ * Resolves only once the pool's cluster confirmed the transfer. It used to
+ * return the wallet's signature whatever happened next, so a transaction
+ * the network never accepted (no SOL for the fee, wallet on another
+ * network) was shown as "Deposit sent" with a link to nothing.
  */
 export async function depositTokens(args: {
   rpcUrl: string;
@@ -68,10 +77,34 @@ export async function depositTokens(args: {
     createTransferInstruction(ownerAta, vaultAta, owner, amountRaw),
   );
   tx.feePayer = owner;
-  tx.recentBlockhash = (await conn.getLatestBlockhash('confirmed')).blockhash;
 
-  const { signature } = await p.signAndSendTransaction(tx);
-  await conn.confirmTransaction(signature, 'confirmed').catch(() => undefined);
+  if ((await conn.getBalance(owner)) < MIN_FEE_LAMPORTS) {
+    throw new Error('Your wallet has no devnet SOL to pay the network fee. Press "Get test JIMP" to receive some, then deposit again.');
+  }
+  const { blockhash, lastValidBlockHeight } = await conn.getLatestBlockhash('confirmed');
+  tx.recentBlockhash = blockhash;
+
+  // The wallet only signs; we submit to the pool's cluster ourselves. A
+  // wallet set to another network would otherwise send it there, where it
+  // can never land.
+  let signature: string;
+  if (p.signTransaction) {
+    const signed = await p.signTransaction(tx);
+    signature = await conn.sendRawTransaction(signed.serialize()).catch((e: unknown) => {
+      const why = (e instanceof Error ? e.message : String(e)).split('\n')[0].slice(0, 140);
+      throw new Error(`Solana devnet rejected the deposit, so nothing was moved (${why}).`);
+    });
+  } else {
+    ({ signature } = await p.signAndSendTransaction(tx));
+  }
+
+  const notConfirmed = 'The deposit was not confirmed on Solana devnet, so nothing was moved. Check that your wallet is set to devnet and try again.';
+  const res = await conn
+    .confirmTransaction({ signature, blockhash, lastValidBlockHeight }, 'confirmed')
+    .catch(() => {
+      throw new Error(notConfirmed);
+    });
+  if (res.value.err) throw new Error(notConfirmed);
   return signature;
 }
 

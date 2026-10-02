@@ -104,7 +104,8 @@ export function SolanaVaultActions() {
         amountUi: Number(amount),
       });
       setAmount('');
-      return { kind: 'ok', text: 'Deposit sent — your shares appear within about a minute', tx: sig };
+      if (wallet) await refreshBalance(wallet);
+      return { kind: 'ok', text: 'Deposit confirmed — your shares appear within about a minute', tx: sig };
     });
 
   const onWithdraw = () =>

@@ -15,6 +15,7 @@ import {
   Connection,
   Keypair,
   PublicKey,
+  SystemProgram,
   Transaction,
   sendAndConfirmTransaction,
 } from '@solana/web3.js';
@@ -63,17 +64,31 @@ export async function transferFromVault(toWallet: string, amountRaw: bigint): Pr
   return sendAndConfirmTransaction(connection(), tx, [vault]);
 }
 
-/** Devnet faucet mint of the MIRROR token. Callers enforce the cluster guard. */
+/** A wallet under the floor gets the top-up: enough for ~200 deposits. */
+const FEE_FLOOR_LAMPORTS = 1_000_000;
+const FEE_TOPUP_LAMPORTS = 2_000_000;
+
+/**
+ * Devnet faucet mint of the MIRROR token. Callers enforce the cluster guard.
+ *
+ * Also sends a little devnet SOL to a wallet that has none: test tokens are
+ * useless without it, since the deposit is a transaction the wallet pays for
+ * (a faucet-funded wallet with 0 SOL could never deposit).
+ */
 export async function mintTestTokens(toWallet: string, amountRaw: bigint): Promise<string> {
   const vault = vaultKeypair();
   const mint = poolMint();
   const to = new PublicKey(toWallet);
   const toAta = getAssociatedTokenAddressSync(mint, to);
+  const conn = connection();
 
   const tx = new Transaction().add(
     createAssociatedTokenAccountIdempotentInstruction(vault.publicKey, toAta, to, mint),
     createMintToInstruction(mint, toAta, vault.publicKey, amountRaw),
   );
+  if ((await conn.getBalance(to)) < FEE_FLOOR_LAMPORTS) {
+    tx.add(SystemProgram.transfer({ fromPubkey: vault.publicKey, toPubkey: to, lamports: FEE_TOPUP_LAMPORTS }));
+  }
   tx.feePayer = vault.publicKey;
-  return sendAndConfirmTransaction(connection(), tx, [vault]);
+  return sendAndConfirmTransaction(conn, tx, [vault]);
 }
