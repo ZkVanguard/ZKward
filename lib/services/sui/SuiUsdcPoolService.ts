@@ -523,9 +523,12 @@ export class SuiUsdcPoolService {
       return members;
     } catch (err) {
       // A failed or partial read is never cached and never presented as the
-      // full list: fall back to the last complete one.
+      // full list: fall back to the last complete one. With none (a fresh
+      // instance), fail: an empty list would read as "the pool has no members"
+      // and be cached at the CDN as fact.
       logger.error('[SuiUsdcPool] getAllMembers failed', err);
-      return this.lastGoodMembers ?? [];
+      if (this.lastGoodMembers) return this.lastGoodMembers;
+      throw err;
     }
   }
 
