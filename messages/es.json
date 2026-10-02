@@ -107,6 +107,35 @@
         "protected": "Tu privacidad está protegida",
         "protectedDesc": "Todos los datos sensibles están cifrados. Las pruebas ZK aseguran que tus posiciones sigan siendo privadas y verificables en cadena."
       }
+    },
+    "marketBoard": {
+      "title": "Sesgo del mercado",
+      "subtitle": "Hacia dónde se inclinan las señales por activo y qué mercados lo dicen",
+      "updated": "Actualizado hace {s} s",
+      "refresh": "Actualizar",
+      "leanUp": "Sesgo alcista",
+      "leanDown": "Sesgo bajista",
+      "noLean": "Sin sesgo",
+      "confidence": "{pct}% de confianza",
+      "agree": "{n} de {total} fuentes coinciden",
+      "split": "{total} fuentes, divididas",
+      "sources": "Fuentes",
+      "noSources": "Ninguna fuente informa sobre este activo ahora mismo",
+      "weight": "{pct}% de peso",
+      "error": "No se pudieron cargar las señales.",
+      "retry": "Reintentar",
+      "staleAfterError": "La última actualización falló; estas cifras son de la anterior.",
+      "footer": "El sesgo es el voto ponderado de las fuentes listadas. El libro de señales puntúa cada fuente contra el precio posterior; un sesgo no es un pronóstico.",
+      "overall": {
+        "up": "Mercado con sesgo alcista",
+        "down": "Mercado con sesgo bajista",
+        "mixed": "Mercado mixto"
+      },
+      "dir": {
+        "up": "sube",
+        "down": "baja",
+        "flat": "plano"
+      }
     }
   },
   "common": {
@@ -255,6 +284,17 @@
       "mature": {
         "value": "37",
         "label": "sources with mature track records"
+      }
+    },
+    "sources": {
+      "eyebrow": "Señales de",
+      "caption": "Mercados de predicción · libros de órdenes · funding · skew de opciones",
+      "roles": {
+        "predictionMarket": "Mercado de predicción",
+        "perpetuals": "Futuros perpetuos",
+        "options": "Opciones",
+        "spot": "Precios spot",
+        "venue": "Venue de cobertura"
       }
     },
     "cta": {

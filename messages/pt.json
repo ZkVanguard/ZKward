@@ -107,6 +107,35 @@
         "protected": "Sua privacidade está protegida",
         "protectedDesc": "Todos os dados sensíveis são criptografados. As provas ZK garantem que suas posições permaneçam privadas e ainda assim verificáveis on-chain."
       }
+    },
+    "marketBoard": {
+      "title": "Viés do mercado",
+      "subtitle": "Para onde os sinais pendem em cada ativo e quais mercados dizem isso",
+      "updated": "Atualizado há {s} s",
+      "refresh": "Atualizar",
+      "leanUp": "Viés de alta",
+      "leanDown": "Viés de baixa",
+      "noLean": "Sem viés",
+      "confidence": "{pct}% de confiança",
+      "agree": "{n} de {total} fontes concordam",
+      "split": "{total} fontes divididas",
+      "sources": "Fontes",
+      "noSources": "Nenhuma fonte informa sobre este ativo agora",
+      "weight": "{pct}% de peso",
+      "error": "Não foi possível carregar os sinais.",
+      "retry": "Tentar de novo",
+      "staleAfterError": "A última atualização falhou; estes números são da anterior.",
+      "footer": "O viés é o voto ponderado das fontes listadas. O registro de sinais avalia cada fonte contra o preço que se seguiu; um viés não é uma previsão.",
+      "overall": {
+        "up": "Mercado com viés de alta",
+        "down": "Mercado com viés de baixa",
+        "mixed": "Mercado misto"
+      },
+      "dir": {
+        "up": "alta",
+        "down": "baixa",
+        "flat": "estável"
+      }
     }
   },
   "common": {
@@ -255,6 +284,17 @@
       "mature": {
         "value": "37",
         "label": "sources with mature track records"
+      }
+    },
+    "sources": {
+      "eyebrow": "Sinais de",
+      "caption": "Mercados de previsão · livros de ordens · funding · skew de opções",
+      "roles": {
+        "predictionMarket": "Mercado de previsão",
+        "perpetuals": "Futuros perpétuos",
+        "options": "Opções",
+        "spot": "Preços spot",
+        "venue": "Venue de hedge"
       }
     },
     "cta": {

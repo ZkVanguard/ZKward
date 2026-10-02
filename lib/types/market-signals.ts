@@ -99,3 +99,14 @@ export interface FiveMinSignalHistory {
   /** Average confidence across recent signals */
   avgConfidence: number;
 }
+
+/** One asset's aggregate signal as `/api/predictions/per-asset` reports it. */
+export interface PerAssetSignal {
+  direction: 'UP' | 'DOWN' | 'NEUTRAL';
+  recommendation: string;
+  confidence: number;
+  consensus: number;
+  probability: number;
+  sourceCount: number;
+  sources: Array<{ name: string; direction: 'UP' | 'DOWN' | 'NEUTRAL'; confidence: number; weight: number }>;
+}

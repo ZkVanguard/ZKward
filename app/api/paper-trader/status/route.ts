@@ -28,7 +28,6 @@ import {
 import type { SimulatedPosition } from '@/lib/services/paper-trader/simulated-executor';
 import { markToMarket } from '@/lib/services/paper-trader/simulated-executor';
 import { getLivePrice } from '@/lib/services/market-data/unified-price-provider';
-import { PredictionAggregatorService } from '@/lib/services/market-data/PredictionAggregatorService';
 import { CALIBRATION_EPOCH } from '@/lib/services/ai/source-calibrator';
 
 export const runtime = 'nodejs';
@@ -234,20 +233,8 @@ export async function GET(_req: NextRequest): Promise<NextResponse> {
       perAsset[r.asset] = bucket;
     }
 
-    // Live signals snapshot
-    let signals: Record<string, { recommendation: string; confidence: number; sources: number }> = {};
-    try {
-      const preds = await PredictionAggregatorService.getPerAssetPredictions(PAPER_UNIVERSE);
-      for (const [asset, p] of Object.entries(preds)) {
-        signals[asset] = {
-          recommendation: p.recommendation,
-          confidence: Math.round(p.confidence),
-          sources: p.sources.length,
-        };
-      }
-    } catch (e) {
-      logger.warn('[paper-trader/status] signals query failed', { error: errMsg(e) });
-    }
+    // No live-signal scan here: a cold aggregator run took about 12 s and
+    // held the whole page. The paper page reads /api/predictions/per-asset.
 
     const s: PaperStats = stats ?? {
       trades: 0,
@@ -305,7 +292,6 @@ export async function GET(_req: NextRequest): Promise<NextResponse> {
         reason: r.reason,
       })),
       perAsset,
-      signals,
       navSeries: series ?? [],
       learning: await loadLearningSnapshot(),
     });
