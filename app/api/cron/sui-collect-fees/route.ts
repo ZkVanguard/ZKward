@@ -51,7 +51,6 @@ interface CollectFeesResult {
 
 export async function GET(request: NextRequest): Promise<NextResponse<CollectFeesResult>> {
   const ranAt = new Date().toISOString();
-  void setCronState('cron:lastRun:sui-collect-fees', Date.now()).catch(() => {});
   const network: 'mainnet' | 'testnet' =
     (process.env.SUI_NETWORK as 'mainnet' | 'testnet') === 'testnet' ? 'testnet' : 'mainnet';
 
@@ -62,6 +61,8 @@ export async function GET(request: NextRequest): Promise<NextResponse<CollectFee
       { status: 401 },
     );
   }
+  // After auth: an unauthenticated hit must not make the job look alive.
+  void setCronState('cron:lastRun:sui-collect-fees', Date.now()).catch(() => {});
 
   const adminKey = (process.env.SUI_POOL_ADMIN_KEY || process.env.BLUEFIN_PRIVATE_KEY || '').trim();
   const feeManagerCapId = (process.env.SUI_FEE_MANAGER_CAP_ID || '').trim();

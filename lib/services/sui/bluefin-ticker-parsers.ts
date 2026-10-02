@@ -65,3 +65,53 @@ export function parseTickerOpenInterest(
 
   return { openInterestUsd };
 }
+
+export interface AccountPositionFields {
+  symbol: string;
+  side: 'LONG' | 'SHORT';
+  size: number;
+  leverage: number;
+  entryPrice: number;
+  markPrice: number;
+  liquidationPrice: number;
+  unrealizedPnl: number;
+  margin: number;
+  marginRatio: number;
+}
+
+/**
+ * Parse one position from the BlueFin Pro account response.
+ *
+ * Size comes from the venue's own `sizeE9`. It used to be derived as
+ * margin x leverage / entry price, but the venue marks margin to the
+ * CURRENT price, so that figure drifts with every move away from entry:
+ * a 0.01 ETH short entered at $2,016 read as 0.0136 ETH at a $2,756 mark
+ * (36% over), and it would read under the order step, and so unclosable,
+ * on a move the other way. The derivation is kept only for a response
+ * without the field, against the mark price.
+ */
+export function parseAccountPosition(p: Record<string, unknown>): AccountPositionFields {
+  const e9 = (v: unknown): number => {
+    const n = parseFloat(String(v ?? '0'));
+    return Number.isFinite(n) ? n / 1e9 : 0;
+  };
+  const entryPrice = e9(p.avgEntryPriceE9);
+  const markPrice = e9(p.markPriceE9);
+  const leverage = e9(p.leverageE9) || 1;
+  const margin = e9(p.initialMarginE9);
+  const refPrice = markPrice > 0 ? markPrice : entryPrice;
+  const size = Math.abs(e9(p.sizeE9)) || (refPrice > 0 ? (margin * leverage) / refPrice : 0);
+  const maintMargin = e9(p.maintenanceMarginE9);
+  return {
+    symbol: String(p.symbol ?? ''),
+    side: String(p.side ?? '').toUpperCase() === 'SHORT' ? 'SHORT' : 'LONG',
+    size,
+    leverage,
+    entryPrice,
+    markPrice,
+    liquidationPrice: e9(p.liquidationPriceE9 ?? p.estimatedLiquidationPriceE9),
+    unrealizedPnl: e9(p.unrealizedPnlE9),
+    margin,
+    marginRatio: margin > 0 ? maintMargin / margin : 0,
+  };
+}

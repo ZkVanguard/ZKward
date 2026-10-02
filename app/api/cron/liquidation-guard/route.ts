@@ -441,7 +441,6 @@ async function guardPositions(): Promise<{ positions: LeveragedPosition[]; actio
  */
 export async function GET(request: NextRequest): Promise<NextResponse<LiquidationGuardResult>> {
   const startTime = Date.now();
-  void setCronState('cron:lastRun:liquidation-guard', Date.now()).catch(() => {});
 
   // Security: Verify QStash signature or CRON_SECRET
   const authResult = await verifyCronRequest(request, 'LiquidationGuard');
@@ -451,6 +450,8 @@ export async function GET(request: NextRequest): Promise<NextResponse<Liquidatio
       { status: 401 }
     );
   }
+  // After auth: an unauthenticated hit must not make the job look alive.
+  void setCronState('cron:lastRun:liquidation-guard', Date.now()).catch(() => {});
   
   logger.info('[LiquidationGuard] Starting liquidation risk monitoring');
   

@@ -53,12 +53,13 @@ const RE_ALERT_DOWN_MS = 30 * 60 * 1000;       // every 30 min while down
 
 export async function GET(request: NextRequest) {
   const ranAt = new Date().toISOString();
-  void setCronState(CRON_KEY_LAST_RUN, Date.now()).catch(() => {});
 
   const auth = await verifyCronRequest(request, 'HealthMonitor');
   if (auth !== true) {
     return NextResponse.json({ success: false, ranAt, error: 'Unauthorized' }, { status: 401 });
   }
+  // After auth: an unauthenticated hit must not make the job look alive.
+  void setCronState(CRON_KEY_LAST_RUN, Date.now()).catch(() => {});
 
   try {
     // Fetch the health endpoint internally (no auth required — public probe).

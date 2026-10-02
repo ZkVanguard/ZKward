@@ -389,7 +389,6 @@ async function monitorHedges(): Promise<HedgeMonitorResult['actionsExecuted'] & 
  */
 export async function GET(request: NextRequest): Promise<NextResponse<HedgeMonitorResult>> {
   const startTime = Date.now();
-  void setCronState('cron:lastRun:hedge-monitor', Date.now()).catch(() => {});
 
   // Security: Verify QStash signature or CRON_SECRET
   const authResult = await verifyCronRequest(request, 'HedgeMonitor');
@@ -399,6 +398,8 @@ export async function GET(request: NextRequest): Promise<NextResponse<HedgeMonit
       { status: 401 }
     );
   }
+  // After auth: an unauthenticated hit must not make the job look alive.
+  void setCronState('cron:lastRun:hedge-monitor', Date.now()).catch(() => {});
   
   logger.info('[HedgeMonitor] Starting hedge position monitoring');
   

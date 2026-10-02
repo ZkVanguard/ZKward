@@ -58,7 +58,8 @@ export function calculateAggregation(sources: PredictionSource[]): AggregatedPre
     totalSources > 0 && direction !== 'NEUTRAL' ? (agreeCount / totalSources) * 100 : 0;
 
   const weightedConfidence = sources.reduce((sum, s) => sum + s.confidence * s.weight, 0);
-  const weightedProbability = sources.reduce((sum, s) => sum + s.probability * s.weight, 0);
+  const weightedProbability = Math.min(100, Math.max(0,
+    sources.reduce((sum, s) => sum + Math.min(100, Math.max(0, s.probability)) * s.weight, 0)));
 
   const recommendation = determineRecommendationPure(
     direction,
