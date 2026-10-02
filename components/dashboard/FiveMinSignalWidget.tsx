@@ -5,23 +5,14 @@ import {
   TrendingUp, TrendingDown, Clock, Zap, Activity,
   AlertTriangle, ChevronDown, ChevronUp, Shield
 } from 'lucide-react';
-import type { FiveMinBTCSignal, FiveMinSignalHistory } from '@/lib/services/market-data/Polymarket5MinService';
+import type { FiveMinBTCSignal, FiveMinSignalHistory } from '@/lib/types/market-signals';
+import { fetchFiveMinSignal } from '@/lib/api/market-signals';
 
 // ─── Constants ───────────────────────────────────────────────────────
 
 const POLL_INTERVAL_MS = 15_000;
 const COUNTDOWN_INTERVAL_MS = 1_000;
 const CONFIDENCE_BARS = [1, 2, 3, 4, 5] as const;
-
-// ─── Cached module reference ─────────────────────────────────────────
-// Avoids re-resolving the dynamic import on every poll cycle.
-let serviceModulePromise: Promise<typeof import('@/lib/services/market-data/Polymarket5MinService')> | null = null;
-function getService() {
-  if (!serviceModulePromise) {
-    serviceModulePromise = import('@/lib/services/market-data/Polymarket5MinService');
-  }
-  return serviceModulePromise;
-}
 
 // ─── Memoized sub-components ─────────────────────────────────────────
 
@@ -238,11 +229,7 @@ function FiveMinSignalWidgetInner({ onQuickHedge }: FiveMinSignalWidgetProps) {
     // Clear error at start of fetch so stale errors don't persist
     setError(null);
     try {
-      const mod = await getService();
-      const [latestSignal, signalHistory] = await Promise.all([
-        mod.Polymarket5MinService.getLatest5MinSignal(),
-        mod.Polymarket5MinService.getSignalHistory(),
-      ]);
+      const { signal: latestSignal, history: signalHistory } = await fetchFiveMinSignal();
 
       // Bail if unmounted during async gap
       if (!mountedRef.current) return;

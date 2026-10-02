@@ -19,7 +19,7 @@ import {
 import { 
   AIPriceIntegration,
   onPriceUpdate,
-} from '@/lib/services/market-data/ai-price-integration';
+} from '@/lib/services/ai-price-integration';
 import { AIManager } from '@/lib/services/ai-manager';
 
 export type { CustomActionPayload };

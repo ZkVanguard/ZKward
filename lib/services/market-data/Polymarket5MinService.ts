@@ -25,59 +25,14 @@
 
 import { EventEmitter } from 'events';
 import { logger } from '@/lib/utils/logger';
+import type { FiveMinBTCSignal, FiveMinSignalHistory } from '@/lib/types/market-signals';
+
+export type { FiveMinBTCSignal, FiveMinSignalHistory };
 import { cache } from '../../utils/cache';
 
 // ─── Types ───────────────────────────────────────────────────────────
 
-export interface FiveMinBTCSignal {
-  /** Unique market ID from Polymarket */
-  marketId: string;
-  /** Current 5-min window label, e.g. "11:00-11:05PM ET" */
-  windowLabel: string;
-  /** UP or DOWN — which direction the crowd believes */
-  direction: 'UP' | 'DOWN';
-  /** Probability of the winning direction (0-100) */
-  probability: number;
-  /** Probability specifically for UP outcome (0-100) */
-  upProbability: number;
-  /** Probability specifically for DOWN outcome (0-100) */
-  downProbability: number;
-  /** Price BTC must beat for UP resolution */
-  priceToBeat: number;
-  /** Current BTC price (from market context if available) */
-  currentPrice: number;
-  /** Total volume on this 5-min market ($) */
-  volume: number;
-  /** Current liquidity (order-book depth) on this 5-min market ($) */
-  liquidity: number;
-  /** Confidence score (0-100) based on volume + probability skew + liquidity */
-  confidence: number;
-  /** Actionable recommendation for agents */
-  recommendation: 'HEDGE_SHORT' | 'HEDGE_LONG' | 'WAIT';
-  /** Signal strength: how strong the directional conviction is */
-  signalStrength: 'STRONG' | 'MODERATE' | 'WEAK';
-  /** Seconds remaining in this 5-min window (snapshot at fetch time) */
-  timeRemainingSeconds: number;
-  /** Absolute timestamp (ms) when this 5-min window ends */
-  windowEndTime: number;
-  /** When this signal was fetched */
-  fetchedAt: number;
-  /** Raw market question from Polymarket */
-  question: string;
-  /** Source URL for verification */
-  sourceUrl: string;
-}
 
-export interface FiveMinSignalHistory {
-  /** Recent signals (last 30 minutes = up to 6 signals) */
-  signals: FiveMinBTCSignal[];
-  /** Running accuracy: how many past signals were correct */
-  accuracy: { correct: number; total: number; rate: number };
-  /** Current streak direction */
-  streak: { direction: 'UP' | 'DOWN' | 'MIXED'; count: number };
-  /** Average confidence across recent signals */
-  avgConfidence: number;
-}
 
 // ─── Constants ───────────────────────────────────────────────────────
 

@@ -12,7 +12,7 @@
  */
 
 import { logger } from '@/lib/utils/logger';
-import CryptocomExchangeService, { type MarketPrice } from '../CryptocomExchangeService';
+import CryptocomExchangeService, { type MarketPrice } from './CryptocomExchangeService';
 
 // Detect if running in browser
 const isBrowser = typeof window !== 'undefined';

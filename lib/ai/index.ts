@@ -82,7 +82,7 @@ export {
   getInsightPriceContext,
   getActionPriceContext,
   SERVICE_CONFIGS,
-} from '@/lib/services/market-data/ai-price-integration';
+} from '@/lib/services/ai-price-integration';
 
 export type {
   ServiceConfig,
@@ -90,7 +90,7 @@ export type {
   HedgePriceContext,
   InsightPriceContext,
   ActionPriceContext,
-} from '@/lib/services/market-data/ai-price-integration';
+} from '@/lib/services/ai-price-integration';
 
 // ============================================================================
 // Continuous Management - Production-grade AI operations manager

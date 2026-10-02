@@ -16,7 +16,7 @@
 
 import { logger } from '@/lib/utils/logger';
 import crypto from 'crypto';
-import { AIPriceIntegration, SERVICE_CONFIGS } from './market-data/ai-price-integration';
+import { AIPriceIntegration, SERVICE_CONFIGS } from './ai-price-integration';
 import { onAIEvent, invalidateCache, AIEvent } from './ai-decisions'; // ============================================================================
 // Types
 // ============================================================================
