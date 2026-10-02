@@ -18,16 +18,21 @@ import { notifyDiscord, repeatDecision, repeatFingerprint, type RepeatState } fr
 
 const HOUR = 60 * 60 * 1000;
 const posts: string[] = [];
+const cards: Array<Record<string, any>> = [];
 const realFetch = global.fetch;
 
 beforeEach(() => {
   store = {};
   posts.length = 0;
+  cards.length = 0;
   mockGet.mockImplementation(async (k: string) => store[k] ?? null);
   process.env.DISCORD_WEBHOOK_URL = 'https://discord.test/webhook';
   delete process.env.CRON_STATE_REDIS_READ;
   global.fetch = jest.fn(async (_url: any, init: any) => {
-    posts.push(JSON.parse(init.body).content);
+    const card = JSON.parse(init.body).embeds[0];
+    cards.push(card);
+    posts.push(`${card.title ?? ''}
+${card.description ?? ''}`);
     return { ok: true, status: 204 } as Response;
   }) as any;
 });
@@ -100,6 +105,15 @@ describe('notifyDiscord', () => {
     await notifyDiscord('something is wrong', 'KILL');
     await notifyDiscord('something is wrong', 'KILL');
     expect(posts).toHaveLength(2);
+  });
+
+  it('posts a card in the colour of its level, or the card it is given', async () => {
+    await notifyDiscord('pool halted', 'KILL');
+    await notifyDiscord('heads up', 'WARN');
+    await notifyDiscord('fill', 'TRADE', { chain: 'paper' }, { title: '🔴 SHORT ETH', color: 0xef4444, fields: [{ name: 'Entry', value: '$2,661.14', inline: true }] });
+    expect(cards[0]).toMatchObject({ title: '🛑 KILL', description: 'pool halted', color: 0x991b1b });
+    expect(cards[1].color).toBe(0xf59e0b);
+    expect(cards[2]).toEqual({ title: '🔴 SHORT ETH', color: 0xef4444, fields: [{ name: 'Entry', value: '$2,661.14', inline: true }] });
   });
 
   it('shows the context but not the routing tag', async () => {
