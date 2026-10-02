@@ -599,7 +599,8 @@ export class PredictionAggregatorService {
               type: 'short_term',
               direction: kalshi.direction,
               confidence: kalshi.confidence,
-              probability: 50 + kalshi.impliedMovePct * 5000, // ~0.6% implied move → probability 80
+              // ~0.6% implied move → 80. Bounded: a 1.9% move once reported 143%.
+              probability: Math.min(100, Math.max(0, 50 + kalshi.impliedMovePct * 5000)),
               weight: 0.15,
               rawData: {
                 atmStrike: kalshi.atmStrike,
