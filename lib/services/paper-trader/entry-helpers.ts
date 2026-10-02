@@ -291,10 +291,10 @@ export async function selectCandidate(
       }
     }
 
-    // Ledger admission: measured with no edge at any hold horizon → skip.
+    // Ledger admission: the aggregate measured wrong-way at every hold horizon → skip.
     const { plan, measured } = holdPlan(cand.asset);
     if (PAPER_LEDGER_GATE && measured && !plan) {
-      lastSkipReason = `ledger (${cand.asset}): aggregate signal measured with no edge at any hold horizon`;
+      lastSkipReason = `ledger (${cand.asset}): aggregate signal measured wrong-way at every hold horizon`;
       continue;
     }
 

@@ -53,7 +53,7 @@ import {
   fetchBluefinFundingRates,
   approximateFundingRateSentiment,
 } from './aggregator-fetchers';
-import { calculateAggregation } from './aggregator-math';
+import { calculateAggregation, crowdedFundingDirection } from './aggregator-math';
 import { marketImpliedDirection } from './market-implied';
 
 // ─── Types ───────────────────────────────────────────────────────────
@@ -90,8 +90,11 @@ export interface AggregatedPrediction {
   timestamp: number;
 }
 
-// Horizon the ledger weights sources at — the hold the paper books target.
-const LEDGER_WEIGHT_HORIZON_MIN = Number(process.env.SIGNAL_LEDGER_WEIGHT_HORIZON_MIN || 240);
+// Horizon the ledger weights sources at. 60 min is the longest horizon with
+// enough independent windows to rate a source within days (about 45 per
+// cell in two days; 240 min gives about 12), and the aggregate has no
+// measured edge beyond it.
+const LEDGER_WEIGHT_HORIZON_MIN = Number(process.env.SIGNAL_LEDGER_WEIGHT_HORIZON_MIN || 60);
 
 // Cache TTL for aggregated predictions
 const CACHE_TTL_MS = 20_000; // 20 seconds - balance freshness vs. API load
@@ -165,7 +168,7 @@ export class PredictionAggregatorService {
       fetchBluefinFundingRates(assets),
       MultiAssetSignalService.getLatestSignals(alignmentUniverse).catch(() => ({} as Record<string, MultiAssetSignal | null>)),
       ManifoldMarketService.getCryptoMarkets(upperAssets).catch(() => [] as PredictionMarket[]),
-      fetchBinancePositioning(upperAssets).catch(() => ({} as Record<string, { funding: number; longShortRatio: number }>)),
+      fetchBinancePositioning(upperAssets).catch(() => ({} as Record<string, { funding: number }>)),
       fetchBybitPositioning(upperAssets).catch(() => ({} as Record<string, { funding: number; openInterest: number }>)),
       fetchBroadCryptoMarkets({}).catch(() => [] as BroadMarket[]),
       // NEW 2026-09-23: orderbook microstructure — top-20 L2 depth imbalance
@@ -551,11 +554,8 @@ export class PredictionAggregatorService {
       const fundingRate = fundingRates[asset];
       if (fundingRate !== undefined && Number.isFinite(fundingRate)) {
         const magnitude = Math.abs(fundingRate);
-        // 0.0001/8h ≈ 11% APR. Treat 0.0001 as the "MODERATE" boundary.
-        if (magnitude > 0.00002) {
-          // Funding > 0 → longs pay → expect mean-reversion DOWN.
-          // Funding < 0 → shorts pay → expect mean-reversion UP.
-          const fundingDir: 'UP' | 'DOWN' = fundingRate > 0 ? 'DOWN' : 'UP';
+        const fundingDir = crowdedFundingDirection(fundingRate);
+        if (fundingDir) {
           const fundingConfidence = Math.min(40 + magnitude * 200_000, 90);
           sources.push({
             name: `Bluefin ${asset} Funding`,
@@ -621,8 +621,8 @@ export class PredictionAggregatorService {
       const bybit = bybitPositioning[asset];
       if (bybit) {
         // Funding (contrarian, same shape as Binance).
-        if (Math.abs(bybit.funding) > 0.00005) {
-          const fundingDir: 'UP' | 'DOWN' = bybit.funding > 0 ? 'DOWN' : 'UP';
+        const fundingDir = crowdedFundingDirection(bybit.funding);
+        if (fundingDir) {
           const conf = Math.min(40 + Math.abs(bybit.funding) * 200_000, 85);
           sources.push({
             name: `Bybit ${asset} Funding`,
@@ -680,10 +680,9 @@ export class PredictionAggregatorService {
       //     Both contrarian: crowded longs → SHORT signal.
       const binance = binancePositioning[asset];
       if (binance) {
-        // Funding rate (per 8h). >0.03% ≈ >30% APR is "crowded". Signal is
-        // contrarian: positive funding → longs paying → expect DOWN.
-        if (Math.abs(binance.funding) > 0.00005) {
-          const fundingDir: 'UP' | 'DOWN' = binance.funding > 0 ? 'DOWN' : 'UP';
+        // Contrarian, and only when the market is actually crowded.
+        const fundingDir = crowdedFundingDirection(binance.funding);
+        if (fundingDir) {
           const conf = Math.min(40 + Math.abs(binance.funding) * 200_000, 85);
           sources.push({
             name: `Binance ${asset} Funding`,
@@ -696,29 +695,10 @@ export class PredictionAggregatorService {
             fetchedAt: Date.now(),
           });
         }
-
-        // Long/short account ratio. Extreme (>1.5 or <0.67) = crowded retail;
-        // contrarian setup. Middle range (0.67-1.5) is uninformative noise.
-        const lsr = binance.longShortRatio;
-        if (lsr > 1.5 || lsr < 0.67) {
-          const crowdedLong = lsr > 1.5;
-          const contrarianDir: 'UP' | 'DOWN' = crowdedLong ? 'DOWN' : 'UP';
-          // Confidence scales with distance from neutral (1.0). At ratio 2.0
-          // or 0.5, we're at extreme conviction; at boundaries (1.5 / 0.67),
-          // moderate.
-          const deviation = crowdedLong ? lsr - 1.5 : 0.67 - lsr;
-          const conf = Math.min(45 + deviation * 60, 80);
-          sources.push({
-            name: `Binance ${asset} Long/Short`,
-            type: 'on_chain',
-            direction: contrarianDir,
-            confidence: conf,
-            probability: 50 + Math.min(deviation * 30, 25) * (contrarianDir === 'UP' ? 1 : -1),
-            weight: 0.10,
-            rawData: { longShortRatio: lsr, crowdedLong },
-            fetchedAt: Date.now(),
-          });
-        }
+        // No long/short account-ratio vote: its fixed thresholds (above 1.5
+        // or below 0.67) sat under the normal level of every asset but BTC
+        // (medians 1.8 to 2.7), so it voted DOWN in 83% of hours over 30
+        // days and never UP, with no timing edge (-0.2 ± 1.4 bp at 60 min).
       }
 
       // 5c) NEW 2026-09-23 — Orderbook microstructure (Binance perp L2).
