@@ -172,7 +172,7 @@ export class OracleTrader {
           if (!v.price || v.price <= 0) continue; // retry next tick
           const result = simulateClose(pos.position, v.price, now);
           const { settleHedgeRow } = await import('./close-pipeline');
-          await settleHedgeRow({
+          const settled = await settleHedgeRow({
             orderId: pos.orderId,
             pos: pos.position,
             result,
@@ -180,6 +180,11 @@ export class OracleTrader {
             analytics: false,
             extraMeta: { uncertain: pos.uncertain, slug: pos.slug },
           });
+          if (settled === false) {
+            // An overlapping tick closed it; drop it here without counting.
+            positions = positions.filter((p) => p.orderId !== pos.orderId);
+            continue;
+          }
           const stats = (await getCronState<OracleStats>(KEY_STATS)) ?? {
             trades: 0,
             wins: 0,

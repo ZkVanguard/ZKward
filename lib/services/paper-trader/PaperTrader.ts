@@ -1036,12 +1036,6 @@ export class PaperTrader {
     const result = simulateClose(pos, exitPrice, now);
     const newNav = nav + result.realizedPnlUsd;
 
-    // Learning callbacks — shared pipeline (source outcomes, bandit arm,
-    // probability-calibrator in the 'paper' namespace per Fix O).
-    await recordCloseLearning(pos, exitPrice, result.realizedPnlUsd, now, {
-      calibratorNamespace: 'paper',
-    });
-
     // Passed-in orderId is the source of truth. In legacy mode it may
     // be undefined (older call sites); fall back to KEY_ORDER_ID for
     // back-compat. Concurrent mode always provides the arg.
@@ -1049,6 +1043,27 @@ export class PaperTrader {
     // skipped the DB UPDATE and left rows status='active' after closing
     // in memory (observed on paper_XRP_1789759203).
     const orderId = passedOrderId ?? (await getCronState<string>(KEY_ORDER_ID)) ?? undefined;
+
+    // Settle the hedges row FIRST via the shared pipeline (single atomic
+    // UPDATE, MFE/MAE + attribution analytics): it decides which of two
+    // overlapping ticks closed the position. The loser counts nothing.
+    // Paper trades MUST NOT credit the real treasury — portfolio -3 stats
+    // live in cron_state only (the 2026-09-18 treasury-pollution lesson).
+    if (orderId && (await settleHedgeRow({ orderId, pos, result, reason, nav })) === false) {
+      await positionClose(orderId);
+      return {
+        action: 'skipped',
+        reason: 'already closed by an overlapping tick',
+        nav: (await getCronState<number>(KEY_NAV)) ?? nav,
+      };
+    }
+
+    // Learning callbacks — shared pipeline (source outcomes, bandit arm,
+    // probability-calibrator in the 'paper' namespace per Fix O).
+    await recordCloseLearning(pos, exitPrice, result.realizedPnlUsd, now, {
+      calibratorNamespace: 'paper',
+    });
+
     if (orderId) await positionClose(orderId);
     await setCronState(KEY_NAV, newNav);
 
@@ -1067,14 +1082,6 @@ export class PaperTrader {
     stats.peakNavUsd = Math.max(stats.peakNavUsd, newNav);
     if ((stats.dailyPeakNavUsd ?? 0) < newNav) stats.dailyPeakNavUsd = newNav;
     await setCronState(KEY_STATS, stats);
-
-    // Settle the hedges row via the shared pipeline (single atomic UPDATE,
-    // MFE/MAE + attribution analytics). Paper trades MUST NOT credit the
-    // real treasury — portfolio -3 stats live in cron_state only (the
-    // 2026-09-18 treasury-pollution lesson).
-    if (orderId) {
-      await settleHedgeRow({ orderId, pos, result, reason, nav });
-    }
 
     logger.info('[PaperTrader] closed', {
       asset: pos.asset,

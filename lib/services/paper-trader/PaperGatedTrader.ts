@@ -420,6 +420,25 @@ export class PaperGatedTrader {
     //      realizedPnl) into the shared trader:calibration:* buckets that
     //      both live + paper read on entry.
     const { recordCloseLearning, settleHedgeRow } = await import('./close-pipeline');
+
+    // Settle first — analytics parity with PaperTrader, and it decides which
+    // of two overlapping ticks closed the position; the loser counts nothing.
+    // Unification note (2026-09-29): gated's old inline UPDATE never wrote
+    // funding_paid; the pipeline settles it like every other book.
+    if (orderId && (await settleHedgeRow({ orderId, pos, result: closeResult, reason, nav: priorNav })) === false) {
+      // Clear the slot only if it still holds this position: the tick that
+      // closed it may already have opened the next one.
+      if ((await getCronState<string>(KEY_ORDER_ID)) === orderId) {
+        await setCronState(KEY_POSITION, null);
+        await setCronState(KEY_ORDER_ID, null);
+      }
+      return {
+        action: 'skipped',
+        reason: 'already closed by an overlapping tick',
+        nav: (await getCronState<number>(KEY_NAV)) ?? priorNav,
+      };
+    }
+
     await recordCloseLearning(pos, markPrice, realizedPnl, now, {
       calibratorNamespace: 'paper',
     });
@@ -437,13 +456,6 @@ export class PaperGatedTrader {
     await setCronState(KEY_POSITION, null);
     await setCronState(KEY_ORDER_ID, null);
     await setCronState(KEY_STATS, stats);
-
-    // Settle via the shared pipeline — analytics parity with PaperTrader.
-    // Unification note (2026-09-29): gated's old inline UPDATE never wrote
-    // funding_paid; the pipeline settles it like every other book.
-    if (orderId) {
-      await settleHedgeRow({ orderId, pos, result: closeResult, reason, nav: priorNav });
-    }
 
     logger.info('[PaperGatedTrader] closed', {
       asset: pos.asset, side: pos.side, realizedPnl: realizedPnl.toFixed(2),

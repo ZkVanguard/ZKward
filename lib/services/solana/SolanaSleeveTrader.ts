@@ -120,15 +120,22 @@ export async function runSolanaSleeveTick(
     }
 
     const result = simulateClose(pos, mark, now);
-    await recordCloseLearning(pos, mark, result.realizedPnlUsd, now, {
-      calibratorNamespace: 'solana',
-    });
-    await settleHedgeRow({
+    // Settle first: it decides which of two overlapping ticks closed the
+    // position. The loser counts nothing.
+    const settled = await settleHedgeRow({
       orderId: state.orderId,
       pos,
       result,
       reason: closeReason,
       nav: poolNavUsd ?? 0,
+    });
+    if (settled === false) {
+      const current = await getCronState<SleevePositionState>(KEY_POSITION);
+      if (current?.orderId === state.orderId) await setCronState(KEY_POSITION, null);
+      return { action: 'idle', detail: 'position already closed by an overlapping tick' };
+    }
+    await recordCloseLearning(pos, mark, result.realizedPnlUsd, now, {
+      calibratorNamespace: 'solana',
     });
 
     const stats = (await getCronState<SleeveStats>(KEY_STATS)) ?? {
