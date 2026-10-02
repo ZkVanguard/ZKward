@@ -114,8 +114,8 @@ export async function runSourceDecayCheck(now: number = Date.now()): Promise<num
         flipped += 1;
         logger.warn(`[L4] disabling source ${s.key} — winRate ${(s.winRate * 100).toFixed(1)}% over ${s.trades} trades`);
         try {
-          const { notifyDiscord } = await import('@/lib/utils/discord-notify');
-          await notifyDiscord(
+          const { notifyPaper } = await import('./notifications');
+          await notifyPaper(
             `Signal source disabled: ${s.key} — ${(s.winRate * 100).toFixed(1)}% win rate over ${s.trades} trades`,
             'WARN',
             { component: 'source-decay' },
