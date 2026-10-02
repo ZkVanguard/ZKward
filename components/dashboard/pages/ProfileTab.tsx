@@ -40,7 +40,7 @@ export function ProfileTab() {
           name, and manage your session.
         </p>
         <div className="inline-block">
-          <ConnectPromptButton label="Sign in" />
+          <ConnectPromptButton chain="hedera" reason="Your account is your Hedera sign-in (email or Google). We create the wallet for you." />
         </div>
       </div>
     );

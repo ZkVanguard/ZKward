@@ -11,6 +11,7 @@ import {
   Check,
   LogOut,
   AlertTriangle,
+  Plus,
 } from 'lucide-react';
 import {
   useWallets,
@@ -21,9 +22,8 @@ import {
 } from '@mysten/dapp-kit';
 import type { WalletAccount, WalletWithRequiredFeatures } from '@mysten/wallet-standard';
 import { useSuiSafe } from '@/app/sui-providers';
-import { EvmConnectSection } from './EvmConnectSection';
+import { useWalletHubSafe } from '@/contexts/WalletHubContext';
 import { PrivyConnectSection } from './PrivyConnectSection';
-import { isPrivyEnabled } from '@/lib/evm-wallet/privy-config';
 import {
   SUI_MOBILE_WALLETS,
   isMobileBrowser,
@@ -193,6 +193,8 @@ export function ConnectButton() {
 
   // SUI network status
   const suiContext = useSuiSafe();
+  // Dashboard-only hub: one chooser for every chain. Null on marketing routes.
+  const hub = useWalletHubSafe();
   const suiIsWrongNetwork = suiContext?.isWrongNetwork ?? false;
   const suiWalletNetwork = suiContext?.walletNetwork ?? null;
   const suiExpectedNetwork = suiContext?.network ?? 'mainnet';
@@ -258,13 +260,9 @@ export function ConnectButton() {
   // that subtree, so gate it by pathname.
   const pathname = usePathname() ?? '';
   const canShowEvm = mounted && pathname.includes('/dashboard');
-  // Privy layer (hackathon Priority 3). When configured, show the email/social
-  // "Sign in" CTA as the primary path. That's the whole point of the
-  // Privy Financial Flow track (hide onchain complexity from users).
-  const privyOn = canShowEvm && isPrivyEnabled();
 
   return (
-    <div className="relative">
+    <div className="relative flex items-center gap-2">
       {/* SUI wallet connect sheet — bottom-sheet on mobile, centered
           card on desktop. Same layout scales 320px → 4K. */}
       {showMobileWallets && (
@@ -429,12 +427,52 @@ export function ConnectButton() {
           connector becomes the advanced option. On marketing routes we
           fall back to the SUI-only connect since WagmiProvider isn't
           mounted there. */}
-      {showConnect && canShowEvm && (
+      {canShowEvm && hub && (
         <div className="relative flex items-center gap-2">
-          {/* Privy is the ONLY EVM path — no wagmi injected fallback, no
-              MetaMask picker. Every user signs in with email/Google and
-              gets an embedded self-custodial wallet. The old
-              EvmConnectSection is intentionally not rendered anywhere. */}
+          {/* Each connected network is its own chip (chains are independent);
+              one Connect — or + once something is connected — opens the
+              chain chooser, the dashboard's single connect flow. */}
+          {hub.hedera.connected && <PrivyConnectSection />}
+          {hub.solana.connected && hub.solana.address && (
+            <button
+              onClick={() => hub.openChooser({ chain: 'solana' })}
+              className="h-11 bg-system-bg-secondary dark:bg-[#2c2c2e] hover:bg-[#E5E5EA] dark:hover:bg-[#3c3c3e] border border-black/5 dark:border-white/10 rounded-[12px] transition-colors flex items-center gap-2 px-3"
+              title="Solana wallet"
+            >
+              <div className="w-6 h-6 rounded-full bg-[#9945FF] flex items-center justify-center">
+                <span className="text-white font-bold text-[8px]">SOL</span>
+              </div>
+              <span className="text-label-primary dark:text-white font-medium text-[14px]">
+                {truncate(hub.solana.address)}
+              </span>
+            </button>
+          )}
+          {!hub.anyConnected ? (
+            <button
+              data-connect-cta="true"
+              onClick={() => hub.openChooser()}
+              className="px-5 h-11 bg-ios-blue hover:bg-[#0062CC] active:scale-[0.98] text-white rounded-[12px] font-semibold text-[15px] transition-all flex items-center gap-2"
+            >
+              <Wallet className="w-4 h-4" />
+              <span>Connect</span>
+            </button>
+          ) : (
+            (!hub.hedera.connected || !hub.sui.connected || !hub.solana.connected) && (
+              <button
+                data-connect-cta="true"
+                onClick={() => hub.openChooser()}
+                className="h-11 w-11 border border-black/10 dark:border-white/15 hover:bg-system-bg-secondary dark:hover:bg-[#2c2c2e] rounded-[12px] text-label-secondary flex items-center justify-center active:scale-[0.98]"
+                title="Connect another network"
+                aria-label="Connect another network"
+              >
+                <Plus className="w-4 h-4" />
+              </button>
+            )
+          )}
+        </div>
+      )}
+      {showConnect && canShowEvm && !hub && (
+        <div className="relative flex items-center gap-2">
           <PrivyConnectSection />
           <button
             onClick={handleConnectSui}

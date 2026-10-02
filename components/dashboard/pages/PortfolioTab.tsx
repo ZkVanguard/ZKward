@@ -1,8 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useAccount } from '@/lib/evm-wallet/hooks';
-import { useSui } from '@/app/sui-providers';
+import { useWallet } from '@/lib/hooks/useWallet';
 import { Briefcase, TrendingUp, TrendingDown, Layers, Shield, Activity } from 'lucide-react';
 import { logger } from '@/lib/utils/logger';
 import { ConnectPromptButton } from '@/components/ui/ConnectPromptButton';
@@ -186,15 +185,14 @@ function HedgeRow({ h }: { h: HedgeExposure }) {
 }
 
 export function PortfolioTab() {
-  const evm = useAccount();
-  const sui = useSui();
+  const connected = useWallet();
   const [data, setData] = useState<UnifiedPortfolio | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Prefer SUI wallet (live product); fall back to EVM
-  const suiWallet = sui?.address || null;
-  const evmWallet = evm?.address || null;
+  const suiWallet = connected.suiAddress;
+  const evmWallet = connected.evmAddress;
   const wallet = suiWallet || evmWallet;
 
   useEffect(() => {
@@ -226,11 +224,11 @@ export function PortfolioTab() {
       <div className="py-8 sm:py-12 min-w-0">
         <div className="bg-white border border-black/5 rounded-3xl p-6 sm:p-10 text-center min-w-0">
           <Briefcase className="w-8 h-8 sm:w-10 sm:h-10 text-[#86868b] mx-auto mb-3" />
-          <h1 className="text-xl sm:text-2xl md:text-[28px] font-semibold text-[#1d1d1f] mb-2 break-words">Connect a wallet to view your platform overview</h1>
+          <h1 className="text-xl sm:text-2xl md:text-[28px] font-semibold text-[#1d1d1f] mb-2 break-words">Connect a wallet to see your portfolio</h1>
           <p className="text-[#86868b] text-sm sm:text-[15px] leading-relaxed mb-6">
             Aggregates your positions across the SUI USDC pool, private hedges, and any custom portfolios into one view.
           </p>
-          <ConnectPromptButton />
+          <ConnectPromptButton reason="Sign in on Hedera or connect a SUI wallet. Your pool shares, hedges and portfolios appear here." />
         </div>
       </div>
     );

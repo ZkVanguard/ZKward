@@ -186,7 +186,7 @@ export function CustodyTab() {
             off-chain assets. The asset list stays private to you + the custodian;
             only the cryptographic hash hits chain.
           </p>
-          <ConnectPromptButton label="Connect SUI Wallet" />
+          <ConnectPromptButton chain="sui" reason="Custody attestations live on SUI, so this page needs a SUI wallet." />
         </div>
       </div>
     );

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { memo, useMemo } from 'react';
+import { ConnectPromptButton } from '@/components/ui/ConnectPromptButton';
 import { Plus, Minus, Wallet, ExternalLink, Loader2, AlertTriangle } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import type { PoolSummary, UserPosition, ChainKey, TxStatus } from './types';
@@ -174,9 +175,12 @@ export const DepositWithdrawActions = memo(function DepositWithdrawActions({
                 </span>
               </div>
             ) : (
-              <p className="text-[13px] sm:text-sm text-amber-600 dark:text-amber-400 leading-relaxed">
-                Connect a SUI wallet to deposit USDC and earn from AI-managed 3-asset allocation.
-              </p>
+              <div className="flex flex-wrap items-center gap-3">
+                <p className="text-[13px] sm:text-sm text-gray-600 dark:text-gray-300 leading-relaxed">
+                  This pool runs on SUI mainnet, so deposits need a SUI wallet.
+                </p>
+                <ConnectPromptButton chain="sui" size="sm" reason="This pool runs on SUI mainnet, so deposits and withdrawals need a SUI wallet." />
+              </div>
             )}
           </div>
 
@@ -326,12 +330,12 @@ export const DepositWithdrawActions = memo(function DepositWithdrawActions({
           <div className="flex items-center gap-2 p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg">
             <Wallet className="w-4 h-4 text-amber-500 flex-shrink-0" />
             <p className="text-sm text-amber-700 dark:text-amber-400">
-              Connect your wallet (MetaMask, OKX, etc.) to deposit and withdraw from the pool.
+              Sign in to deposit and withdraw from this pool.
             </p>
           </div>
           
-          <div className="text-center text-xs text-gray-500 dark:text-gray-400">
-            Use the Connect Wallet button in the header
+          <div className="flex justify-center">
+            <ConnectPromptButton chain="hedera" size="sm" reason="This pool uses your email or Google sign-in. We create the wallet for you." />
           </div>
         </div>
       ) : (
