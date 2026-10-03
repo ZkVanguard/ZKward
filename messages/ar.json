@@ -35,12 +35,13 @@
     "privacy": "سياسة الخصوصية",
     "terms": "شروط الخدمة",
     "rights": "جميع الحقوق محفوظة.",
-    "testnet": "SUI Mainnet",
     "stage": "الشبكة الرئيسية مباشرة",
     "migrationNotice": "Formerly zkward.xyz — zkward.com is our new home.",
     "builtWith": "مبني على ZK-STARK",
     "story": "قصتنا",
-    "deployedOn": "يعمل على"
+    "multichain": "متعدد الشبكات",
+    "mainnetTesting": "اختبار الشبكة الرئيسية",
+    "pools": "المجمعات"
   },
   "connect": {
     "button": "توصيل المحفظة",

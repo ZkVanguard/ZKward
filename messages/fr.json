@@ -35,12 +35,13 @@
     "privacy": "Politique de confidentialité",
     "terms": "Conditions d'utilisation",
     "rights": "Tous droits réservés.",
-    "testnet": "SUI Mainnet",
     "stage": "Mainnet En Direct",
     "migrationNotice": "Formerly zkward.xyz — zkward.com is our new home.",
     "builtWith": "Développé avec ZK-STARK",
     "story": "Notre histoire",
-    "deployedOn": "Déployé sur"
+    "multichain": "Multichaîne",
+    "mainnetTesting": "Tests mainnet",
+    "pools": "Pools"
   },
   "connect": {
     "button": "Connecter le wallet",

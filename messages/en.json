@@ -459,12 +459,13 @@
     "privacy": "Privacy Policy",
     "terms": "Terms of Service",
     "rights": "All rights reserved.",
-    "testnet": "SUI Mainnet",
     "stage": "Mainnet Live",
     "migrationNotice": "Formerly zkward.xyz. Zkward.com is our new home.",
     "builtWith": "Built with ZK-STARK",
     "story": "Our story",
-    "deployedOn": "Deployed on"
+    "multichain": "Multi-chain",
+    "mainnetTesting": "Mainnet testing",
+    "pools": "Pools"
   },
   "connect": {
     "button": "Connect Wallet",

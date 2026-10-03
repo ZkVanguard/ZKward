@@ -459,12 +459,13 @@
     "privacy": "गोपनीयता नीति",
     "terms": "सेवा सर्तहरू",
     "rights": "सर्वाधिकार सुरक्षित।",
-    "testnet": "SUI Mainnet",
     "stage": "Mainnet प्रत्यक्ष",
     "migrationNotice": "पहिले zkward.xyz। Zkward.com हाम्रो नयाँ घर हो।",
     "builtWith": "ZK-STARK सँग निर्मित",
     "story": "हाम्रो कथा",
-    "deployedOn": "यी नेटवर्कमा चालु"
+    "multichain": "मल्टी-चेन",
+    "mainnetTesting": "मेननेट परीक्षण",
+    "pools": "पूलहरू"
   },
   "connect": {
     "button": "वालेट जडान गर्नुहोस्",

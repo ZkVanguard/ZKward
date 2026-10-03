@@ -35,12 +35,13 @@
     "privacy": "プライバシーポリシー",
     "terms": "利用規約",
     "rights": "全著作権所有。",
-    "testnet": "SUI Mainnet",
     "stage": "Mainnet ライブ",
     "migrationNotice": "Formerly zkward.xyz — zkward.com is our new home.",
     "builtWith": "ZK-STARKで構築",
     "story": "私たちのストーリー",
-    "deployedOn": "稼働ネットワーク"
+    "multichain": "マルチチェーン",
+    "mainnetTesting": "メインネット試験中",
+    "pools": "プール"
   },
   "connect": {
     "button": "ウォレットを接続",
