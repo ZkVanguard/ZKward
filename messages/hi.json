@@ -39,7 +39,8 @@
     "stage": "Mainnet लाइव",
     "migrationNotice": "Formerly zkward.xyz — zkward.com is our new home.",
     "builtWith": "ZK-STARK के साथ निर्मित",
-    "story": "हमारी कहानी"
+    "story": "हमारी कहानी",
+    "deployedOn": "इन पर चालू"
   },
   "connect": {
     "button": "वॉलेट कनेक्ट करें",

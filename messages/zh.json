@@ -39,7 +39,8 @@
     "stage": "主网上线",
     "migrationNotice": "Formerly zkward.xyz — zkward.com is our new home.",
     "builtWith": "基于ZK-STARK构建",
-    "story": "我们的故事"
+    "story": "我们的故事",
+    "deployedOn": "部署于"
   },
   "connect": {
     "button": "连接钱包",

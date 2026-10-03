@@ -39,7 +39,8 @@
     "stage": "메인넷 라이브",
     "migrationNotice": "Formerly zkward.xyz — zkward.com is our new home.",
     "builtWith": "ZK-STARK로 구축",
-    "story": "우리 이야기"
+    "story": "우리 이야기",
+    "deployedOn": "배포 네트워크"
   },
   "connect": {
     "button": "지갑 연결",

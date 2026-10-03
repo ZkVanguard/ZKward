@@ -39,7 +39,8 @@
     "stage": "Mainnet Запущен",
     "migrationNotice": "Formerly zkward.xyz — zkward.com is our new home.",
     "builtWith": "Построено на ZK-STARK",
-    "story": "Наша история"
+    "story": "Наша история",
+    "deployedOn": "Работает в"
   },
   "connect": {
     "button": "Подключить кошелёк",

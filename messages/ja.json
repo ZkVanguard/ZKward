@@ -39,7 +39,8 @@
     "stage": "Mainnet ライブ",
     "migrationNotice": "Formerly zkward.xyz — zkward.com is our new home.",
     "builtWith": "ZK-STARKで構築",
-    "story": "私たちのストーリー"
+    "story": "私たちのストーリー",
+    "deployedOn": "稼働ネットワーク"
   },
   "connect": {
     "button": "ウォレットを接続",

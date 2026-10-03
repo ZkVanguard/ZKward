@@ -3,6 +3,8 @@
 import { memo } from 'react';
 import { Link } from '../i18n/routing';
 import { useTranslations } from 'next-intl';
+import { ChainLogo } from '@/components/wallet/ChainLogo';
+import { CHAIN_META, WALLET_CHAINS } from '@/lib/wallet/chain-meta';
 
 const currentYear = new Date().getFullYear();
 
@@ -11,6 +13,7 @@ const HEADING_CLASS = 'text-caption-1 font-semibold text-label-primary mb-4 uppe
 
 export const Footer = memo(function Footer() {
   const t = useTranslations('footer');
+  const tNet = useTranslations('wallet.net');
 
   return (
     <footer className="bg-system-bg-secondary pb-safe border-t border-separator-opaque/30">
@@ -65,18 +68,16 @@ export const Footer = memo(function Footer() {
             <div className="text-caption-1 text-label-tertiary leading-relaxed">
               © {currentYear} ZKward. {t('rights')}
               <span className="hidden md:inline ml-2">·</span>
-              <span className="block md:inline md:ml-2 text-ios-blue">{t('testnet')}</span>
+              <span className="inline-flex items-center gap-1 md:ml-2 text-ios-blue"><ChainLogo chain="sui" size={12} />{t('testnet')}</span>
               <div className="mt-1 text-caption-2 text-label-tertiary">{t('migrationNotice')}</div>
               <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-caption-2 text-label-tertiary">
-                <span>Deployed on</span>
-                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-[#4DA2FF]/10 text-[#4DA2FF] font-medium">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#4DA2FF]" />
-                  SUI Mainnet
-                </span>
-                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-[#00A79F]/10 text-[#00A79F] font-medium">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#00A79F]" />
-                  Hedera Testnet
-                </span>
+                <span>{t('deployedOn')}</span>
+                {WALLET_CHAINS.map((chain) => (
+                  <span key={chain} className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-white border border-separator-opaque/40 text-label-secondary font-medium">
+                    <ChainLogo chain={chain} size={12} />
+                    {CHAIN_META[chain].name} {tNet(CHAIN_META[chain].net)}
+                  </span>
+                ))}
               </div>
             </div>
             <div className="flex flex-wrap items-center gap-4 text-caption-1">

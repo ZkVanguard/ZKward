@@ -463,7 +463,8 @@
     "stage": "Mainnet प्रत्यक्ष",
     "migrationNotice": "पहिले zkward.xyz। Zkward.com हाम्रो नयाँ घर हो।",
     "builtWith": "ZK-STARK सँग निर्मित",
-    "story": "हाम्रो कथा"
+    "story": "हाम्रो कथा",
+    "deployedOn": "यी नेटवर्कमा चालु"
   },
   "connect": {
     "button": "वालेट जडान गर्नुहोस्",

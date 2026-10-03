@@ -39,7 +39,8 @@
     "stage": "الشبكة الرئيسية مباشرة",
     "migrationNotice": "Formerly zkward.xyz — zkward.com is our new home.",
     "builtWith": "مبني على ZK-STARK",
-    "story": "قصتنا"
+    "story": "قصتنا",
+    "deployedOn": "يعمل على"
   },
   "connect": {
     "button": "توصيل المحفظة",

@@ -463,7 +463,8 @@
     "stage": "Mainnet Live",
     "migrationNotice": "Formerly zkward.xyz. Zkward.com is our new home.",
     "builtWith": "Built with ZK-STARK",
-    "story": "Our story"
+    "story": "Our story",
+    "deployedOn": "Deployed on"
   },
   "connect": {
     "button": "Connect Wallet",

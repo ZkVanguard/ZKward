@@ -39,7 +39,8 @@
     "stage": "Mainnet ao Vivo",
     "migrationNotice": "Formerly zkward.xyz — zkward.com is our new home.",
     "builtWith": "Desenvolvido com ZK-STARK",
-    "story": "Nossa história"
+    "story": "Nossa história",
+    "deployedOn": "Implantado em"
   },
   "connect": {
     "button": "Conectar wallet",

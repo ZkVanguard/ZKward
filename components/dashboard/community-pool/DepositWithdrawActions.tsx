@@ -7,6 +7,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import type { PoolSummary, UserPosition, ChainKey, TxStatus } from './types';
 import { getDepositTokenInfo } from '@/lib/contracts/community-pool-config';
 import { OldPoolWithdraw } from './OldPoolWithdraw';
+import { ChainLogo } from '@/components/wallet/ChainLogo';
 
 interface DepositWithdrawActionsProps {
   selectedChain: ChainKey;
@@ -146,7 +147,7 @@ export const DepositWithdrawActions = memo(function DepositWithdrawActions({
           <div className="bg-gradient-to-r from-cyan-50 to-blue-50 dark:from-cyan-900/20 dark:to-blue-900/20 rounded-xl sm:rounded-lg p-3 sm:p-4 min-w-0">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3">
               <div className="flex items-center gap-2 flex-wrap min-w-0">
-                <span className="text-xl sm:text-2xl flex-shrink-0">💵</span>
+                <span className="w-8 h-8 rounded-xl bg-white flex items-center justify-center flex-shrink-0 shadow-sm"><ChainLogo chain="sui" size={18} label="SUI" /></span>
                 <h4 className="font-semibold text-gray-900 dark:text-white text-sm sm:text-base truncate">SUI USDC Pool</h4>
                 <span className="px-2 py-0.5 text-[10px] sm:text-xs bg-cyan-500 text-white rounded-full flex-shrink-0 whitespace-nowrap">USDC → 3-Asset AI</span>
               </div>

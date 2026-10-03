@@ -10,7 +10,7 @@
 import Image from 'next/image';
 import { FlaskConical } from 'lucide-react';
 import { useTranslations } from 'next-intl';
-import { CHAIN_INFO, type WalletChain } from '@/contexts/WalletHubContext';
+import { CHAIN_META, type WalletChain } from '@/lib/wallet/chain-meta';
 
 export type LogoChain = WalletChain | 'paper';
 
@@ -30,7 +30,7 @@ export function ChainLogo({ chain, size = 20, className = '', label }: { chain: 
   }
   return (
     <Image
-      src={CHAIN_INFO[chain].logo}
+      src={CHAIN_META[chain].logo}
       alt={label ?? ''}
       width={size}
       height={size}
@@ -44,7 +44,7 @@ export function ChainLogo({ chain, size = 20, className = '', label }: { chain: 
 /** "Real funds" on mainnet, "Test tokens" elsewhere, "Simulated" for the paper books. */
 export function FundsTag({ chain, className = '' }: { chain: LogoChain; className?: string }) {
   const t = useTranslations('wallet.funds');
-  const kind = chain === 'paper' ? 'simulated' : CHAIN_INFO[chain].realFunds ? 'real' : 'test';
+  const kind = chain === 'paper' ? 'simulated' : CHAIN_META[chain].realFunds ? 'real' : 'test';
   const tone =
     kind === 'real'
       ? 'bg-green-700/10 text-green-800'

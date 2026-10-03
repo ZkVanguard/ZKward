@@ -24,8 +24,8 @@ describe('chain logos', () => {
     expect(svg).not.toMatch(/<script|on\w+=|javascript:|<image|base64/i);
   });
 
-  it('the wallet hub points every network at its mark', () => {
-    const hub = readFileSync(join(ROOT, 'contexts', 'WalletHubContext.tsx'), 'utf8');
+  it('the chain facts point every network at its mark', () => {
+    const hub = readFileSync(join(ROOT, 'lib', 'wallet', 'chain-meta.ts'), 'utf8');
     for (const chain of CHAINS) expect(hub).toContain(`logo: '/logos/chains/${chain}.svg'`);
   });
 

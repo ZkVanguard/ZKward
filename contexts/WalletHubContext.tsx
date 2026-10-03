@@ -26,53 +26,23 @@ import { connectWallet as connectPhantom, getProvider as getPhantom } from '@/co
 import { ChainChooser } from '@/components/wallet/ChainChooser';
 import { CONSENT_EVENT, CONSENT_KEY } from '@/components/CookieConsent';
 import { suggestChain, type SuggestReason } from '@/lib/wallet/suggest-chain';
+import { CHAIN_META, WALLET_CHAINS, type ChainMeta, type WalletChain } from '@/lib/wallet/chain-meta';
 
-export type WalletChain = 'hedera' | 'sui' | 'solana';
-export const WALLET_CHAINS: readonly WalletChain[] = ['hedera', 'sui', 'solana'];
+// Names, tiers, marks and colours live in a plain module so marketing
+// pages can draw them without this provider's wallet SDKs.
+export { WALLET_CHAINS };
+export type { WalletChain };
 /** Which chain wins when several come back connected after a reload and no preference is stored. */
 const ADOPTION_ORDER: readonly WalletChain[] = ['sui', 'hedera', 'solana'];
 const ACTIVE_KEY = 'zkward.activeChain';
 /** Set once the user has chosen (or dismissed the choice); the welcome chooser never shows again on this device. */
 const ONBOARDED_KEY = 'zkward.onboarded';
 
-/** Plain-language copy for the chooser, prompts and badges. */
-export const CHAIN_INFO: Record<WalletChain, { name: string; net: string; pool: string; how: string; cta: string; color: string; installUrl: string; installLabel: string; logo: string; realFunds: boolean }> = {
-  hedera: {
-    name: 'Hedera',
-    net: 'testnet',
-    pool: 'USDC pool on Hedera testnet',
-    how: 'Sign in with email or Google. We create a wallet for you, nothing to install.',
-    cta: 'Sign in with Hedera',
-    color: '#1d1d1f',
-    installUrl: '',
-    installLabel: '',
-    logo: '/logos/chains/hedera.svg',
-    realFunds: false,
-  },
-  sui: {
-    name: 'SUI',
-    net: 'mainnet',
-    pool: 'Live USDC pool on SUI mainnet',
-    how: 'Uses a SUI browser wallet such as Slush, Suiet or Ethos.',
-    cta: 'Use SUI',
-    color: '#4DA2FF',
-    installUrl: 'https://slush.app/',
-    installLabel: 'Get Slush',
-    logo: '/logos/chains/sui.svg',
-    realFunds: true,
-  },
-  solana: {
-    name: 'Solana',
-    net: 'devnet',
-    pool: 'JIMP test pool on Solana devnet',
-    how: 'Uses Phantom. Switch it to Devnet for the test pool.',
-    cta: 'Use Solana',
-    color: '#9945FF',
-    installUrl: 'https://phantom.app/download',
-    installLabel: 'Get Phantom',
-    logo: '/logos/chains/solana.svg',
-    realFunds: false,
-  },
+/** Chain facts plus the English copy a few prompts still use (the chooser reads `wallet.*`). */
+export const CHAIN_INFO: Record<WalletChain, ChainMeta & { pool: string; how: string; cta: string; installLabel: string }> = {
+  hedera: { ...CHAIN_META.hedera, pool: 'USDC pool on Hedera testnet', how: 'Sign in with email or Google. We create a wallet for you, nothing to install.', cta: 'Sign in with Hedera', installLabel: '' },
+  sui: { ...CHAIN_META.sui, pool: 'Live USDC pool on SUI mainnet', how: 'Uses a SUI browser wallet such as Slush, Suiet or Ethos.', cta: 'Use SUI', installLabel: 'Get Slush' },
+  solana: { ...CHAIN_META.solana, pool: 'JIMP test pool on Solana devnet', how: 'Uses Phantom. Switch it to Devnet for the test pool.', cta: 'Use Solana', installLabel: 'Get Phantom' },
 };
 
 export interface ChainWallet {
