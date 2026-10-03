@@ -20,7 +20,8 @@ export function MarketPulse({ onOpen, compact = false }: { onOpen: () => void; c
     staleTime: 30_000,
     refetchInterval: 60_000,
   });
-  if (isError) return null;
+  // A failed refresh keeps the last good read; hide only when nothing ever loaded.
+  if (isError && !data) return null;
   if (isPending || !data) {
     return <span className={`inline-block rounded-full bg-white/70 border border-black/5 animate-pulse ${compact ? 'h-8 w-24' : 'h-10 w-64'}`} aria-hidden />;
   }
