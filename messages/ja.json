@@ -138,6 +138,95 @@
         "down": "下",
         "flat": "横ばい"
       }
+    },
+    "nav": {
+      "pool": "プール",
+      "portfolio": "ポートフォリオ",
+      "signals": "シグナル",
+      "platform": "プラットフォーム",
+      "account": "アカウント",
+      "more": "その他"
+    },
+    "views": {
+      "summary": "概要",
+      "positions": "ポジション",
+      "hedges": "ヘッジ",
+      "products": "プロダクト",
+      "markets": "市場",
+      "agents": "エージェント",
+      "risk": "リスク",
+      "custody": "カストディ",
+      "admin": "管理"
+    },
+    "shell": {
+      "greeting": {
+        "morning": "おはようございます",
+        "afternoon": "こんにちは",
+        "evening": "こんばんは"
+      },
+      "subtitle": {
+        "pool": "入金・出金して、プールの成長を見守る。",
+        "portfolio": "保有しているすべてを、ひとつの場所に。",
+        "signals": "市場がいまどちらに傾いているか。",
+        "platform": "各ファンドの状況をライブで。",
+        "account": "サインイン、名前、ウォレット。"
+      },
+      "switchNetwork": "ネットワークを切り替え"
+    },
+    "pulse": {
+      "aria": "{lean}。シグナルを開く。"
+    },
+    "connectHero": {
+      "title": "ポートフォリオはここに",
+      "body": "ウォレットを接続すると、残高・ポジション・ヘッジをひとつの場所で確認できます。",
+      "cta": "ウォレットを接続",
+      "pools": "プールを見る",
+      "signals": "ライブシグナルを見る",
+      "solanaTitle": "Solana のポジションはプールタブにあります",
+      "solanaBody": "ポートフォリオは SUI と Hedera に対応しています。Solana プールの持分はプールページにあります。",
+      "openPool": "プールを開く"
+    },
+    "sidebar": {
+      "connect": "ウォレットを接続"
+    },
+    "poolStart": {
+      "title": "サインインして入金",
+      "hedera": "メールまたは Google で。Hedera ウォレットはこちらで作成するので、インストール不要です。"
+    },
+    "guide": {
+      "title": "はじめに",
+      "subtitle": "最初の入金まで 3 ステップ。",
+      "hide": "非表示",
+      "done": "完了",
+      "connect": {
+        "title": "{chain} を接続",
+        "action": "接続"
+      },
+      "funds": {
+        "testTitle": "無料のテストトークンを入手",
+        "testBody": "下の入金パネルにあるフォーセットを使ってください。無料です。",
+        "realTitle": "USDC を用意",
+        "realBody": "入金には、ウォレットに SUI 上の USDC が必要です。",
+        "action": "見せて"
+      },
+      "deposit": {
+        "title": "最初の入金",
+        "body": "下で金額を入力し、ウォレットで承認してください。",
+        "action": "入金する"
+      }
+    },
+    "trades": {
+      "long": "ロング",
+      "short": "ショート",
+      "held": "{h} 時間保有",
+      "entry": "エントリー ${price}",
+      "reasons": {
+        "takeProfit": "利益確定",
+        "trailingStop": "トレーリングストップ",
+        "stop": "ストップ",
+        "timeLimit": "時間切れ",
+        "signalFlip": "シグナル反転"
+      }
     }
   },
   "common": {

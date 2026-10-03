@@ -454,6 +454,95 @@
         "down": "down",
         "flat": "flat"
       }
+    },
+    "nav": {
+      "pool": "Pool",
+      "portfolio": "Portfolio",
+      "signals": "Signals",
+      "platform": "Platform",
+      "account": "Account",
+      "more": "More"
+    },
+    "views": {
+      "summary": "Summary",
+      "positions": "Positions",
+      "hedges": "Hedges",
+      "products": "Products",
+      "markets": "Markets",
+      "agents": "Agents",
+      "risk": "Risk",
+      "custody": "Custody",
+      "admin": "Admin"
+    },
+    "shell": {
+      "greeting": {
+        "morning": "Good morning",
+        "afternoon": "Good afternoon",
+        "evening": "Good evening"
+      },
+      "subtitle": {
+        "pool": "Deposit, withdraw and watch your pool grow.",
+        "portfolio": "Everything you hold, in one place.",
+        "signals": "Where the markets lean right now.",
+        "platform": "How every fund is doing, live.",
+        "account": "Your sign-in, name and wallet."
+      },
+      "switchNetwork": "Switch network"
+    },
+    "pulse": {
+      "aria": "{lean}. Open signals."
+    },
+    "connectHero": {
+      "title": "Your portfolio lives here",
+      "body": "Connect a wallet to see your balance, positions and hedges in one place.",
+      "cta": "Connect wallet",
+      "pools": "Browse the pools",
+      "signals": "See live signals",
+      "solanaTitle": "Your Solana position lives in the Pool tab",
+      "solanaBody": "Portfolio covers SUI and Hedera. Your Solana pool shares are on the Pool page.",
+      "openPool": "Open the pool"
+    },
+    "sidebar": {
+      "connect": "Connect a wallet"
+    },
+    "poolStart": {
+      "title": "Sign in to deposit",
+      "hedera": "Use email or Google. We create your Hedera wallet, nothing to install."
+    },
+    "guide": {
+      "title": "Getting started",
+      "subtitle": "Three steps to your first deposit.",
+      "hide": "Hide",
+      "done": "Done",
+      "connect": {
+        "title": "Connect {chain}",
+        "action": "Connect"
+      },
+      "funds": {
+        "testTitle": "Get free test tokens",
+        "testBody": "Use the faucet in the deposit panel below. It's free.",
+        "realTitle": "Have USDC ready",
+        "realBody": "You need USDC on SUI in your wallet to deposit.",
+        "action": "Show me"
+      },
+      "deposit": {
+        "title": "Make your first deposit",
+        "body": "Enter an amount below and confirm in your wallet.",
+        "action": "Deposit"
+      }
+    },
+    "trades": {
+      "long": "Long",
+      "short": "Short",
+      "held": "held {h}h",
+      "entry": "entry ${price}",
+      "reasons": {
+        "takeProfit": "Take profit",
+        "trailingStop": "Trailing stop",
+        "stop": "Stop",
+        "timeLimit": "Time limit",
+        "signalFlip": "Signal flip"
+      }
     }
   },
   "common": {

@@ -35,6 +35,7 @@ import { usePrivySender } from '@/lib/evm-wallet/usePrivySender';
 import { WalletAvatar } from '@/components/ui/WalletAvatar';
 import { useWalletProfile, useSetWalletProfile } from '@/lib/hooks/useWalletProfile';
 import { ChainLogo } from '@/components/wallet/ChainLogo';
+import { useTranslations } from 'next-intl';
 
 const HEDERA_TESTNET_ID = 296;
 const USDC_DECIMALS = 6;
@@ -138,6 +139,7 @@ function truncate(v: string): string {
 }
 
 export function HederaVaultActions({ address: propAddress, onRefresh }: Props) {
+  const tStart = useTranslations('dashboard.poolStart');
   const { address: wagmiAddress } = useAccount();
   const chainId = useChainId();
   const { switchChainAsync } = useSwitchChain();
@@ -589,9 +591,15 @@ export function HederaVaultActions({ address: propAddress, onRefresh }: Props) {
           <span>Creating your Hedera-testnet embedded wallet… (~2-5s)</span>
         </div>
       ) : (
-        <div className="rounded-xl border border-[#FF9500]/30 bg-[#FF9500]/10 p-3 text-[12px] text-[#B26400]">
-          <AlertTriangle className="w-4 h-4 inline mr-1.5 -mt-0.5" />
-          Sign in with email/Google/wallet to create your Hedera-testnet embedded wallet, then deposit here.
+        <div className="rounded-2xl border border-black/[0.06] bg-gradient-to-br from-white to-[#f5f5f7] p-4 flex flex-wrap items-center gap-3">
+          <span className="w-11 h-11 rounded-2xl bg-white border border-black/[0.06] shadow-sm flex items-center justify-center flex-shrink-0">
+            <ChainLogo chain="hedera" size={24} />
+          </span>
+          <div className="flex-1 min-w-[200px]">
+            <div className="text-[15px] font-semibold text-label-primary">{tStart('title')}</div>
+            <div className="text-[13px] text-label-secondary">{tStart('hedera')}</div>
+          </div>
+          <ConnectPromptButton chain="hedera" size="sm" reason="The Hedera pool uses your email or Google sign-in. We create the wallet for you." />
         </div>
       )}
 
@@ -639,12 +647,7 @@ export function HederaVaultActions({ address: propAddress, onRefresh }: Props) {
               </span>
             )}
           </>
-        ) : (
-          <span className="inline-flex items-center gap-2 flex-wrap text-label-tertiary">
-            Sign in to see your balance.
-            <ConnectPromptButton chain="hedera" size="sm" reason="The Hedera pool uses your email or Google sign-in. We create the wallet for you." />
-          </span>
-        )}
+        ) : null}
       </div>
 
       {chainMismatch && (

@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { logger } from '@/lib/utils/logger';
 import { NavHistoryChart } from '@/components/dashboard/NavHistoryChart';
+import { ClosedTradeList } from '@/components/dashboard/ClosedTradeList';
 
 interface HedgeRow {
   market: string;
@@ -381,44 +382,18 @@ function HedgeHistoryPanel({ h }: { h: HedgeHistoryState }) {
           <span>Realised: <strong className={pnlPositive ? 'text-green-700' : 'text-red-700'}>{fmtUsd(h.totalPnlUsd)}</strong></span>
         </div>
       </div>
-      {(h.recent ?? []).length === 0 ? (
-        <div className="text-[#86868b] text-xs sm:text-[13px] py-4 text-center">No settled hedges yet.</div>
-      ) : (
-        <div className="-mx-3 sm:mx-0 overflow-x-auto">
-          <div className="min-w-[520px] sm:min-w-0 px-3 sm:px-0">
-            <div className="grid grid-cols-12 gap-2 pb-2 mb-1 border-b border-black/5 text-[10px] sm:text-[11px] text-[#86868b] uppercase tracking-wide font-medium">
-              <div className="col-span-3">Market</div>
-              <div className="col-span-2 text-right">Notional</div>
-              <div className="col-span-2 text-right">Realised</div>
-              <div className="col-span-2 text-right">Duration</div>
-              <div className="col-span-3 text-right">Closed</div>
-            </div>
-            <div>
-              {(h.recent ?? []).map((r) => {
-                const pnlPos = r.pnlUsd >= 0;
-                return (
-                  <div key={r.id} className="grid grid-cols-12 gap-2 py-2.5 border-b border-black/5 last:border-b-0 items-center text-[13px]">
-                    <div className="col-span-3 font-semibold text-[#1d1d1f] flex items-center gap-2">
-                      <span className="truncate">{r.market}</span>
-                      <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium flex-shrink-0 ${r.side === 'LONG' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
-                        {r.side}
-                      </span>
-                    </div>
-                    <div className="col-span-2 text-right font-mono text-[#86868b]">{fmtUsd(r.notionalUsd)}</div>
-                    <div className={`col-span-2 text-right font-mono font-medium ${pnlPos ? 'text-green-700' : 'text-red-700'}`}>
-                      {fmtUsd(r.pnlUsd)}
-                    </div>
-                    <div className="col-span-2 text-right text-[12px] text-[#86868b]">{r.durationHours.toFixed(1)}h</div>
-                    <div className="col-span-3 text-right text-[12px] text-[#86868b]">
-                      {new Date(r.closedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      )}
+      <ClosedTradeList
+        empty="No settled hedges yet."
+        trades={(h.recent ?? []).map((r) => ({
+          id: r.id,
+          market: r.market,
+          side: r.side,
+          pnlUsd: r.pnlUsd,
+          notionalUsd: r.notionalUsd,
+          closedAt: r.closedAt,
+          heldHours: r.durationHours,
+        }))}
+      />
       <p className="text-[11px] text-[#86868b] mt-3 leading-relaxed">
         Settled = closed hedges with non-zero realised PnL. Rows with $0 PnL (reconciler-adopted
         orphans and phantom closes) are excluded. They're bookkeeping entries, not real trades.
@@ -532,21 +507,11 @@ export function RiskTab() {
   return (
     // Navbar clearance + horizontal tab strip live in dashboard/layout.tsx.
     <div className="space-y-3 sm:space-y-6 min-w-0">
-      <header className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-4">
-        <div className="min-w-0">
-          <h2 className="text-lg sm:text-xl font-semibold text-[#1d1d1f] tracking-[-0.01em] break-words">
-            Live platform view
-          </h2>
-          <p className="text-xs sm:text-[13px] text-[#86868b] mt-1 leading-relaxed">
-            Every fund&apos;s numbers and the systems behind them, refreshed every minute.
-          </p>
+      {data?.asOf && (
+        <div className="text-right text-[11px] sm:text-[12px] text-[#86868b] font-mono tabular-nums">
+          as of {new Date(data.asOf).toLocaleTimeString()}
         </div>
-        {data?.asOf && (
-          <div className="text-[11px] sm:text-[12px] text-[#86868b] font-mono tabular-nums flex-shrink-0">
-            as of {new Date(data.asOf).toLocaleTimeString()}
-          </div>
-        )}
-      </header>
+      )}
 
       {loading && !data && (
         <div className="space-y-6">

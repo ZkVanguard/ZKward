@@ -138,6 +138,95 @@
         "down": "giù",
         "flat": "piatto"
       }
+    },
+    "nav": {
+      "pool": "Pool",
+      "portfolio": "Portafoglio",
+      "signals": "Segnali",
+      "platform": "Piattaforma",
+      "account": "Account",
+      "more": "Altro"
+    },
+    "views": {
+      "summary": "Riepilogo",
+      "positions": "Posizioni",
+      "hedges": "Coperture",
+      "products": "Prodotti",
+      "markets": "Mercati",
+      "agents": "Agenti",
+      "risk": "Rischio",
+      "custody": "Custodia",
+      "admin": "Admin"
+    },
+    "shell": {
+      "greeting": {
+        "morning": "Buongiorno",
+        "afternoon": "Buon pomeriggio",
+        "evening": "Buonasera"
+      },
+      "subtitle": {
+        "pool": "Deposita, preleva e guarda crescere il tuo pool.",
+        "portfolio": "Tutto ciò che possiedi, in un unico posto.",
+        "signals": "Dove tendono i mercati in questo momento.",
+        "platform": "Come va ogni fondo, dal vivo.",
+        "account": "Il tuo accesso, nome e wallet."
+      },
+      "switchNetwork": "Cambia rete"
+    },
+    "pulse": {
+      "aria": "{lean}. Apri i segnali."
+    },
+    "connectHero": {
+      "title": "Il tuo portafoglio è qui",
+      "body": "Collega un wallet per vedere saldo, posizioni e coperture in un unico posto.",
+      "cta": "Collega wallet",
+      "pools": "Esplora i pool",
+      "signals": "Vedi i segnali live",
+      "solanaTitle": "La tua posizione Solana è nella scheda Pool",
+      "solanaBody": "Il portafoglio copre SUI e Hedera. Le tue quote del pool Solana sono nella pagina Pool.",
+      "openPool": "Apri il pool"
+    },
+    "sidebar": {
+      "connect": "Collega un wallet"
+    },
+    "poolStart": {
+      "title": "Accedi per depositare",
+      "hedera": "Usa email o Google. Creiamo il tuo wallet Hedera, niente da installare."
+    },
+    "guide": {
+      "title": "Per iniziare",
+      "subtitle": "Tre passi per il tuo primo deposito.",
+      "hide": "Nascondi",
+      "done": "Fatto",
+      "connect": {
+        "title": "Collega {chain}",
+        "action": "Collega"
+      },
+      "funds": {
+        "testTitle": "Ottieni token di prova gratis",
+        "testBody": "Usa il faucet nel pannello di deposito qui sotto. È gratis.",
+        "realTitle": "Tieni pronti gli USDC",
+        "realBody": "Per depositare ti servono USDC su SUI nel wallet.",
+        "action": "Mostrami"
+      },
+      "deposit": {
+        "title": "Fai il tuo primo deposito",
+        "body": "Inserisci un importo qui sotto e conferma nel wallet.",
+        "action": "Deposita"
+      }
+    },
+    "trades": {
+      "long": "Long",
+      "short": "Short",
+      "held": "tenuta {h} h",
+      "entry": "ingresso ${price}",
+      "reasons": {
+        "takeProfit": "Presa di profitto",
+        "trailingStop": "Trailing stop",
+        "stop": "Stop",
+        "timeLimit": "Limite di tempo",
+        "signalFlip": "Cambio di segnale"
+      }
     }
   },
   "common": {

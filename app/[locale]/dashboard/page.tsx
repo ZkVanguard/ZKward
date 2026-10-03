@@ -14,6 +14,7 @@ import {
   ShieldCheck,
   MoreHorizontal,
   UserCog,
+  Wallet,
 } from 'lucide-react';
 import { MobileTabBar } from '@/components/dashboard/MobileTabBar';
 import { WalletAvatar } from '@/components/ui/WalletAvatar';
@@ -26,6 +27,10 @@ import { useWalletHub, type WalletChain } from '@/contexts/WalletHubContext';
 import { ChainBadge } from '@/components/wallet/ChainBadge';
 import { ChainLogo, FundsTag } from '@/components/wallet/ChainLogo';
 import { ReconnectBanner } from '@/components/wallet/ReconnectBanner';
+import { useTranslations } from 'next-intl';
+import { ChainAmbient, DashboardHeader } from '@/components/dashboard/shell/DashboardHeader';
+import { MarketPulse } from '@/components/dashboard/shell/MarketPulse';
+import { ConnectHero } from '@/components/dashboard/shell/ConnectHero';
 
 // Dynamic imports for code splitting
 const AgentActivity = nextDynamic(
@@ -247,15 +252,15 @@ function ViewSwitcher({
   onSelect: (id: string) => void;
 }) {
   return (
-    <div role="tablist" className="inline-flex max-w-full overflow-x-auto rounded-[12px] bg-system-bg-secondary p-1 gap-0.5">
+    <div role="tablist" className="inline-flex max-w-full overflow-x-auto rounded-full bg-white/70 backdrop-blur border border-black/[0.06] p-1 gap-0.5 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
       {views.map((v) => (
         <button
           key={v.id}
           role="tab"
           aria-selected={active === v.id}
           onClick={() => onSelect(v.id)}
-          className={`px-3.5 py-1.5 rounded-[9px] text-[13px] font-semibold whitespace-nowrap transition-all ${
-            active === v.id ? 'bg-white text-label-primary shadow-ios-1' : 'text-label-tertiary hover:text-label-primary'
+          className={`px-4 py-1.5 rounded-full text-[13px] font-semibold whitespace-nowrap transition-all ${
+            active === v.id ? 'bg-label-primary text-white shadow-[0_2px_8px_-2px_rgba(15,23,42,0.35)]' : 'text-label-secondary hover:text-label-primary'
           }`}
         >
           {v.label}
@@ -309,6 +314,7 @@ export default function DashboardPage() {
   // Portfolio count available via derived?.portfolioCount if needed
 
   // Pool is home: clicking "Vault" in the top nav lands on deposit/withdraw.
+  const tDash = useTranslations('dashboard');
   const [activeDest, setActiveDest] = useState<DestId>('pool');
   const [activeView, setActiveView] = useState<string | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -382,8 +388,9 @@ export default function DashboardPage() {
               but audit tools count both DOM nodes. Screen readers still
               announce this as a level-1 heading via ARIA. */}
           <p role="heading" aria-level={1} className="text-[17px] font-semibold text-label-primary tracking-tight truncate m-0">
-            {destinations.find((d) => d.id === activeDest)?.label}
+            {tDash(`nav.${activeDest}`)}
           </p>
+          {activeDest !== 'signals' && <MarketPulse compact onOpen={() => handleNavChange('signals')} />}
         </div>
       </header>
 
@@ -448,7 +455,7 @@ export default function DashboardPage() {
                   }`}
                 >
                   <Icon className={`w-5 h-5 ${isActive ? 'text-ios-blue' : 'text-label-quaternary'}`} />
-                  <span className={`font-medium ${isActive ? 'text-ios-blue' : 'text-label-primary'}`}>{item.label}</span>
+                  <span className={`font-medium ${isActive ? 'text-ios-blue' : 'text-label-primary'}`}>{tDash(`nav.${item.id}`)}</span>
                 </button>
               );
             })}
@@ -494,7 +501,7 @@ export default function DashboardPage() {
                 >
                   <Icon className={`w-5 h-5 ${isActive ? 'text-white' : 'text-label-quaternary'}`} />
                   <span className={`text-[15px] font-medium tracking-[-0.01em] ${isActive ? 'text-white' : 'text-label-primary'}`}>
-                    {item.label}
+                    {tDash(`nav.${item.id}`)}
                   </span>
                 </button>
               );
@@ -503,21 +510,18 @@ export default function DashboardPage() {
         </aside>
 
         {/* Main Content */}
-        <main className="flex-1 min-w-0 min-h-[calc(100vh-52px)] pt-12 lg:pt-0 pb-[calc(52px+env(safe-area-inset-bottom))] lg:pb-0">
-          <div className="max-w-[1280px] mx-auto px-3 sm:px-5 py-3 sm:py-6 lg:px-8 lg:py-10">
+        <main className="relative flex-1 min-w-0 min-h-[calc(100vh-52px)] pt-12 lg:pt-0 pb-[calc(52px+env(safe-area-inset-bottom))] lg:pb-0">
+          <ChainAmbient />
+          <div className="relative max-w-[1280px] mx-auto px-3 sm:px-5 py-3 sm:py-6 lg:px-8 lg:py-10">
             <ReconnectBanner />
-            {/* Page Header — desktop-only large title. Uses the design
-                token `text-large-title` (34px, per-Apple line-height +
-                tracking). Sentence-case, tight tracking, no gradient. */}
-            <div className="hidden lg:block mb-6">
-              <h1 className="text-large-title text-label-primary tracking-[-0.02em]">
-                {destinations.find((d) => d.id === activeDest)?.label}
-              </h1>
+            {/* Desktop: greeting, page, purpose, network and market pulse. */}
+            <div className="hidden lg:block">
+              <DashboardHeader dest={activeDest} onOpenSignals={() => handleNavChange('signals')} />
             </div>
             {viewsOf(activeDest).length > 0 && (
               <div className="mb-3 sm:mb-5">
                 <ViewSwitcher
-                  views={viewsOf(activeDest)}
+                  views={viewsOf(activeDest).map((v) => ({ ...v, label: tDash(`views.${v.id}`) }))}
                   active={activeView}
                   onSelect={(view) => handleNavChange(activeDest, view)}
                 />
@@ -542,11 +546,11 @@ export default function DashboardPage() {
           portfolio/risk/custody/account sub-pages live. Reduces the
           old 4-tap "menu → drawer → tab → close" flow to 1 tap. */}
       <MobileTabBar
-        items={destinations.slice(0, 4)}
+        items={destinations.slice(0, 4).map((d) => ({ ...d, label: tDash(`nav.${d.id}`) }))}
         activeId={activeDest}
         onSelect={(id) => handleNavChange(id)}
         onOpenMore={() => setMobileMenuOpen(true)}
-        moreLabel="More"
+        moreLabel={tDash('nav.more')}
         moreIcon={MoreHorizontal}
       />
 
@@ -648,6 +652,9 @@ export default function DashboardPage() {
           case 'products':
             return <PortfolioTab />;
           default:
+            if (!portfolioAddress) {
+              return <ConnectHero onGoPool={() => handleNavChange('pool')} onGoSignals={() => handleNavChange('signals')} />;
+            }
             return (
               <div className="space-y-3 sm:space-y-6">
                 <Card>
@@ -890,7 +897,24 @@ function SidebarWalletCard({
   subLabel: string;
   size: number;
 }) {
-  const truncated = address ? `${address.slice(0, 6)}…${address.slice(-4)}` : 'Not Connected';
+  const tDash = useTranslations('dashboard');
+  if (!isConnected) {
+    // Not connected: an invitation, with the three networks it can be.
+    return (
+      <div className="flex items-center gap-3 min-w-0 rounded-2xl border border-ios-blue/15 bg-gradient-to-br from-ios-blue/[0.06] to-transparent p-2.5">
+        <div className="rounded-xl bg-ios-blue text-white flex items-center justify-center flex-shrink-0 shadow-[0_6px_14px_-6px_rgba(0,105,217,0.6)]" style={{ width: size - 8, height: size - 8 }}>
+          <Wallet className="w-5 h-5" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-[15px] font-semibold text-label-primary truncate tracking-[-0.01em]">{tDash('sidebar.connect')}</p>
+          <div className="mt-1 flex items-center gap-1.5">
+            {(['sui', 'hedera', 'solana'] as const).map((c) => <ChainLogo key={c} chain={c} size={15} label={c} />)}
+          </div>
+        </div>
+      </div>
+    );
+  }
+  const truncated = address ? `${address.slice(0, 6)}…${address.slice(-4)}` : '';
   const primary = displayName || truncated;
   const textSize = size >= 48 ? 'text-[15px]' : 'text-sm';
   const subSize = size >= 48 ? 'text-[13px]' : 'text-xs';
