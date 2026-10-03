@@ -21,8 +21,9 @@ import {
   type ChartOptions,
 } from 'chart.js';
 import { Line } from 'react-chartjs-2';
-import { TrendingUp, Loader2 } from 'lucide-react';
+import { TrendingUp } from 'lucide-react';
 import { logger } from '@/lib/utils/logger';
+import { SkeletonBox } from '@/components/dashboard/community-pool/Skeletons';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Filler);
 
@@ -257,9 +258,7 @@ export function NavHistoryChart({ chain = 'sui' }: NavHistoryChartProps = {}) {
           trend line without dominating the viewport. */}
       <div className="h-44 sm:h-56 md:h-64 relative">
         {loading && !data && (
-          <div className="absolute inset-0 flex items-center justify-center text-label-tertiary">
-            <Loader2 className="w-4 h-4 animate-spin" />
-          </div>
+          <SkeletonBox className="absolute inset-0 rounded-xl" />
         )}
         {!loading && data && (data.points?.length ?? 0) === 0 && (
           <div className="absolute inset-0 flex items-center justify-center text-[13px] text-label-tertiary text-center px-6">

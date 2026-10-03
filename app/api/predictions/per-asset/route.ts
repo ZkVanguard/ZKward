@@ -107,9 +107,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     ),
     driftHistory: driftSnapshot,
   }, {
-    // Signals refresh at 5-min cadence; safe to collapse repeat browser
-    // queries at the Vercel edge for 30s, serve stale for 60s more while
-    // revalidating in the background.
-    headers: { 'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=60' },
+    // Fresh for 30 s at the edge. A cold aggregator scan takes ~10 s, so the
+    // edge may answer stale for up to a day while it refreshes in the
+    // background; every reader polls and gets the refreshed copy next time.
+    headers: { 'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=86400' },
   });
 }

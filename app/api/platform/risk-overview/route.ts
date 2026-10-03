@@ -18,7 +18,6 @@
  *   - hedge.coverageRatio: hedgeNotional / poolNAV
  *   - reconciliation.cronHealth: per-cron staleness summary
  *   - zkAttestations: recent ZK proof commitments (count over last 24h + last 10 feed)
- *   - signals: latest per-asset prediction direction
  *   - asOf
  */
 import { NextRequest, NextResponse } from 'next/server';
@@ -26,7 +25,6 @@ import { logger } from '@/lib/utils/logger';
 import { safeErrorResponse } from '@/lib/security/safe-error';
 import { readLimiter } from '@/lib/security/rate-limiter';
 import { query } from '@/lib/db/postgres';
-import { getLiveAssetSignals } from '@/lib/services/market-data/live-signals';
 
 export const runtime = 'nodejs';
 // Dynamic on purpose: no `revalidate`. A revalidate export makes the GET a
@@ -90,7 +88,6 @@ interface RiskOverviewResponse {
     last24hCount: number;
     recentFeed: ZkAttestationRow[];
   };
-  signals: Record<string, { direction: string; confidence: number }>;
   paperTrader?: {
     navUsd: number;
     startingNavUsd: number;
@@ -692,29 +689,18 @@ async function getPaperTraderSection(): Promise<RiskOverviewResponse['paperTrade
   }
 }
 
-async function getLatestSignals(): Promise<RiskOverviewResponse['signals']> {
-  try {
-    const live = await getLiveAssetSignals();
-    return Object.fromEntries(
-      Object.entries(live).map(([asset, v]) => [asset, { direction: v.direction, confidence: v.confidence }]),
-    );
-  } catch {
-    return {};
-  }
-}
 
 export async function GET(request: NextRequest): Promise<NextResponse<RiskOverviewResponse | { error: string }>> {
   const limited = readLimiter.check(request);
   if (limited) return limited as NextResponse<RiskOverviewResponse | { error: string }>;
 
   try {
-    const [pool, hedges, venueLocked, cronHealth, zkAttestations, signals, defense, incidents, composition, hedgeHistory, paperTrader] = await Promise.all([
+    const [pool, hedges, venueLocked, cronHealth, zkAttestations, defense, incidents, composition, hedgeHistory, paperTrader] = await Promise.all([
       getPoolMetrics(),
       getActiveHedges(),
       getVenueLockedHedges(),
       getCronHealth(),
       getZkAttestations(),
-      getLatestSignals(),
       getDefenseSection(),
       getIncidentsSection(),
       getCompositionSection(),
@@ -758,7 +744,6 @@ export async function GET(request: NextRequest): Promise<NextResponse<RiskOvervi
         staleCount: cronHealth.filter((c) => c.status === 'stale').length,
       },
       zkAttestations,
-      signals,
       agents: await getAgentSection(),
       defense,
       incidents,
@@ -770,7 +755,7 @@ export async function GET(request: NextRequest): Promise<NextResponse<RiskOvervi
     return NextResponse.json(response, {
       // Investor-facing aggregation; underlying cron writes NAV every
       // 30min. 30s edge cache is comfortable for LP dashboards.
-      headers: { 'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=60' },
+      headers: { 'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=86400' },
     });
   } catch (error: unknown) {
     return safeErrorResponse(error, 'Platform risk overview') as NextResponse<RiskOverviewResponse | { error: string }>;

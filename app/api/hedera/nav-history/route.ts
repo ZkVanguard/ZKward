@@ -198,6 +198,6 @@ export async function GET(request: NextRequest): Promise<NextResponse<NavHistory
   void bucketParam;
 
   return NextResponse.json(body, {
-    headers: { 'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=60' },
+    headers: { 'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=86400' },
   });
 }
