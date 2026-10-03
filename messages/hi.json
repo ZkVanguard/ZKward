@@ -35,12 +35,13 @@
     "privacy": "गोपनीयता नीति",
     "terms": "सेवा की शर्तें",
     "rights": "सर्वाधिकार सुरक्षित।",
-    "testnet": "SUI Mainnet",
     "stage": "Mainnet लाइव",
     "migrationNotice": "Formerly zkward.xyz — zkward.com is our new home.",
     "builtWith": "ZK-STARK के साथ निर्मित",
     "story": "हमारी कहानी",
-    "deployedOn": "इन पर चालू"
+    "multichain": "मल्टी-चेन",
+    "mainnetTesting": "मेननेट टेस्टिंग",
+    "pools": "पूल"
   },
   "connect": {
     "button": "वॉलेट कनेक्ट करें",

@@ -35,12 +35,13 @@
     "privacy": "隐私政策",
     "terms": "服务条款",
     "rights": "版权所有。",
-    "testnet": "SUI主网",
     "stage": "主网上线",
     "migrationNotice": "Formerly zkward.xyz — zkward.com is our new home.",
     "builtWith": "基于ZK-STARK构建",
     "story": "我们的故事",
-    "deployedOn": "部署于"
+    "multichain": "多链",
+    "mainnetTesting": "主网测试中",
+    "pools": "资金池"
   },
   "connect": {
     "button": "连接钱包",

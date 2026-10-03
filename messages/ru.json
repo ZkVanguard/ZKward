@@ -35,12 +35,13 @@
     "privacy": "Политика конфиденциальности",
     "terms": "Условия использования",
     "rights": "Все права защищены.",
-    "testnet": "SUI Mainnet",
     "stage": "Mainnet Запущен",
     "migrationNotice": "Formerly zkward.xyz — zkward.com is our new home.",
     "builtWith": "Построено на ZK-STARK",
     "story": "Наша история",
-    "deployedOn": "Работает в"
+    "multichain": "Мультичейн",
+    "mainnetTesting": "Тестирование мейннета",
+    "pools": "Пулы"
   },
   "connect": {
     "button": "Подключить кошелёк",

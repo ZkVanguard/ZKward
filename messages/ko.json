@@ -35,12 +35,13 @@
     "privacy": "개인정보 보호정책",
     "terms": "서비스 이용약관",
     "rights": "모든 권리 보유.",
-    "testnet": "SUI Mainnet",
     "stage": "메인넷 라이브",
     "migrationNotice": "Formerly zkward.xyz — zkward.com is our new home.",
     "builtWith": "ZK-STARK로 구축",
     "story": "우리 이야기",
-    "deployedOn": "배포 네트워크"
+    "multichain": "멀티체인",
+    "mainnetTesting": "메인넷 테스트 중",
+    "pools": "풀"
   },
   "connect": {
     "button": "지갑 연결",
