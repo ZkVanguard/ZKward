@@ -18,6 +18,13 @@ const ConnectButton = nextDynamic(
   { ssr: false, loading: () => <ConnectButtonSkeleton /> },
 );
 
+// The phone header's network pill reads the wallet hub, which only the
+// dashboard mounts; loaded the same way so marketing pages never pay for it.
+const ActiveChainPill = nextDynamic(
+  () => import('./wallet/ActiveChainPill').then((m) => ({ default: m.ActiveChainPill })),
+  { ssr: false },
+);
+
 function ConnectButtonSkeleton() {
   return <div className="h-11 w-32 rounded-[12px] bg-system-bg-secondary animate-pulse" />;
 }
@@ -126,6 +133,9 @@ export const Navbar = memo(function Navbar() {
             <LanguageSelector />
             {isDashboard ? <ConnectButton /> : <ConnectButtonStub label={t('enterApp')} />}
           </div>
+
+          {/* Phone: the active network stays visible next to the menu button. */}
+          {isDashboard && <ActiveChainPill className="lg:hidden ml-auto mr-1" />}
 
           {/* Mobile Menu Button - Proper 44pt touch target */}
           <button

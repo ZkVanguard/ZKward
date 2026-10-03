@@ -23,6 +23,7 @@ import type { WalletAccount, WalletWithRequiredFeatures } from '@mysten/wallet-s
 import { useSuiSafe } from '@/app/sui-providers';
 import { useWalletHubSafe } from '@/contexts/WalletHubContext';
 import { PrivyConnectSection } from './PrivyConnectSection';
+import { ChainLogo, FundsTag } from '@/components/wallet/ChainLogo';
 import {
   SUI_MOBILE_WALLETS,
   isMobileBrowser,
@@ -33,10 +34,10 @@ import {
 // Renders every wallet dapp-kit's useWallets() returned. If none detected,
 // surfaces the install links for the top three so the user is one click
 // away from having a wallet. The click-outside layer closes on backdrop tap.
-const SUI_INSTALL_LINKS: Array<{ name: string; url: string; icon: string }> = [
-  { name: 'Slush', url: 'https://slush.app/download', icon: '💧' },
-  { name: 'Suiet', url: 'https://suiet.app/', icon: '🟣' },
-  { name: 'Sui Wallet', url: 'https://chromewebstore.google.com/detail/sui-wallet/opcgpfmipidbgpenhmajoajpbobppdil', icon: '🔵' },
+const SUI_INSTALL_LINKS: Array<{ name: string; url: string }> = [
+  { name: 'Slush', url: 'https://slush.app/download' },
+  { name: 'Suiet', url: 'https://suiet.app/' },
+  { name: 'Sui Wallet', url: 'https://chromewebstore.google.com/detail/sui-wallet/opcgpfmipidbgpenhmajoajpbobppdil' },
 ];
 
 function SuiWalletPicker({
@@ -55,7 +56,7 @@ function SuiWalletPicker({
       <div className="absolute top-full mt-2 right-0 w-72 bg-white dark:bg-[#1c1c1e] border border-[#E5E5EA] dark:border-[#38383a] rounded-xl shadow-lg overflow-hidden z-50">
         <div className="p-3">
           <div className="flex items-center gap-2 mb-3">
-            <div className="w-8 h-8 rounded-full bg-[#4DA2FF] flex items-center justify-center text-white text-[10px] font-bold">SUI</div>
+            <div className="w-8 h-8 rounded-full bg-[#f5f5f7] flex items-center justify-center"><ChainLogo chain="sui" size={18} label="SUI" /></div>
             <div className="min-w-0">
               <div className="text-[14px] font-semibold text-label-primary dark:text-white truncate">
                 {hasWallets ? 'Pick a wallet' : 'Install a wallet'}
@@ -78,7 +79,7 @@ function SuiWalletPicker({
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={w.icon} alt="" className="w-6 h-6 rounded flex-shrink-0" />
                   ) : (
-                    <span className="w-6 h-6 rounded bg-[#4DA2FF]/10 flex items-center justify-center text-[12px]">💧</span>
+                    <span className="w-6 h-6 rounded bg-[#f5f5f7] flex items-center justify-center"><ChainLogo chain="sui" size={14} /></span>
                   )}
                   <span className="text-[13px] font-medium text-label-primary dark:text-white flex-1 text-left truncate">
                     {w.name}
@@ -96,8 +97,8 @@ function SuiWalletPicker({
                   rel="noopener noreferrer"
                   className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg bg-system-bg-secondary dark:bg-[#2c2c2e] hover:bg-[#E5E5EA] dark:hover:bg-[#3c3c3e] active:scale-[0.98] transition-all"
                 >
-                  <span className="w-6 h-6 rounded bg-[#4DA2FF]/10 flex items-center justify-center text-[12px] flex-shrink-0">
-                    {link.icon}
+                  <span className="w-6 h-6 rounded bg-[#f5f5f7] flex items-center justify-center flex-shrink-0">
+                    <ChainLogo chain="sui" size={14} />
                   </span>
                   <span className="text-[13px] font-medium text-label-primary dark:text-white flex-1 text-left truncate">
                     Install {link.name}
@@ -298,9 +299,7 @@ export function ConnectButton() {
               <div className="relative flex items-center gap-3">
                 {/* SUI drop-shape mark */}
                 <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-white/95 flex items-center justify-center shadow-lg shadow-[#4DA2FF]/30 flex-shrink-0">
-                  <span className="text-[#4DA2FF] font-black text-lg sm:text-xl tracking-tight">
-                    SUI
-                  </span>
+                  <ChainLogo chain="sui" size={28} label="SUI" />
                 </div>
                 <div className="min-w-0">
                   <h3 className="text-white font-bold text-lg sm:text-xl tracking-tight truncate">
@@ -438,12 +437,11 @@ export function ConnectButton() {
               className="h-11 bg-system-bg-secondary dark:bg-[#2c2c2e] hover:bg-[#E5E5EA] dark:hover:bg-[#3c3c3e] border border-black/5 dark:border-white/10 rounded-[12px] transition-colors flex items-center gap-2 px-3"
               title="Solana wallet"
             >
-              <div className="w-6 h-6 rounded-full bg-[#9945FF] flex items-center justify-center">
-                <span className="text-white font-bold text-[8px]">SOL</span>
-              </div>
+              <ChainLogo chain="solana" size={20} label="Solana" />
               <span className="text-label-primary dark:text-white font-medium text-[14px]">
                 {truncate(hub.solana.address)}
               </span>
+              <FundsTag chain="solana" className="hidden xl:inline-flex" />
             </button>
           )}
           {!hub.isConnected && (
@@ -560,12 +558,11 @@ export function ConnectButton() {
                 onClick={() => setShowSelector(!showSelector)}
                 className="h-11 bg-system-bg-secondary dark:bg-[#2c2c2e] hover:bg-[#E5E5EA] dark:hover:bg-[#3c3c3e] border border-black/5 dark:border-white/10 rounded-[12px] transition-colors flex items-center gap-2 px-3"
               >
-                <div className="w-6 h-6 rounded-full bg-[#4DA2FF] flex items-center justify-center">
-                  <span className="text-white font-bold text-[8px]">SUI</span>
-                </div>
+                <ChainLogo chain="sui" size={20} label="SUI" />
                 <span className="text-label-primary dark:text-white font-medium text-[14px]">
                   {truncate(suiAddress)}
                 </span>
+                <FundsTag chain="sui" className="hidden xl:inline-flex" />
                 <ChevronDown className="w-3.5 h-3.5 text-label-tertiary" />
               </button>
 
@@ -575,8 +572,8 @@ export function ConnectButton() {
                   <div className="absolute top-full mt-2 right-0 w-56 bg-white dark:bg-[#1c1c1e] border border-[#E5E5EA] dark:border-[#38383a] rounded-xl shadow-lg overflow-hidden z-50">
                     <div className="p-3">
                       <div className="flex items-center gap-2.5 mb-3">
-                        <div className="w-9 h-9 rounded-full bg-[#4DA2FF] flex items-center justify-center">
-                          <span className="text-white font-bold text-[10px]">SUI</span>
+                        <div className="w-9 h-9 rounded-full bg-[#f5f5f7] flex items-center justify-center">
+                          <ChainLogo chain="sui" size={20} />
                         </div>
                         <div>
                           <div className="font-medium text-label-primary dark:text-white text-[14px]">

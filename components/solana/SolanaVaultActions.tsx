@@ -13,6 +13,7 @@ import { AlertTriangle, Check, Copy, Droplets, ExternalLink, Loader2, Minus, Plu
 import { depositTokens, signWithdrawMessage } from './wallet';
 import { CHAIN_INFO, useWalletHub } from '@/contexts/WalletHubContext';
 import { explorerAddress, explorerTx, shortAddr, useSolanaPoolStatus } from './status';
+import { ChainLogo } from '@/components/wallet/ChainLogo';
 
 const SOLANA_ACCENT = '#9945FF';
 const ACCENT = '#0069D9';
@@ -156,7 +157,8 @@ export function SolanaVaultActions() {
       {wallet ? (
         <div className="rounded-xl border p-3 space-y-2" style={{ borderColor: `${SOLANA_ACCENT}30`, background: `${SOLANA_ACCENT}08` }}>
           <div className="flex items-center justify-between gap-2">
-            <div className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: SOLANA_ACCENT }}>
+            <div className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide" style={{ color: SOLANA_ACCENT }}>
+              <ChainLogo chain="solana" size={14} />
               Your Solana wallet
             </div>
             <span className="text-[10px] text-label-tertiary">Solana {testnet ? cluster : 'mainnet'}</span>

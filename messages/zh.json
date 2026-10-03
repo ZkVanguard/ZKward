@@ -35,11 +35,13 @@
     "privacy": "隐私政策",
     "terms": "服务条款",
     "rights": "版权所有。",
-    "testnet": "SUI主网",
     "stage": "主网上线",
     "migrationNotice": "Formerly zkward.xyz — zkward.com is our new home.",
     "builtWith": "基于ZK-STARK构建",
-    "story": "我们的故事"
+    "story": "我们的故事",
+    "multichain": "多链",
+    "mainnetTesting": "主网测试中",
+    "pools": "资金池"
   },
   "connect": {
     "button": "连接钱包",
@@ -577,5 +579,74 @@
   "legacyBanner": {
     "message": "<strong>zkward.xyz 即将下线</strong> — 我们现在在 <link>zkward.com</link>。",
     "dismiss": "关闭"
+  },
+  "wallet": {
+    "funds": {
+      "real": "真实资金",
+      "test": "测试代币",
+      "simulated": "模拟"
+    },
+    "net": {
+      "mainnet": "主网",
+      "testnet": "测试网",
+      "devnet": "开发网",
+      "simulated": "模拟"
+    },
+    "paper": "模拟",
+    "elsewhere": "你当前连接的是 {active}，这里是 {pool} 资金池。",
+    "pill": {
+      "on": "你在 {chain} {net}。点按切换。",
+      "connect": "连接"
+    },
+    "chains": {
+      "hedera": {
+        "pool": "Hedera 测试网上的 USDC 资金池",
+        "how": "用邮箱或 Google 登录。我们为你创建钱包，无需安装。",
+        "cta": "用 Hedera 登录"
+      },
+      "sui": {
+        "pool": "SUI 主网上的实盘 USDC 资金池",
+        "how": "使用 SUI 浏览器钱包，如 Slush、Suiet 或 Ethos。",
+        "cta": "使用 SUI"
+      },
+      "solana": {
+        "pool": "Solana 开发网上的 JIMP 测试池",
+        "how": "使用 Phantom。测试池需将其切换到 Devnet。",
+        "cta": "使用 Solana"
+      }
+    },
+    "install": {
+      "sui": "获取 Slush",
+      "solana": "获取 Phantom"
+    },
+    "chooser": {
+      "welcomeTitle": "欢迎来到 ZKward",
+      "useTitle": "使用 {chain}",
+      "switchTitle": "切换网络",
+      "chooseTitle": "选择你的网络",
+      "welcomeBody": "选择你要使用的网络。每个标签页都会跟随你的选择，你可以随时在顶部栏切换。",
+      "body": "一次只使用一个网络。切换会断开当前网络。",
+      "close": "关闭",
+      "browseFirst": "先看看，稍后再决定",
+      "active": "使用中",
+      "neededHere": "此处需要",
+      "connecting": "连接中…",
+      "disconnect": "断开连接",
+      "switchTo": "切换到 {chain}",
+      "suggested": "推荐"
+    },
+    "why": {
+      "link": "来自你的链接",
+      "last": "此设备上次使用",
+      "wallet": "在此浏览器中找到钱包",
+      "noInstall": "无需安装"
+    },
+    "detect": {
+      "hedera": "任何浏览器都可使用",
+      "suiFound": "在此浏览器中找到 {wallet}",
+      "suiMissing": "此浏览器中没有 SUI 钱包",
+      "solanaFound": "在此浏览器中找到 Phantom",
+      "solanaMissing": "此浏览器中未找到 Phantom"
+    }
   }
 }

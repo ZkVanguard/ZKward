@@ -16,6 +16,7 @@
 import { useCallback, useState } from 'react';
 import { usePrivy, useLogin, useLogout, useWallets, useLoginWithOAuth } from '@privy-io/react-auth';
 import { useWalletHubSafe } from '@/contexts/WalletHubContext';
+import { ChainLogo, FundsTag } from '@/components/wallet/ChainLogo';
 import { Copy, Check, LogOut, Mail } from 'lucide-react';
 
 // Match the site's primary CTA (Deposit USDC, Enter app, main nav links)
@@ -126,15 +127,11 @@ export function PrivyConnectSection() {
         onClick={() => setShowMenu((v) => !v)}
         className="h-11 bg-system-bg-secondary dark:bg-[#2c2c2e] hover:bg-[#E5E5EA] dark:hover:bg-[#3c3c3e] border border-black/5 dark:border-white/10 rounded-[12px] flex items-center gap-2 px-3"
       >
-        <div
-          className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px] font-bold"
-          style={{ background: PRIVY_ACCENT }}
-        >
-          {(label ?? '?').charAt(0).toUpperCase()}
-        </div>
+        <ChainLogo chain="hedera" size={20} label="Hedera" />
         <span className="text-label-primary dark:text-white font-medium text-[13px] max-w-[140px] truncate">
           {label ?? 'account'}
         </span>
+        <FundsTag chain="hedera" className="hidden xl:inline-flex" />
       </button>
 
       {showMenu && (

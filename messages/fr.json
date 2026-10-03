@@ -35,11 +35,13 @@
     "privacy": "Politique de confidentialité",
     "terms": "Conditions d'utilisation",
     "rights": "Tous droits réservés.",
-    "testnet": "SUI Mainnet",
     "stage": "Mainnet En Direct",
     "migrationNotice": "Formerly zkward.xyz — zkward.com is our new home.",
     "builtWith": "Développé avec ZK-STARK",
-    "story": "Notre histoire"
+    "story": "Notre histoire",
+    "multichain": "Multichaîne",
+    "mainnetTesting": "Tests mainnet",
+    "pools": "Pools"
   },
   "connect": {
     "button": "Connecter le wallet",
@@ -577,5 +579,74 @@
   "legacyBanner": {
     "message": "<strong>zkward.xyz se retire</strong> — nous sommes maintenant sur <link>zkward.com</link>.",
     "dismiss": "Fermer"
+  },
+  "wallet": {
+    "funds": {
+      "real": "Fonds réels",
+      "test": "Jetons de test",
+      "simulated": "Simulé"
+    },
+    "net": {
+      "mainnet": "Mainnet",
+      "testnet": "Testnet",
+      "devnet": "Devnet",
+      "simulated": "Simulé"
+    },
+    "paper": "Simulé",
+    "elsewhere": "Vous êtes connecté à {active}. Ceci est le pool {pool}.",
+    "pill": {
+      "on": "Vous êtes sur {chain} {net}. Touchez pour changer.",
+      "connect": "Connecter"
+    },
+    "chains": {
+      "hedera": {
+        "pool": "Pool USDC sur Hedera testnet",
+        "how": "Connectez-vous avec un e-mail ou Google. Nous créons un portefeuille pour vous, rien à installer.",
+        "cta": "Se connecter avec Hedera"
+      },
+      "sui": {
+        "pool": "Pool USDC en direct sur SUI mainnet",
+        "how": "Utilise un portefeuille SUI de navigateur comme Slush, Suiet ou Ethos.",
+        "cta": "Utiliser SUI"
+      },
+      "solana": {
+        "pool": "Pool de test JIMP sur Solana devnet",
+        "how": "Utilise Phantom. Passez-le en Devnet pour le pool de test.",
+        "cta": "Utiliser Solana"
+      }
+    },
+    "install": {
+      "sui": "Obtenir Slush",
+      "solana": "Obtenir Phantom"
+    },
+    "chooser": {
+      "welcomeTitle": "Bienvenue sur ZKward",
+      "useTitle": "Utiliser {chain}",
+      "switchTitle": "Changer de réseau",
+      "chooseTitle": "Choisissez votre réseau",
+      "welcomeBody": "Choisissez le réseau à utiliser. Chaque onglet suit votre choix, et vous pouvez en changer à tout moment depuis la barre du haut.",
+      "body": "Vous utilisez un réseau à la fois. Changer déconnecte le réseau actuel.",
+      "close": "Fermer",
+      "browseFirst": "Explorer d'abord, décider ensuite",
+      "active": "Actif",
+      "neededHere": "Requis ici",
+      "connecting": "Connexion…",
+      "disconnect": "Déconnecter",
+      "switchTo": "Passer à {chain}",
+      "suggested": "Suggéré"
+    },
+    "why": {
+      "link": "depuis votre lien",
+      "last": "utilisé en dernier sur cet appareil",
+      "wallet": "portefeuille trouvé dans ce navigateur",
+      "noInstall": "rien à installer"
+    },
+    "detect": {
+      "hedera": "Fonctionne dans tout navigateur",
+      "suiFound": "{wallet} trouvé dans ce navigateur",
+      "suiMissing": "Aucun portefeuille SUI dans ce navigateur",
+      "solanaFound": "Phantom trouvé dans ce navigateur",
+      "solanaMissing": "Phantom introuvable dans ce navigateur"
+    }
   }
 }

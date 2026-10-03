@@ -9,7 +9,9 @@
  * (WalletHubContext).
  */
 
+import { useTranslations } from 'next-intl';
 import { useWallet } from '@/lib/hooks/useWallet';
+import { ChainLogo } from '@/components/wallet/ChainLogo';
 import { CHAIN_INFO, useWalletHubSafe, type WalletChain } from '@/contexts/WalletHubContext';
 
 const short = (a: string) => `${a.slice(0, 6)}…${a.slice(-4)}`;
@@ -25,16 +27,17 @@ export function ChainBadge({
   size?: 'sm' | 'md';
   className?: string;
 }) {
+  const t = useTranslations('wallet.net');
   const info = CHAIN_INFO[chain];
   const text = size === 'sm' ? 'text-[11px]' : 'text-[12px]';
   return (
     <span
       className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 bg-[#f5f5f7] text-[#1d1d1f] font-medium ${text} ${className}`}
-      title={`${info.name} ${info.net}`}
+      title={`${info.name} ${t(info.net)}`}
     >
-      <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: info.color }} />
+      <ChainLogo chain={chain} size={size === 'sm' ? 12 : 14} />
       {info.name}
-      <span className="text-[#86868b] font-normal">{info.net}</span>
+      <span className="text-[#86868b] font-normal">{t(info.net)}</span>
       {address && <span className="font-mono text-[#6e6e73]">{short(address)}</span>}
     </span>
   );

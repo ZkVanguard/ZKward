@@ -35,11 +35,13 @@
     "privacy": "سياسة الخصوصية",
     "terms": "شروط الخدمة",
     "rights": "جميع الحقوق محفوظة.",
-    "testnet": "SUI Mainnet",
     "stage": "الشبكة الرئيسية مباشرة",
     "migrationNotice": "Formerly zkward.xyz — zkward.com is our new home.",
     "builtWith": "مبني على ZK-STARK",
-    "story": "قصتنا"
+    "story": "قصتنا",
+    "multichain": "متعدد الشبكات",
+    "mainnetTesting": "اختبار الشبكة الرئيسية",
+    "pools": "المجمعات"
   },
   "connect": {
     "button": "توصيل المحفظة",
@@ -577,5 +579,74 @@
   "legacyBanner": {
     "message": "<strong>zkward.xyz على وشك الإغلاق</strong> — نحن الآن على <link>zkward.com</link>.",
     "dismiss": "إغلاق"
+  },
+  "wallet": {
+    "funds": {
+      "real": "أموال حقيقية",
+      "test": "رموز تجريبية",
+      "simulated": "محاكاة"
+    },
+    "net": {
+      "mainnet": "الشبكة الرئيسية",
+      "testnet": "شبكة الاختبار",
+      "devnet": "شبكة التطوير",
+      "simulated": "محاكاة"
+    },
+    "paper": "محاكاة",
+    "elsewhere": "أنت متصل بـ {active}. هذا مجمع {pool}.",
+    "pill": {
+      "on": "أنت على {chain} {net}. اضغط للتبديل.",
+      "connect": "اتصال"
+    },
+    "chains": {
+      "hedera": {
+        "pool": "مجمع USDC على شبكة اختبار Hedera",
+        "how": "سجّل الدخول بالبريد الإلكتروني أو Google. ننشئ لك محفظة دون الحاجة إلى تثبيت أي شيء.",
+        "cta": "تسجيل الدخول عبر Hedera"
+      },
+      "sui": {
+        "pool": "مجمع USDC مباشر على الشبكة الرئيسية لـ SUI",
+        "how": "يستخدم محفظة متصفح لـ SUI مثل Slush أو Suiet أو Ethos.",
+        "cta": "استخدام SUI"
+      },
+      "solana": {
+        "pool": "مجمع JIMP التجريبي على شبكة تطوير Solana",
+        "how": "يستخدم Phantom. حوّله إلى Devnet للمجمع التجريبي.",
+        "cta": "استخدام Solana"
+      }
+    },
+    "install": {
+      "sui": "احصل على Slush",
+      "solana": "احصل على Phantom"
+    },
+    "chooser": {
+      "welcomeTitle": "مرحبًا بك في ZKward",
+      "useTitle": "استخدام {chain}",
+      "switchTitle": "تبديل الشبكة",
+      "chooseTitle": "اختر شبكتك",
+      "welcomeBody": "اختر الشبكة التي تريد استخدامها. كل تبويب يتبع اختيارك، ويمكنك التبديل في أي وقت من الشريط العلوي.",
+      "body": "تستخدم شبكة واحدة في كل مرة. التبديل يفصل الشبكة الحالية.",
+      "close": "إغلاق",
+      "browseFirst": "تصفّح أولًا وقرّر لاحقًا",
+      "active": "نشطة",
+      "neededHere": "مطلوبة هنا",
+      "connecting": "جارٍ الاتصال…",
+      "disconnect": "قطع الاتصال",
+      "switchTo": "التبديل إلى {chain}",
+      "suggested": "مقترحة"
+    },
+    "why": {
+      "link": "من رابطك",
+      "last": "آخر استخدام على هذا الجهاز",
+      "wallet": "تم العثور على محفظة في هذا المتصفح",
+      "noInstall": "لا حاجة للتثبيت"
+    },
+    "detect": {
+      "hedera": "تعمل في أي متصفح",
+      "suiFound": "تم العثور على {wallet} في هذا المتصفح",
+      "suiMissing": "لا توجد محفظة SUI في هذا المتصفح",
+      "solanaFound": "تم العثور على Phantom في هذا المتصفح",
+      "solanaMissing": "لم يتم العثور على Phantom في هذا المتصفح"
+    }
   }
 }

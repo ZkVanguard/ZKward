@@ -7,6 +7,7 @@
  */
 
 import { CHAIN_INFO, useWalletHub } from '@/contexts/WalletHubContext';
+import { ChainLogo } from '@/components/wallet/ChainLogo';
 
 export function ReconnectBanner() {
   const hub = useWalletHub();
@@ -15,7 +16,7 @@ export function ReconnectBanner() {
   const info = CHAIN_INFO[chain];
   return (
     <div className="mb-4 flex flex-wrap items-center gap-3 rounded-2xl border border-black/5 bg-white px-4 py-3 shadow-sm">
-      <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: info.color }} />
+      <ChainLogo chain={chain} size={20} />
       <p className="flex-1 min-w-[200px] text-[13px] text-[#1d1d1f]">
         You last used <strong>{info.name}</strong>. {chain === 'hedera' ? 'Sign in again' : 'Reconnect'} to pick up where you left off.
       </p>

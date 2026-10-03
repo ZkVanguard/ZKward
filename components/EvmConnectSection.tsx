@@ -24,6 +24,7 @@ import {
 } from 'wagmi';
 import { ChevronDown, Copy, Check, ExternalLink, LogOut, Wallet } from 'lucide-react';
 import { CHAIN_PICKER_ORDER, isHederaChain, hederaTestnet } from '@/lib/evm-wallet/wagmi-config';
+import { ChainLogo } from '@/components/wallet/ChainLogo';
 
 // Hedera brand-ish teal for the primary CTA + badges.
 const HEDERA_ACCENT = '#00A79F';
@@ -135,12 +136,7 @@ export function EvmConnectSection() {
             <div className="absolute top-full mt-2 right-0 w-72 bg-white dark:bg-[#1c1c1e] border border-[#E5E5EA] dark:border-[#38383a] rounded-xl shadow-lg overflow-hidden z-50">
               <div className="p-3">
                 <div className="flex items-center gap-2 mb-3">
-                  <div
-                    className="w-8 h-8 rounded-full flex items-center justify-center text-white text-[10px] font-bold"
-                    style={{ background: HEDERA_ACCENT }}
-                  >
-                    ℏ
-                  </div>
+                  <ChainLogo chain="hedera" size={32} label="Hedera" />
                   <div>
                     <div className="text-[14px] font-semibold text-label-primary dark:text-white">
                       Connect to Hedera
@@ -263,12 +259,7 @@ export function EvmConnectSection() {
         onClick={() => setShowAccountMenu((v) => !v)}
         className="h-11 bg-system-bg-secondary dark:bg-[#2c2c2e] hover:bg-[#E5E5EA] dark:hover:bg-[#3c3c3e] border border-black/5 dark:border-white/10 rounded-[12px] transition-colors flex items-center gap-2 px-3"
       >
-        <div
-          className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px] font-bold"
-          style={{ background: HEDERA_ACCENT }}
-        >
-          ℏ
-        </div>
+        <ChainLogo chain="hedera" size={22} label="Hedera" />
         <span className="text-label-primary dark:text-white font-medium text-[14px]">
           {truncate(address!)}
         </span>
@@ -281,12 +272,7 @@ export function EvmConnectSection() {
           <div className="absolute top-full mt-2 right-0 w-64 bg-white dark:bg-[#1c1c1e] border border-[#E5E5EA] dark:border-[#38383a] rounded-xl shadow-lg overflow-hidden z-50">
             <div className="p-3">
               <div className="flex items-center gap-2 mb-3">
-                <div
-                  className="w-9 h-9 rounded-full flex items-center justify-center text-white text-[12px] font-bold"
-                  style={{ background: HEDERA_ACCENT }}
-                >
-                  ℏ
-                </div>
+                <ChainLogo chain="hedera" size={34} label="Hedera" />
                 <div className="min-w-0">
                   <div className="text-[13px] font-medium text-label-primary dark:text-white truncate">
                     {activeChain?.name ?? `Chain ${chainId}`}
