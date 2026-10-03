@@ -1,9 +1,17 @@
 'use client';
 
 import React, { memo } from 'react';
-import { RefreshCw, Brain, Globe, Loader2 } from 'lucide-react';
+import { RefreshCw, Brain, Loader2 } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import { POOL_CHAIN_CONFIGS } from '@/lib/contracts/community-pool-config';
+import { CHAIN_INFO, useWalletHubSafe, type WalletChain } from '@/contexts/WalletHubContext';
+import { ChainLogo, FundsTag, type LogoChain } from '@/components/wallet/ChainLogo';
 import type { ChainKey } from './types';
+
+// The four pools the selector offers, in order. Each is a network with its
+// own mark; Paper is the simulated book.
+const POOL_TABS = ['sui', 'hedera', 'solana', 'paper'] as const satisfies readonly LogoChain[];
+const isWalletChain = (k: string): k is WalletChain => k === 'sui' || k === 'hedera' || k === 'solana';
 
 interface PoolHeaderProps {
   selectedChain: ChainKey;
@@ -11,7 +19,6 @@ interface PoolHeaderProps {
   onRefresh?: () => void;
   onAIClick?: () => void;
   chainName?: string;
-  network?: string;
   poolDeployed?: boolean;
   isLoading?: boolean;
 }
@@ -25,7 +32,6 @@ export const PoolHeader = memo(function PoolHeader({
   onRefresh,
   onAIClick,
   chainName,
-  network,
   poolDeployed,
   isLoading,
 }: PoolHeaderProps) {
@@ -35,15 +41,25 @@ export const PoolHeader = memo(function PoolHeader({
   // selector + refresh + AI insights, sitting on the same white
   // canvas as the rest of the dashboard. Network + chain info moves
   // into a subtle status pill below.
+  const t = useTranslations('wallet');
+  const hub = useWalletHubSafe();
+  const tab: LogoChain | null = (POOL_TABS as readonly string[]).includes(selectedChain) ? (selectedChain as LogoChain) : null;
+  // The tier comes from the network itself: Solana's pool is on devnet and Paper is simulated, neither is "testnet".
+  // Paper's tag already says Simulated; a second label would repeat it.
+  const netLabel = tab && tab !== 'paper' ? t(`net.${CHAIN_INFO[tab].net}`) : null;
+  // Viewing one network's pool while connected to another: say so, with the switch one tap away.
+  const elsewhere = hub?.isConnected && hub.activeChain && tab && isWalletChain(tab) && tab !== hub.activeChain ? tab : null;
   return (
-    <div className="px-3 sm:px-6 py-3 border-b border-black/5 flex flex-wrap items-center justify-between gap-3">
-      {/* Left: chain + network status pill */}
-      {chainName && network ? (
-        <div className="flex items-center gap-2 text-[12px] sm:text-caption-1 text-label-tertiary tabular-nums">
-          <Globe className="w-3.5 h-3.5" />
-          <span className="truncate">
-            {chainName} · {network === 'mainnet' ? 'Mainnet' : 'Testnet'}
+    <div className="border-b border-black/5">
+    <div className="px-3 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-3">
+      {/* Left: the pool's network, its tier and whether its money is real */}
+      {chainName && tab ? (
+        <div className="flex items-center gap-2 text-[12px] sm:text-caption-1 text-label-tertiary tabular-nums min-w-0">
+          <ChainLogo chain={tab} size={16} />
+          <span className="truncate text-label-secondary font-medium">
+            {netLabel ? `${chainName} · ${netLabel}` : chainName}
           </span>
+          <FundsTag chain={tab} />
           {poolDeployed === false && (
             <span className="text-ios-orange font-medium">· Not Deployed</span>
           )}
@@ -59,7 +75,7 @@ export const PoolHeader = memo(function PoolHeader({
             Paper (shadow book) are virtual entries CommunityPool renders
             with their own panels. */}
         <div className="flex items-center gap-2 bg-system-bg-grouped border border-separator-opaque/30 rounded-full px-2 py-1">
-          {(['sui', 'hedera', 'solana', 'paper'] as const)
+          {POOL_TABS
             .map((key) => [key, POOL_CHAIN_CONFIGS[key]] as const)
             .filter(([, config]) => config && (config.status === 'live' || config.status === 'testing'))
             .map(([key, config]) => (
@@ -71,11 +87,11 @@ export const PoolHeader = memo(function PoolHeader({
                     ? 'bg-white text-label-primary shadow-ios-1'
                     : 'text-label-tertiary hover:text-label-primary'
                 }`}
-                title={`${config.name} · ${config.status === 'testing' ? 'testnet' : 'mainnet'}`}
+                title={`${config.name} · ${key === 'paper' ? t('net.simulated') : t(`net.${CHAIN_INFO[key].net}`)}`}
               >
-                {/* Icons from sm up: four pills + refresh + AI must fit a 390px row. */}
-                <span className="hidden sm:inline">{config.icon}</span>
-                <span>{config.shortName}</span>
+                {/* The mark from sm up: four pills + refresh + AI must fit a 390px row. */}
+                <ChainLogo chain={key} size={14} className="hidden sm:inline-block" />
+                <span>{key === 'paper' ? t('paper') : CHAIN_INFO[key].name}</span>
               </button>
             ))}
         </div>
@@ -109,6 +125,23 @@ export const PoolHeader = memo(function PoolHeader({
           </>
         )}
       </div>
+    </div>
+    {elsewhere && hub?.activeChain && (
+      <div className="mx-3 sm:mx-6 mb-3 flex flex-wrap items-center gap-2 rounded-xl bg-amber-500/10 px-3 py-2 text-[12px] text-amber-900">
+        <ChainLogo chain={hub.activeChain} size={14} />
+        <span className="flex-1 min-w-[180px]">
+          {t('elsewhere', { active: CHAIN_INFO[hub.activeChain].name, pool: CHAIN_INFO[elsewhere].name })}
+        </span>
+        <button
+          type="button"
+          onClick={() => hub.openChooser({ chain: elsewhere })}
+          className="inline-flex items-center gap-1.5 rounded-lg bg-white px-2.5 py-1 font-semibold text-label-primary shadow-sm active:scale-[0.98]"
+        >
+          <ChainLogo chain={elsewhere} size={14} />
+          {t('chooser.switchTo', { chain: CHAIN_INFO[elsewhere].name })}
+        </button>
+      </div>
+    )}
     </div>
   );
 });

@@ -24,6 +24,7 @@ import { logger } from '@/lib/utils/logger';
 import { useSui } from '@/app/sui-providers';
 import { useWalletHub, type WalletChain } from '@/contexts/WalletHubContext';
 import { ChainBadge } from '@/components/wallet/ChainBadge';
+import { ChainLogo, FundsTag } from '@/components/wallet/ChainLogo';
 import { ReconnectBanner } from '@/components/wallet/ReconnectBanner';
 
 // Dynamic imports for code splitting
@@ -897,13 +898,20 @@ function SidebarWalletCard({
     <div className="flex items-center gap-3 min-w-0">
       {chain === 'sui' || chain === 'solana' ? (
         <div
-          className="rounded-full flex items-center justify-center flex-shrink-0"
-          style={{ width: size, height: size, background: chain === 'sui' ? '#4DA2FF' : '#9945FF' }}
+          className="rounded-full bg-[#f5f5f7] flex items-center justify-center flex-shrink-0"
+          style={{ width: size, height: size }}
         >
-          <span className={`text-white font-semibold ${textSize}`}>{chain === 'sui' ? 'SUI' : 'SOL'}</span>
+          <ChainLogo chain={chain} size={Math.round(size * 0.55)} />
         </div>
       ) : (
-        <WalletAvatar address={address || null} name={displayName} size={size} />
+        <div className="relative flex-shrink-0">
+          <WalletAvatar address={address || null} name={displayName} size={size} />
+          {chain === 'hedera' && isConnected && (
+            <span className="absolute -bottom-0.5 -right-0.5 rounded-full bg-white p-[2px] shadow-sm">
+              <ChainLogo chain="hedera" size={Math.round(size * 0.32)} />
+            </span>
+          )}
+        </div>
       )}
       <div className="flex-1 min-w-0">
         <p className={`${textSize} font-semibold text-label-primary truncate tracking-[-0.01em]`}>
@@ -912,6 +920,7 @@ function SidebarWalletCard({
         {isConnected && chain ? (
           <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
             <ChainBadge chain={chain} />
+            <FundsTag chain={chain} />
             <span className={`${subSize} text-ios-blue`}>Switch</span>
             {subLabel && <span className={`${subSize} text-label-quaternary tabular-nums truncate`}>{subLabel}</span>}
           </div>

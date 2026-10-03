@@ -685,5 +685,74 @@
   "legacyBanner": {
     "message": "<strong>zkward.xyz は間もなく終了</strong> — 現在は <link>zkward.com</link> です。",
     "dismiss": "閉じる"
+  },
+  "wallet": {
+    "funds": {
+      "real": "実資金",
+      "test": "テストトークン",
+      "simulated": "シミュレーション"
+    },
+    "net": {
+      "mainnet": "メインネット",
+      "testnet": "テストネット",
+      "devnet": "デブネット",
+      "simulated": "シミュレーション"
+    },
+    "paper": "シミュレーション",
+    "elsewhere": "{active} に接続中です。ここは {pool} のプールです。",
+    "pill": {
+      "on": "{chain} {net} を使用中。タップで切り替え。",
+      "connect": "接続"
+    },
+    "chains": {
+      "hedera": {
+        "pool": "Hedera テストネットの USDC プール",
+        "how": "メールまたは Google でサインイン。ウォレットはこちらで作成するので、インストール不要です。",
+        "cta": "Hedera でサインイン"
+      },
+      "sui": {
+        "pool": "SUI メインネットで稼働中の USDC プール",
+        "how": "Slush、Suiet、Ethos などの SUI ブラウザウォレットを使います。",
+        "cta": "SUI を使う"
+      },
+      "solana": {
+        "pool": "Solana デブネットの JIMP テストプール",
+        "how": "Phantom を使います。テストプールでは Devnet に切り替えてください。",
+        "cta": "Solana を使う"
+      }
+    },
+    "install": {
+      "sui": "Slush を入手",
+      "solana": "Phantom を入手"
+    },
+    "chooser": {
+      "welcomeTitle": "ZKward へようこそ",
+      "useTitle": "{chain} を使う",
+      "switchTitle": "ネットワークを切り替え",
+      "chooseTitle": "ネットワークを選択",
+      "welcomeBody": "使うネットワークを選んでください。すべてのタブがその選択に従い、上部バーからいつでも切り替えられます。",
+      "body": "同時に使えるネットワークは 1 つです。切り替えると現在の接続は解除されます。",
+      "close": "閉じる",
+      "browseFirst": "まずは見てから決める",
+      "active": "使用中",
+      "neededHere": "ここで必要",
+      "connecting": "接続中…",
+      "disconnect": "接続解除",
+      "switchTo": "{chain} に切り替え",
+      "suggested": "おすすめ"
+    },
+    "why": {
+      "link": "リンクから",
+      "last": "この端末で前回使用",
+      "wallet": "このブラウザでウォレットを検出",
+      "noInstall": "インストール不要"
+    },
+    "detect": {
+      "hedera": "どのブラウザでも使えます",
+      "suiFound": "このブラウザで {wallet} を検出",
+      "suiMissing": "このブラウザに SUI ウォレットがありません",
+      "solanaFound": "このブラウザで Phantom を検出",
+      "solanaMissing": "このブラウザに Phantom がありません"
+    }
   }
 }

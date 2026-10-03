@@ -685,5 +685,74 @@
   "legacyBanner": {
     "message": "<strong>zkward.xyz is retiring</strong> — we're now at <link>zkward.com</link>.",
     "dismiss": "Dismiss"
+  },
+  "wallet": {
+    "funds": {
+      "real": "Real funds",
+      "test": "Test tokens",
+      "simulated": "Simulated"
+    },
+    "net": {
+      "mainnet": "Mainnet",
+      "testnet": "Testnet",
+      "devnet": "Devnet",
+      "simulated": "Simulated"
+    },
+    "paper": "Paper",
+    "elsewhere": "You're connected to {active}. This is the {pool} pool.",
+    "pill": {
+      "on": "You're on {chain} {net}. Tap to switch.",
+      "connect": "Connect"
+    },
+    "chains": {
+      "hedera": {
+        "pool": "USDC pool on Hedera testnet",
+        "how": "Sign in with email or Google. We create a wallet for you, nothing to install.",
+        "cta": "Sign in with Hedera"
+      },
+      "sui": {
+        "pool": "Live USDC pool on SUI mainnet",
+        "how": "Uses a SUI browser wallet such as Slush, Suiet or Ethos.",
+        "cta": "Use SUI"
+      },
+      "solana": {
+        "pool": "JIMP test pool on Solana devnet",
+        "how": "Uses Phantom. Switch it to Devnet for the test pool.",
+        "cta": "Use Solana"
+      }
+    },
+    "install": {
+      "sui": "Get Slush",
+      "solana": "Get Phantom"
+    },
+    "chooser": {
+      "welcomeTitle": "Welcome to ZKward",
+      "useTitle": "Use {chain}",
+      "switchTitle": "Switch network",
+      "chooseTitle": "Choose your network",
+      "welcomeBody": "Choose the network you want to use. Every tab follows your choice, and you can switch any time from the top bar.",
+      "body": "You use one network at a time. Switching disconnects the current one.",
+      "close": "Close",
+      "browseFirst": "Browse first, decide later",
+      "active": "Active",
+      "neededHere": "Needed here",
+      "connecting": "Connecting…",
+      "disconnect": "Disconnect",
+      "switchTo": "Switch to {chain}",
+      "suggested": "Suggested"
+    },
+    "why": {
+      "link": "from your link",
+      "last": "last used on this device",
+      "wallet": "wallet found in this browser",
+      "noInstall": "nothing to install"
+    },
+    "detect": {
+      "hedera": "Works in any browser",
+      "suiFound": "{wallet} found in this browser",
+      "suiMissing": "No SUI wallet in this browser",
+      "solanaFound": "Phantom found in this browser",
+      "solanaMissing": "Phantom not found in this browser"
+    }
   }
 }

@@ -23,6 +23,7 @@ import type { WalletAccount, WalletWithRequiredFeatures } from '@mysten/wallet-s
 import { useSuiSafe } from '@/app/sui-providers';
 import { useWalletHubSafe } from '@/contexts/WalletHubContext';
 import { PrivyConnectSection } from './PrivyConnectSection';
+import { ChainLogo, FundsTag } from '@/components/wallet/ChainLogo';
 import {
   SUI_MOBILE_WALLETS,
   isMobileBrowser,
@@ -438,12 +439,11 @@ export function ConnectButton() {
               className="h-11 bg-system-bg-secondary dark:bg-[#2c2c2e] hover:bg-[#E5E5EA] dark:hover:bg-[#3c3c3e] border border-black/5 dark:border-white/10 rounded-[12px] transition-colors flex items-center gap-2 px-3"
               title="Solana wallet"
             >
-              <div className="w-6 h-6 rounded-full bg-[#9945FF] flex items-center justify-center">
-                <span className="text-white font-bold text-[8px]">SOL</span>
-              </div>
+              <ChainLogo chain="solana" size={20} label="Solana" />
               <span className="text-label-primary dark:text-white font-medium text-[14px]">
                 {truncate(hub.solana.address)}
               </span>
+              <FundsTag chain="solana" className="hidden xl:inline-flex" />
             </button>
           )}
           {!hub.isConnected && (
@@ -560,12 +560,11 @@ export function ConnectButton() {
                 onClick={() => setShowSelector(!showSelector)}
                 className="h-11 bg-system-bg-secondary dark:bg-[#2c2c2e] hover:bg-[#E5E5EA] dark:hover:bg-[#3c3c3e] border border-black/5 dark:border-white/10 rounded-[12px] transition-colors flex items-center gap-2 px-3"
               >
-                <div className="w-6 h-6 rounded-full bg-[#4DA2FF] flex items-center justify-center">
-                  <span className="text-white font-bold text-[8px]">SUI</span>
-                </div>
+                <ChainLogo chain="sui" size={20} label="SUI" />
                 <span className="text-label-primary dark:text-white font-medium text-[14px]">
                   {truncate(suiAddress)}
                 </span>
+                <FundsTag chain="sui" className="hidden xl:inline-flex" />
                 <ChevronDown className="w-3.5 h-3.5 text-label-tertiary" />
               </button>
 
@@ -575,8 +574,8 @@ export function ConnectButton() {
                   <div className="absolute top-full mt-2 right-0 w-56 bg-white dark:bg-[#1c1c1e] border border-[#E5E5EA] dark:border-[#38383a] rounded-xl shadow-lg overflow-hidden z-50">
                     <div className="p-3">
                       <div className="flex items-center gap-2.5 mb-3">
-                        <div className="w-9 h-9 rounded-full bg-[#4DA2FF] flex items-center justify-center">
-                          <span className="text-white font-bold text-[10px]">SUI</span>
+                        <div className="w-9 h-9 rounded-full bg-[#f5f5f7] flex items-center justify-center">
+                          <ChainLogo chain="sui" size={20} />
                         </div>
                         <div>
                           <div className="font-medium text-label-primary dark:text-white text-[14px]">

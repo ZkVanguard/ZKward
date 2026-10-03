@@ -363,7 +363,6 @@ export const CommunityPool = memo(function CommunityPool({
           selectedChain={pool.selectedChain}
           onChainSelect={selectChain}
           chainName="Paper Pool"
-          network="shadow"
           poolDeployed
         />
         <div className="p-3 sm:p-6">
@@ -431,7 +430,6 @@ export const CommunityPool = memo(function CommunityPool({
         onRefresh={() => pool.fetchPoolData(true)}
         onAIClick={hedera || sui ? handleAIClick : undefined}
         chainName={chainName}
-        network={solana ? 'testnet' : pool.network}
         poolDeployed={solana ? true : pool.poolDeployed}
       />
 
