@@ -37,7 +37,7 @@ export default async function OpengraphImage() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
             <div style={{ width: 14, height: 14, borderRadius: 999, background: '#34C759' }} />
             <div style={{ fontSize: 24, fontWeight: 600, color: '#424245', letterSpacing: '-0.01em' }}>
-              Live on SUI Mainnet
+              Multi-chain · Mainnet live
             </div>
           </div>
           <div style={{ fontSize: 24, fontWeight: 700, color: '#1D1D1F', letterSpacing: '-0.02em' }}>

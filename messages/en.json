@@ -13,58 +13,16 @@
     "rwa": "RWA",
     "story": "Story",
     "faq": "FAQ",
-    "enterApp": "Enter app"
+    "enterApp": "Open the app"
   },
   "landing": {
-    "status": {
-      "liveOn": "Live on",
-      "hederaTestnet": "Hedera Testnet",
-      "suiMainnet": "SUI Mainnet",
-      "member": "member",
-      "members": "members"
-    },
     "hero": {
-      "headline1": "The signal layer",
-      "headline2": "for digital assets.",
-      "subtitle": "20+ market signals per asset. Every source calibrated against real outcomes. Every trade provable on-chain."
-    },
-    "startHere": {
-      "eyebrow": "Start here",
-      "body": "Three ways to try the platform. No wallet required to explore.",
-      "watchShadow": {
-        "title": "Watch the shadow trader",
-        "body": "$100K live demo running the full stack. Public receipts.",
-        "cta": "Open shadow trader"
-      },
-      "seeSignals": {
-        "title": "Read live signals",
-        "body": "Per-asset aggregator output, refreshed every 30 seconds.",
-        "cta": "Open dashboard"
-      },
-      "tryDemo": {
-        "title": "Deposit into the demo vault",
-        "body": "$10K contract-capped. Withdraw anytime.",
-        "cta": "Open vault"
-      }
-    },
-    "stats": {
-      "eyebrow": "Right now, in production",
-      "sources": {
-        "value": "20+",
-        "label": "signal sources fused per asset"
-      },
-      "accuracy": {
-        "value": "82.8%",
-        "label": "AI resolved accuracy on prediction market titles"
-      },
-      "mature": {
-        "value": "37",
-        "label": "sources with mature track records"
-      }
+      "headline1": "Crypto signals",
+      "headline2": "you can verify.",
+      "subtitle": "We read 20+ markets and trade only when they agree. Every trade is public."
     },
     "sources": {
-      "eyebrow": "Signals read from",
-      "caption": "Prediction markets · order books · funding · options skew",
+      "eyebrow": "Data from",
       "roles": {
         "predictionMarket": "Prediction market",
         "perpetuals": "Perpetual futures",
@@ -74,124 +32,58 @@
       }
     },
     "cta": {
-      "depositUsdc": "See live signals",
-      "howItWorks": "How it works",
-      "viewSource": "View source",
+      "howItWorks": "How to start",
       "installApp": "Install app",
-      "installIosHint": "To install: tap the Share icon in Safari, scroll down, and tap \"Add to Home Screen\"."
-    },
-    "composition": {
-      "eyebrow": "Live now",
-      "title": "Live signal, per asset.",
-      "body": "A 20-source signal pipeline running on BTC, ETH, SOL, XRP, and DOGE, refreshed every 30 seconds. Every source is calibrated against realized outcomes and weighted by its live hit rate."
-    },
-    "howItWorks": {
-      "eyebrow": "How it works",
-      "title": "Aggregate. Calibrate. Execute.",
-      "body": "A three-stage loop that runs autonomously every five minutes, without operator input, since 2026-06-12.",
-      "step1": {
-        "title": "Fuse 20 sources per asset",
-        "body": "Polymarket, Kalshi, Delphi, Manifold, funding rates, orderbook depth, options skew, cross-asset correlation. 20+ sources per asset, refreshed every 30 seconds."
-      },
-      "step2": {
-        "title": "Score each source against real outcomes",
-        "body": "Bayesian-shrunk hit rate per source. Auto-kill below 40%. Weights winners up to 2×, killed sources drop to 0.05×."
-      },
-      "step3": {
-        "title": "Execute when winners align",
-        "body": "Multi-agent consensus. Adaptive stops. Every trade STARK-attested on the Goldilocks field with 180-bit soundness."
-      }
-    },
-    "trust": {
-      "title": "Trust minimized, by design.",
-      "body": "Every safeguard is enforced by code, not policy. Stale oracle data, un-calibrated sources, or a venue that fails a fill check gets rejected before any capital moves.",
-      "poolCap": {
-        "title": "Sources tracked",
-        "value": "111",
-        "hint": "Every source's hit rate accumulates against real outcomes."
-      },
-      "freshOracle": {
-        "title": "Signal freshness",
-        "value": "30s max",
-        "hint": "Aggregator refresh cadence per asset."
-      },
-      "withdrawThrottle": {
-        "title": "Auto-kill floor",
-        "value": "40%",
-        "hint": "Sources below this hit rate drop to 0.05× weight."
-      },
-      "proofs": {
-        "title": "Every trade attested",
-        "value": "Post-quantum",
-        "hint": "STARK on the Goldilocks field. 180-bit soundness."
-      },
-      "twoChains": {
-        "title": "Multi-venue execution",
-        "value": "SUI + EVM",
-        "hint": "Signal is chain-agnostic. Execution routes to the deepest venue."
-      }
-    },
-    "surfaces": {
-      "eyebrow": "Explore",
-      "title": "Transparent by default.",
-      "body": "Every signal, every source hit rate, every trade, and every proof is public. The only thing behind a login is your own wallet.",
-      "dashboard": {
-        "eyebrow": "Dashboard",
-        "title": "Live capital, one screen.",
-        "body": "Balance, hedges, drawdown, proofs. Refreshed every minute."
-      },
-      "paper": {
-        "eyebrow": "Shadow trader",
-        "title": "$100K notional, full stack, public receipts.",
-        "body": "The same signals + agents + execution stack running against a live $100K paper book. Verify PnL before you fund anything."
-      },
-      "whitepaper": {
-        "eyebrow": "Whitepaper",
-        "title": "Technical whitepaper.",
-        "body": "20-source signal fusion, per-source calibration, AI-graded prediction-market interpretation, STARK-attested execution."
-      }
+      "installIosHint": "To install: tap the Share icon in Safari, scroll down, and tap \"Add to Home Screen\".",
+      "openApp": "Open the app"
     },
     "finalCta": {
-      "title": "See the signal stack running.",
-      "body": "Every source, every hit rate, every trade — public. Connect a wallet to deposit into the live demo vault.",
-      "alreadyIn": "{count} already in.",
-      "paused": "Deposits paused for maintenance."
+      "title": "See it running."
     },
-    "production": {
-      "eyebrow": "In production",
-      "title": "Live on Sui mainnet since 2026-06-12.",
-      "body": "A public track record measured on-chain, not in press releases.",
-      "daysLive": {
-        "title": "Days live",
-        "value": "100+",
-        "hint": "Continuous, no restarts. Contract-enforced $10K TVL cap."
+    "signals": {
+      "label": "Right now",
+      "up": "leaning up",
+      "down": "leaning down",
+      "none": "no lean",
+      "chip": "{coin}: {lean}, {pct}% confidence"
+    },
+    "safeguards": {
+      "eyebrow": "Safety first",
+      "title1": "Managed like a fund.",
+      "title2": "Open to everyone.",
+      "contrast": "Big funds ask for your trust. We show our work.",
+      "live": "{on} of {total} safety switches on right now",
+      "crowd": {
+        "title": "The crowd checks every move",
+        "body": "Over 20 markets weigh in. The ones that are often wrong count less."
       },
-      "navSnapshots": {
-        "title": "NAV snapshots",
-        "value": "2,200+",
-        "hint": "Written on-chain every 15 minutes since inception."
+      "brakes": {
+        "title": "Brakes that work on their own",
+        "body": "If the pool drops, it slows down, then stops."
       },
-      "hedges": {
-        "title": "Hedges executed",
-        "value": "214",
-        "hint": "Lifetime, across BTC, ETH, SUI, SOL perps."
+      "limits": {
+        "title": "Firm limits",
+        "body": "How much the pool can hold is locked in, so risk can't creep up."
+      },
+      "open": {
+        "title": "Nothing hidden",
+        "body": "Every trade and the pool's value are public."
       }
     },
-    "builtFor": {
-      "eyebrow": "Built for",
-      "title": "Traders, researchers, and protocols.",
-      "body": "One signal pipeline, three audiences.",
-      "traders": {
-        "title": "Traders",
-        "body": "Signal quality that survives regime changes. Auto-kill for underperforming sources. Aggregator refreshes every 30 seconds."
+    "start": {
+      "eyebrow": "How to start",
+      "title": "Start in three steps.",
+      "step1": {
+        "title": "Open the app",
+        "body": "Look around first. No sign-up needed."
       },
-      "research": {
-        "title": "Research desks",
-        "body": "Every source hit rate is public. Historical calibration accessible via API. Reproducible from raw data."
+      "step2": {
+        "title": "Pick your network",
+        "body": "We suggest the right one for you. Email sign-in works too."
       },
-      "protocols": {
-        "title": "Protocols",
-        "body": "Autonomous execution with STARK-attested proofs. Multi-agent consensus. Contract-enforced TVL caps."
+      "step3": {
+        "title": "Deposit and follow along",
+        "body": "Watch every trade live. Withdraw when you like."
       }
     }
   },

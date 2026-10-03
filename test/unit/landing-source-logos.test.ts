@@ -34,7 +34,7 @@ describe('data-source strip', () => {
     for (const f of locales) {
       const json = JSON.parse(fs.readFileSync(path.join(root, 'messages', f), 'utf8'));
       const s = json.landing?.sources;
-      const missing = ['eyebrow', 'caption'].filter((k) => !s?.[k]).concat([...new Set(roles)].filter((r) => !s?.roles?.[r]).map((r) => `roles.${r}`));
+      const missing = ['eyebrow'].filter((k) => !s?.[k]).concat([...new Set(roles)].filter((r) => !s?.roles?.[r]).map((r) => `roles.${r}`));
       expect({ locale: f, missing }).toEqual({ locale: f, missing: [] });
     }
   });
