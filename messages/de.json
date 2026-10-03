@@ -192,6 +192,28 @@
     "poolStart": {
       "title": "Zum Einzahlen anmelden",
       "hedera": "Mit E-Mail oder Google. Wir erstellen deine Hedera-Wallet, nichts zu installieren."
+    },
+    "guide": {
+      "title": "Erste Schritte",
+      "subtitle": "Drei Schritte bis zur ersten Einzahlung.",
+      "hide": "Ausblenden",
+      "done": "Erledigt",
+      "connect": {
+        "title": "{chain} verbinden",
+        "action": "Verbinden"
+      },
+      "funds": {
+        "testTitle": "Kostenlose Test-Token holen",
+        "testBody": "Nutze den Faucet im Einzahlungsbereich unten. Kostenlos.",
+        "realTitle": "USDC bereithalten",
+        "realBody": "Zum Einzahlen brauchst du USDC auf SUI in deiner Wallet.",
+        "action": "Zeig mir"
+      },
+      "deposit": {
+        "title": "Erste Einzahlung machen",
+        "body": "Gib unten einen Betrag ein und bestätige in deiner Wallet.",
+        "action": "Einzahlen"
+      }
     }
   },
   "common": {

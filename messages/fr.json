@@ -192,6 +192,28 @@
     "poolStart": {
       "title": "Connectez-vous pour déposer",
       "hedera": "Utilisez un e-mail ou Google. Nous créons votre portefeuille Hedera, rien à installer."
+    },
+    "guide": {
+      "title": "Pour commencer",
+      "subtitle": "Trois étapes jusqu'à votre premier dépôt.",
+      "hide": "Masquer",
+      "done": "Fait",
+      "connect": {
+        "title": "Connectez {chain}",
+        "action": "Connecter"
+      },
+      "funds": {
+        "testTitle": "Obtenez des jetons de test gratuits",
+        "testBody": "Utilisez le robinet dans le panneau de dépôt ci-dessous. C'est gratuit.",
+        "realTitle": "Préparez des USDC",
+        "realBody": "Il vous faut des USDC sur SUI dans votre portefeuille pour déposer.",
+        "action": "Montrez-moi"
+      },
+      "deposit": {
+        "title": "Faites votre premier dépôt",
+        "body": "Saisissez un montant ci-dessous et confirmez dans votre portefeuille.",
+        "action": "Déposer"
+      }
     }
   },
   "common": {

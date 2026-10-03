@@ -192,6 +192,28 @@
     "poolStart": {
       "title": "로그인하고 입금하기",
       "hedera": "이메일 또는 Google로. Hedera 지갑을 만들어 드리니 설치할 필요가 없습니다."
+    },
+    "guide": {
+      "title": "시작하기",
+      "subtitle": "첫 입금까지 세 단계.",
+      "hide": "숨기기",
+      "done": "완료",
+      "connect": {
+        "title": "{chain} 연결",
+        "action": "연결"
+      },
+      "funds": {
+        "testTitle": "무료 테스트 토큰 받기",
+        "testBody": "아래 입금 패널의 수도꼭지를 사용하세요. 무료입니다.",
+        "realTitle": "USDC 준비",
+        "realBody": "입금하려면 지갑에 SUI 체인의 USDC가 필요합니다.",
+        "action": "보여 주세요"
+      },
+      "deposit": {
+        "title": "첫 입금하기",
+        "body": "아래에 금액을 입력하고 지갑에서 승인하세요.",
+        "action": "입금"
+      }
     }
   },
   "common": {

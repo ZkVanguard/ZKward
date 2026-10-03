@@ -192,6 +192,28 @@
     "poolStart": {
       "title": "サインインして入金",
       "hedera": "メールまたは Google で。Hedera ウォレットはこちらで作成するので、インストール不要です。"
+    },
+    "guide": {
+      "title": "はじめに",
+      "subtitle": "最初の入金まで 3 ステップ。",
+      "hide": "非表示",
+      "done": "完了",
+      "connect": {
+        "title": "{chain} を接続",
+        "action": "接続"
+      },
+      "funds": {
+        "testTitle": "無料のテストトークンを入手",
+        "testBody": "下の入金パネルにあるフォーセットを使ってください。無料です。",
+        "realTitle": "USDC を用意",
+        "realBody": "入金には、ウォレットに SUI 上の USDC が必要です。",
+        "action": "見せて"
+      },
+      "deposit": {
+        "title": "最初の入金",
+        "body": "下で金額を入力し、ウォレットで承認してください。",
+        "action": "入金する"
+      }
     }
   },
   "common": {

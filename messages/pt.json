@@ -192,6 +192,28 @@
     "poolStart": {
       "title": "Entre para depositar",
       "hedera": "Use e-mail ou Google. Criamos sua carteira Hedera, nada para instalar."
+    },
+    "guide": {
+      "title": "Primeiros passos",
+      "subtitle": "Três passos até o seu primeiro depósito.",
+      "hide": "Ocultar",
+      "done": "Concluído",
+      "connect": {
+        "title": "Conecte {chain}",
+        "action": "Conectar"
+      },
+      "funds": {
+        "testTitle": "Pegue tokens de teste grátis",
+        "testBody": "Use a torneira no painel de depósito abaixo. É grátis.",
+        "realTitle": "Tenha USDC pronto",
+        "realBody": "Você precisa de USDC na SUI na sua carteira para depositar.",
+        "action": "Mostrar"
+      },
+      "deposit": {
+        "title": "Faça seu primeiro depósito",
+        "body": "Digite um valor abaixo e confirme na sua carteira.",
+        "action": "Depositar"
+      }
     }
   },
   "common": {

@@ -192,6 +192,28 @@
     "poolStart": {
       "title": "Inicia sesión para depositar",
       "hedera": "Usa tu correo o Google. Creamos tu billetera de Hedera, sin instalar nada."
+    },
+    "guide": {
+      "title": "Primeros pasos",
+      "subtitle": "Tres pasos hasta tu primer depósito.",
+      "hide": "Ocultar",
+      "done": "Hecho",
+      "connect": {
+        "title": "Conecta {chain}",
+        "action": "Conectar"
+      },
+      "funds": {
+        "testTitle": "Consigue tokens de prueba gratis",
+        "testBody": "Usa el grifo del panel de depósito de abajo. Es gratis.",
+        "realTitle": "Ten USDC listo",
+        "realBody": "Necesitas USDC en SUI en tu billetera para depositar.",
+        "action": "Muéstrame"
+      },
+      "deposit": {
+        "title": "Haz tu primer depósito",
+        "body": "Escribe un importe abajo y confirma en tu billetera.",
+        "action": "Depositar"
+      }
     }
   },
   "common": {

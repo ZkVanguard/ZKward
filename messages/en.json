@@ -616,6 +616,28 @@
     "poolStart": {
       "title": "Sign in to deposit",
       "hedera": "Use email or Google. We create your Hedera wallet, nothing to install."
+    },
+    "guide": {
+      "title": "Getting started",
+      "subtitle": "Three steps to your first deposit.",
+      "hide": "Hide",
+      "done": "Done",
+      "connect": {
+        "title": "Connect {chain}",
+        "action": "Connect"
+      },
+      "funds": {
+        "testTitle": "Get free test tokens",
+        "testBody": "Use the faucet in the deposit panel below. It's free.",
+        "realTitle": "Have USDC ready",
+        "realBody": "You need USDC on SUI in your wallet to deposit.",
+        "action": "Show me"
+      },
+      "deposit": {
+        "title": "Make your first deposit",
+        "body": "Enter an amount below and confirm in your wallet.",
+        "action": "Deposit"
+      }
     }
   },
   "common": {
