@@ -6,6 +6,7 @@ import { usePositions } from '@/contexts/PositionsContext';
 import { logger } from '@/lib/utils/logger';
 import { ConnectPromptButton } from '@/components/ui/ConnectPromptButton';
 import { WalletContextBadge, ChainSupportNote } from '@/components/wallet/ChainBadge';
+import { SkeletonBox } from '@/components/dashboard/community-pool/Skeletons';
 
 interface PortfolioOverviewProps {
   address?: string;
@@ -38,8 +39,17 @@ export function PortfolioOverview({ address, onNavigateToPositions, onNavigateTo
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <div className="w-8 h-8 border-2 border-[#007AFF] border-t-transparent rounded-full animate-spin" />
+      <div className="bg-white rounded-[20px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-black/5 p-6 sm:p-8 space-y-6" aria-busy="true">
+        <div className="flex items-center gap-4">
+          <SkeletonBox className="w-14 h-14 rounded-2xl" />
+          <div className="space-y-2">
+            <SkeletonBox className="h-6 w-40" />
+            <SkeletonBox className="h-4 w-64 max-w-full" />
+          </div>
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          {[0, 1, 2, 3].map((i) => <SkeletonBox key={i} className="h-16 rounded-xl" />)}
+        </div>
       </div>
     );
   }

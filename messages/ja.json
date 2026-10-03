@@ -350,36 +350,13 @@
     "savePreferences": "設定を保存"
   },
   "landing": {
-    "status": {
-      "liveOn": "Live on",
-      "hederaTestnet": "Hedera Testnet",
-      "suiMainnet": "SUI Mainnet",
-      "member": "member",
-      "members": "members"
-    },
     "hero": {
-      "headline1": "20 signal sources.",
-      "headline2": "Ranked by track record.",
-      "subtitle": "Every prediction market, every funding rate, every on-chain signal — scored against real outcomes. Autonomous execution when the winners align."
-    },
-    "stats": {
-      "eyebrow": "Right now, in production",
-      "sources": {
-        "value": "20+",
-        "label": "signal sources fused per asset"
-      },
-      "accuracy": {
-        "value": "82.8%",
-        "label": "AI resolved accuracy on prediction market titles"
-      },
-      "mature": {
-        "value": "37",
-        "label": "sources with mature track records"
-      }
+      "headline1": "検証できる",
+      "headline2": "暗号資産シグナル。",
+      "subtitle": "20 以上の市場を読み、意見が一致したときだけ取引します。すべての取引は公開されています。"
     },
     "sources": {
-      "eyebrow": "シグナルの情報源",
-      "caption": "予測市場 · 板情報 · ファンディング · オプションスキュー",
+      "eyebrow": "データ提供元",
       "roles": {
         "predictionMarket": "予測市場",
         "perpetuals": "無期限先物",
@@ -389,143 +366,58 @@
       }
     },
     "cta": {
-      "depositUsdc": "See live signals",
-      "howItWorks": "How it works",
-      "viewSource": "View source",
+      "howItWorks": "始め方",
       "installApp": "Install app",
-      "installIosHint": "To install: tap the Share icon in Safari, scroll down, and tap \"Add to Home Screen\"."
-    },
-    "composition": {
-      "eyebrow": "Live signal",
-      "title": "What the aggregator says right now.",
-      "body": "20 sources fused per asset across BTC, ETH, SUI. Refreshes every 30 seconds."
-    },
-    "howItWorks": {
-      "eyebrow": "The loop",
-      "title": "Aggregate. Score. Execute.",
-      "body": "Runs every five minutes. All day. Without you.",
-      "step1": {
-        "title": "Fuse 20 sources per asset",
-        "body": "Polymarket, Kalshi, Delphi, Manifold, funding rates, orderbook depth, options skew, cross-asset correlation. Every tick, every asset."
-      },
-      "step2": {
-        "title": "Score each source against real outcomes",
-        "body": "Bayesian-shrunk hit rate per source. Auto-kill below 40%. Weights winners up to 2×, killed sources drop to 0.05×."
-      },
-      "step3": {
-        "title": "Execute when winners align",
-        "body": "Multi-agent safety guard. Adaptive stops. Every trade STARK-attested and written on-chain. Verifiable. Unfakeable."
-      }
-    },
-    "trust": {
-      "title": "Signal integrity, enforced by the code.",
-      "body": "Not a policy on our website. The pipeline itself refuses bad signals, bad venues, and stale data.",
-      "poolCap": {
-        "title": "Sources tracked",
-        "value": "111",
-        "hint": "Every source's hit rate accumulates against real outcomes."
-      },
-      "freshOracle": {
-        "title": "Signal freshness",
-        "value": "30s max",
-        "hint": "Aggregator refresh cadence per asset."
-      },
-      "withdrawThrottle": {
-        "title": "Auto-kill floor",
-        "value": "40%",
-        "hint": "Sources below this hit rate drop to 0.05× weight."
-      },
-      "proofs": {
-        "title": "Every trade attested",
-        "value": "Post-quantum",
-        "hint": "STARK on the Goldilocks field. 180-bit soundness."
-      },
-      "twoChains": {
-        "title": "Multi-venue execution",
-        "value": "SUI + EVM",
-        "hint": "Signal is chain-agnostic. Execution routes to the deepest venue."
-      }
-    },
-    "surfaces": {
-      "eyebrow": "Look around",
-      "title": "Every layer of ZKward is public.",
-      "body": "Signals, sources, trades, proofs. Nothing behind a login except your wallet.",
-      "dashboard": {
-        "eyebrow": "Dashboard",
-        "title": "Live capital, one screen.",
-        "body": "Balance, hedges, drawdown, proofs. Refreshed every minute."
-      },
-      "whitepaper": {
-        "eyebrow": "Whitepaper",
-        "title": "The technical version.",
-        "body": "20-source signal fusion, per-source calibration, AI-graded prediction market interpretation, STARK-attested execution."
-      },
-      "paper": {
-        "eyebrow": "Shadow trader",
-        "title": "$100K notional, full stack, public receipts.",
-        "body": "The same signals + agents + execution stack running against a live $100K paper book. Verify PnL before you fund anything."
-      }
+      "installIosHint": "To install: tap the Share icon in Safari, scroll down, and tap \"Add to Home Screen\".",
+      "openApp": "アプリを開く"
     },
     "finalCta": {
-      "title": "See the signal stack running.",
-      "body": "Every source, every hit rate, every trade — public. Connect a wallet to deposit into the live demo vault.",
-      "alreadyIn": "{count} already in.",
-      "paused": "Deposits paused for maintenance."
+      "title": "動いている様子を見る。"
     },
-    "production": {
-      "eyebrow": "In production",
-      "title": "Live on Sui mainnet since 2026-06-12.",
-      "body": "A public track record measured on-chain, not in press releases.",
-      "daysLive": {
-        "title": "Days live",
-        "value": "100+",
-        "hint": "Continuous, no restarts. Contract-enforced $10K TVL cap."
+    "signals": {
+      "label": "いま",
+      "up": "上昇寄り",
+      "down": "下落寄り",
+      "none": "傾きなし",
+      "chip": "{coin}：{lean}、確信度 {pct}%"
+    },
+    "safeguards": {
+      "eyebrow": "安全を最優先に",
+      "title1": "ファンドのように運用。",
+      "title2": "誰にでも開かれています。",
+      "contrast": "大手ファンドは信頼を求めます。私たちは中身を見せます。",
+      "live": "いま {total} 個中 {on} 個の安全装置が作動中",
+      "crowd": {
+        "title": "群衆がすべての動きをチェック",
+        "body": "20 以上の市場が意見を出します。外れが多いものほど重みが小さくなります。"
       },
-      "navSnapshots": {
-        "title": "NAV snapshots",
-        "value": "2,200+",
-        "hint": "Written on-chain every 15 minutes since inception."
+      "brakes": {
+        "title": "自動でかかるブレーキ",
+        "body": "プールが下がると、まず減速し、やがて止まります。"
       },
-      "hedges": {
-        "title": "Hedges executed",
-        "value": "214",
-        "hint": "Lifetime, across BTC, ETH, SUI, SOL perps."
+      "limits": {
+        "title": "揺るがない上限",
+        "body": "プールに入れられる額は固定されているので、リスクが知らないうちに膨らむことはありません。"
+      },
+      "open": {
+        "title": "隠し事なし",
+        "body": "すべての取引とプールの価値は公開されています。"
       }
     },
-    "builtFor": {
-      "eyebrow": "Built for",
-      "title": "Traders, researchers, and protocols.",
-      "body": "One signal pipeline, three audiences.",
-      "traders": {
-        "title": "Traders",
-        "body": "Signal quality that survives regime changes. Auto-kill for underperforming sources. Aggregator refreshes every 30 seconds."
+    "start": {
+      "eyebrow": "始め方",
+      "title": "3 ステップで始められます。",
+      "step1": {
+        "title": "アプリを開く",
+        "body": "まずは見て回るだけ。登録は不要です。"
       },
-      "research": {
-        "title": "Research desks",
-        "body": "Every source hit rate is public. Historical calibration accessible via API. Reproducible from raw data."
+      "step2": {
+        "title": "ネットワークを選ぶ",
+        "body": "最適なものをおすすめします。メールでのサインインも使えます。"
       },
-      "protocols": {
-        "title": "Protocols",
-        "body": "Autonomous execution with STARK-attested proofs. Multi-agent consensus. Contract-enforced TVL caps."
-      }
-    },
-    "startHere": {
-      "eyebrow": "Start here",
-      "body": "Three ways to try the platform. No wallet required to explore.",
-      "watchShadow": {
-        "title": "Watch the shadow trader",
-        "body": "$100K live demo running the full stack. Public receipts.",
-        "cta": "Open shadow trader"
-      },
-      "seeSignals": {
-        "title": "Read live signals",
-        "body": "Per-asset aggregator output, refreshed every 30 seconds.",
-        "cta": "Open dashboard"
-      },
-      "tryDemo": {
-        "title": "Deposit into the demo vault",
-        "body": "$10K contract-capped. Withdraw anytime.",
-        "cta": "Open vault"
+      "step3": {
+        "title": "入金して見守る",
+        "body": "すべての取引をライブで確認。いつでも引き出せます。"
       }
     }
   },

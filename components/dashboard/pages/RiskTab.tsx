@@ -2,6 +2,7 @@
 
 import type { ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { usePerAssetSignals } from '@/lib/hooks/useLiveSignals';
 import {
   Activity, Shield, TrendingUp, TrendingDown, AlertTriangle,
   CheckCircle2, ChevronRight, Layers, Database, Zap, Eye,
@@ -121,7 +122,6 @@ interface RiskOverview {
     last24hCount: number;
     recentFeed: ZkAttestationRow[];
   };
-  signals: Record<string, { direction: string; confidence: number }>;
   defense?: DefenseState;
   incidents?: IncidentsState;
   composition?: CompositionState;
@@ -496,6 +496,7 @@ export function RiskTab() {
     refetchInterval: 60_000,
     staleTime: 60_000,
   });
+  const { data: signals } = usePerAssetSignals();
   const error = queryError
     ? (queryError instanceof Error ? queryError.message : String(queryError))
     : null;
@@ -721,11 +722,11 @@ export function RiskTab() {
           )}
 
           {/* Signals strip — all assets in the trader universe, not just BTC/ETH */}
-          {Object.keys(data.signals).length > 0 && (
+          {signals && Object.keys(signals).length > 0 && (
             <Disclosure title="Live prediction signal" caption="per asset · fused: Polymarket + Manifold + funding + momentum">
             <section className="bg-white border border-black/5 rounded-2xl p-5">
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
-                {Object.entries(data.signals).map(([asset, s]) => {
+                {Object.entries(signals).map(([asset, s]) => {
                   const dirColor = s.direction === 'UP' ? 'text-green-700'
                     : s.direction === 'DOWN' ? 'text-red-700'
                     : 'text-[#1d1d1f]';

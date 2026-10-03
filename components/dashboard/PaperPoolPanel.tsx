@@ -11,6 +11,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { Beaker, TrendingUp, TrendingDown, Target, Zap, Ban } from 'lucide-react';
+import { SkeletonBox } from '@/components/dashboard/community-pool/Skeletons';
 
 interface StatusResp {
   nav: {
@@ -71,7 +72,17 @@ export function PaperPoolPanel() {
     staleTime: 15_000,
   });
 
-  if (isLoading) return <div className="p-6 text-label-secondary">Loading paper-pool state…</div>;
+  if (isLoading) {
+    return (
+      <div className="space-y-4 sm:space-y-6" aria-busy="true">
+        <SkeletonBox className="h-20 rounded-2xl" />
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+          {[0, 1, 2, 3].map((i) => <SkeletonBox key={i} className="h-24 rounded-2xl" />)}
+        </div>
+        <SkeletonBox className="h-40 rounded-2xl" />
+      </div>
+    );
+  }
   if (error || !data) return <div className="p-6 text-red-700">Failed to load: {error instanceof Error ? error.message : 'unknown'}</div>;
 
   const returnColor = data.nav.cumReturnPct >= 0 ? 'text-green-700' : 'text-red-700';

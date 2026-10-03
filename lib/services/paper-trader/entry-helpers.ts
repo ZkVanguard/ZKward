@@ -26,7 +26,7 @@ import {
   type AggregatedPrediction,
 } from '@/lib/services/market-data/PredictionAggregatorService';
 import {
-  PAPER_UNIVERSE,
+  PAPER_TRADE_ASSETS,
   PAPER_MIN_CONFIDENCE,
   PAPER_MIN_CONSENSUS,
   PAPER_MIN_SOURCES,
@@ -161,7 +161,7 @@ export async function selectCandidate(
 
   let scan: Awaited<ReturnType<typeof PredictionAggregatorService.scanAndPickBest>>;
   try {
-    scan = await PredictionAggregatorService.scanAndPickBest(PAPER_UNIVERSE, {
+    scan = await PredictionAggregatorService.scanAndPickBest(PAPER_TRADE_ASSETS, {
       minConfidence: effectiveMinConf,
       minConsensus: PAPER_MIN_CONSENSUS,
       minSources: PAPER_MIN_SOURCES,
@@ -172,7 +172,7 @@ export async function selectCandidate(
   if (!scan.best) {
     logger.warn('[PaperTrader] scan.best null — no asset met gates', {
       min: { conf: effectiveMinConf, cons: PAPER_MIN_CONSENSUS, sources: PAPER_MIN_SOURCES },
-      universeSize: PAPER_UNIVERSE.length,
+      universeSize: PAPER_TRADE_ASSETS.length,
     });
     return { ok: false, reason: 'no edge above gates' };
   }

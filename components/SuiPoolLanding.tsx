@@ -1,59 +1,24 @@
 'use client';
 
-import type { RefObject } from 'react';
-import { memo, useEffect, useRef, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { memo, useEffect, useRef } from 'react';
 import { useTranslations } from 'next-intl';
 import { Link } from '@/i18n/routing';
-import { useHederaPool, type HederaPoolResponse } from '@/lib/hooks/useHederaPool';
 import {
-  ArrowRight, ShieldCheck, Zap, BarChart3,
-  Sparkles, Layers, Lock,
+  ArrowRight, LayoutDashboard, Compass, Wallet,
 } from 'lucide-react';
 import { InstallAppButton } from './InstallAppButton';
 import { DataSourceMarquee } from './landing/DataSourceMarquee';
-import { Reveal, LiveIndicator, StatusPill, TrustBadge } from './ui/landing';
+import { LiveSignalStrip } from './landing/LiveSignalStrip';
+import { Safeguards } from './landing/Safeguards';
+import { Reveal } from './ui/landing';
 
 // Linear's signature spring curve. Read as: quick out, slow in — feels
 // like real mass behind interactive elements instead of the default
 // ease-in-out "slide-and-stop" cadence.
 const SPRING = 'cubic-bezier(0.32, 0.72, 0, 1)';
 
-// Cursor spotlight — updates --sx/--sy CSS variables on a container from
-// pointermove so children can drive a 3D tilt effect. rAF-throttled to
-// 60fps; disabled on touch devices + prefers-reduced-motion.
-//
-// Attached to the vault card container ONLY (not the whole hero) so the
-// card feels physical while the hero background stays flat (no
-// pointer-follow spotlight glow — user request).
 import { useReducedMotion } from 'framer-motion';
 
-function useCursorSpotlight<T extends HTMLElement>(ref: React.RefObject<T | null>) {
-  const reduce = useReducedMotion();
-  useEffect(() => {
-    if (reduce) return;
-    const el = ref.current;
-    if (!el) return;
-    const mq = window.matchMedia('(min-width: 768px) and (pointer: fine)');
-    if (!mq.matches) return;
-    let raf = 0;
-    const onMove = (e: PointerEvent) => {
-      cancelAnimationFrame(raf);
-      raf = requestAnimationFrame(() => {
-        const rect = el.getBoundingClientRect();
-        const x = ((e.clientX - rect.left) / rect.width) * 100;
-        const y = ((e.clientY - rect.top) / rect.height) * 100;
-        el.style.setProperty('--sx', `${x}%`);
-        el.style.setProperty('--sy', `${y}%`);
-      });
-    };
-    el.addEventListener('pointermove', onMove);
-    return () => {
-      el.removeEventListener('pointermove', onMove);
-      cancelAnimationFrame(raf);
-    };
-  }, [ref, reduce]);
-}
 
 // Touch devices have no cursor, so the hero's depth layers took no input
 // at all there and the backdrop was hidden. This drives the same --sx/--sy
@@ -98,117 +63,12 @@ function useTiltParallax<T extends HTMLElement>(ref: React.RefObject<T | null>) 
   }, [ref, reduce]);
 }
 
-// VaultTiltScene. Encapsulates the perspective wrapper + the cursor-
-// spotlight hook attached to the card container. Pulling this into its
-// own component lets us mount useCursorSpotlight in one place, scoped
-// to the card only (not the whole hero).
-function VaultTiltScene({ children }: { children: React.ReactNode }) {
-  const ref = useRef<HTMLDivElement>(null);
-  useCursorSpotlight(ref as RefObject<HTMLElement>);
-  return (
-    <div ref={ref} className="vault-tilt-scene max-w-[720px] mx-auto mb-3 sm:mb-4 relative">
-      <div className="vault-idle-float relative">
-        <div className="vault-scroll-lift rounded-[28px]">
-          <div className="vault-tilt rounded-[28px]">{children}</div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// TVL cap enforced by the Move contract. Surfacing "room remaining" on the
-// landing gives visitors a scale anchor without leading with the current
-// (small) NAV. If the on-chain cap changes, bump this constant. The display
-// is intentionally not fetched (it's a marketing rail, not a live gate).
-// Hedera testnet vault has no on-chain TVL cap (uncapped demo vault).
-// The bar just shows how full the demo is vs a soft target we've picked
-// for the visual. 100k is a reasonable "next milestone" that leaves room
-// to grow from the current 60k without pinning at 100%.
-const TVL_CAP_USD = 100_000;
 
 // Signal-source strip — real providers the aggregator reads every tick.
 // Colors are each brand's public-facing accent, used only as a small dot
 // (nominative fair use — describing which services we consume, not
 // asserting endorsement). Ordered by weight class: prediction markets
 // first, then venues, then options.
-
-// ───────────────────────────────────────────────────────────────────────────
-// Live SUI Community Pool landing page. Apple-themed, single focus.
-//
-// Pulls real-time numbers from /api/sui/community-pool?network=mainnet
-// (cached 30s server-side), so a fresh visitor sees actual NAV / share price /
-// composition / ATH instead of stale marketing.
-//
-// Design tokens: tailwind.config.js `ios.*`, `system-bg.*`, `label.*`,
-// typography `large-title`, `title-1`, `headline`, etc., shadows `ios-1/2/3`.
-// No warm `claude-*` colors anywhere.
-// ───────────────────────────────────────────────────────────────────────────
-
-interface PoolSummary {
-  totalNAV: number;        // USDC
-  sharePrice: number;
-  allTimeHighNav: number;  // ATH share price
-  totalDeposited: number;
-  totalWithdrawn: number;
-  memberCount: number;
-  totalShares: number;
-  allocation: Record<string, number>; // live composition (BTC/ETH/SUI/USDC)
-  paused: boolean;
-}
-
-const ASSET_ICONS: Record<string, string> = {
-  BTC: '₿', ETH: 'Ξ', SUI: '💧', USDC: '$',
-};
-const ASSET_GRADIENTS: Record<string, string> = {
-  BTC: 'from-[#F7931A] to-[#FBB040]',
-  ETH: 'from-[#627EEA] to-[#8FA5F2]',
-  SUI: 'from-[#4DA2FF] to-[#79C2FF]',
-  USDC: 'from-[#2775CA] to-[#4A9CE8]',
-};
-
-function formatUsd(n: number, decimals = 2): string {
-  if (!Number.isFinite(n)) return '…';
-  const abs = Math.abs(n);
-  // Compact suffixes above 10k so the stat cards stay readable at scale.
-  // ($3,214,857 in a card is a nightmare; $3.21M is fine.)
-  if (abs >= 1_000_000_000) return `${n < 0 ? '-' : ''}$${(abs / 1_000_000_000).toFixed(2)}B`;
-  if (abs >= 1_000_000)     return `${n < 0 ? '-' : ''}$${(abs / 1_000_000).toFixed(2)}M`;
-  if (abs >= 10_000)        return `${n < 0 ? '-' : ''}$${(abs / 1_000).toFixed(1)}K`;
-  if (abs >= 1_000)         return '$' + n.toLocaleString('en-US', { maximumFractionDigits: 0 });
-  return '$' + n.toFixed(decimals);
-}
-
-// Compact member/share formatter that also handles pluralisation.
-// singular/plural come from translations — never inline English defaults.
-function formatCount(n: number, singular: string, plural: string): string {
-  if (!Number.isFinite(n) || n < 0) return `… ${plural}`;
-  const rounded = Math.floor(n);
-  if (rounded >= 1_000_000) return `${(rounded / 1_000_000).toFixed(1)}M ${plural}`;
-  if (rounded >= 10_000)    return `${(rounded / 1_000).toFixed(1)}K ${plural}`;
-  if (rounded >= 1_000)     return `${rounded.toLocaleString()} ${plural}`;
-  return `${rounded} ${rounded === 1 ? singular : plural}`;
-}
-
-/** Map the shared Hedera pool response into the local PoolSummary shape. */
-function toPoolSummary(res: HederaPoolResponse | undefined): PoolSummary | null {
-  const p = res?.pool;
-  if (!p) return null;
-  return {
-    totalNAV: Number(p.totalValueUSD ?? 0),
-    sharePrice: Number(p.sharePrice ?? 1),
-    // Simple vault has no ATH concept (share price is pinned to $1.00 by
-    // design). Use current NAV as ATH. No phantom peak to worry about.
-    allTimeHighNav: Number(p.sharePrice ?? 1),
-    totalDeposited: Number(p.totalDeposited ?? p.totalValueUSD ?? 0),
-    totalWithdrawn: Number(p.totalWithdrawn ?? 0),
-    memberCount: Number(p.memberCount ?? 0),
-    totalShares: Number(p.totalShares ?? 0),
-    // Hedera vault holds USDC only. No cross-asset allocation until
-    // AI-executed swaps land on-chain (currently projected in dashboard).
-    allocation: p.allocation ?? { USDC: 100 },
-    paused: !!p.paused,
-  };
-}
 
 // HeroGraphBg. Three parallax layers behind the hero (CSS dot-grid +
 // SVG chart curves + SVG node network). Reads --sx/--sy already
@@ -359,18 +219,14 @@ function HeroGraphBg() {
         // effects don't leak out (accurate: all layers are z-negative
         // absolutes clipped by our own overflow-hidden).
         contain: 'layout paint style',
-        // Radial vignette centered on where the vault meter sits
-        // (approx 50% x, 66% y). The effect fades to transparent in
-        // a wider soft ellipse around the card so the meter reads as
-        // a clean "hero moment" instead of competing with dense
-        // phyllotaxis/chart lines behind it. Longer fade band (35%
-        // to 82%) makes the transition feel machined rather than
-        // hard-cut. Corners keep the full effect — depth cue
-        // preserved. Both prefixed forms so Safari + Firefox agree.
+        // Radial vignette over the headline, subtitle and buttons, so
+        // the drifting nodes never sit on the words; the edges keep the
+        // full effect for depth. Both prefixed forms so Safari and
+        // Firefox agree.
         WebkitMaskImage:
-          'radial-gradient(ellipse 50% 46% at 50% 66%, transparent 0%, transparent 35%, black 82%)',
+          'radial-gradient(ellipse 48% 42% at 50% 40%, transparent 0%, transparent 48%, black 88%)',
         maskImage:
-          'radial-gradient(ellipse 50% 46% at 50% 66%, transparent 0%, transparent 35%, black 82%)',
+          'radial-gradient(ellipse 48% 42% at 50% 40%, transparent 0%, transparent 48%, black 88%)',
       }}
     >
       {/* Layer 1 — dot grid via CSS radial-gradient (SVG pattern without a
@@ -517,6 +373,8 @@ function HeroGraphBg() {
            below md), lighter behind a headline that spans the width, and
            their tilt/scroll-driven moves ease over a longer time than the
            desktop cursor did. */
+        /* The spiral disk is the busiest layer: kept faint so the hero reads calm. */
+        .hero-graph-layer:nth-child(3) { opacity: 0.55; }
         @media (max-width: 1023px) {
           .hero-graph-bg {
             opacity: 0.72;
@@ -529,7 +387,7 @@ function HeroGraphBg() {
           }
           /* The spiral disk is the busiest layer and the headline and stats
              fill the whole hero on a phone, so it goes fainter there. */
-          .hero-graph-layer:nth-child(3) { opacity: 0.45; }
+          .hero-graph-layer:nth-child(3) { opacity: 0.3; }
           .hero-graph-layer { transition-duration: 450ms; }
         }
         @media (prefers-reduced-motion: reduce) {
@@ -543,29 +401,17 @@ function HeroGraphBg() {
 
 export const SuiPoolLanding = memo(function SuiPoolLanding() {
   const t = useTranslations('landing');
-  // Read the shared Hedera pool query. Same cache key as HederaVaultCallout
-  // above + the dashboard's useCommunityPool. Three consumers, one fetch.
-  const { data: rawPool, isPending: loading } = useHederaPool('testnet');
-  const pool = toPoolSummary(rawPool);
-
   // Cursor-follow on desktop was removed by design; on touch devices the
   // hero's depth layers follow tilt and scroll instead.
   const heroRef = useRef<HTMLElement>(null);
   useTiltParallax(heroRef);
-
-  // Build allocation legend (positive entries only)
-  const allocationEntries = pool
-    ? Object.entries(pool.allocation || {})
-        .filter(([, v]) => Number(v) > 0)
-        .sort((a, b) => Number(b[1]) - Number(a[1]))
-    : [];
 
   return (
     <div className="bg-system-bg-primary text-label-primary">
       {/* ─────────────────────────────────────────────────────────────── */}
       {/* HERO                                                            */}
       {/* ─────────────────────────────────────────────────────────────── */}
-      <section ref={heroRef} className="relative isolate pt-20 pb-12 sm:pt-32 sm:pb-24 lg:pt-40 lg:pb-32 px-4 sm:px-5 lg:px-8 overflow-x-clip min-w-0">
+      <section ref={heroRef} className="relative isolate pt-20 pb-8 sm:pt-32 sm:pb-12 lg:pt-36 lg:pb-16 px-4 sm:px-5 lg:px-8 overflow-x-clip min-w-0">
         {/* Apple-style soft gradient backdrop — extends 100px above so
             the fixed navbar's backdrop-blur has something to blur
             instead of solid white. Height compensated via inset. */}
@@ -575,40 +421,15 @@ export const SuiPoolLanding = memo(function SuiPoolLanding() {
             Extends up under the navbar (see HeroGraphBg for details). */}
         <HeroGraphBg />
         <div className="max-w-[1100px] mx-auto">
-          {/* Single multichain status pill — SUI mainnet flagship + Hedera
-              testnet as the primary EVM demo. One line, less visual noise
-              than the previous two-pill row. */}
-          <div className="flex items-center justify-center mb-8 sm:mb-10">
-            <StatusPill
-              left={
-                <span className="inline-flex items-center gap-2">
-                  <span className="relative flex h-2 w-2">
-                    <span className="absolute inline-flex h-full w-full rounded-full opacity-75 animate-ping" style={{ backgroundColor: '#00A79F' }} />
-                    <span className="relative inline-flex rounded-full h-2 w-2" style={{ backgroundColor: '#00A79F' }} />
-                  </span>
-                  <span className="text-footnote font-medium text-label-secondary">
-                    {t('status.liveOn')} <span style={{ color: '#00A79F' }} className="font-semibold">{t('status.hederaTestnet')}</span> · <span style={{ color: '#4DA2FF' }} className="font-semibold">{t('status.suiMainnet')}</span>
-                  </span>
-                </span>
-              }
-              right={
-                <span className="text-footnote font-semibold text-label-primary tabular-nums">
-                  {formatCount(pool?.memberCount ?? 0, t('status.member'), t('status.members'))}
-                </span>
-              }
-            />
-          </div>
 
-          {/* Headline — tightened to 2 short lines, no gradient text (the
-              Vault Meter below is the visual signature). Space Grotesk
-              display face gives numbers + short phrases distinctive shape. */}
+          {/* Two short lines; the promise (line two) carries the brand accent. */}
           <h1
             className="font-display text-center text-[38px] xs:text-[44px] sm:text-[54px] md:text-[62px] lg:text-[68px] xl:text-[80px] font-semibold tracking-[-0.04em] leading-[0.96] text-label-primary mb-4 sm:mb-6"
             style={{ textWrap: 'balance', hyphens: 'none', overflowWrap: 'normal' }}
           >
             {t('hero.headline1')}
             <br />
-            <span className="whitespace-nowrap">{t('hero.headline2')}</span>
+            <span className="whitespace-nowrap bg-gradient-to-r from-ios-blue via-[#3B82F6] to-[#5AC8FA] bg-clip-text text-transparent">{t('hero.headline2')}</span>
           </h1>
 
           {/* Subtitle — plain-English promise; brand-forward for search. */}
@@ -616,69 +437,36 @@ export const SuiPoolLanding = memo(function SuiPoolLanding() {
             {t('hero.subtitle')}
           </p>
 
-          {/* ─── BIG-NUMBER STATS STRIP ─── */}
-          {/* Institutional-grade credibility band directly under the hero.
-              Three numbers that answer "why should I take this seriously?":
-              source count, AI accuracy, mature-source count. Feature-parity
-              with the leading enterprise DeFi presentation pattern.
-              Kept center-aligned + generous letter-spacing so the digits
-              read as monument, not marketing. */}
-          <div className="mx-auto max-w-[900px] mb-10 sm:mb-14">
-            <p className="text-center text-[11px] sm:text-caption-1 font-semibold uppercase tracking-wide text-label-tertiary mb-4 sm:mb-6">
-              {t('stats.eyebrow')}
-            </p>
-            <div className="grid grid-cols-3 gap-4 sm:gap-8">
-              {(['sources', 'accuracy', 'mature'] as const).map((k) => (
-                <div key={k} className="flex flex-col items-center text-center min-w-0">
-                  <div className="font-display text-[32px] sm:text-[48px] md:text-[56px] font-semibold tracking-[-0.03em] leading-none text-label-primary tabular-nums">
-                    {t(`stats.${k}.value`)}
-                  </div>
-                  <div className="mt-2 text-[11px] sm:text-caption-1 text-label-secondary max-w-[180px] leading-snug">
-                    {t(`stats.${k}.label`)}
-                  </div>
-                </div>
-              ))}
-            </div>
+          {/* One clear next step. The app is where every path starts (signals,
+              the simulated book, deposits), so the hero offers exactly that,
+              plus a way to learn more first. */}
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-12 sm:mb-16">
+            <Link
+              href="/dashboard"
+              className="group inline-flex items-center justify-center gap-3 w-full sm:w-auto pl-7 pr-2.5 h-[56px] bg-ios-blue text-white text-headline font-semibold rounded-ios-xl hover:bg-ios-blueHover active:scale-[0.97] shadow-ios-2"
+              style={{ transition: `all 500ms ${SPRING}` }}
+            >
+              {t('cta.openApp')}
+              <span
+                aria-hidden
+                className="w-10 h-10 rounded-full bg-white/15 flex items-center justify-center group-hover:translate-x-1"
+                style={{ transition: `transform 500ms ${SPRING}` }}
+              >
+                <ArrowRight className="w-4 h-4" strokeWidth={2.5} />
+              </span>
+            </Link>
+            <a
+              href="#how-it-works"
+              className="inline-flex items-center justify-center w-full sm:w-auto h-[56px] px-6 rounded-ios-xl border border-separator-opaque/50 bg-white/70 backdrop-blur text-headline font-semibold text-label-primary hover:border-ios-blue/40 hover:text-ios-blue transition-colors"
+            >
+              {t('cta.howItWorks')}
+            </a>
           </div>
+
+          <LiveSignalStrip />
+
 
           <DataSourceMarquee />
-
-          {/* Start-here — 3 clear entry paths. Fixes the mismatch where
-              the hero CTA said "See live signals" but the footer CTA asked
-              for a deposit. Now visitors get three ranked ways to try the
-              platform right after the pitch: safest first (shadow trader —
-              no wallet), then research, then capital. */}
-          <div className="mx-auto max-w-[1100px] mb-10 sm:mb-14">
-            <div className="text-center mb-5 sm:mb-6">
-              <p className="text-[10px] sm:text-caption-2 font-semibold uppercase tracking-[0.14em] text-label-tertiary mb-2">
-                {t('startHere.eyebrow')}
-              </p>
-              <p className="text-sm sm:text-callout text-label-secondary">
-                {t('startHere.body')}
-              </p>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4">
-              <StartHereCard
-                href="/paper"
-                title={t('startHere.watchShadow.title')}
-                body={t('startHere.watchShadow.body')}
-                cta={t('startHere.watchShadow.cta')}
-                primary
-              />
-              <StartHereCard
-                href="/dashboard"
-                title={t('startHere.seeSignals.title')}
-                body={t('startHere.seeSignals.body')}
-                cta={t('startHere.seeSignals.cta')}
-              />
-              <StartHereCard
-                href="/dashboard#deposit"
-                title={t('startHere.tryDemo.title')}
-                body={t('startHere.tryDemo.body')}
-                cta={t('startHere.tryDemo.cta')}
-              />
-            </div>
-          </div>
 
           {/* Install-as-app row — renders nothing when already installed or the
               browser hasn't emitted beforeinstallprompt yet. */}
@@ -690,289 +478,47 @@ export const SuiPoolLanding = memo(function SuiPoolLanding() {
       </section>
 
       {/* ─────────────────────────────────────────────────────────────── */}
-      {/* LIVE COMPOSITION                                                */}
-      {/* ─────────────────────────────────────────────────────────────── */}
-      <section className="py-12 sm:py-20 md:py-24 px-4 sm:px-5 lg:px-8 bg-system-bg-secondary min-w-0">
-        <Reveal className="max-w-[1100px] mx-auto">
-          <div className="flex flex-col lg:flex-row gap-8 sm:gap-12 lg:gap-16 items-start min-w-0">
-            {/* Left: heading */}
-            <div className="lg:max-w-[420px] lg:sticky lg:top-24 min-w-0">
-              <p className="text-[11px] sm:text-caption-1 font-semibold uppercase tracking-wide text-ios-blue mb-2 sm:mb-3">
-                {t('composition.eyebrow')}
-              </p>
-              <h2 className="text-[26px] sm:text-[34px] md:text-[40px] lg:text-[48px] font-display font-semibold tracking-[-0.03em] leading-[1.05] text-label-primary mb-3 sm:mb-5 break-words">
-                {t('composition.title')}
-              </h2>
-              <p className="text-sm sm:text-callout text-label-secondary leading-relaxed sm:leading-[1.55]">
-                {t('composition.body')}
-              </p>
-            </div>
-
-            {/* Right: allocation visualization */}
-            <div className="flex-1 w-full">
-              {!loading && allocationEntries.length > 0 ? (
-                <div className="bg-system-bg-primary rounded-ios-xl p-6 sm:p-8 shadow-ios-1 border border-separator-opaque/30">
-                  {/* Stack bar */}
-                  <div className="h-3 rounded-full overflow-hidden flex mb-6 bg-system-bg-grouped">
-                    {allocationEntries.map(([asset, pct]) => (
-                      <div
-                        key={asset}
-                        className={`bg-gradient-to-r ${ASSET_GRADIENTS[asset] || 'from-gray-300 to-gray-400'}`}
-                        style={{ width: `${pct}%` }}
-                        title={`${asset} ${pct}%`}
-                      />
-                    ))}
-                  </div>
-
-                  {/* Legend */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-4">
-                    {allocationEntries.map(([asset, pct]) => (
-                      <div key={asset} className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <div
-                            className={`w-9 h-9 rounded-ios bg-gradient-to-br ${
-                              ASSET_GRADIENTS[asset] || 'from-gray-300 to-gray-400'
-                            } flex items-center justify-center text-white text-base font-semibold shadow-ios-1`}
-                          >
-                            {ASSET_ICONS[asset] || '?'}
-                          </div>
-                          <div>
-                            <div className="text-headline font-semibold text-label-primary">{asset}</div>
-                            <div className="text-caption-1 text-label-tertiary">
-                              {pool ? formatUsd((pool.totalNAV * Number(pct)) / 100, 2) : '…'}
-                            </div>
-                          </div>
-                        </div>
-                        <div className="text-title-3 font-semibold text-label-primary tabular-nums">
-                          {Number(pct).toFixed(1)}%
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ) : (
-                <div className="bg-system-bg-primary rounded-ios-xl p-8 shadow-ios-1 border border-separator-opaque/30 animate-pulse">
-                  <div className="h-3 bg-system-bg-grouped rounded-full mb-6" />
-                  <div className="space-y-4">
-                    {[1, 2, 3, 4].map(i => (
-                      <div key={i} className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-ios bg-system-bg-grouped" />
-                          <div className="w-16 h-4 bg-system-bg-grouped rounded" />
-                        </div>
-                        <div className="w-12 h-4 bg-system-bg-grouped rounded" />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </Reveal>
-      </section>
-
-      {/* ─────────────────────────────────────────────────────────────── */}
-      {/* HOW IT WORKS                                                    */}
+      {/* HOW TO START: what a visitor does, step by step                 */}
       {/* ─────────────────────────────────────────────────────────────── */}
       <section id="how-it-works" className="py-14 sm:py-20 md:py-28 px-4 sm:px-5 lg:px-8 bg-system-bg-primary min-w-0">
         <Reveal className="max-w-[1100px] mx-auto">
           <div className="text-center mb-10 sm:mb-14 md:mb-16">
             <p className="text-[11px] sm:text-caption-1 font-semibold uppercase tracking-wide text-ios-blue mb-2 sm:mb-3">
-              {t('howItWorks.eyebrow')}
+              {t('start.eyebrow')}
             </p>
             <h2 className="text-[26px] sm:text-[34px] md:text-[44px] lg:text-[52px] font-display font-semibold tracking-[-0.03em] leading-[1.05] text-label-primary mb-3 sm:mb-4 break-words">
-              {t('howItWorks.title')}
+              {t('start.title')}
             </h2>
-            <p className="text-sm sm:text-callout text-label-secondary max-w-[560px] mx-auto leading-relaxed sm:leading-[1.55] px-1">
-              {t('howItWorks.body')}
-            </p>
           </div>
 
           <div className="max-w-[760px] mx-auto min-w-0">
             <TimelineStep
               step={1}
-              icon={<Sparkles className="w-5 h-5" />}
+              icon={<LayoutDashboard className="w-5 h-5" />}
               accent="from-ios-blue to-[#5AC8FA]"
-              title={t('howItWorks.step1.title')}
-              body={t('howItWorks.step1.body')}
+              title={t('start.step1.title')}
+              body={t('start.step1.body')}
             />
             <TimelineStep
               step={2}
-              icon={<Zap className="w-5 h-5" />}
+              icon={<Compass className="w-5 h-5" />}
               accent="from-[#34C759] to-[#30D158]"
-              title={t('howItWorks.step2.title')}
-              body={t('howItWorks.step2.body')}
+              title={t('start.step2.title')}
+              body={t('start.step2.body')}
             />
             <TimelineStep
               step={3}
-              icon={<ShieldCheck className="w-5 h-5" />}
+              icon={<Wallet className="w-5 h-5" />}
               accent="from-[#AF52DE] to-[#BF5AF2]"
-              title={t('howItWorks.step3.title')}
-              body={t('howItWorks.step3.body')}
+              title={t('start.step3.title')}
+              body={t('start.step3.body')}
               last
             />
           </div>
         </Reveal>
       </section>
 
-      {/* ─────────────────────────────────────────────────────────────── */}
-      {/* IN PRODUCTION — real numbers from live SUI mainnet deploy       */}
-      {/* ─────────────────────────────────────────────────────────────── */}
-      <section className="py-12 sm:py-20 md:py-24 px-4 sm:px-5 lg:px-8 bg-system-bg-secondary min-w-0">
-        <Reveal className="max-w-[1100px] mx-auto">
-          <div className="text-center mb-8 sm:mb-12">
-            <p className="text-caption-1 font-medium uppercase tracking-wide text-label-tertiary mb-2 sm:mb-3">
-              {t('production.eyebrow')}
-            </p>
-            <h2 className="text-[24px] sm:text-[28px] md:text-[36px] lg:text-[44px] font-display font-semibold tracking-[-0.03em] leading-[1.05] text-label-primary mb-3 sm:mb-4 break-words">
-              {t('production.title')}
-            </h2>
-            <p className="text-sm sm:text-callout text-label-secondary max-w-[560px] mx-auto leading-relaxed">
-              {t('production.body')}
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-4 min-w-0">
-            <TrustBadge
-              icon={<Zap className="w-5 h-5" />}
-              title={t('production.daysLive.title')}
-              value={t('production.daysLive.value')}
-              hint={t('production.daysLive.hint')}
-            />
-            <TrustBadge
-              icon={<BarChart3 className="w-5 h-5" />}
-              title={t('production.navSnapshots.title')}
-              value={t('production.navSnapshots.value')}
-              hint={t('production.navSnapshots.hint')}
-            />
-            <TrustBadge
-              icon={<Layers className="w-5 h-5" />}
-              title={t('production.hedges.title')}
-              value={t('production.hedges.value')}
-              hint={t('production.hedges.hint')}
-            />
-          </div>
-        </Reveal>
-      </section>
-
-      {/* ─────────────────────────────────────────────────────────────── */}
-      {/* BUILT FOR — audience triplet                                    */}
-      {/* ─────────────────────────────────────────────────────────────── */}
-      <section className="py-12 sm:py-20 md:py-24 px-4 sm:px-5 lg:px-8 bg-system-bg-primary min-w-0">
-        <Reveal className="max-w-[1100px] mx-auto">
-          <div className="text-center mb-8 sm:mb-12">
-            <p className="text-caption-1 font-medium uppercase tracking-wide text-label-tertiary mb-2 sm:mb-3">
-              {t('builtFor.eyebrow')}
-            </p>
-            <h2 className="text-[24px] sm:text-[28px] md:text-[36px] lg:text-[44px] font-display font-semibold tracking-[-0.03em] leading-[1.05] text-label-primary mb-3 sm:mb-4 break-words">
-              {t('builtFor.title')}
-            </h2>
-            <p className="text-sm sm:text-callout text-label-secondary max-w-[560px] mx-auto leading-relaxed">
-              {t('builtFor.body')}
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4 min-w-0">
-            <BuiltForCard title={t('builtFor.traders.title')} body={t('builtFor.traders.body')} />
-            <BuiltForCard title={t('builtFor.research.title')} body={t('builtFor.research.body')} />
-            <BuiltForCard title={t('builtFor.protocols.title')} body={t('builtFor.protocols.body')} />
-          </div>
-        </Reveal>
-      </section>
-
-      {/* ─────────────────────────────────────────────────────────────── */}
-      {/* TRUST STRIP — safety guarantees on chain                        */}
-      {/* ─────────────────────────────────────────────────────────────── */}
-      <section className="py-12 sm:py-20 md:py-24 px-4 sm:px-5 lg:px-8 bg-system-bg-secondary min-w-0">
-        <Reveal className="max-w-[1100px] mx-auto">
-          <div className="text-center mb-8 sm:mb-12">
-            <h2 className="text-[24px] sm:text-[28px] md:text-[36px] lg:text-[42px] font-display font-semibold tracking-[-0.03em] leading-[1.05] text-label-primary mb-3 break-words">
-              {t('trust.title')}
-            </h2>
-            <p className="text-sm sm:text-callout text-label-secondary max-w-[560px] mx-auto leading-relaxed mb-2">
-              {t('trust.body')}
-            </p>
-          </div>
-
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-2.5 sm:gap-4 min-w-0">
-            <TrustBadge
-              icon={<Lock className="w-5 h-5" />}
-              title={t('trust.poolCap.title')}
-              value={t('trust.poolCap.value')}
-              hint={t('trust.poolCap.hint')}
-            />
-            <TrustBadge
-              icon={<Layers className="w-5 h-5" />}
-              title={t('trust.freshOracle.title')}
-              value={t('trust.freshOracle.value')}
-              hint={t('trust.freshOracle.hint')}
-            />
-            <TrustBadge
-              icon={<ShieldCheck className="w-5 h-5" />}
-              title={t('trust.withdrawThrottle.title')}
-              value={t('trust.withdrawThrottle.value')}
-              hint={t('trust.withdrawThrottle.hint')}
-            />
-            <TrustBadge
-              icon={<BarChart3 className="w-5 h-5" />}
-              title={t('trust.proofs.title')}
-              value={t('trust.proofs.value')}
-              hint={t('trust.proofs.hint')}
-            />
-            <TrustBadge
-              icon={<Layers className="w-5 h-5" />}
-              title={t('trust.twoChains.title')}
-              value={t('trust.twoChains.value')}
-              hint={t('trust.twoChains.hint')}
-            />
-          </div>
-        </Reveal>
-      </section>
-
-      {/* PLATFORM SURFACES — discoverability for the BlackRock-shaped views */}
-      {/* ─────────────────────────────────────────────────────────────── */}
-      <section className="py-14 sm:py-20 md:py-24 px-4 sm:px-5 lg:px-8 bg-system-bg-secondary border-y border-separator-opaque/20 min-w-0">
-        <Reveal className="max-w-[1100px] mx-auto">
-          <div className="text-center mb-8 sm:mb-10 md:mb-12">
-            <div className="inline-block text-[11px] sm:text-caption-1 font-semibold uppercase tracking-wide text-label-tertiary mb-2 sm:mb-3">
-              {t('surfaces.eyebrow')}
-            </div>
-            <h2 className="text-[24px] sm:text-[28px] md:text-[36px] lg:text-[44px] font-display font-semibold tracking-[-0.03em] leading-[1.05] text-label-primary mb-3 sm:mb-4 break-words">
-              {t('surfaces.title')}
-            </h2>
-            <p className="text-sm sm:text-callout md:text-[18px] text-label-secondary max-w-[640px] mx-auto leading-relaxed sm:leading-[1.5] px-1">
-              {t('surfaces.body')}
-            </p>
-          </div>
-
-          {/* Cut from 6 → 3 cards. Explore paralysis — 6 equal-weight
-              tiles at the bottom of the page meant no clear next click.
-              Kept the three that map to the "Start here" hierarchy: safe
-              proof (paper), live capital (dashboard), technical depth
-              (whitepaper). RWA / Agents / ZK / Story remain reachable
-              via the top nav. */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4 min-w-0">
-            <SurfaceCard
-              href="/paper"
-              eyebrow={t('surfaces.paper.eyebrow')}
-              title={t('surfaces.paper.title')}
-              body={t('surfaces.paper.body')}
-            />
-            <SurfaceCard
-              href="/dashboard"
-              eyebrow={t('surfaces.dashboard.eyebrow')}
-              title={t('surfaces.dashboard.title')}
-              body={t('surfaces.dashboard.body')}
-            />
-            <SurfaceCard
-              href="/whitepaper"
-              eyebrow={t('surfaces.whitepaper.eyebrow')}
-              title={t('surfaces.whitepaper.title')}
-              body={t('surfaces.whitepaper.body')}
-            />
-          </div>
-        </Reveal>
-      </section>
+      <Safeguards />
 
       {/* ─────────────────────────────────────────────────────────────── */}
       {/* FOOTER CTA                                                      */}
@@ -982,24 +528,14 @@ export const SuiPoolLanding = memo(function SuiPoolLanding() {
           <h2 className="text-[24px] sm:text-[32px] md:text-[40px] font-display font-semibold tracking-[-0.03em] leading-[1.05] text-label-primary mb-3 break-words">
             {t('finalCta.title')}
           </h2>
-          <p className="text-sm sm:text-callout text-label-secondary mb-6 leading-relaxed px-1">
-            {t('finalCta.body')}
-            {pool && (
-              <>
-                {' '}
-                {t('finalCta.alreadyIn', {
-                  count: formatCount(pool.memberCount, t('status.member'), t('status.members')),
-                })}
-              </>
-            )}
-          </p>
+          <div className="mb-6" />
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
             <Link
               href="/dashboard"
               className="group inline-flex items-center justify-center gap-3 w-full sm:w-auto pl-6 pr-2.5 h-[52px] bg-ios-blue text-white text-headline font-semibold rounded-ios-xl hover:bg-ios-blueHover active:scale-[0.97] shadow-ios-2"
               style={{ transition: `all 500ms ${SPRING}` }}
             >
-              {t('cta.depositUsdc')}
+              {t('cta.openApp')}
               <span
                 aria-hidden
                 className="w-9 h-9 rounded-full bg-white/15 flex items-center justify-center group-hover:translate-x-1 group-hover:-translate-y-[1px] group-hover:scale-105"
@@ -1008,21 +544,7 @@ export const SuiPoolLanding = memo(function SuiPoolLanding() {
                 <ArrowRight className="w-4 h-4" strokeWidth={2.5} />
               </span>
             </Link>
-            <a
-              href="https://github.com/ZkVanguard/ZKward"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 h-[52px] px-2 text-headline font-medium text-label-secondary hover:text-ios-blue transition-colors"
-            >
-              {t('cta.viewSource')}
-              <ArrowRight className="w-4 h-4" strokeWidth={2.25} />
-            </a>
           </div>
-          {pool?.paused && (
-            <p className="mt-4 text-footnote text-ios-orange font-medium">
-              {t('finalCta.paused')}
-            </p>
-          )}
         </div>
       </section>
     </div>
@@ -1032,119 +554,6 @@ export const SuiPoolLanding = memo(function SuiPoolLanding() {
 // ───────────────────────────────────────────────────────────────────────────
 // Subcomponents (page-specific. Shared primitives live in ./ui/landing)
 // ───────────────────────────────────────────────────────────────────────────
-
-// VaultMeter. The hero's signature element. A single card that IS the
-// vault's live state: NAV, allocation, capacity. Replaces the generic
-// text-hero + 4-stat-card pattern. Every landing sells; this one shows.
-function VaultMeter({
-  pool, loading, cap, labels,
-}: {
-  pool: PoolSummary | null | undefined;
-  loading: boolean;
-  cap: number;
-  labels: {
-    poolNav: string;
-    sharePrice: string;
-    capacity: string;
-    capacityOf: (current: string, cap: string) => string;
-  };
-}) {
-  const entries = pool
-    ? Object.entries(pool.allocation || {})
-        .filter(([, v]) => Number(v) > 0)
-        .sort((a, b) => Number(b[1]) - Number(a[1]))
-    : [];
-  const capacityPct = pool ? Math.min(100, (pool.totalNAV / cap) * 100) : 0;
-
-  // Double-Bezel structure (soft-skill Doppelrand). Outer shell reads
-  // as an aluminium tray with a hairline ring; inner core is the glass
-  // plate with a subtle inner-highlight catching a light source above.
-  // Radii are mathematically concentric: outer 28px minus 6px padding
-  // = 22px inner. Reads as machined hardware, not a flat browser card.
-  return (
-    <div className="rounded-[28px] bg-gradient-to-b from-black/[0.03] to-black/[0.015] ring-1 ring-black/[0.06] p-1.5">
-      <div className="relative bg-system-bg-primary rounded-[22px] p-4 sm:p-6 overflow-hidden shadow-[inset_0_1px_1px_rgba(255,255,255,0.7),inset_0_-1px_1px_rgba(0,0,0,0.02)]">
-      {/* Brand accent bar — thinner + softer gradient for machined feel */}
-      <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-ios-blue to-transparent" />
-
-      {/* NAV + Share price */}
-      <div className="flex items-end justify-between gap-4 mb-5 sm:mb-6 pt-1">
-        <div className="min-w-0">
-          <div className="text-[10px] sm:text-caption-1 uppercase tracking-wide font-semibold text-label-tertiary mb-1.5">
-            {labels.poolNav}
-          </div>
-          {loading ? (
-            // Skeleton matches final NAV width (~7ch) + height so data
-            // arrival doesn't shift or "pop" — premium detail.
-            <div className="h-[36px] sm:h-[52px] md:h-[60px] w-[7ch] rounded-md bg-system-bg-grouped animate-pulse" />
-          ) : (
-            <div className="text-[36px] sm:text-[52px] md:text-[60px] font-bold tabular-nums leading-none text-label-primary break-all">
-              {formatUsd(pool?.totalNAV ?? 0)}
-            </div>
-          )}
-        </div>
-        <div className="text-right flex-shrink-0">
-          <div className="text-[10px] sm:text-caption-1 uppercase tracking-wide font-semibold text-label-tertiary mb-1.5">
-            {labels.sharePrice}
-          </div>
-          {loading ? (
-            <div className="h-[20px] sm:h-[26px] w-[6ch] rounded-md bg-system-bg-grouped animate-pulse ml-auto" />
-          ) : (
-            <div className="text-[20px] sm:text-[26px] font-semibold tabular-nums text-label-primary">
-              {`$${(pool?.sharePrice ?? 1).toFixed(4)}`}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Composition bar + legend */}
-      <div className="mb-5 sm:mb-6">
-        <div className="h-2.5 rounded-full overflow-hidden flex bg-system-bg-grouped">
-          {entries.length > 0 ? entries.map(([asset, pct]) => (
-            <div
-              key={asset}
-              className={`bg-gradient-to-r ${ASSET_GRADIENTS[asset] || 'from-gray-300 to-gray-400'} transition-all duration-500`}
-              style={{ width: `${pct}%` }}
-              title={`${asset} ${pct}%`}
-            />
-          )) : (
-            <div className="w-full bg-system-bg-grouped animate-pulse" />
-          )}
-        </div>
-        <div className="flex flex-wrap gap-x-4 gap-y-1.5 mt-3 text-xs sm:text-caption-1">
-          {entries.map(([asset, pct]) => (
-            <div key={asset} className="flex items-center gap-1.5">
-              <span className={`w-2 h-2 rounded-full bg-gradient-to-br ${ASSET_GRADIENTS[asset]}`} />
-              <span className="font-semibold text-label-primary">{asset}</span>
-              <span className="tabular-nums text-label-secondary">{Number(pct).toFixed(0)}%</span>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Capacity */}
-      <div className="pt-5 sm:pt-6 border-t border-separator-opaque/30">
-        <div className="flex items-center justify-between text-xs sm:text-caption-1 mb-2">
-          <span className="text-label-tertiary uppercase tracking-wide font-semibold">{labels.capacity}</span>
-          {loading ? (
-            <span className="inline-block h-[12px] w-[12ch] rounded bg-system-bg-grouped animate-pulse" />
-          ) : (
-            <span className="tabular-nums text-label-secondary">
-              {labels.capacityOf(formatUsd(pool?.totalNAV ?? 0), formatUsd(cap))}
-            </span>
-          )}
-        </div>
-        <div className="h-1 rounded-full bg-system-bg-grouped overflow-hidden">
-          <div
-            className="h-full bg-ios-blue rounded-full transition-all duration-700 ease-out"
-            style={{ width: `${capacityPct}%` }}
-          />
-        </div>
-      </div>
-      </div>
-    </div>
-  );
-}
 
 // TimelineStep. Vertical connected step. Replaces the banned "3 equal
 // feature cards" pattern. Content genuinely is a sequence, so numbers help.
@@ -1183,69 +592,3 @@ function TimelineStep({
   );
 }
 
-function SurfaceCard({
-  href, eyebrow, title, body,
-}: {
-  href: string; eyebrow: string; title: string; body: string;
-}) {
-  return (
-    <Link
-      href={href}
-      className="group block bg-system-bg-primary rounded-ios-xl p-4 sm:p-5 md:p-6 border border-separator-opaque/30 hover:shadow-ios-2 hover:border-ios-blue/30 active:scale-[0.99] transition-all duration-300 min-w-0"
-    >
-      <div className="flex items-center justify-between gap-2 mb-2 min-w-0">
-        <div className="text-[10px] sm:text-caption-1 font-semibold uppercase tracking-wide text-label-tertiary truncate">
-          {eyebrow}
-        </div>
-        <ArrowRight
-          className="w-4 h-4 text-label-tertiary group-hover:text-ios-blue group-hover:translate-x-1 transition-all flex-shrink-0"
-          strokeWidth={2}
-        />
-      </div>
-      <h3 className="text-sm sm:text-headline font-semibold text-label-primary mb-1 sm:mb-1.5 leading-tight break-words">
-        {title}
-      </h3>
-      <p className="text-xs sm:text-subheadline text-label-secondary leading-relaxed sm:leading-[1.5] break-words">{body}</p>
-    </Link>
-  );
-}
-
-function StartHereCard({
-  href, title, body, cta, primary,
-}: {
-  href: string; title: string; body: string; cta: string; primary?: boolean;
-}) {
-  const base = 'group flex flex-col justify-between h-full rounded-ios-xl p-5 sm:p-6 border transition-all duration-300 min-w-0 active:scale-[0.99]';
-  const style = primary
-    ? 'bg-gradient-to-br from-ios-blue to-ios-blueHover text-white border-ios-blue/40 hover:shadow-ios-3'
-    : 'bg-white/70 backdrop-blur-sm text-label-primary border-separator-opaque/40 hover:border-ios-blue/40 hover:shadow-ios-2';
-  return (
-    <Link href={href} className={`${base} ${style}`}>
-      <div className="mb-4">
-        <h3 className={`text-headline sm:text-title-3 font-display font-semibold mb-2 leading-tight break-words ${primary ? 'text-white' : 'text-label-primary'}`}>
-          {title}
-        </h3>
-        <p className={`text-sm sm:text-callout leading-relaxed break-words ${primary ? 'text-white/85' : 'text-label-secondary'}`}>
-          {body}
-        </p>
-      </div>
-      <div className={`inline-flex items-center gap-1.5 text-sm font-semibold ${primary ? 'text-white' : 'text-ios-blue'}`}>
-        {cta}
-        <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" strokeWidth={2.25} />
-      </div>
-    </Link>
-  );
-}
-
-function BuiltForCard({ title, body }: { title: string; body: string }) {
-  return (
-    <div className="bg-system-bg-secondary rounded-ios-xl p-5 sm:p-6 md:p-7 border border-separator-opaque/30 min-w-0">
-      <h3 className="text-headline sm:text-title-3 font-display font-semibold text-label-primary mb-2 sm:mb-3 leading-tight break-words">
-        {title}
-      </h3>
-      <p className="text-sm sm:text-callout text-label-secondary leading-relaxed break-words">
-        {body}
-      </p>
-    </div>
-  );
-}

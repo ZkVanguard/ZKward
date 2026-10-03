@@ -42,7 +42,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         peak: peak && { t: peak.t, sharePrice: peak.sharePrice },
         points,
       },
-      { headers: { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120' } },
+      { headers: { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=86400' } },
     );
   } catch (e) {
     return NextResponse.json({ asOf, window, count: 0, points: [], error: errMsg(e) }, { status: 500 });

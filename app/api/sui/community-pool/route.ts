@@ -78,13 +78,20 @@ function requireValidNetwork(network: NetworkType): NextResponse | null {
   return null;
 }
 
+// Pool-wide reads may be served stale while the CDN refreshes them in the
+// background: on a quiet site a short stale window expired between visits,
+// so nearly every visitor waited ~3.5 s for a rebuild. The views poll, so a
+// stale answer is replaced within one interval. Per-user reads and quotes
+// keep the short default.
+const POOL_WIDE_STALE_S = 86_400;
+
 /** JSON response with CDN cache headers */
-function cachedJsonResponse(data: unknown, cdnTtlSeconds: number = 30) {
+function cachedJsonResponse(data: unknown, cdnTtlSeconds: number = 30, staleSeconds: number = cdnTtlSeconds * 2) {
   return NextResponse.json(data, {
     headers: {
       // 'public' prefix is required for Vercel Edge to CDN-cache. Without it,
       // Vercel serves 'max-age=0, must-revalidate' and every request hits origin.
-      'Cache-Control': `public, s-maxage=${cdnTtlSeconds}, stale-while-revalidate=${cdnTtlSeconds * 2}`,
+      'Cache-Control': `public, s-maxage=${cdnTtlSeconds}, stale-while-revalidate=${staleSeconds}`,
     },
   });
 }
@@ -379,7 +386,7 @@ export async function GET(request: NextRequest) {
         },
         chain: 'sui',
         network,
-      }, 60);
+      }, 60, POOL_WIDE_STALE_S);
     }
 
     // Volatility context — used by the pool card to give users an honest
@@ -457,7 +464,7 @@ export async function GET(request: NextRequest) {
           },
           chain: 'sui',
           network,
-        }, 300);
+        }, 300, POOL_WIDE_STALE_S);
       } catch (err) {
         // Non-critical — a missing volatility panel is better than a 500.
         logger.warn('[sui-pool] volatility action failed', { error: err });
@@ -515,7 +522,7 @@ export async function GET(request: NextRequest) {
         chain: 'sui',
         network,
         duration: Date.now() - startTime,
-      }, 30);
+      }, 30, POOL_WIDE_STALE_S);
     }
 
     // Hedges: active BlueFin perp positions tracked in DB for this pool.
@@ -529,7 +536,7 @@ export async function GET(request: NextRequest) {
         chain: 'sui',
         network,
         duration: Date.now() - startTime,
-      }, 30);
+      }, 30, POOL_WIDE_STALE_S);
     }
     
     // Default: Get pool summary (cached 30s) — fetched in parallel with hedges
@@ -612,7 +619,7 @@ export async function GET(request: NextRequest) {
       chain: 'sui',
       network,
       duration: Date.now() - startTime,
-    }, stale ? 60 : 30);
+    }, stale ? 60 : 30, POOL_WIDE_STALE_S);
     
   } catch (error) {
     logger.error('[SUI-API] Error', { error });
