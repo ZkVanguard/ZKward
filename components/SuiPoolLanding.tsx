@@ -380,6 +380,13 @@ function HeroGraphBg() {
           text or the vault meter card. */}
       <div className="hero-graph-layer absolute -left-32 -right-32 top-0 bottom-0" style={LAYER_1_STYLE} />
 
+      {/* Both SVG layers carry an explicit width: an absolutely positioned
+          <svg> is a replaced element and keeps its intrinsic width (height ×
+          viewBox ratio) when only left and right are set. On a phone that
+          left the chart box ending at the viewport edge, which cut the fill
+          in a vertical line. max-w-none opts out of the phone-wide
+          `svg { max-width: 100% }` safety rule in globals.css, which would
+          cap the box at the viewport again. */}
       {/* Layer 2 — chart polylines. Slow dashoffset sweep on the dashed line
           gives a "live tape" feel without any JS. Paths extended beyond
           viewBox 0-1200 (starting at -200, ending at 1400) so the chart
@@ -388,7 +395,7 @@ function HeroGraphBg() {
           visible` allows the SVG to draw outside the viewBox. Layer
           stays extended -left-32/-right-32 for the 3D depth cue. */}
       <svg
-        className="hero-graph-layer absolute -left-32 -right-32 top-0 bottom-0 h-full"
+        className="hero-graph-layer absolute -left-32 -right-32 top-0 bottom-0 h-full w-[calc(100%+16rem)] max-w-none"
         preserveAspectRatio="none"
         viewBox="0 0 1200 600"
         overflow="visible"
@@ -432,7 +439,7 @@ function HeroGraphBg() {
           whole layer slowly rotates (72s per revolution) — sub-liminal
           but reinforces the "living system" read. */}
       <svg
-        className="hero-graph-layer absolute -left-32 -right-32 top-0 bottom-0 h-full"
+        className="hero-graph-layer absolute -left-32 -right-32 top-0 bottom-0 h-full w-[calc(100%+16rem)] max-w-none"
         preserveAspectRatio="xMidYMid slice"
         viewBox="0 0 1200 600"
         style={PX_LAYER_3}
@@ -506,11 +513,20 @@ function HeroGraphBg() {
         .hero-graph-bg[data-hero-visible="false"] .hero-spiral-rotate {
           animation-play-state: paused;
         }
-        /* Phones: the layers show (they were hidden below md), lighter behind
-           a headline that spans the width, and their tilt/scroll-driven
-           moves ease over a longer time than the desktop cursor did. */
-        @media (max-width: 767px) {
-          .hero-graph-bg { opacity: 0.72; }
+        /* Below the desktop breakpoint: the layers show (they were hidden
+           below md), lighter behind a headline that spans the width, and
+           their tilt/scroll-driven moves ease over a longer time than the
+           desktop cursor did. */
+        @media (max-width: 1023px) {
+          .hero-graph-bg {
+            opacity: 0.72;
+            /* The inline vignette clears an ellipse half the width of the
+               box. At 1440px that is a soft centre; at 768px and below its
+               edge falls inside the view and slices the chart fill with a
+               vertical line. These layers are faint already, so no vignette. */
+            -webkit-mask-image: none !important;
+            mask-image: none !important;
+          }
           /* The spiral disk is the busiest layer and the headline and stats
              fill the whole hero on a phone, so it goes fainter there. */
           .hero-graph-layer:nth-child(3) { opacity: 0.45; }
