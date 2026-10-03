@@ -293,7 +293,7 @@
       },
       "step3": {
         "title": "Operare quando concordano",
-        "body": "Ogni operazione ha una prova che chiunque può verificare."
+        "body": "Ogni operazione è pubblica, chiunque può verificarla."
       }
     },
     "finalCta": {
@@ -305,6 +305,29 @@
       "down": "al ribasso",
       "none": "nessuna tendenza",
       "chip": "{coin}: {lean}, {pct}% di fiducia"
+    },
+    "safeguards": {
+      "eyebrow": "Prima la sicurezza",
+      "title1": "Gestito come un fondo.",
+      "title2": "Aperto a tutti.",
+      "contrast": "I grandi fondi ti chiedono fiducia. Noi mostriamo il nostro lavoro.",
+      "live": "{on} su {total} protezioni attive in questo momento",
+      "crowd": {
+        "title": "La folla controlla ogni mossa",
+        "body": "Oltre 20 mercati dicono la loro. Chi sbaglia spesso conta meno."
+      },
+      "brakes": {
+        "title": "Freni che agiscono da soli",
+        "body": "Se il pool scende, rallenta e poi si ferma."
+      },
+      "limits": {
+        "title": "Limiti fermi",
+        "body": "Quanto può contenere il pool è bloccato, così il rischio non cresce di nascosto."
+      },
+      "open": {
+        "title": "Niente di nascosto",
+        "body": "Ogni operazione e il valore del pool sono pubblici."
+      }
     }
   },
   "agentsPage": {

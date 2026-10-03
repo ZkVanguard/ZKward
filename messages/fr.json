@@ -293,7 +293,7 @@
       },
       "step3": {
         "title": "Trader quand ils s'accordent",
-        "body": "Chaque trade est accompagné d'une preuve vérifiable par tous."
+        "body": "Chaque trade est public, tout le monde peut le vérifier."
       }
     },
     "finalCta": {
@@ -305,6 +305,29 @@
       "down": "à la baisse",
       "none": "sans tendance",
       "chip": "{coin} : {lean}, {pct} % de confiance"
+    },
+    "safeguards": {
+      "eyebrow": "La sécurité d'abord",
+      "title1": "Géré comme un fonds.",
+      "title2": "Ouvert à tous.",
+      "contrast": "Les grands fonds vous demandent votre confiance. Nous montrons notre travail.",
+      "live": "{on} sur {total} sécurités activées en ce moment",
+      "crowd": {
+        "title": "La foule vérifie chaque mouvement",
+        "body": "Plus de 20 marchés donnent leur avis. Ceux qui se trompent souvent comptent moins."
+      },
+      "brakes": {
+        "title": "Des freins qui agissent seuls",
+        "body": "Si le pool baisse, il ralentit, puis s'arrête."
+      },
+      "limits": {
+        "title": "Des limites fermes",
+        "body": "Ce que le pool peut contenir est verrouillé, le risque ne peut pas grimper en douce."
+      },
+      "open": {
+        "title": "Rien de caché",
+        "body": "Chaque trade et la valeur du pool sont publics."
+      }
     }
   },
   "agentsPage": {

@@ -293,7 +293,7 @@
       },
       "step3": {
         "title": "Handeln, wenn sie übereinstimmen",
-        "body": "Jeder Trade kommt mit einem Beweis, den jeder prüfen kann."
+        "body": "Jeder Trade ist öffentlich, jeder kann ihn prüfen."
       }
     },
     "finalCta": {
@@ -305,6 +305,29 @@
       "down": "tendiert nach unten",
       "none": "keine Tendenz",
       "chip": "{coin}: {lean}, {pct} % Konfidenz"
+    },
+    "safeguards": {
+      "eyebrow": "Sicherheit zuerst",
+      "title1": "Geführt wie ein Fonds.",
+      "title2": "Offen für alle.",
+      "contrast": "Große Fonds bitten um dein Vertrauen. Wir zeigen unsere Arbeit.",
+      "live": "{on} von {total} Sicherungen gerade aktiv",
+      "crowd": {
+        "title": "Die Masse prüft jeden Schritt",
+        "body": "Über 20 Märkte reden mit. Wer oft falsch liegt, zählt weniger."
+      },
+      "brakes": {
+        "title": "Bremsen, die von selbst greifen",
+        "body": "Fällt der Pool, wird er langsamer und hält dann an."
+      },
+      "limits": {
+        "title": "Feste Grenzen",
+        "body": "Wie viel der Pool fassen kann, ist festgelegt. So kann das Risiko nicht heimlich wachsen."
+      },
+      "open": {
+        "title": "Nichts versteckt",
+        "body": "Jeder Trade und der Wert des Pools sind öffentlich."
+      }
     }
   },
   "agentsPage": {

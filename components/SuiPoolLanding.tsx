@@ -10,6 +10,7 @@ import {
 import { InstallAppButton } from './InstallAppButton';
 import { DataSourceMarquee } from './landing/DataSourceMarquee';
 import { LiveSignalStrip } from './landing/LiveSignalStrip';
+import { Safeguards } from './landing/Safeguards';
 import { Reveal } from './ui/landing';
 
 // Linear's signature spring curve. Read as: quick out, slow in — feels
@@ -517,6 +518,8 @@ export const SuiPoolLanding = memo(function SuiPoolLanding() {
           </div>
         </Reveal>
       </section>
+
+      <Safeguards />
 
       {/* ─────────────────────────────────────────────────────────────── */}
       {/* FOOTER CTA                                                      */}

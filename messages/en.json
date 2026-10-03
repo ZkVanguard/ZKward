@@ -50,7 +50,7 @@
       },
       "step3": {
         "title": "Trade when they agree",
-        "body": "Every trade comes with a proof anyone can check."
+        "body": "Every trade is public, so anyone can check it."
       }
     },
     "finalCta": {
@@ -62,6 +62,29 @@
       "down": "leaning down",
       "none": "no lean",
       "chip": "{coin}: {lean}, {pct}% confidence"
+    },
+    "safeguards": {
+      "eyebrow": "Safety first",
+      "title1": "Managed like a fund.",
+      "title2": "Open to everyone.",
+      "contrast": "Big funds ask for your trust. We show our work.",
+      "live": "{on} of {total} safety switches on right now",
+      "crowd": {
+        "title": "The crowd checks every move",
+        "body": "Over 20 markets weigh in. The ones that are often wrong count less."
+      },
+      "brakes": {
+        "title": "Brakes that work on their own",
+        "body": "If the pool drops, it slows down, then stops."
+      },
+      "limits": {
+        "title": "Firm limits",
+        "body": "How much the pool can hold is locked in, so risk can't creep up."
+      },
+      "open": {
+        "title": "Nothing hidden",
+        "body": "Every trade and the pool's value are public."
+      }
     }
   },
   "agentsPage": {
