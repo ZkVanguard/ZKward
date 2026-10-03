@@ -16,6 +16,8 @@
 
 import { memo } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useTranslations } from 'next-intl';
+import { usePerAssetSignals } from '@/lib/hooks/useLiveSignals';
 import {
   Activity, AlertCircle, TrendingUp, TrendingDown,
   Minus, ShieldAlert, Bot, Zap,
@@ -53,7 +55,6 @@ interface AutonomyStatus {
     haltsActive: number;
     profitLockActive: boolean;
   };
-  signals: Record<string, { side: 'LONG' | 'SHORT' | null; confidence: number; reason: string }>;
 }
 
 async function fetchAutonomy(): Promise<AutonomyStatus> {
@@ -100,6 +101,10 @@ export const LiveAutonomyPanel = memo(function LiveAutonomyPanel() {
     staleTime: 30_000,
     refetchOnWindowFocus: false,
   });
+  // Signals come from the shared per-asset read (cached at the CDN) rather
+  // than from this route, which used to wait on a cold aggregator scan.
+  const signalsQ = usePerAssetSignals();
+  const tSignals = useTranslations('dashboard.marketBoard');
 
   if (isPending) {
     return (
@@ -122,7 +127,7 @@ export const LiveAutonomyPanel = memo(function LiveAutonomyPanel() {
     );
   }
 
-  const { crons, trader, hedges, alarms, signals } = data;
+  const { crons, trader, hedges, alarms } = data;
   const freshCrons = crons.filter((c) => c.status === 'fresh').length;
   const pnlPositive = trader.totalPnlUsd >= 0;
 
@@ -179,12 +184,25 @@ export const LiveAutonomyPanel = memo(function LiveAutonomyPanel() {
         <section>
           <SectionHeader title="Live signals" caption="per-asset probability + recommended side" />
           <div className="divide-y divide-separator-opaque/20 border border-separator-opaque/30 rounded-ios-lg overflow-hidden bg-system-bg-primary">
-            {Object.entries(signals).map(([asset, s]) => (
-              <div key={asset} className="px-4">
-                <SignalPill asset={asset} side={s.side} confidence={s.confidence} />
+            {signalsQ.isPending && [1, 2, 3, 4, 5].map((i) => (
+              <div key={i} className="px-4 py-2.5 flex items-center gap-2 animate-pulse" aria-hidden>
+                <div className="h-3 w-10 rounded bg-label-primary/10" />
+                <div className="h-3 w-14 rounded bg-label-primary/10" />
+                <div className="h-3 w-8 rounded bg-label-primary/10 ml-auto" />
               </div>
             ))}
-            {Object.keys(signals).length === 0 && (
+            {signalsQ.error && !signalsQ.data && (
+              <p className="p-4 text-caption-1 text-red-700">
+                {tSignals('error')}{' '}
+                <button type="button" onClick={() => void signalsQ.refetch()} className="font-semibold underline underline-offset-2">{tSignals('retry')}</button>
+              </p>
+            )}
+            {Object.entries(signalsQ.data ?? {}).map(([asset, s]) => (
+              <div key={asset} className="px-4">
+                <SignalPill asset={asset} side={s.direction === 'UP' ? 'LONG' : s.direction === 'DOWN' ? 'SHORT' : null} confidence={s.confidence} />
+              </div>
+            ))}
+            {signalsQ.data && Object.keys(signalsQ.data).length === 0 && (
               <p className="p-4 text-caption-1 text-label-tertiary">
                 No live signals. Aggregator is warming up.
               </p>

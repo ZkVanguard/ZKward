@@ -19,7 +19,6 @@ import { getCronStateByPrefix, getCronStateOr } from '@/lib/db/cron-state';
 import { query } from '@/lib/db/postgres';
 import { logger } from '@/lib/utils/logger';
 import { isLiveJob, staleLimitMin } from '@/lib/services/alerting/cron-cadence';
-import { getLiveAssetSignals, type LiveAssetSignal } from '@/lib/services/market-data/live-signals';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -58,7 +57,6 @@ interface AutonomyStatus {
     haltsActive: number;
     profitLockActive: boolean;
   };
-  signals: Record<string, { side: 'LONG' | 'SHORT' | null; confidence: number; reason: string }>;
 }
 
 export async function GET() {
@@ -134,19 +132,8 @@ export async function GET() {
     const starvationAlerted =
       Number(starvationFlag) > 0 && now - Number(starvationFlag) < 24 * 60 * 60 * 1000;
 
-    // ── 5. Signals per asset ──
-    // Live from the aggregator — the same read the Risk view uses. The
-    // stored agent directives this used to render were last written when
-    // the lead cycle ran (2026-09-22) and were shown as live.
-    const live = await getLiveAssetSignals().catch(() => ({} as Record<string, LiveAssetSignal>));
-    const signals: AutonomyStatus['signals'] = {};
-    for (const [asset, sig] of Object.entries(live)) {
-      signals[asset] = {
-        side: sig.direction === 'UP' ? 'LONG' : sig.direction === 'DOWN' ? 'SHORT' : null,
-        confidence: sig.confidence,
-        reason: sig.recommendation.slice(0, 80),
-      };
-    }
+    // Per-asset signals are not served here: the panel reads the shared
+    // per-asset endpoint, so this route no longer waits on an aggregator scan.
 
     const body: AutonomyStatus = {
       fetchedAt: startedAt,
@@ -174,13 +161,13 @@ export async function GET() {
         haltsActive,
         profitLockActive: profitLockZeroSince != null,
       },
-      signals,
     };
 
     return NextResponse.json(body, {
       headers: {
-        // Same cadence as cron heartbeats — no reason to fetch fresher.
-        'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=60',
+        // Same cadence as cron heartbeats. A long stale window lets the CDN
+        // answer at once and refresh in the background; the panel polls.
+        'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=86400',
       },
     });
   } catch (e) {

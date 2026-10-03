@@ -9,11 +9,13 @@
  * views, so the three never disagree) and `/api/prices` for the spot price.
  * A failed read shows as an error, never as a flat market.
  */
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import Image from 'next/image';
 import { useTranslations } from 'next-intl';
 import { ChevronDown, RefreshCw, TrendingDown, TrendingUp, Minus } from 'lucide-react';
-import { fetchPerAssetSignals, fetchSpotPrices } from '@/lib/api/market-signals';
+import { fetchSpotPrices } from '@/lib/api/market-signals';
+import { usePerAssetSignals } from '@/lib/hooks/useLiveSignals';
 import type { PerAssetSignal } from '@/lib/types/market-signals';
 import { logoPath, providerForSource } from '@/lib/api/signal-providers';
 
@@ -161,32 +163,28 @@ function Skeleton() {
 
 export function MarketLeanBoard() {
   const t = useTranslations('dashboard.marketBoard');
-  const [data, setData] = useState<Loaded | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
   const [now, setNow] = useState(() => Date.now());
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const signals = await fetchPerAssetSignals();
-      const assets = Object.keys(signals);
-      const prices = await fetchSpotPrices(assets).catch(() => ({}));
-      setData({ signals, prices, at: Date.now() });
-      setError(null);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const signalsQ = usePerAssetSignals();
+  const assets = signalsQ.data ? Object.keys(signalsQ.data) : [];
+  // Prices only label the cards; a failed price read leaves them blank.
+  const pricesQ = useQuery({
+    queryKey: ['spot-prices', assets.join(',')],
+    queryFn: () => fetchSpotPrices(assets),
+    enabled: assets.length > 0,
+    staleTime: 30_000,
+    refetchInterval: REFRESH_MS,
+  });
+  const data: Loaded | null = signalsQ.data
+    ? { signals: signalsQ.data, prices: pricesQ.data ?? {}, at: signalsQ.dataUpdatedAt }
+    : null;
+  const error = signalsQ.error ? signalsQ.error.message : null;
+  const loading = signalsQ.isFetching;
+  const load = () => { void signalsQ.refetch(); void pricesQ.refetch(); };
 
   useEffect(() => {
-    void load();
-    const refresh = setInterval(() => void load(), REFRESH_MS);
     const tick = setInterval(() => setNow(Date.now()), 5_000);
-    return () => { clearInterval(refresh); clearInterval(tick); };
-  }, [load]);
+    return () => clearInterval(tick);
+  }, []);
 
   const entries = data ? Object.entries(data.signals) : [];
   const ups = entries.filter(([, s]) => s.direction === 'UP').length;
