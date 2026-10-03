@@ -137,6 +137,60 @@
         "down": "下",
         "flat": "横ばい"
       }
+    },
+    "nav": {
+      "pool": "プール",
+      "portfolio": "ポートフォリオ",
+      "signals": "シグナル",
+      "platform": "プラットフォーム",
+      "account": "アカウント",
+      "more": "その他"
+    },
+    "views": {
+      "summary": "概要",
+      "positions": "ポジション",
+      "hedges": "ヘッジ",
+      "products": "プロダクト",
+      "markets": "市場",
+      "agents": "エージェント",
+      "risk": "リスク",
+      "custody": "カストディ",
+      "admin": "管理"
+    },
+    "shell": {
+      "greeting": {
+        "morning": "おはようございます",
+        "afternoon": "こんにちは",
+        "evening": "こんばんは"
+      },
+      "subtitle": {
+        "pool": "入金・出金して、プールの成長を見守る。",
+        "portfolio": "保有しているすべてを、ひとつの場所に。",
+        "signals": "市場がいまどちらに傾いているか。",
+        "platform": "各ファンドの状況をライブで。",
+        "account": "サインイン、名前、ウォレット。"
+      },
+      "switchNetwork": "ネットワークを切り替え"
+    },
+    "pulse": {
+      "aria": "{lean}。シグナルを開く。"
+    },
+    "connectHero": {
+      "title": "ポートフォリオはここに",
+      "body": "ウォレットを接続すると、残高・ポジション・ヘッジをひとつの場所で確認できます。",
+      "cta": "ウォレットを接続",
+      "pools": "プールを見る",
+      "signals": "ライブシグナルを見る",
+      "solanaTitle": "Solana のポジションはプールタブにあります",
+      "solanaBody": "ポートフォリオは SUI と Hedera に対応しています。Solana プールの持分はプールページにあります。",
+      "openPool": "プールを開く"
+    },
+    "sidebar": {
+      "connect": "ウォレットを接続"
+    },
+    "poolStart": {
+      "title": "サインインして入金",
+      "hedera": "メールまたは Google で。Hedera ウォレットはこちらで作成するので、インストール不要です。"
     }
   },
   "common": {

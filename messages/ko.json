@@ -137,6 +137,60 @@
         "down": "하락",
         "flat": "보합"
       }
+    },
+    "nav": {
+      "pool": "풀",
+      "portfolio": "포트폴리오",
+      "signals": "신호",
+      "platform": "플랫폼",
+      "account": "계정",
+      "more": "더보기"
+    },
+    "views": {
+      "summary": "요약",
+      "positions": "포지션",
+      "hedges": "헤지",
+      "products": "상품",
+      "markets": "시장",
+      "agents": "에이전트",
+      "risk": "리스크",
+      "custody": "수탁",
+      "admin": "관리"
+    },
+    "shell": {
+      "greeting": {
+        "morning": "좋은 아침이에요",
+        "afternoon": "좋은 오후예요",
+        "evening": "좋은 저녁이에요"
+      },
+      "subtitle": {
+        "pool": "입금하고, 출금하고, 풀이 커가는 것을 지켜보세요.",
+        "portfolio": "보유한 모든 것을 한곳에서.",
+        "signals": "시장이 지금 어느 쪽으로 기울어 있는지.",
+        "platform": "모든 펀드의 현황을 실시간으로.",
+        "account": "로그인, 이름, 지갑."
+      },
+      "switchNetwork": "네트워크 전환"
+    },
+    "pulse": {
+      "aria": "{lean}. 신호 열기."
+    },
+    "connectHero": {
+      "title": "포트폴리오는 여기에 있어요",
+      "body": "지갑을 연결하면 잔액, 포지션, 헤지를 한곳에서 볼 수 있습니다.",
+      "cta": "지갑 연결",
+      "pools": "풀 둘러보기",
+      "signals": "실시간 신호 보기",
+      "solanaTitle": "Solana 포지션은 풀 탭에 있습니다",
+      "solanaBody": "포트폴리오는 SUI와 Hedera를 지원합니다. Solana 풀 지분은 풀 페이지에 있습니다.",
+      "openPool": "풀 열기"
+    },
+    "sidebar": {
+      "connect": "지갑 연결"
+    },
+    "poolStart": {
+      "title": "로그인하고 입금하기",
+      "hedera": "이메일 또는 Google로. Hedera 지갑을 만들어 드리니 설치할 필요가 없습니다."
     }
   },
   "common": {

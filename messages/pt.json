@@ -137,6 +137,60 @@
         "down": "baixa",
         "flat": "estável"
       }
+    },
+    "nav": {
+      "pool": "Pool",
+      "portfolio": "Carteira",
+      "signals": "Sinais",
+      "platform": "Plataforma",
+      "account": "Conta",
+      "more": "Mais"
+    },
+    "views": {
+      "summary": "Resumo",
+      "positions": "Posições",
+      "hedges": "Hedges",
+      "products": "Produtos",
+      "markets": "Mercados",
+      "agents": "Agentes",
+      "risk": "Risco",
+      "custody": "Custódia",
+      "admin": "Admin"
+    },
+    "shell": {
+      "greeting": {
+        "morning": "Bom dia",
+        "afternoon": "Boa tarde",
+        "evening": "Boa noite"
+      },
+      "subtitle": {
+        "pool": "Deposite, saque e veja seu pool crescer.",
+        "portfolio": "Tudo o que você tem, em um só lugar.",
+        "signals": "Para onde os mercados estão inclinados agora.",
+        "platform": "Como cada fundo está indo, ao vivo.",
+        "account": "Seu login, nome e carteira."
+      },
+      "switchNetwork": "Trocar de rede"
+    },
+    "pulse": {
+      "aria": "{lean}. Abrir sinais."
+    },
+    "connectHero": {
+      "title": "Sua carteira fica aqui",
+      "body": "Conecte uma carteira para ver saldo, posições e hedges em um só lugar.",
+      "cta": "Conectar carteira",
+      "pools": "Ver os pools",
+      "signals": "Ver sinais ao vivo",
+      "solanaTitle": "Sua posição na Solana está na aba Pool",
+      "solanaBody": "A carteira cobre SUI e Hedera. Suas cotas do pool Solana estão na página Pool.",
+      "openPool": "Abrir o pool"
+    },
+    "sidebar": {
+      "connect": "Conecte uma carteira"
+    },
+    "poolStart": {
+      "title": "Entre para depositar",
+      "hedera": "Use e-mail ou Google. Criamos sua carteira Hedera, nada para instalar."
     }
   },
   "common": {

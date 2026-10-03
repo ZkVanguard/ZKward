@@ -531,21 +531,11 @@ export function RiskTab() {
   return (
     // Navbar clearance + horizontal tab strip live in dashboard/layout.tsx.
     <div className="space-y-3 sm:space-y-6 min-w-0">
-      <header className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-4">
-        <div className="min-w-0">
-          <h2 className="text-lg sm:text-xl font-semibold text-[#1d1d1f] tracking-[-0.01em] break-words">
-            Live platform view
-          </h2>
-          <p className="text-xs sm:text-[13px] text-[#86868b] mt-1 leading-relaxed">
-            Every fund&apos;s numbers and the systems behind them, refreshed every minute.
-          </p>
+      {data?.asOf && (
+        <div className="text-right text-[11px] sm:text-[12px] text-[#86868b] font-mono tabular-nums">
+          as of {new Date(data.asOf).toLocaleTimeString()}
         </div>
-        {data?.asOf && (
-          <div className="text-[11px] sm:text-[12px] text-[#86868b] font-mono tabular-nums flex-shrink-0">
-            as of {new Date(data.asOf).toLocaleTimeString()}
-          </div>
-        )}
-      </header>
+      )}
 
       {loading && !data && (
         <div className="space-y-6">

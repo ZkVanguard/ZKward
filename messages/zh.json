@@ -137,6 +137,60 @@
         "down": "下",
         "flat": "持平"
       }
+    },
+    "nav": {
+      "pool": "资金池",
+      "portfolio": "投资组合",
+      "signals": "信号",
+      "platform": "平台",
+      "account": "账户",
+      "more": "更多"
+    },
+    "views": {
+      "summary": "概览",
+      "positions": "持仓",
+      "hedges": "对冲",
+      "products": "产品",
+      "markets": "市场",
+      "agents": "智能体",
+      "risk": "风险",
+      "custody": "托管",
+      "admin": "管理"
+    },
+    "shell": {
+      "greeting": {
+        "morning": "早上好",
+        "afternoon": "下午好",
+        "evening": "晚上好"
+      },
+      "subtitle": {
+        "pool": "存入、取出，看着你的资金池增长。",
+        "portfolio": "你持有的一切，集中在一处。",
+        "signals": "市场此刻的倾向。",
+        "platform": "每个基金的实时表现。",
+        "account": "你的登录、名称和钱包。"
+      },
+      "switchNetwork": "切换网络"
+    },
+    "pulse": {
+      "aria": "{lean}。打开信号。"
+    },
+    "connectHero": {
+      "title": "你的投资组合在这里",
+      "body": "连接钱包，在一处查看余额、持仓和对冲。",
+      "cta": "连接钱包",
+      "pools": "浏览资金池",
+      "signals": "查看实时信号",
+      "solanaTitle": "你的 Solana 持仓在资金池页面",
+      "solanaBody": "投资组合覆盖 SUI 和 Hedera。你的 Solana 资金池份额在资金池页面。",
+      "openPool": "打开资金池"
+    },
+    "sidebar": {
+      "connect": "连接钱包"
+    },
+    "poolStart": {
+      "title": "登录后即可存入",
+      "hedera": "使用邮箱或 Google 登录。我们为你创建 Hedera 钱包，无需安装。"
     }
   },
   "common": {

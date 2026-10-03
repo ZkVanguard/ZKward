@@ -137,6 +137,60 @@
         "down": "baja",
         "flat": "plano"
       }
+    },
+    "nav": {
+      "pool": "Pool",
+      "portfolio": "Cartera",
+      "signals": "Señales",
+      "platform": "Plataforma",
+      "account": "Cuenta",
+      "more": "Más"
+    },
+    "views": {
+      "summary": "Resumen",
+      "positions": "Posiciones",
+      "hedges": "Coberturas",
+      "products": "Productos",
+      "markets": "Mercados",
+      "agents": "Agentes",
+      "risk": "Riesgo",
+      "custody": "Custodia",
+      "admin": "Admin"
+    },
+    "shell": {
+      "greeting": {
+        "morning": "Buenos días",
+        "afternoon": "Buenas tardes",
+        "evening": "Buenas noches"
+      },
+      "subtitle": {
+        "pool": "Deposita, retira y mira crecer tu pool.",
+        "portfolio": "Todo lo que tienes, en un solo lugar.",
+        "signals": "Hacia dónde se inclinan los mercados ahora.",
+        "platform": "Cómo va cada fondo, en vivo.",
+        "account": "Tu inicio de sesión, nombre y billetera."
+      },
+      "switchNetwork": "Cambiar de red"
+    },
+    "pulse": {
+      "aria": "{lean}. Abrir señales."
+    },
+    "connectHero": {
+      "title": "Tu cartera vive aquí",
+      "body": "Conecta una billetera para ver tu saldo, posiciones y coberturas en un solo lugar.",
+      "cta": "Conectar billetera",
+      "pools": "Ver los pools",
+      "signals": "Ver señales en vivo",
+      "solanaTitle": "Tu posición de Solana está en la pestaña Pool",
+      "solanaBody": "La cartera cubre SUI y Hedera. Tus participaciones del pool de Solana están en la página Pool.",
+      "openPool": "Abrir el pool"
+    },
+    "sidebar": {
+      "connect": "Conecta una billetera"
+    },
+    "poolStart": {
+      "title": "Inicia sesión para depositar",
+      "hedera": "Usa tu correo o Google. Creamos tu billetera de Hedera, sin instalar nada."
     }
   },
   "common": {
