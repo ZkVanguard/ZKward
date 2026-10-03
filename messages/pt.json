@@ -259,29 +259,10 @@
     "savePreferences": "Salvar Preferências"
   },
   "landing": {
-    "status": {
-      "member": "member",
-      "members": "members",
-      "live": "Ao vivo"
-    },
     "hero": {
       "headline1": "Sinais cripto",
       "headline2": "que você pode verificar.",
       "subtitle": "Lemos mais de 20 mercados e operamos só quando concordam. Cada operação é pública."
-    },
-    "stats": {
-      "markets": {
-        "value": "20+",
-        "label": "mercados lidos por moeda"
-      },
-      "days": {
-        "value": "100+",
-        "label": "dias no ar"
-      },
-      "always": {
-        "value": "24/7",
-        "label": "sempre ativo"
-      }
     },
     "sources": {
       "eyebrow": "Dados de",
@@ -316,8 +297,14 @@
       }
     },
     "finalCta": {
-      "title": "Veja funcionando.",
-      "paused": "Deposits paused for maintenance."
+      "title": "Veja funcionando."
+    },
+    "signals": {
+      "label": "Agora mesmo",
+      "up": "em alta",
+      "down": "em baixa",
+      "none": "sem tendência",
+      "chip": "{coin}: {lean}, {pct}% de confiança"
     }
   },
   "agentsPage": {

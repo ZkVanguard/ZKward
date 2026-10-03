@@ -259,29 +259,10 @@
     "savePreferences": "保存偏好设置"
   },
   "landing": {
-    "status": {
-      "member": "member",
-      "members": "members",
-      "live": "运行中"
-    },
     "hero": {
       "headline1": "可验证的",
       "headline2": "加密信号。",
       "subtitle": "我们读取 20 多个市场，只在它们一致时交易。每笔交易都公开。"
-    },
-    "stats": {
-      "markets": {
-        "value": "20+",
-        "label": "每个币种读取的市场"
-      },
-      "days": {
-        "value": "100+",
-        "label": "天持续运行"
-      },
-      "always": {
-        "value": "24/7",
-        "label": "全天候运行"
-      }
     },
     "sources": {
       "eyebrow": "数据来源",
@@ -316,8 +297,14 @@
       }
     },
     "finalCta": {
-      "title": "看看它的运行。",
-      "paused": "Deposits paused for maintenance."
+      "title": "看看它的运行。"
+    },
+    "signals": {
+      "label": "此刻",
+      "up": "倾向上涨",
+      "down": "倾向下跌",
+      "none": "无明显倾向",
+      "chip": "{coin}：{lean}，置信度 {pct}%"
     }
   },
   "agentsPage": {

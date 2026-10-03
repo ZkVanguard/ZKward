@@ -259,29 +259,10 @@
     "savePreferences": "설정 저장"
   },
   "landing": {
-    "status": {
-      "member": "member",
-      "members": "members",
-      "live": "운영 중"
-    },
     "hero": {
       "headline1": "검증할 수 있는",
       "headline2": "암호화폐 신호.",
       "subtitle": "20개 이상의 시장을 읽고 의견이 일치할 때만 거래합니다. 모든 거래는 공개됩니다."
-    },
-    "stats": {
-      "markets": {
-        "value": "20+",
-        "label": "코인별로 읽는 시장"
-      },
-      "days": {
-        "value": "100+",
-        "label": "일째 운영"
-      },
-      "always": {
-        "value": "24/7",
-        "label": "항상 작동"
-      }
     },
     "sources": {
       "eyebrow": "데이터 출처",
@@ -316,8 +297,14 @@
       }
     },
     "finalCta": {
-      "title": "작동하는 모습을 보세요.",
-      "paused": "Deposits paused for maintenance."
+      "title": "작동하는 모습을 보세요."
+    },
+    "signals": {
+      "label": "지금",
+      "up": "상승 쪽",
+      "down": "하락 쪽",
+      "none": "기울기 없음",
+      "chip": "{coin}: {lean}, 확신도 {pct}%"
     }
   },
   "agentsPage": {

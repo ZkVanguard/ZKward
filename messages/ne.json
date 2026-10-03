@@ -16,29 +16,10 @@
     "sources": "Sources"
   },
   "landing": {
-    "status": {
-      "member": "member",
-      "members": "members",
-      "live": "अहिले लाइभ"
-    },
     "hero": {
       "headline1": "क्रिप्टो संकेत",
       "headline2": "जुन तपाईं जाँच्न सक्नुहुन्छ।",
       "subtitle": "हामी २० भन्दा बढी बजार पढ्छौं र ती सहमत हुँदा मात्र ट्रेड गर्छौं। हरेक ट्रेड सार्वजनिक छ।"
-    },
-    "stats": {
-      "markets": {
-        "value": "20+",
-        "label": "प्रति कोइन पढिने बजार"
-      },
-      "days": {
-        "value": "100+",
-        "label": "दिनदेखि लाइभ"
-      },
-      "always": {
-        "value": "24/7",
-        "label": "सधैं चालु"
-      }
     },
     "sources": {
       "eyebrow": "डाटा स्रोत",
@@ -73,8 +54,14 @@
       }
     },
     "finalCta": {
-      "title": "चलिरहेको हेर्नुहोस्।",
-      "paused": "Deposits paused for maintenance."
+      "title": "चलिरहेको हेर्नुहोस्।"
+    },
+    "signals": {
+      "label": "अहिले",
+      "up": "माथितिर झुकाव",
+      "down": "तलतिर झुकाव",
+      "none": "कुनै झुकाव छैन",
+      "chip": "{coin}: {lean}, {pct}% भरोसा"
     }
   },
   "agentsPage": {

@@ -259,29 +259,10 @@
     "savePreferences": "حفظ التفضيلات"
   },
   "landing": {
-    "status": {
-      "member": "member",
-      "members": "members",
-      "live": "مباشر الآن"
-    },
     "hero": {
       "headline1": "إشارات عملات رقمية",
       "headline2": "يمكنك التحقق منها.",
       "subtitle": "نقرأ أكثر من 20 سوقًا ولا نتداول إلا عندما تتفق. كل صفقة علنية."
-    },
-    "stats": {
-      "markets": {
-        "value": "20+",
-        "label": "سوقًا لكل عملة"
-      },
-      "days": {
-        "value": "100+",
-        "label": "يومًا من التشغيل"
-      },
-      "always": {
-        "value": "24/7",
-        "label": "يعمل دائمًا"
-      }
     },
     "sources": {
       "eyebrow": "البيانات من",
@@ -316,8 +297,14 @@
       }
     },
     "finalCta": {
-      "title": "شاهده يعمل.",
-      "paused": "Deposits paused for maintenance."
+      "title": "شاهده يعمل."
+    },
+    "signals": {
+      "label": "الآن",
+      "up": "يميل للصعود",
+      "down": "يميل للهبوط",
+      "none": "بلا ميل",
+      "chip": "{coin}: {lean}، ثقة {pct}%"
     }
   },
   "agentsPage": {

@@ -16,29 +16,10 @@
     "enterApp": "Open the app"
   },
   "landing": {
-    "status": {
-      "member": "member",
-      "members": "members",
-      "live": "Live now"
-    },
     "hero": {
       "headline1": "Crypto signals",
       "headline2": "you can verify.",
       "subtitle": "We read 20+ markets and trade only when they agree. Every trade is public."
-    },
-    "stats": {
-      "markets": {
-        "value": "20+",
-        "label": "markets read per coin"
-      },
-      "days": {
-        "value": "100+",
-        "label": "days live"
-      },
-      "always": {
-        "value": "24/7",
-        "label": "always running"
-      }
     },
     "sources": {
       "eyebrow": "Data from",
@@ -73,8 +54,14 @@
       }
     },
     "finalCta": {
-      "title": "See it running.",
-      "paused": "Deposits paused for maintenance."
+      "title": "See it running."
+    },
+    "signals": {
+      "label": "Right now",
+      "up": "leaning up",
+      "down": "leaning down",
+      "none": "no lean",
+      "chip": "{coin}: {lean}, {pct}% confidence"
     }
   },
   "agentsPage": {

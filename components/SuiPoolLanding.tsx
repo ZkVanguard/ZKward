@@ -3,14 +3,14 @@
 import { memo, useEffect, useRef } from 'react';
 import { useTranslations } from 'next-intl';
 import { Link } from '@/i18n/routing';
-import { useHederaPool, type HederaPoolResponse } from '@/lib/hooks/useHederaPool';
 import {
   ArrowRight, ShieldCheck, Zap,
   Sparkles,
 } from 'lucide-react';
 import { InstallAppButton } from './InstallAppButton';
 import { DataSourceMarquee } from './landing/DataSourceMarquee';
-import { Reveal, StatusPill } from './ui/landing';
+import { LiveSignalStrip } from './landing/LiveSignalStrip';
+import { Reveal } from './ui/landing';
 
 // Linear's signature spring curve. Read as: quick out, slow in — feels
 // like real mass behind interactive elements instead of the default
@@ -69,63 +69,6 @@ function useTiltParallax<T extends HTMLElement>(ref: React.RefObject<T | null>) 
 // (nominative fair use — describing which services we consume, not
 // asserting endorsement). Ordered by weight class: prediction markets
 // first, then venues, then options.
-
-// ───────────────────────────────────────────────────────────────────────────
-// Live SUI Community Pool landing page. Apple-themed, single focus.
-//
-// Pulls real-time numbers from /api/sui/community-pool?network=mainnet
-// (cached 30s server-side), so a fresh visitor sees actual NAV / share price /
-// composition / ATH instead of stale marketing.
-//
-// Design tokens: tailwind.config.js `ios.*`, `system-bg.*`, `label.*`,
-// typography `large-title`, `title-1`, `headline`, etc., shadows `ios-1/2/3`.
-// No warm `claude-*` colors anywhere.
-// ───────────────────────────────────────────────────────────────────────────
-
-interface PoolSummary {
-  totalNAV: number;        // USDC
-  sharePrice: number;
-  allTimeHighNav: number;  // ATH share price
-  totalDeposited: number;
-  totalWithdrawn: number;
-  memberCount: number;
-  totalShares: number;
-  allocation: Record<string, number>; // live composition (BTC/ETH/SUI/USDC)
-  paused: boolean;
-}
-
-
-// Compact member/share formatter that also handles pluralisation.
-// singular/plural come from translations — never inline English defaults.
-function formatCount(n: number, singular: string, plural: string): string {
-  if (!Number.isFinite(n) || n < 0) return `… ${plural}`;
-  const rounded = Math.floor(n);
-  if (rounded >= 1_000_000) return `${(rounded / 1_000_000).toFixed(1)}M ${plural}`;
-  if (rounded >= 10_000)    return `${(rounded / 1_000).toFixed(1)}K ${plural}`;
-  if (rounded >= 1_000)     return `${rounded.toLocaleString()} ${plural}`;
-  return `${rounded} ${rounded === 1 ? singular : plural}`;
-}
-
-/** Map the shared Hedera pool response into the local PoolSummary shape. */
-function toPoolSummary(res: HederaPoolResponse | undefined): PoolSummary | null {
-  const p = res?.pool;
-  if (!p) return null;
-  return {
-    totalNAV: Number(p.totalValueUSD ?? 0),
-    sharePrice: Number(p.sharePrice ?? 1),
-    // Simple vault has no ATH concept (share price is pinned to $1.00 by
-    // design). Use current NAV as ATH. No phantom peak to worry about.
-    allTimeHighNav: Number(p.sharePrice ?? 1),
-    totalDeposited: Number(p.totalDeposited ?? p.totalValueUSD ?? 0),
-    totalWithdrawn: Number(p.totalWithdrawn ?? 0),
-    memberCount: Number(p.memberCount ?? 0),
-    totalShares: Number(p.totalShares ?? 0),
-    // Hedera vault holds USDC only. No cross-asset allocation until
-    // AI-executed swaps land on-chain (currently projected in dashboard).
-    allocation: p.allocation ?? { USDC: 100 },
-    paused: !!p.paused,
-  };
-}
 
 // HeroGraphBg. Three parallax layers behind the hero (CSS dot-grid +
 // SVG chart curves + SVG node network). Reads --sx/--sy already
@@ -276,18 +219,14 @@ function HeroGraphBg() {
         // effects don't leak out (accurate: all layers are z-negative
         // absolutes clipped by our own overflow-hidden).
         contain: 'layout paint style',
-        // Radial vignette centered on where the vault meter sits
-        // (approx 50% x, 66% y). The effect fades to transparent in
-        // a wider soft ellipse around the card so the meter reads as
-        // a clean "hero moment" instead of competing with dense
-        // phyllotaxis/chart lines behind it. Longer fade band (35%
-        // to 82%) makes the transition feel machined rather than
-        // hard-cut. Corners keep the full effect — depth cue
-        // preserved. Both prefixed forms so Safari + Firefox agree.
+        // Radial vignette over the headline, subtitle and buttons, so
+        // the drifting nodes never sit on the words; the edges keep the
+        // full effect for depth. Both prefixed forms so Safari and
+        // Firefox agree.
         WebkitMaskImage:
-          'radial-gradient(ellipse 50% 46% at 50% 66%, transparent 0%, transparent 35%, black 82%)',
+          'radial-gradient(ellipse 48% 42% at 50% 40%, transparent 0%, transparent 48%, black 88%)',
         maskImage:
-          'radial-gradient(ellipse 50% 46% at 50% 66%, transparent 0%, transparent 35%, black 82%)',
+          'radial-gradient(ellipse 48% 42% at 50% 40%, transparent 0%, transparent 48%, black 88%)',
       }}
     >
       {/* Layer 1 — dot grid via CSS radial-gradient (SVG pattern without a
@@ -434,6 +373,8 @@ function HeroGraphBg() {
            below md), lighter behind a headline that spans the width, and
            their tilt/scroll-driven moves ease over a longer time than the
            desktop cursor did. */
+        /* The spiral disk is the busiest layer: kept faint so the hero reads calm. */
+        .hero-graph-layer:nth-child(3) { opacity: 0.55; }
         @media (max-width: 1023px) {
           .hero-graph-bg {
             opacity: 0.72;
@@ -446,7 +387,7 @@ function HeroGraphBg() {
           }
           /* The spiral disk is the busiest layer and the headline and stats
              fill the whole hero on a phone, so it goes fainter there. */
-          .hero-graph-layer:nth-child(3) { opacity: 0.45; }
+          .hero-graph-layer:nth-child(3) { opacity: 0.3; }
           .hero-graph-layer { transition-duration: 450ms; }
         }
         @media (prefers-reduced-motion: reduce) {
@@ -460,11 +401,6 @@ function HeroGraphBg() {
 
 export const SuiPoolLanding = memo(function SuiPoolLanding() {
   const t = useTranslations('landing');
-  // Read the shared Hedera pool query. Same cache key as HederaVaultCallout
-  // above + the dashboard's useCommunityPool. Three consumers, one fetch.
-  const { data: rawPool } = useHederaPool('testnet');
-  const pool = toPoolSummary(rawPool);
-
   // Cursor-follow on desktop was removed by design; on touch devices the
   // hero's depth layers follow tilt and scroll instead.
   const heroRef = useRef<HTMLElement>(null);
@@ -485,38 +421,15 @@ export const SuiPoolLanding = memo(function SuiPoolLanding() {
             Extends up under the navbar (see HeroGraphBg for details). */}
         <HeroGraphBg />
         <div className="max-w-[1100px] mx-auto">
-          {/* Single multichain status pill — SUI mainnet flagship + Hedera
-              testnet as the primary EVM demo. One line, less visual noise
-              than the previous two-pill row. */}
-          <div className="flex items-center justify-center mb-8 sm:mb-10">
-            <StatusPill
-              left={
-                <span className="inline-flex items-center gap-2">
-                  <span className="relative flex h-2 w-2">
-                    <span className="absolute inline-flex h-full w-full rounded-full opacity-75 animate-ping" style={{ backgroundColor: '#00A79F' }} />
-                    <span className="relative inline-flex rounded-full h-2 w-2" style={{ backgroundColor: '#00A79F' }} />
-                  </span>
-                  <span className="text-footnote font-medium text-label-secondary">{t('status.live')}</span>
-                </span>
-              }
-              right={
-                <span className="text-footnote font-semibold text-label-primary tabular-nums">
-                  {formatCount(pool?.memberCount ?? 0, t('status.member'), t('status.members'))}
-                </span>
-              }
-            />
-          </div>
 
-          {/* Headline — tightened to 2 short lines, no gradient text (the
-              Vault Meter below is the visual signature). Space Grotesk
-              display face gives numbers + short phrases distinctive shape. */}
+          {/* Two short lines; the promise (line two) carries the brand accent. */}
           <h1
             className="font-display text-center text-[38px] xs:text-[44px] sm:text-[54px] md:text-[62px] lg:text-[68px] xl:text-[80px] font-semibold tracking-[-0.04em] leading-[0.96] text-label-primary mb-4 sm:mb-6"
             style={{ textWrap: 'balance', hyphens: 'none', overflowWrap: 'normal' }}
           >
             {t('hero.headline1')}
             <br />
-            <span className="whitespace-nowrap">{t('hero.headline2')}</span>
+            <span className="whitespace-nowrap bg-gradient-to-r from-ios-blue via-[#3B82F6] to-[#5AC8FA] bg-clip-text text-transparent">{t('hero.headline2')}</span>
           </h1>
 
           {/* Subtitle — plain-English promise; brand-forward for search. */}
@@ -550,19 +463,8 @@ export const SuiPoolLanding = memo(function SuiPoolLanding() {
             </a>
           </div>
 
-          {/* Three numbers a newcomer can read without a glossary. */}
-          <div className="mx-auto max-w-[760px] mb-12 sm:mb-14 grid grid-cols-3 gap-4 sm:gap-8">
-            {(['markets', 'days', 'always'] as const).map((k) => (
-              <div key={k} className="flex flex-col items-center text-center min-w-0">
-                <div className="font-display text-[30px] sm:text-[44px] md:text-[52px] font-semibold tracking-[-0.03em] leading-none text-label-primary tabular-nums">
-                  {t(`stats.${k}.value`)}
-                </div>
-                <div className="mt-2 text-[12px] sm:text-footnote text-label-secondary leading-snug">
-                  {t(`stats.${k}.label`)}
-                </div>
-              </div>
-            ))}
-          </div>
+          <LiveSignalStrip />
+
 
           <DataSourceMarquee />
 
@@ -641,11 +543,6 @@ export const SuiPoolLanding = memo(function SuiPoolLanding() {
               </span>
             </Link>
           </div>
-          {pool?.paused && (
-            <p className="mt-4 text-footnote text-ios-orange font-medium">
-              {t('finalCta.paused')}
-            </p>
-          )}
         </div>
       </section>
     </div>

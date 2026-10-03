@@ -259,29 +259,10 @@
     "savePreferences": "Сохранить настройки"
   },
   "landing": {
-    "status": {
-      "member": "member",
-      "members": "members",
-      "live": "Работает"
-    },
     "hero": {
       "headline1": "Криптосигналы,",
       "headline2": "которые можно проверить.",
       "subtitle": "Мы читаем более 20 рынков и торгуем, только когда они согласны. Каждая сделка открыта."
-    },
-    "stats": {
-      "markets": {
-        "value": "20+",
-        "label": "рынков на монету"
-      },
-      "days": {
-        "value": "100+",
-        "label": "дней в работе"
-      },
-      "always": {
-        "value": "24/7",
-        "label": "всегда в работе"
-      }
     },
     "sources": {
       "eyebrow": "Данные от",
@@ -316,8 +297,14 @@
       }
     },
     "finalCta": {
-      "title": "Посмотрите в работе.",
-      "paused": "Deposits paused for maintenance."
+      "title": "Посмотрите в работе."
+    },
+    "signals": {
+      "label": "Прямо сейчас",
+      "up": "склоняется к росту",
+      "down": "склоняется к падению",
+      "none": "без перевеса",
+      "chip": "{coin}: {lean}, уверенность {pct}%"
     }
   },
   "agentsPage": {

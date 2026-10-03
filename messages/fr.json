@@ -259,29 +259,10 @@
     "savePreferences": "Enregistrer les préférences"
   },
   "landing": {
-    "status": {
-      "member": "member",
-      "members": "members",
-      "live": "En direct"
-    },
     "hero": {
       "headline1": "Des signaux crypto",
       "headline2": "que vous pouvez vérifier.",
       "subtitle": "Nous lisons plus de 20 marchés et ne tradons que lorsqu'ils s'accordent. Chaque trade est public."
-    },
-    "stats": {
-      "markets": {
-        "value": "20+",
-        "label": "marchés lus par crypto"
-      },
-      "days": {
-        "value": "100+",
-        "label": "jours en ligne"
-      },
-      "always": {
-        "value": "24/7",
-        "label": "toujours actif"
-      }
     },
     "sources": {
       "eyebrow": "Données de",
@@ -316,8 +297,14 @@
       }
     },
     "finalCta": {
-      "title": "Voyez-le tourner.",
-      "paused": "Deposits paused for maintenance."
+      "title": "Voyez-le tourner."
+    },
+    "signals": {
+      "label": "En ce moment",
+      "up": "à la hausse",
+      "down": "à la baisse",
+      "none": "sans tendance",
+      "chip": "{coin} : {lean}, {pct} % de confiance"
     }
   },
   "agentsPage": {

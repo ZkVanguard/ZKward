@@ -259,29 +259,10 @@
     "savePreferences": "設定を保存"
   },
   "landing": {
-    "status": {
-      "member": "member",
-      "members": "members",
-      "live": "稼働中"
-    },
     "hero": {
       "headline1": "検証できる",
       "headline2": "暗号資産シグナル。",
       "subtitle": "20 以上の市場を読み、意見が一致したときだけ取引します。すべての取引は公開されています。"
-    },
-    "stats": {
-      "markets": {
-        "value": "20+",
-        "label": "銘柄ごとに読む市場"
-      },
-      "days": {
-        "value": "100+",
-        "label": "日間稼働"
-      },
-      "always": {
-        "value": "24/7",
-        "label": "常時稼働"
-      }
     },
     "sources": {
       "eyebrow": "データ提供元",
@@ -316,8 +297,14 @@
       }
     },
     "finalCta": {
-      "title": "動いている様子を見る。",
-      "paused": "Deposits paused for maintenance."
+      "title": "動いている様子を見る。"
+    },
+    "signals": {
+      "label": "いま",
+      "up": "上昇寄り",
+      "down": "下落寄り",
+      "none": "傾きなし",
+      "chip": "{coin}：{lean}、確信度 {pct}%"
     }
   },
   "agentsPage": {

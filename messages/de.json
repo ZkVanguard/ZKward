@@ -259,29 +259,10 @@
     "savePreferences": "Einstellungen speichern"
   },
   "landing": {
-    "status": {
-      "member": "member",
-      "members": "members",
-      "live": "Jetzt live"
-    },
     "hero": {
       "headline1": "Krypto-Signale,",
       "headline2": "die du prüfen kannst.",
       "subtitle": "Wir lesen über 20 Märkte und handeln nur, wenn sie übereinstimmen. Jeder Trade ist öffentlich."
-    },
-    "stats": {
-      "markets": {
-        "value": "20+",
-        "label": "Märkte pro Coin"
-      },
-      "days": {
-        "value": "100+",
-        "label": "Tage live"
-      },
-      "always": {
-        "value": "24/7",
-        "label": "immer aktiv"
-      }
     },
     "sources": {
       "eyebrow": "Daten von",
@@ -316,8 +297,14 @@
       }
     },
     "finalCta": {
-      "title": "Sieh es live.",
-      "paused": "Deposits paused for maintenance."
+      "title": "Sieh es live."
+    },
+    "signals": {
+      "label": "Gerade jetzt",
+      "up": "tendiert nach oben",
+      "down": "tendiert nach unten",
+      "none": "keine Tendenz",
+      "chip": "{coin}: {lean}, {pct} % Konfidenz"
     }
   },
   "agentsPage": {

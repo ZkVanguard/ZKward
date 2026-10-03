@@ -259,29 +259,10 @@
     "savePreferences": "प्राथमिकताएं सहेजें"
   },
   "landing": {
-    "status": {
-      "member": "member",
-      "members": "members",
-      "live": "अभी लाइव"
-    },
     "hero": {
       "headline1": "क्रिप्टो सिग्नल",
       "headline2": "जिन्हें आप जाँच सकते हैं।",
       "subtitle": "हम 20+ बाज़ार पढ़ते हैं और सिर्फ़ तब ट्रेड करते हैं जब वे सहमत हों। हर ट्रेड सार्वजनिक है।"
-    },
-    "stats": {
-      "markets": {
-        "value": "20+",
-        "label": "हर कॉइन के लिए बाज़ार"
-      },
-      "days": {
-        "value": "100+",
-        "label": "दिन से लाइव"
-      },
-      "always": {
-        "value": "24/7",
-        "label": "हमेशा चालू"
-      }
     },
     "sources": {
       "eyebrow": "डेटा स्रोत",
@@ -316,8 +297,14 @@
       }
     },
     "finalCta": {
-      "title": "इसे चलते हुए देखें।",
-      "paused": "Deposits paused for maintenance."
+      "title": "इसे चलते हुए देखें।"
+    },
+    "signals": {
+      "label": "अभी",
+      "up": "ऊपर की ओर झुकाव",
+      "down": "नीचे की ओर झुकाव",
+      "none": "कोई झुकाव नहीं",
+      "chip": "{coin}: {lean}, {pct}% भरोसा"
     }
   },
   "agentsPage": {
