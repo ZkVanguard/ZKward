@@ -17,6 +17,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { Copy, Check, ExternalLink, Zap, Database, Activity, Anchor, Shield } from 'lucide-react';
 import { useState } from 'react';
+import { SkeletonBox } from '@/components/dashboard/community-pool/Skeletons';
 
 // v0.2.0 is the populated subgraph — indexes both CommunityPool (0x07d6…1086)
 // and SimpleUsdcVault (0x68ee…111b). v0.1.1 was subgraph-only-schema (empty).
@@ -450,7 +451,9 @@ function BackendCard({ label, endpoint, endpointHref, badge, badgeColor, winTag,
       )}
 
       {isLoading && (
-        <div className="text-[11px] text-label-tertiary py-4 text-center">Loading…</div>
+        <div className="space-y-2 py-2" aria-busy="true">
+          {[0, 1, 2].map((i) => <SkeletonBox key={i} className="h-4 w-full rounded" />)}
+        </div>
       )}
 
       {hasErrors && (

@@ -34,7 +34,7 @@ export const runtime = 'nodejs';
 // Dynamic on purpose. `revalidate = 15` made this a build-time static page
 // whose background regeneration never landed — prod served the deploy-time
 // snapshot for 10h (2026-09-30). CDN caching comes from the Cache-Control
-// header set below (15s fresh + 30s stale-while-revalidate, then refetch).
+// header set below (15 s fresh, then stale while it refreshes).
 
 interface BanditArm {
   key: string;
@@ -295,12 +295,12 @@ export async function GET(_req: NextRequest): Promise<NextResponse> {
       navSeries: series ?? [],
       learning: await loadLearningSnapshot(),
     });
-    // Edge + browser cache: 15s fresh, 30s stale-while-revalidate.
+    // Edge cache: 15 s fresh, then served stale while it refreshes in the background.
     // Frontend polls every 30s so cache hits ~50% of loads at zero
     // aggregator cost.
     response.headers.set(
       'Cache-Control',
-      'public, s-maxage=15, stale-while-revalidate=30',
+      'public, s-maxage=15, stale-while-revalidate=86400',
     );
     return response;
   } catch (e) {

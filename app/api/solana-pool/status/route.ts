@@ -96,6 +96,10 @@ export async function GET(): Promise<NextResponse> {
         slot: Number(r.slot),
         blockTime: r.block_time,
       })),
+    }, {
+      // Pool-wide (a wallet's balance has its own uncached route). Without a
+      // header every visit paid ~3 s of chain and database reads.
+      headers: { 'Cache-Control': 'public, s-maxage=15, stale-while-revalidate=86400' },
     });
   } catch (e) {
     return NextResponse.json({ enabled: true, error: errMsg(e) }, { status: 500 });

@@ -13,8 +13,7 @@
  * Piggybacked on the polymarket-edge-trader 5-min tick.
  */
 import { useEffect, useMemo, useState } from 'react';
-import { fetchPerAssetSignals } from '@/lib/api/market-signals';
-import type { PerAssetSignal } from '@/lib/types/market-signals';
+import { usePerAssetSignals } from '@/lib/hooks/useLiveSignals';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -103,7 +102,7 @@ function fmtDur(seconds: number): string {
 
 export default function PaperTraderPage() {
   const [status, setStatus] = useState<Status | null>(null);
-  const [signals, setSignals] = useState<Record<string, PerAssetSignal>>({});
+  const { data: signals = {} } = usePerAssetSignals();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -123,7 +122,6 @@ export default function PaperTraderPage() {
 
   useEffect(() => {
     load();
-    fetchPerAssetSignals().then(setSignals).catch(() => setSignals({}));
     const iv = setInterval(load, 30_000);
     return () => clearInterval(iv);
   }, []);

@@ -16,7 +16,8 @@ import {
   ChartData,
 } from 'chart.js';
 import { Line } from 'react-chartjs-2';
-import { TrendingUp, TrendingDown, Loader2 } from 'lucide-react';
+import { TrendingUp, TrendingDown } from 'lucide-react';
+import { SkeletonBox } from '@/components/dashboard/community-pool/Skeletons';
 
 // Register Chart.js components
 ChartJS.register(
@@ -347,8 +348,9 @@ export default function PerformanceChart({
 
   if (loading && chartData.length === 0) {
     return (
-      <div className="bg-[#f5f5f7] rounded-xl p-8 flex items-center justify-center">
-        <Loader2 className="w-8 h-8 text-[#007AFF] animate-spin" />
+      <div className="space-y-3" aria-busy="true">
+        <div className="flex gap-2">{[0, 1, 2, 3, 4].map((i) => <SkeletonBox key={i} className="h-7 w-10 rounded-lg" />)}</div>
+        <SkeletonBox className="h-56 rounded-xl" />
       </div>
     );
   }

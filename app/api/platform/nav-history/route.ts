@@ -136,7 +136,7 @@ export async function GET(request: NextRequest): Promise<NextResponse<NavHistory
     }, {
       // nav_history is written every ~30min by sui-community-pool +
       // pool-nav-monitor; 60s edge cache collapses chart reloads.
-      headers: { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120' },
+      headers: { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=86400' },
     });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
