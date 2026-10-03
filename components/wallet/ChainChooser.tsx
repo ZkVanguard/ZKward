@@ -21,7 +21,7 @@ const short = (a: string) => `${a.slice(0, 6)}…${a.slice(-4)}`;
 
 export function ChainChooser() {
   const hub = useWalletHub();
-  const t = useTranslations('wallet.chooser');
+  const t = useTranslations('wallet');
   const { chooser } = hub;
   if (!chooser.open) return null;
 
@@ -37,12 +37,12 @@ export function ChainChooser() {
   const suggested = !chooser.chain && !hub.isConnected ? hub.suggestion.chain : null;
 
   const title = chooser.welcome
-    ? t('welcomeTitle')
+    ? t('chooser.welcomeTitle')
     : chooser.chain
-      ? t('useTitle', { chain: CHAIN_INFO[chooser.chain].name })
+      ? t('chooser.useTitle', { chain: CHAIN_INFO[chooser.chain].name })
       : hub.isConnected
-        ? t('switchTitle')
-        : t('chooseTitle');
+        ? t('chooser.switchTitle')
+        : t('chooser.chooseTitle');
 
   return (
     <div
@@ -66,12 +66,12 @@ export function ChainChooser() {
               {title}
             </h2>
             <p className="text-[13px] text-[#6e6e73] mt-1 leading-snug">
-              {chooser.reason ?? (chooser.welcome ? t('welcomeBody') : t('body'))}
+              {chooser.reason ?? (chooser.welcome ? t('chooser.welcomeBody') : t('chooser.body'))}
             </p>
           </div>
           <button
             onClick={hub.closeChooser}
-            aria-label={t('close')}
+            aria-label={t('chooser.close')}
             className="p-2 -mr-2 -mt-1 rounded-full hover:bg-[#f5f5f7] text-[#6e6e73]"
           >
             <X className="w-5 h-5" />
@@ -89,7 +89,7 @@ export function ChainChooser() {
             onClick={hub.closeChooser}
             className="mt-4 w-full h-10 rounded-xl text-[13px] font-medium text-[#6e6e73] hover:bg-[#f5f5f7]"
           >
-            {t('browseFirst')}
+            {t('chooser.browseFirst')}
           </button>
         )}
       </div>
