@@ -450,7 +450,7 @@ export const SUPPORTED_CHAINS: MultiChainConfig[] = [
   {
     type: 'sui',
     name: 'SUI',
-    logo: '/chains/sui.svg',
+    logo: '/logos/chains/sui.svg',
     chains: {
       mainnet: SuiMainnet,
       testnet: SuiTestnet,

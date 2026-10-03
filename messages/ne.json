@@ -459,11 +459,13 @@
     "privacy": "गोपनीयता नीति",
     "terms": "सेवा सर्तहरू",
     "rights": "सर्वाधिकार सुरक्षित।",
-    "testnet": "SUI Mainnet",
     "stage": "Mainnet प्रत्यक्ष",
     "migrationNotice": "पहिले zkward.xyz। Zkward.com हाम्रो नयाँ घर हो।",
     "builtWith": "ZK-STARK सँग निर्मित",
-    "story": "हाम्रो कथा"
+    "story": "हाम्रो कथा",
+    "multichain": "मल्टी-चेन",
+    "mainnetTesting": "मेननेट परीक्षण",
+    "pools": "पूलहरू"
   },
   "connect": {
     "button": "वालेट जडान गर्नुहोस्",
@@ -685,5 +687,74 @@
   "legacyBanner": {
     "message": "<strong>zkward.xyz बन्द हुँदैछ</strong> — हामी अहिले <link>zkward.com</link> मा छौं।",
     "dismiss": "बन्द गर्नुहोस्"
+  },
+  "wallet": {
+    "funds": {
+      "real": "वास्तविक रकम",
+      "test": "परीक्षण टोकन",
+      "simulated": "सिमुलेटेड"
+    },
+    "net": {
+      "mainnet": "मेननेट",
+      "testnet": "टेस्टनेट",
+      "devnet": "डेभनेट",
+      "simulated": "सिमुलेटेड"
+    },
+    "paper": "सिमुलेटेड",
+    "elsewhere": "तपाईं {active} मा जोडिनुभएको छ। यो {pool} पूल हो।",
+    "pill": {
+      "on": "तपाईं {chain} {net} मा हुनुहुन्छ। बदल्न ट्याप गर्नुहोस्।",
+      "connect": "जोड्नुहोस्"
+    },
+    "chains": {
+      "hedera": {
+        "pool": "Hedera टेस्टनेटमा USDC पूल",
+        "how": "इमेल वा Google बाट साइन इन गर्नुहोस्। हामी तपाईंको लागि वालेट बनाउँछौं, केही इन्स्टल गर्नु पर्दैन।",
+        "cta": "Hedera बाट साइन इन गर्नुहोस्"
+      },
+      "sui": {
+        "pool": "SUI मेननेटमा लाइभ USDC पूल",
+        "how": "Slush, Suiet वा Ethos जस्ता SUI ब्राउजर वालेट प्रयोग गर्छ।",
+        "cta": "SUI प्रयोग गर्नुहोस्"
+      },
+      "solana": {
+        "pool": "Solana डेभनेटमा JIMP परीक्षण पूल",
+        "how": "Phantom प्रयोग गर्छ। परीक्षण पूलका लागि यसलाई Devnet मा बदल्नुहोस्।",
+        "cta": "Solana प्रयोग गर्नुहोस्"
+      }
+    },
+    "install": {
+      "sui": "Slush लिनुहोस्",
+      "solana": "Phantom लिनुहोस्"
+    },
+    "chooser": {
+      "welcomeTitle": "ZKward मा स्वागत छ",
+      "useTitle": "{chain} प्रयोग गर्नुहोस्",
+      "switchTitle": "नेटवर्क बदल्नुहोस्",
+      "chooseTitle": "आफ्नो नेटवर्क छान्नुहोस्",
+      "welcomeBody": "तपाईंले प्रयोग गर्न चाहेको नेटवर्क छान्नुहोस्। हरेक ट्याबले तपाईंको छनोट पछ्याउँछ, र तपाईं माथिको बारबाट जुनसुकै बेला बदल्न सक्नुहुन्छ।",
+      "body": "तपाईं एक पटकमा एउटा नेटवर्क प्रयोग गर्नुहुन्छ। बदल्दा हालको नेटवर्क विच्छेद हुन्छ।",
+      "close": "बन्द गर्नुहोस्",
+      "browseFirst": "पहिले हेर्नुहोस्, पछि निर्णय गर्नुहोस्",
+      "active": "सक्रिय",
+      "neededHere": "यहाँ आवश्यक",
+      "connecting": "जोडिँदै…",
+      "disconnect": "विच्छेद गर्नुहोस्",
+      "switchTo": "{chain} मा जानुहोस्",
+      "suggested": "सुझाव"
+    },
+    "why": {
+      "link": "तपाईंको लिंकबाट",
+      "last": "यस उपकरणमा अन्तिम पटक प्रयोग",
+      "wallet": "यस ब्राउजरमा वालेट भेटियो",
+      "noInstall": "केही इन्स्टल गर्नु पर्दैन"
+    },
+    "detect": {
+      "hedera": "जुनसुकै ब्राउजरमा चल्छ",
+      "suiFound": "यस ब्राउजरमा {wallet} भेटियो",
+      "suiMissing": "यस ब्राउजरमा SUI वालेट छैन",
+      "solanaFound": "यस ब्राउजरमा Phantom भेटियो",
+      "solanaMissing": "यस ब्राउजरमा Phantom भेटिएन"
+    }
   }
 }

@@ -34,6 +34,7 @@ import { usePrivyEmbeddedAddress, usePrivyEmbeddedStatus } from '@/lib/evm-walle
 import { usePrivySender } from '@/lib/evm-wallet/usePrivySender';
 import { WalletAvatar } from '@/components/ui/WalletAvatar';
 import { useWalletProfile, useSetWalletProfile } from '@/lib/hooks/useWalletProfile';
+import { ChainLogo } from '@/components/wallet/ChainLogo';
 
 const HEDERA_TESTNET_ID = 296;
 const USDC_DECIMALS = 6;
@@ -547,7 +548,8 @@ export function HederaVaultActions({ address: propAddress, onRefresh }: Props) {
       {address ? (
         <div className="rounded-xl border p-3 space-y-2" style={{ borderColor: `${HEDERA_ACCENT}30`, background: `${HEDERA_ACCENT}08` }}>
           <div className="flex items-center justify-between gap-2">
-            <div className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: HEDERA_ACCENT }}>
+            <div className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide" style={{ color: HEDERA_ACCENT }}>
+              <ChainLogo chain="hedera" size={14} />
               Your Hedera wallet · USDC lands here
             </div>
             <span className="text-[10px] text-label-tertiary">Hedera Testnet · chainId 296</span>

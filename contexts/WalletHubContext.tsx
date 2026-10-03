@@ -25,47 +25,24 @@ import { useSuiSafe } from '@/app/sui-providers';
 import { connectWallet as connectPhantom, getProvider as getPhantom } from '@/components/solana/wallet';
 import { ChainChooser } from '@/components/wallet/ChainChooser';
 import { CONSENT_EVENT, CONSENT_KEY } from '@/components/CookieConsent';
+import { suggestChain, type SuggestReason } from '@/lib/wallet/suggest-chain';
+import { CHAIN_META, WALLET_CHAINS, type ChainMeta, type WalletChain } from '@/lib/wallet/chain-meta';
 
-export type WalletChain = 'hedera' | 'sui' | 'solana';
-export const WALLET_CHAINS: readonly WalletChain[] = ['hedera', 'sui', 'solana'];
+// Names, tiers, marks and colours live in a plain module so marketing
+// pages can draw them without this provider's wallet SDKs.
+export { WALLET_CHAINS };
+export type { WalletChain };
 /** Which chain wins when several come back connected after a reload and no preference is stored. */
 const ADOPTION_ORDER: readonly WalletChain[] = ['sui', 'hedera', 'solana'];
 const ACTIVE_KEY = 'zkward.activeChain';
 /** Set once the user has chosen (or dismissed the choice); the welcome chooser never shows again on this device. */
 const ONBOARDED_KEY = 'zkward.onboarded';
 
-/** Plain-language copy for the chooser, prompts and badges. */
-export const CHAIN_INFO: Record<WalletChain, { name: string; net: string; pool: string; how: string; cta: string; color: string; installUrl: string; installLabel: string }> = {
-  hedera: {
-    name: 'Hedera',
-    net: 'testnet',
-    pool: 'USDC pool on Hedera testnet',
-    how: 'Sign in with email or Google. We create a wallet for you, nothing to install.',
-    cta: 'Sign in with Hedera',
-    color: '#1d1d1f',
-    installUrl: '',
-    installLabel: '',
-  },
-  sui: {
-    name: 'SUI',
-    net: 'mainnet',
-    pool: 'Live USDC pool on SUI mainnet',
-    how: 'Uses a SUI browser wallet such as Slush, Suiet or Ethos.',
-    cta: 'Use SUI',
-    color: '#4DA2FF',
-    installUrl: 'https://slush.app/',
-    installLabel: 'Get Slush',
-  },
-  solana: {
-    name: 'Solana',
-    net: 'devnet',
-    pool: 'JIMP test pool on Solana devnet',
-    how: 'Uses Phantom. Switch it to Devnet for the test pool.',
-    cta: 'Use Solana',
-    color: '#9945FF',
-    installUrl: 'https://phantom.app/download',
-    installLabel: 'Get Phantom',
-  },
+/** Chain facts plus the English copy a few prompts still use (the chooser reads `wallet.*`). */
+export const CHAIN_INFO: Record<WalletChain, ChainMeta & { pool: string; how: string; cta: string; installLabel: string }> = {
+  hedera: { ...CHAIN_META.hedera, pool: 'USDC pool on Hedera testnet', how: 'Sign in with email or Google. We create a wallet for you, nothing to install.', cta: 'Sign in with Hedera', installLabel: '' },
+  sui: { ...CHAIN_META.sui, pool: 'Live USDC pool on SUI mainnet', how: 'Uses a SUI browser wallet such as Slush, Suiet or Ethos.', cta: 'Use SUI', installLabel: 'Get Slush' },
+  solana: { ...CHAIN_META.solana, pool: 'JIMP test pool on Solana devnet', how: 'Uses Phantom. Switch it to Devnet for the test pool.', cta: 'Use Solana', installLabel: 'Get Phantom' },
 };
 
 export interface ChainWallet {
@@ -105,6 +82,10 @@ export interface WalletHub {
   closeChooser: () => void;
   /** Last connect error per chain; the chooser shows it next to the install link. */
   errors: Partial<Record<WalletChain, string>>;
+  /** An injected Solana wallet (Phantom or compatible) is present. */
+  solanaWalletFound: boolean;
+  /** The network this visitor most likely wants, and why (lib/wallet/suggest-chain). */
+  suggestion: { chain: WalletChain; reason: SuggestReason };
 }
 
 const Ctx = createContext<WalletHub | null>(null);
@@ -150,6 +131,15 @@ export function WalletHubProvider({ children }: { children: ReactNode }) {
   // Solana: injected Phantom. State lives here so the pool card, the navbar
   // and the chooser all see the same address.
   const [solanaAddress, setSolanaAddress] = useState<string | null>(null);
+  const [solanaWalletFound, setSolanaWalletFound] = useState(false);
+  useEffect(() => {
+    const look = () => setSolanaWalletFound(!!getPhantom());
+    look();
+    const t = setTimeout(look, 1500);
+    return () => clearTimeout(t);
+  }, []);
+  // `?chain=` on arrival and the last network used: read once, they are what the visitor came with.
+  const [arrival, setArrival] = useState<{ link: WalletChain | null; last: WalletChain | null }>({ link: null, last: null });
   const [solanaBusy, setSolanaBusy] = useState(false);
   useEffect(() => {
     const p = getPhantom();
@@ -170,6 +160,11 @@ export function WalletHubProvider({ children }: { children: ReactNode }) {
     const stored = readStoredChain();
     setActiveChainState(stored);
     setHydrated(true);
+    const linkParam = new URLSearchParams(window.location.search).get('chain');
+    setArrival({
+      link: linkParam && (WALLET_CHAINS as readonly string[]).includes(linkParam) ? (linkParam as WalletChain) : null,
+      last: stored,
+    });
     // First visit on this device: ask which network to use, once. The
     // dashboard stays browsable behind it and the choice is never forced.
     // One first-visit prompt at a time: it waits for the cookie choice.
@@ -328,6 +323,12 @@ export function WalletHubProvider({ children }: { children: ReactNode }) {
     if (satisfied) closeChooser();
   }, [chooser.open, chooser.chain, activeChain, wallets, closeChooser]);
 
+  const suiWalletNames = useMemo(() => suiWallets.map((w) => w.name), [suiWallets]);
+  const suggestion = useMemo(
+    () => suggestChain({ linkChain: arrival.link, lastChain: arrival.last, suiWallets: suiWalletNames, solanaWallet: solanaWalletFound }),
+    [arrival, suiWalletNames, solanaWalletFound],
+  );
+
   const active = activeChain ? wallets[activeChain] : null;
   const value = useMemo<WalletHub>(
     () => ({
@@ -344,8 +345,10 @@ export function WalletHubProvider({ children }: { children: ReactNode }) {
       openChooser,
       closeChooser,
       errors,
+      solanaWalletFound,
+      suggestion,
     }),
-    [activeChain, active, hedera, suiWallet, solana, suiWallets, connect, disconnect, chooser, openChooser, closeChooser, errors],
+    [activeChain, active, hedera, suiWallet, solana, suiWallets, connect, disconnect, chooser, openChooser, closeChooser, errors, solanaWalletFound, suggestion],
   );
 
   return (

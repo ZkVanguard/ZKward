@@ -13,8 +13,9 @@
 import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { formatUnits, hexToBigInt, keccak256, toHex } from 'viem';
-import { ArrowDownRight, ArrowUpRight, ExternalLink, Loader2, Activity } from 'lucide-react';
+import { ArrowDownRight, ArrowUpRight, ExternalLink, Loader2 } from 'lucide-react';
 import { HEDERA_CONTRACT_ADDRESSES } from '@/lib/contracts/addresses';
+import { ChainLogo } from '@/components/wallet/ChainLogo';
 
 const HEDERA_ACCENT = '#00A79F';
 const USDC_DECIMALS = 6;
@@ -137,7 +138,7 @@ export function HederaRecentActivity() {
   return (
     <div className="p-3 sm:p-4 border-b border-gray-100 dark:border-gray-700">
       <div className="flex items-center gap-2 mb-3 flex-wrap">
-        <Activity className="w-4 h-4" style={{ color: HEDERA_ACCENT }} />
+        <ChainLogo chain="hedera" size={16} label="Hedera" />
         <h3 className="text-sm sm:text-[15px] font-semibold text-label-primary">
           Recent activity
         </h3>

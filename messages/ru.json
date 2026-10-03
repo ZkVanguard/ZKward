@@ -35,11 +35,13 @@
     "privacy": "Политика конфиденциальности",
     "terms": "Условия использования",
     "rights": "Все права защищены.",
-    "testnet": "SUI Mainnet",
     "stage": "Mainnet Запущен",
     "migrationNotice": "Formerly zkward.xyz — zkward.com is our new home.",
     "builtWith": "Построено на ZK-STARK",
-    "story": "Наша история"
+    "story": "Наша история",
+    "multichain": "Мультичейн",
+    "mainnetTesting": "Тестирование мейннета",
+    "pools": "Пулы"
   },
   "connect": {
     "button": "Подключить кошелёк",
@@ -685,5 +687,74 @@
   "legacyBanner": {
     "message": "<strong>zkward.xyz закрывается</strong> — мы теперь на <link>zkward.com</link>.",
     "dismiss": "Закрыть"
+  },
+  "wallet": {
+    "funds": {
+      "real": "Реальные средства",
+      "test": "Тестовые токены",
+      "simulated": "Симуляция"
+    },
+    "net": {
+      "mainnet": "Mainnet",
+      "testnet": "Testnet",
+      "devnet": "Devnet",
+      "simulated": "Симуляция"
+    },
+    "paper": "Симуляция",
+    "elsewhere": "Вы подключены к {active}. Это пул {pool}.",
+    "pill": {
+      "on": "Вы в сети {chain} {net}. Нажмите, чтобы сменить.",
+      "connect": "Подключить"
+    },
+    "chains": {
+      "hedera": {
+        "pool": "Пул USDC в Hedera testnet",
+        "how": "Войдите через e-mail или Google. Мы создадим кошелёк, ничего устанавливать не нужно.",
+        "cta": "Войти через Hedera"
+      },
+      "sui": {
+        "pool": "Действующий пул USDC в SUI mainnet",
+        "how": "Нужен браузерный кошелёк SUI, например Slush, Suiet или Ethos.",
+        "cta": "Использовать SUI"
+      },
+      "solana": {
+        "pool": "Тестовый пул JIMP в Solana devnet",
+        "how": "Нужен Phantom. Переключите его на Devnet для тестового пула.",
+        "cta": "Использовать Solana"
+      }
+    },
+    "install": {
+      "sui": "Установить Slush",
+      "solana": "Установить Phantom"
+    },
+    "chooser": {
+      "welcomeTitle": "Добро пожаловать в ZKward",
+      "useTitle": "Использовать {chain}",
+      "switchTitle": "Сменить сеть",
+      "chooseTitle": "Выберите сеть",
+      "welcomeBody": "Выберите сеть, которой хотите пользоваться. Все вкладки следуют вашему выбору, сменить сеть можно в любой момент в верхней панели.",
+      "body": "Одновременно используется одна сеть. При смене текущая отключается.",
+      "close": "Закрыть",
+      "browseFirst": "Сначала осмотреться",
+      "active": "Активна",
+      "neededHere": "Нужна здесь",
+      "connecting": "Подключение…",
+      "disconnect": "Отключить",
+      "switchTo": "Перейти на {chain}",
+      "suggested": "Рекомендуем"
+    },
+    "why": {
+      "link": "из вашей ссылки",
+      "last": "последняя на этом устройстве",
+      "wallet": "кошелёк найден в браузере",
+      "noInstall": "ничего устанавливать не нужно"
+    },
+    "detect": {
+      "hedera": "Работает в любом браузере",
+      "suiFound": "{wallet} найден в этом браузере",
+      "suiMissing": "В этом браузере нет кошелька SUI",
+      "solanaFound": "Phantom найден в этом браузере",
+      "solanaMissing": "Phantom не найден в этом браузере"
+    }
   }
 }

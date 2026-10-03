@@ -35,11 +35,13 @@
     "privacy": "개인정보 보호정책",
     "terms": "서비스 이용약관",
     "rights": "모든 권리 보유.",
-    "testnet": "SUI Mainnet",
     "stage": "메인넷 라이브",
     "migrationNotice": "Formerly zkward.xyz — zkward.com is our new home.",
     "builtWith": "ZK-STARK로 구축",
-    "story": "우리 이야기"
+    "story": "우리 이야기",
+    "multichain": "멀티체인",
+    "mainnetTesting": "메인넷 테스트 중",
+    "pools": "풀"
   },
   "connect": {
     "button": "지갑 연결",
@@ -685,5 +687,74 @@
   "legacyBanner": {
     "message": "<strong>zkward.xyz는 곧 종료됩니다</strong> — 이제 <link>zkward.com</link>입니다.",
     "dismiss": "닫기"
+  },
+  "wallet": {
+    "funds": {
+      "real": "실제 자금",
+      "test": "테스트 토큰",
+      "simulated": "시뮬레이션"
+    },
+    "net": {
+      "mainnet": "메인넷",
+      "testnet": "테스트넷",
+      "devnet": "데브넷",
+      "simulated": "시뮬레이션"
+    },
+    "paper": "시뮬레이션",
+    "elsewhere": "{active}에 연결되어 있습니다. 여기는 {pool} 풀입니다.",
+    "pill": {
+      "on": "{chain} {net} 사용 중. 탭하여 전환하세요.",
+      "connect": "연결"
+    },
+    "chains": {
+      "hedera": {
+        "pool": "Hedera 테스트넷의 USDC 풀",
+        "how": "이메일 또는 Google로 로그인하세요. 지갑을 만들어 드리니 설치할 필요가 없습니다.",
+        "cta": "Hedera로 로그인"
+      },
+      "sui": {
+        "pool": "SUI 메인넷의 실제 USDC 풀",
+        "how": "Slush, Suiet, Ethos 같은 SUI 브라우저 지갑을 사용합니다.",
+        "cta": "SUI 사용"
+      },
+      "solana": {
+        "pool": "Solana 데브넷의 JIMP 테스트 풀",
+        "how": "Phantom을 사용합니다. 테스트 풀은 Devnet으로 전환하세요.",
+        "cta": "Solana 사용"
+      }
+    },
+    "install": {
+      "sui": "Slush 받기",
+      "solana": "Phantom 받기"
+    },
+    "chooser": {
+      "welcomeTitle": "ZKward에 오신 것을 환영합니다",
+      "useTitle": "{chain} 사용",
+      "switchTitle": "네트워크 전환",
+      "chooseTitle": "네트워크 선택",
+      "welcomeBody": "사용할 네트워크를 선택하세요. 모든 탭이 선택을 따르며, 상단 바에서 언제든지 전환할 수 있습니다.",
+      "body": "한 번에 하나의 네트워크만 사용합니다. 전환하면 현재 연결이 해제됩니다.",
+      "close": "닫기",
+      "browseFirst": "먼저 둘러보고 나중에 결정",
+      "active": "사용 중",
+      "neededHere": "여기서 필요",
+      "connecting": "연결 중…",
+      "disconnect": "연결 해제",
+      "switchTo": "{chain}(으)로 전환",
+      "suggested": "추천"
+    },
+    "why": {
+      "link": "링크에서",
+      "last": "이 기기에서 마지막으로 사용",
+      "wallet": "이 브라우저에서 지갑 발견",
+      "noInstall": "설치 불필요"
+    },
+    "detect": {
+      "hedera": "모든 브라우저에서 사용 가능",
+      "suiFound": "이 브라우저에서 {wallet} 발견",
+      "suiMissing": "이 브라우저에 SUI 지갑이 없습니다",
+      "solanaFound": "이 브라우저에서 Phantom 발견",
+      "solanaMissing": "이 브라우저에서 Phantom을 찾을 수 없습니다"
+    }
   }
 }

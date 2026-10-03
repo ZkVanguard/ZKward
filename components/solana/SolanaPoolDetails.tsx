@@ -5,8 +5,9 @@
  * recent-deposit trail. Styled like the Hedera recent-activity rows so the
  * chains read the same.
  */
-import { Activity, ArrowDownRight, ExternalLink, Loader2 } from 'lucide-react';
+import { ArrowDownRight, ExternalLink, Loader2 } from 'lucide-react';
 import { explorerTx, shortAddr, useSolanaPoolStatus } from './status';
+import { ChainLogo } from '@/components/wallet/ChainLogo';
 
 const SOLANA_ACCENT = '#9945FF';
 
@@ -37,7 +38,7 @@ export function SolanaSleevePanel() {
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-2 flex-wrap pool-inner-heading">
-        <Activity className="w-4 h-4" style={{ color: SOLANA_ACCENT }} />
+        <ChainLogo chain="solana" size={16} label="Solana" />
         <h3 className="text-sm sm:text-[15px] font-semibold text-label-primary">Trading sleeve</h3>
         <span
           className="inline-flex items-center text-[10px] px-2 py-0.5 rounded-full font-semibold uppercase tracking-wide"
@@ -99,7 +100,7 @@ export function SolanaRecentActivity() {
   return (
     <div className="p-3 sm:p-4 border-b border-gray-100 dark:border-gray-700">
       <div className="flex items-center gap-2 mb-3 flex-wrap pool-inner-heading">
-        <Activity className="w-4 h-4" style={{ color: SOLANA_ACCENT }} />
+        <ChainLogo chain="solana" size={16} label="Solana" />
         <h3 className="text-sm sm:text-[15px] font-semibold text-label-primary">Recent activity</h3>
         <span
           className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-semibold uppercase tracking-wide"

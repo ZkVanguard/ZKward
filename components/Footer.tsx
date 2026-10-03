@@ -3,6 +3,8 @@
 import { memo } from 'react';
 import { Link } from '../i18n/routing';
 import { useTranslations } from 'next-intl';
+import { ChainLogo } from '@/components/wallet/ChainLogo';
+import { CHAIN_META, WALLET_CHAINS } from '@/lib/wallet/chain-meta';
 
 const currentYear = new Date().getFullYear();
 
@@ -23,7 +25,7 @@ export const Footer = memo(function Footer() {
                 <li><Link href="/dashboard" className={LINK_CLASS}>{t('dashboard')}</Link></li>
                 <li><Link href="/agents" className={LINK_CLASS}>{t('agents')}</Link></li>
                 <li><Link href="/simulator" className={LINK_CLASS}>{t('simulator')}</Link></li>
-                <li><Link href="/dashboard?chain=solana" className={LINK_CLASS}>Solana Pool</Link></li>
+                <li><Link href="/dashboard?tab=pool" className={LINK_CLASS}>{t('pools')}</Link></li>
                 <li><Link href="/whitepaper" className={LINK_CLASS}>{t('documentation')}</Link></li>
                 <li><Link href="/story" className={LINK_CLASS}>{t('story')}</Link></li>
                 <li><Link href="/faq" className={LINK_CLASS}>FAQ</Link></li>
@@ -64,24 +66,25 @@ export const Footer = memo(function Footer() {
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div className="text-caption-1 text-label-tertiary leading-relaxed">
               © {currentYear} ZKward. {t('rights')}
-              <span className="hidden md:inline ml-2">·</span>
-              <span className="block md:inline md:ml-2 text-ios-blue">{t('testnet')}</span>
               <div className="mt-1 text-caption-2 text-label-tertiary">{t('migrationNotice')}</div>
-              <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-caption-2 text-label-tertiary">
-                <span>Deployed on</span>
-                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-[#4DA2FF]/10 text-[#4DA2FF] font-medium">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#4DA2FF]" />
-                  SUI Mainnet
+              {/* The networks by their marks alone: the site speaks of multi-chain, not of each chain. */}
+              <div className="mt-2 inline-flex items-center gap-2 rounded-full bg-white border border-separator-opaque/40 pl-1.5 pr-3 py-1 text-caption-2 font-medium text-label-secondary">
+                <span className="flex items-center">
+                  {WALLET_CHAINS.map((chain, i) => (
+                    <span key={chain} className={`flex h-5 w-5 items-center justify-center rounded-full bg-white border border-separator-opaque/40 ${i > 0 ? '-ml-1.5' : ''}`}>
+                      <ChainLogo chain={chain} size={11} label={CHAIN_META[chain].name} />
+                    </span>
+                  ))}
                 </span>
-                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-[#00A79F]/10 text-[#00A79F] font-medium">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#00A79F]" />
-                  Hedera Testnet
-                </span>
+                {t('multichain')}
               </div>
             </div>
             <div className="flex flex-wrap items-center gap-4 text-caption-1">
               <span className="px-3 py-1.5 bg-ios-blue text-white rounded-full font-medium">
                 {t('stage')}
+              </span>
+              <span className="px-3 py-1.5 rounded-full font-medium border border-ios-blue/30 text-ios-blue">
+                {t('mainnetTesting')}
               </span>
               <span className="text-label-tertiary">{t('builtWith')}</span>
             </div>
