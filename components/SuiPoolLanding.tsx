@@ -5,12 +5,12 @@ import { useTranslations } from 'next-intl';
 import { Link } from '@/i18n/routing';
 import { useHederaPool, type HederaPoolResponse } from '@/lib/hooks/useHederaPool';
 import {
-  ArrowRight, ShieldCheck, Zap, BarChart3,
-  Sparkles, Layers,
+  ArrowRight, ShieldCheck, Zap,
+  Sparkles,
 } from 'lucide-react';
 import { InstallAppButton } from './InstallAppButton';
 import { DataSourceMarquee } from './landing/DataSourceMarquee';
-import { Reveal, StatusPill, TrustBadge } from './ui/landing';
+import { Reveal, StatusPill } from './ui/landing';
 
 // Linear's signature spring curve. Read as: quick out, slow in — feels
 // like real mass behind interactive elements instead of the default
@@ -475,7 +475,7 @@ export const SuiPoolLanding = memo(function SuiPoolLanding() {
       {/* ─────────────────────────────────────────────────────────────── */}
       {/* HERO                                                            */}
       {/* ─────────────────────────────────────────────────────────────── */}
-      <section ref={heroRef} className="relative isolate pt-20 pb-12 sm:pt-32 sm:pb-24 lg:pt-40 lg:pb-32 px-4 sm:px-5 lg:px-8 overflow-x-clip min-w-0">
+      <section ref={heroRef} className="relative isolate pt-20 pb-8 sm:pt-32 sm:pb-12 lg:pt-36 lg:pb-16 px-4 sm:px-5 lg:px-8 overflow-x-clip min-w-0">
         {/* Apple-style soft gradient backdrop — extends 100px above so
             the fixed navbar's backdrop-blur has something to blur
             instead of solid white. Height compensated via inset. */}
@@ -496,9 +496,7 @@ export const SuiPoolLanding = memo(function SuiPoolLanding() {
                     <span className="absolute inline-flex h-full w-full rounded-full opacity-75 animate-ping" style={{ backgroundColor: '#00A79F' }} />
                     <span className="relative inline-flex rounded-full h-2 w-2" style={{ backgroundColor: '#00A79F' }} />
                   </span>
-                  <span className="text-footnote font-medium text-label-secondary">
-                    {t('status.liveOn')} <span style={{ color: '#00A79F' }} className="font-semibold">{t('status.hederaTestnet')}</span> · <span style={{ color: '#4DA2FF' }} className="font-semibold">{t('status.suiMainnet')}</span>
-                  </span>
+                  <span className="text-footnote font-medium text-label-secondary">{t('status.live')}</span>
                 </span>
               }
               right={
@@ -526,69 +524,47 @@ export const SuiPoolLanding = memo(function SuiPoolLanding() {
             {t('hero.subtitle')}
           </p>
 
-          {/* ─── BIG-NUMBER STATS STRIP ─── */}
-          {/* Institutional-grade credibility band directly under the hero.
-              Three numbers that answer "why should I take this seriously?":
-              source count, AI accuracy, mature-source count. Feature-parity
-              with the leading enterprise DeFi presentation pattern.
-              Kept center-aligned + generous letter-spacing so the digits
-              read as monument, not marketing. */}
-          <div className="mx-auto max-w-[900px] mb-10 sm:mb-14">
-            <p className="text-center text-[11px] sm:text-caption-1 font-semibold uppercase tracking-wide text-label-tertiary mb-4 sm:mb-6">
-              {t('stats.eyebrow')}
-            </p>
-            <div className="grid grid-cols-3 gap-4 sm:gap-8">
-              {(['sources', 'accuracy', 'mature'] as const).map((k) => (
-                <div key={k} className="flex flex-col items-center text-center min-w-0">
-                  <div className="font-display text-[32px] sm:text-[48px] md:text-[56px] font-semibold tracking-[-0.03em] leading-none text-label-primary tabular-nums">
-                    {t(`stats.${k}.value`)}
-                  </div>
-                  <div className="mt-2 text-[11px] sm:text-caption-1 text-label-secondary max-w-[180px] leading-snug">
-                    {t(`stats.${k}.label`)}
-                  </div>
+          {/* One clear next step. The app is where every path starts (signals,
+              the simulated book, deposits), so the hero offers exactly that,
+              plus a way to learn more first. */}
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-12 sm:mb-16">
+            <Link
+              href="/dashboard"
+              className="group inline-flex items-center justify-center gap-3 w-full sm:w-auto pl-7 pr-2.5 h-[56px] bg-ios-blue text-white text-headline font-semibold rounded-ios-xl hover:bg-ios-blueHover active:scale-[0.97] shadow-ios-2"
+              style={{ transition: `all 500ms ${SPRING}` }}
+            >
+              {t('cta.openApp')}
+              <span
+                aria-hidden
+                className="w-10 h-10 rounded-full bg-white/15 flex items-center justify-center group-hover:translate-x-1"
+                style={{ transition: `transform 500ms ${SPRING}` }}
+              >
+                <ArrowRight className="w-4 h-4" strokeWidth={2.5} />
+              </span>
+            </Link>
+            <a
+              href="#how-it-works"
+              className="inline-flex items-center justify-center w-full sm:w-auto h-[56px] px-6 rounded-ios-xl border border-separator-opaque/50 bg-white/70 backdrop-blur text-headline font-semibold text-label-primary hover:border-ios-blue/40 hover:text-ios-blue transition-colors"
+            >
+              {t('cta.howItWorks')}
+            </a>
+          </div>
+
+          {/* Three numbers a newcomer can read without a glossary. */}
+          <div className="mx-auto max-w-[760px] mb-12 sm:mb-14 grid grid-cols-3 gap-4 sm:gap-8">
+            {(['markets', 'days', 'always'] as const).map((k) => (
+              <div key={k} className="flex flex-col items-center text-center min-w-0">
+                <div className="font-display text-[30px] sm:text-[44px] md:text-[52px] font-semibold tracking-[-0.03em] leading-none text-label-primary tabular-nums">
+                  {t(`stats.${k}.value`)}
                 </div>
-              ))}
-            </div>
+                <div className="mt-2 text-[12px] sm:text-footnote text-label-secondary leading-snug">
+                  {t(`stats.${k}.label`)}
+                </div>
+              </div>
+            ))}
           </div>
 
           <DataSourceMarquee />
-
-          {/* Start-here — 3 clear entry paths. Fixes the mismatch where
-              the hero CTA said "See live signals" but the footer CTA asked
-              for a deposit. Now visitors get three ranked ways to try the
-              platform right after the pitch: safest first (shadow trader —
-              no wallet), then research, then capital. */}
-          <div className="mx-auto max-w-[1100px] mb-10 sm:mb-14">
-            <div className="text-center mb-5 sm:mb-6">
-              <p className="text-[10px] sm:text-caption-2 font-semibold uppercase tracking-[0.14em] text-label-tertiary mb-2">
-                {t('startHere.eyebrow')}
-              </p>
-              <p className="text-sm sm:text-callout text-label-secondary">
-                {t('startHere.body')}
-              </p>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4">
-              <StartHereCard
-                href="/paper"
-                title={t('startHere.watchShadow.title')}
-                body={t('startHere.watchShadow.body')}
-                cta={t('startHere.watchShadow.cta')}
-                primary
-              />
-              <StartHereCard
-                href="/dashboard"
-                title={t('startHere.seeSignals.title')}
-                body={t('startHere.seeSignals.body')}
-                cta={t('startHere.seeSignals.cta')}
-              />
-              <StartHereCard
-                href="/dashboard#deposit"
-                title={t('startHere.tryDemo.title')}
-                body={t('startHere.tryDemo.body')}
-                cta={t('startHere.tryDemo.cta')}
-              />
-            </div>
-          </div>
 
           {/* Install-as-app row — renders nothing when already installed or the
               browser hasn't emitted beforeinstallprompt yet. */}
@@ -641,43 +617,6 @@ export const SuiPoolLanding = memo(function SuiPoolLanding() {
       </section>
 
       {/* ─────────────────────────────────────────────────────────────── */}
-      {/* IN PRODUCTION — real numbers from live SUI mainnet deploy       */}
-      {/* ─────────────────────────────────────────────────────────────── */}
-      <section className="py-12 sm:py-20 md:py-24 px-4 sm:px-5 lg:px-8 bg-system-bg-secondary min-w-0">
-        <Reveal className="max-w-[1100px] mx-auto">
-          <div className="text-center mb-8 sm:mb-12">
-            <p className="text-caption-1 font-medium uppercase tracking-wide text-label-tertiary mb-2 sm:mb-3">
-              {t('production.eyebrow')}
-            </p>
-            <h2 className="text-[24px] sm:text-[28px] md:text-[36px] lg:text-[44px] font-display font-semibold tracking-[-0.03em] leading-[1.05] text-label-primary mb-3 sm:mb-4 break-words">
-              {t('production.title')}
-            </h2>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-4 min-w-0">
-            <TrustBadge
-              icon={<Zap className="w-5 h-5" />}
-              title={t('production.daysLive.title')}
-              value={t('production.daysLive.value')}
-              hint={t('production.daysLive.hint')}
-            />
-            <TrustBadge
-              icon={<BarChart3 className="w-5 h-5" />}
-              title={t('production.navSnapshots.title')}
-              value={t('production.navSnapshots.value')}
-              hint={t('production.navSnapshots.hint')}
-            />
-            <TrustBadge
-              icon={<Layers className="w-5 h-5" />}
-              title={t('production.hedges.title')}
-              value={t('production.hedges.value')}
-              hint={t('production.hedges.hint')}
-            />
-          </div>
-        </Reveal>
-      </section>
-
-      {/* ─────────────────────────────────────────────────────────────── */}
       {/* FOOTER CTA                                                      */}
       {/* ─────────────────────────────────────────────────────────────── */}
       <section className="py-14 sm:py-20 md:py-24 px-4 sm:px-5 lg:px-8 bg-system-bg-primary min-w-0">
@@ -685,24 +624,14 @@ export const SuiPoolLanding = memo(function SuiPoolLanding() {
           <h2 className="text-[24px] sm:text-[32px] md:text-[40px] font-display font-semibold tracking-[-0.03em] leading-[1.05] text-label-primary mb-3 break-words">
             {t('finalCta.title')}
           </h2>
-          <p className="text-sm sm:text-callout text-label-secondary mb-6 leading-relaxed px-1">
-            {t('finalCta.body')}
-            {pool && (
-              <>
-                {' '}
-                {t('finalCta.alreadyIn', {
-                  count: formatCount(pool.memberCount, t('status.member'), t('status.members')),
-                })}
-              </>
-            )}
-          </p>
+          <div className="mb-6" />
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
             <Link
               href="/dashboard"
               className="group inline-flex items-center justify-center gap-3 w-full sm:w-auto pl-6 pr-2.5 h-[52px] bg-ios-blue text-white text-headline font-semibold rounded-ios-xl hover:bg-ios-blueHover active:scale-[0.97] shadow-ios-2"
               style={{ transition: `all 500ms ${SPRING}` }}
             >
-              {t('cta.depositUsdc')}
+              {t('cta.openApp')}
               <span
                 aria-hidden
                 className="w-9 h-9 rounded-full bg-white/15 flex items-center justify-center group-hover:translate-x-1 group-hover:-translate-y-[1px] group-hover:scale-105"
@@ -711,15 +640,6 @@ export const SuiPoolLanding = memo(function SuiPoolLanding() {
                 <ArrowRight className="w-4 h-4" strokeWidth={2.5} />
               </span>
             </Link>
-            <a
-              href="https://github.com/ZkVanguard/ZKward"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 h-[52px] px-2 text-headline font-medium text-label-secondary hover:text-ios-blue transition-colors"
-            >
-              {t('cta.viewSource')}
-              <ArrowRight className="w-4 h-4" strokeWidth={2.25} />
-            </a>
           </div>
           {pool?.paused && (
             <p className="mt-4 text-footnote text-ios-orange font-medium">
@@ -773,29 +693,3 @@ function TimelineStep({
   );
 }
 
-function StartHereCard({
-  href, title, body, cta, primary,
-}: {
-  href: string; title: string; body: string; cta: string; primary?: boolean;
-}) {
-  const base = 'group flex flex-col justify-between h-full rounded-ios-xl p-5 sm:p-6 border transition-all duration-300 min-w-0 active:scale-[0.99]';
-  const style = primary
-    ? 'bg-gradient-to-br from-ios-blue to-ios-blueHover text-white border-ios-blue/40 hover:shadow-ios-3'
-    : 'bg-white/70 backdrop-blur-sm text-label-primary border-separator-opaque/40 hover:border-ios-blue/40 hover:shadow-ios-2';
-  return (
-    <Link href={href} className={`${base} ${style}`}>
-      <div className="mb-4">
-        <h3 className={`text-headline sm:text-title-3 font-display font-semibold mb-2 leading-tight break-words ${primary ? 'text-white' : 'text-label-primary'}`}>
-          {title}
-        </h3>
-        <p className={`text-sm sm:text-callout leading-relaxed break-words ${primary ? 'text-white/85' : 'text-label-secondary'}`}>
-          {body}
-        </p>
-      </div>
-      <div className={`inline-flex items-center gap-1.5 text-sm font-semibold ${primary ? 'text-white' : 'text-ios-blue'}`}>
-        {cta}
-        <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" strokeWidth={2.25} />
-      </div>
-    </Link>
-  );
-}

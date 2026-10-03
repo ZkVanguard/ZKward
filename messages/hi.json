@@ -260,35 +260,31 @@
   },
   "landing": {
     "status": {
-      "liveOn": "Live on",
-      "hederaTestnet": "Hedera Testnet",
-      "suiMainnet": "SUI Mainnet",
       "member": "member",
-      "members": "members"
+      "members": "members",
+      "live": "अभी लाइव"
     },
     "hero": {
-      "headline1": "20 signal sources.",
-      "headline2": "Ranked by track record.",
-      "subtitle": "हम 20+ बाज़ार पढ़ते हैं, सिर्फ़ तब ट्रेड करते हैं जब वे सहमत हों, और हर ट्रेड को ऑन-चेन साबित करते हैं।"
+      "headline1": "क्रिप्टो सिग्नल",
+      "headline2": "जिन्हें आप जाँच सकते हैं।",
+      "subtitle": "हम 20+ बाज़ार पढ़ते हैं और सिर्फ़ तब ट्रेड करते हैं जब वे सहमत हों। हर ट्रेड सार्वजनिक है।"
     },
     "stats": {
-      "eyebrow": "Right now, in production",
-      "sources": {
+      "markets": {
         "value": "20+",
-        "label": "हर कॉइन के लिए बाज़ार स्रोत"
+        "label": "हर कॉइन के लिए बाज़ार"
       },
-      "accuracy": {
-        "value": "82.8%",
-        "label": "बाज़ार के सवाल पढ़ने में AI की सटीकता"
+      "days": {
+        "value": "100+",
+        "label": "दिन से लाइव"
       },
-      "mature": {
-        "value": "37",
-        "label": "साबित रिकॉर्ड वाले स्रोत"
+      "always": {
+        "value": "24/7",
+        "label": "हमेशा चालू"
       }
     },
     "sources": {
-      "eyebrow": "सिग्नल स्रोत",
-      "caption": "प्रेडिक्शन मार्केट · ऑर्डर बुक · फंडिंग · ऑप्शन स्क्यू",
+      "eyebrow": "डेटा स्रोत",
       "roles": {
         "predictionMarket": "प्रेडिक्शन मार्केट",
         "perpetuals": "परपेचुअल फ्यूचर्स",
@@ -298,11 +294,10 @@
       }
     },
     "cta": {
-      "depositUsdc": "See live signals",
-      "howItWorks": "How it works",
-      "viewSource": "View source",
+      "howItWorks": "यह कैसे काम करता है",
       "installApp": "Install app",
-      "installIosHint": "To install: tap the Share icon in Safari, scroll down, and tap \"Add to Home Screen\"."
+      "installIosHint": "To install: tap the Share icon in Safari, scroll down, and tap \"Add to Home Screen\".",
+      "openApp": "ऐप खोलें"
     },
     "howItWorks": {
       "eyebrow": "The loop",
@@ -322,47 +317,7 @@
     },
     "finalCta": {
       "title": "इसे चलते हुए देखें।",
-      "body": "सब कुछ सार्वजनिक है। तैयार हों तो वॉलेट जोड़ें।",
-      "alreadyIn": "{count} already in.",
       "paused": "Deposits paused for maintenance."
-    },
-    "production": {
-      "eyebrow": "In production",
-      "title": "Live on Sui mainnet since 2026-06-12.",
-      "daysLive": {
-        "title": "Days live",
-        "value": "100+",
-        "hint": "लॉन्च से लगातार चल रहा है।"
-      },
-      "navSnapshots": {
-        "title": "NAV snapshots",
-        "value": "2,200+",
-        "hint": "पूल का मूल्य हर 15 मिनट ऑन-चेन सेव होता है।"
-      },
-      "hedges": {
-        "title": "Hedges executed",
-        "value": "214",
-        "hint": "BTC, ETH, SUI और SOL पर।"
-      }
-    },
-    "startHere": {
-      "eyebrow": "Start here",
-      "body": "देखने के लिए वॉलेट ज़रूरी नहीं।",
-      "watchShadow": {
-        "title": "Watch the shadow trader",
-        "body": "$100K का सिमुलेटेड खाता, लाइव ट्रेडिंग।",
-        "cta": "Open shadow trader"
-      },
-      "seeSignals": {
-        "title": "Read live signals",
-        "body": "हर कॉइन अभी किस ओर झुका है।",
-        "cta": "Open dashboard"
-      },
-      "tryDemo": {
-        "title": "Deposit into the demo vault",
-        "body": "सीमा $10K। कभी भी निकालें।",
-        "cta": "Open vault"
-      }
     }
   },
   "agentsPage": {

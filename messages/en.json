@@ -13,58 +13,35 @@
     "rwa": "RWA",
     "story": "Story",
     "faq": "FAQ",
-    "enterApp": "Enter app"
+    "enterApp": "Open the app"
   },
   "landing": {
     "status": {
-      "liveOn": "Live on",
-      "hederaTestnet": "Hedera Testnet",
-      "suiMainnet": "SUI Mainnet",
       "member": "member",
-      "members": "members"
+      "members": "members",
+      "live": "Live now"
     },
     "hero": {
-      "headline1": "The signal layer",
-      "headline2": "for digital assets.",
-      "subtitle": "We read 20+ markets, trade only when they agree, and prove every trade on-chain."
-    },
-    "startHere": {
-      "eyebrow": "Start here",
-      "body": "No wallet needed to look around.",
-      "watchShadow": {
-        "title": "Watch the shadow trader",
-        "body": "A $100K simulated book, trading live.",
-        "cta": "Open shadow trader"
-      },
-      "seeSignals": {
-        "title": "Read live signals",
-        "body": "Where each coin is leaning right now.",
-        "cta": "Open dashboard"
-      },
-      "tryDemo": {
-        "title": "Deposit into the demo vault",
-        "body": "Capped at $10K. Withdraw anytime.",
-        "cta": "Open vault"
-      }
+      "headline1": "Crypto signals",
+      "headline2": "you can verify.",
+      "subtitle": "We read 20+ markets and trade only when they agree. Every trade is public."
     },
     "stats": {
-      "eyebrow": "Right now, in production",
-      "sources": {
+      "markets": {
         "value": "20+",
-        "label": "market sources per coin"
+        "label": "markets read per coin"
       },
-      "accuracy": {
-        "value": "82.8%",
-        "label": "AI accuracy reading market questions"
+      "days": {
+        "value": "100+",
+        "label": "days live"
       },
-      "mature": {
-        "value": "37",
-        "label": "sources with a proven record"
+      "always": {
+        "value": "24/7",
+        "label": "always running"
       }
     },
     "sources": {
-      "eyebrow": "Signals read from",
-      "caption": "Prediction markets · order books · funding · options skew",
+      "eyebrow": "Data from",
       "roles": {
         "predictionMarket": "Prediction market",
         "perpetuals": "Perpetual futures",
@@ -74,11 +51,10 @@
       }
     },
     "cta": {
-      "depositUsdc": "See live signals",
       "howItWorks": "How it works",
-      "viewSource": "View source",
       "installApp": "Install app",
-      "installIosHint": "To install: tap the Share icon in Safari, scroll down, and tap \"Add to Home Screen\"."
+      "installIosHint": "To install: tap the Share icon in Safari, scroll down, and tap \"Add to Home Screen\".",
+      "openApp": "Open the app"
     },
     "howItWorks": {
       "eyebrow": "How it works",
@@ -98,28 +74,7 @@
     },
     "finalCta": {
       "title": "See it running.",
-      "body": "Everything is public. Connect a wallet when you're ready.",
-      "alreadyIn": "{count} already in.",
       "paused": "Deposits paused for maintenance."
-    },
-    "production": {
-      "eyebrow": "In production",
-      "title": "Live on Sui mainnet since 2026-06-12.",
-      "daysLive": {
-        "title": "Days live",
-        "value": "100+",
-        "hint": "Running nonstop since launch."
-      },
-      "navSnapshots": {
-        "title": "NAV snapshots",
-        "value": "2,200+",
-        "hint": "Pool value saved on-chain every 15 minutes."
-      },
-      "hedges": {
-        "title": "Hedges executed",
-        "value": "214",
-        "hint": "Across BTC, ETH, SUI and SOL."
-      }
     }
   },
   "agentsPage": {

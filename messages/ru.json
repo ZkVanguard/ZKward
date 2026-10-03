@@ -260,35 +260,31 @@
   },
   "landing": {
     "status": {
-      "liveOn": "Live on",
-      "hederaTestnet": "Hedera Testnet",
-      "suiMainnet": "SUI Mainnet",
       "member": "member",
-      "members": "members"
+      "members": "members",
+      "live": "Работает"
     },
     "hero": {
-      "headline1": "20 signal sources.",
-      "headline2": "Ranked by track record.",
-      "subtitle": "Мы читаем более 20 рынков, торгуем только когда они согласны и доказываем каждую сделку в блокчейне."
+      "headline1": "Криптосигналы,",
+      "headline2": "которые можно проверить.",
+      "subtitle": "Мы читаем более 20 рынков и торгуем, только когда они согласны. Каждая сделка открыта."
     },
     "stats": {
-      "eyebrow": "Right now, in production",
-      "sources": {
+      "markets": {
         "value": "20+",
-        "label": "рыночных источников на монету"
+        "label": "рынков на монету"
       },
-      "accuracy": {
-        "value": "82.8%",
-        "label": "точность ИИ при чтении рыночных вопросов"
+      "days": {
+        "value": "100+",
+        "label": "дней в работе"
       },
-      "mature": {
-        "value": "37",
-        "label": "источников с доказанной историей"
+      "always": {
+        "value": "24/7",
+        "label": "всегда в работе"
       }
     },
     "sources": {
-      "eyebrow": "Сигналы из",
-      "caption": "Рынки предсказаний · книги ордеров · фандинг · скью опционов",
+      "eyebrow": "Данные от",
       "roles": {
         "predictionMarket": "Рынок предсказаний",
         "perpetuals": "Бессрочные фьючерсы",
@@ -298,11 +294,10 @@
       }
     },
     "cta": {
-      "depositUsdc": "See live signals",
-      "howItWorks": "How it works",
-      "viewSource": "View source",
+      "howItWorks": "Как это работает",
       "installApp": "Install app",
-      "installIosHint": "To install: tap the Share icon in Safari, scroll down, and tap \"Add to Home Screen\"."
+      "installIosHint": "To install: tap the Share icon in Safari, scroll down, and tap \"Add to Home Screen\".",
+      "openApp": "Открыть приложение"
     },
     "howItWorks": {
       "eyebrow": "The loop",
@@ -322,47 +317,7 @@
     },
     "finalCta": {
       "title": "Посмотрите в работе.",
-      "body": "Всё открыто. Подключите кошелёк, когда будете готовы.",
-      "alreadyIn": "{count} already in.",
       "paused": "Deposits paused for maintenance."
-    },
-    "production": {
-      "eyebrow": "In production",
-      "title": "Live on Sui mainnet since 2026-06-12.",
-      "daysLive": {
-        "title": "Days live",
-        "value": "100+",
-        "hint": "Работает без остановки с запуска."
-      },
-      "navSnapshots": {
-        "title": "NAV snapshots",
-        "value": "2,200+",
-        "hint": "Стоимость пула записывается в блокчейн каждые 15 минут."
-      },
-      "hedges": {
-        "title": "Hedges executed",
-        "value": "214",
-        "hint": "По BTC, ETH, SUI и SOL."
-      }
-    },
-    "startHere": {
-      "eyebrow": "Start here",
-      "body": "Чтобы осмотреться, кошелёк не нужен.",
-      "watchShadow": {
-        "title": "Watch the shadow trader",
-        "body": "Симулированный портфель на $100K, торгует вживую.",
-        "cta": "Open shadow trader"
-      },
-      "seeSignals": {
-        "title": "Read live signals",
-        "body": "Куда сейчас склоняется каждая монета.",
-        "cta": "Open dashboard"
-      },
-      "tryDemo": {
-        "title": "Deposit into the demo vault",
-        "body": "Лимит $10K. Вывод в любой момент.",
-        "cta": "Open vault"
-      }
     }
   },
   "agentsPage": {

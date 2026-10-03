@@ -66,9 +66,6 @@ export function DataSourceMarquee() {
           {SIGNAL_PROVIDERS.map((s) => <Tile key={`${s.slug}-copy`} source={s} copy />)}
         </div>
       </div>
-      <p className="text-center text-[11px] sm:text-caption-1 text-label-tertiary mt-3 sm:mt-4">
-        {t('caption')}
-      </p>
     </div>
   );
 }

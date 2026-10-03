@@ -260,35 +260,31 @@
   },
   "landing": {
     "status": {
-      "liveOn": "Live on",
-      "hederaTestnet": "Hedera Testnet",
-      "suiMainnet": "SUI Mainnet",
       "member": "member",
-      "members": "members"
+      "members": "members",
+      "live": "稼働中"
     },
     "hero": {
-      "headline1": "20 signal sources.",
-      "headline2": "Ranked by track record.",
-      "subtitle": "20 以上の市場を読み、意見が一致したときだけ取引し、すべての取引をオンチェーンで証明します。"
+      "headline1": "検証できる",
+      "headline2": "暗号資産シグナル。",
+      "subtitle": "20 以上の市場を読み、意見が一致したときだけ取引します。すべての取引は公開されています。"
     },
     "stats": {
-      "eyebrow": "Right now, in production",
-      "sources": {
+      "markets": {
         "value": "20+",
-        "label": "銘柄ごとの市場ソース"
+        "label": "銘柄ごとに読む市場"
       },
-      "accuracy": {
-        "value": "82.8%",
-        "label": "市場の問いを読む AI の正答率"
+      "days": {
+        "value": "100+",
+        "label": "日間稼働"
       },
-      "mature": {
-        "value": "37",
-        "label": "実績が確認されたソース"
+      "always": {
+        "value": "24/7",
+        "label": "常時稼働"
       }
     },
     "sources": {
-      "eyebrow": "シグナルの情報源",
-      "caption": "予測市場 · 板情報 · ファンディング · オプションスキュー",
+      "eyebrow": "データ提供元",
       "roles": {
         "predictionMarket": "予測市場",
         "perpetuals": "無期限先物",
@@ -298,11 +294,10 @@
       }
     },
     "cta": {
-      "depositUsdc": "See live signals",
-      "howItWorks": "How it works",
-      "viewSource": "View source",
+      "howItWorks": "仕組み",
       "installApp": "Install app",
-      "installIosHint": "To install: tap the Share icon in Safari, scroll down, and tap \"Add to Home Screen\"."
+      "installIosHint": "To install: tap the Share icon in Safari, scroll down, and tap \"Add to Home Screen\".",
+      "openApp": "アプリを開く"
     },
     "howItWorks": {
       "eyebrow": "The loop",
@@ -322,47 +317,7 @@
     },
     "finalCta": {
       "title": "動いている様子を見る。",
-      "body": "すべて公開されています。準備ができたらウォレットを接続してください。",
-      "alreadyIn": "{count} already in.",
       "paused": "Deposits paused for maintenance."
-    },
-    "production": {
-      "eyebrow": "In production",
-      "title": "Live on Sui mainnet since 2026-06-12.",
-      "daysLive": {
-        "title": "Days live",
-        "value": "100+",
-        "hint": "ローンチ以来ノンストップで稼働。"
-      },
-      "navSnapshots": {
-        "title": "NAV snapshots",
-        "value": "2,200+",
-        "hint": "プールの価値を 15 分ごとにオンチェーンに記録。"
-      },
-      "hedges": {
-        "title": "Hedges executed",
-        "value": "214",
-        "hint": "BTC、ETH、SUI、SOL に対応。"
-      }
-    },
-    "startHere": {
-      "eyebrow": "Start here",
-      "body": "見て回るだけならウォレットは不要です。",
-      "watchShadow": {
-        "title": "Watch the shadow trader",
-        "body": "10 万ドルのシミュレーション口座がライブで取引中。",
-        "cta": "Open shadow trader"
-      },
-      "seeSignals": {
-        "title": "Read live signals",
-        "body": "各銘柄がいまどちらに傾いているか。",
-        "cta": "Open dashboard"
-      },
-      "tryDemo": {
-        "title": "Deposit into the demo vault",
-        "body": "上限 1 万ドル。いつでも引き出し可能。",
-        "cta": "Open vault"
-      }
     }
   },
   "agentsPage": {

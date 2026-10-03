@@ -260,35 +260,31 @@
   },
   "landing": {
     "status": {
-      "liveOn": "Live on",
-      "hederaTestnet": "Hedera Testnet",
-      "suiMainnet": "SUI Mainnet",
       "member": "member",
-      "members": "members"
+      "members": "members",
+      "live": "مباشر الآن"
     },
     "hero": {
-      "headline1": "20 signal sources.",
-      "headline2": "Ranked by track record.",
-      "subtitle": "نقرأ أكثر من 20 سوقًا، ولا نتداول إلا عندما تتفق، ونثبت كل صفقة على السلسلة."
+      "headline1": "إشارات عملات رقمية",
+      "headline2": "يمكنك التحقق منها.",
+      "subtitle": "نقرأ أكثر من 20 سوقًا ولا نتداول إلا عندما تتفق. كل صفقة علنية."
     },
     "stats": {
-      "eyebrow": "Right now, in production",
-      "sources": {
+      "markets": {
         "value": "20+",
-        "label": "مصادر سوق لكل عملة"
+        "label": "سوقًا لكل عملة"
       },
-      "accuracy": {
-        "value": "82.8%",
-        "label": "دقة الذكاء الاصطناعي في قراءة أسئلة السوق"
+      "days": {
+        "value": "100+",
+        "label": "يومًا من التشغيل"
       },
-      "mature": {
-        "value": "37",
-        "label": "مصادر ذات سجل مثبت"
+      "always": {
+        "value": "24/7",
+        "label": "يعمل دائمًا"
       }
     },
     "sources": {
-      "eyebrow": "مصادر الإشارات",
-      "caption": "أسواق التنبؤ · دفاتر الأوامر · التمويل · انحراف الخيارات",
+      "eyebrow": "البيانات من",
       "roles": {
         "predictionMarket": "سوق تنبؤ",
         "perpetuals": "عقود دائمة",
@@ -298,11 +294,10 @@
       }
     },
     "cta": {
-      "depositUsdc": "See live signals",
-      "howItWorks": "How it works",
-      "viewSource": "View source",
+      "howItWorks": "كيف يعمل",
       "installApp": "Install app",
-      "installIosHint": "To install: tap the Share icon in Safari, scroll down, and tap \"Add to Home Screen\"."
+      "installIosHint": "To install: tap the Share icon in Safari, scroll down, and tap \"Add to Home Screen\".",
+      "openApp": "افتح التطبيق"
     },
     "howItWorks": {
       "eyebrow": "The loop",
@@ -322,47 +317,7 @@
     },
     "finalCta": {
       "title": "شاهده يعمل.",
-      "body": "كل شيء علني. اربط محفظة عندما تكون جاهزًا.",
-      "alreadyIn": "{count} already in.",
       "paused": "Deposits paused for maintenance."
-    },
-    "production": {
-      "eyebrow": "In production",
-      "title": "Live on Sui mainnet since 2026-06-12.",
-      "daysLive": {
-        "title": "Days live",
-        "value": "100+",
-        "hint": "يعمل دون توقف منذ الإطلاق."
-      },
-      "navSnapshots": {
-        "title": "NAV snapshots",
-        "value": "2,200+",
-        "hint": "تُحفظ قيمة المجمع على السلسلة كل 15 دقيقة."
-      },
-      "hedges": {
-        "title": "Hedges executed",
-        "value": "214",
-        "hint": "على BTC وETH وSUI وSOL."
-      }
-    },
-    "startHere": {
-      "eyebrow": "Start here",
-      "body": "لا تحتاج إلى محفظة للتصفح.",
-      "watchShadow": {
-        "title": "Watch the shadow trader",
-        "body": "محفظة محاكاة بقيمة 100 ألف دولار تتداول مباشرة.",
-        "cta": "Open shadow trader"
-      },
-      "seeSignals": {
-        "title": "Read live signals",
-        "body": "إلى أين تميل كل عملة الآن.",
-        "cta": "Open dashboard"
-      },
-      "tryDemo": {
-        "title": "Deposit into the demo vault",
-        "body": "الحد الأقصى 10 آلاف دولار. اسحب في أي وقت.",
-        "cta": "Open vault"
-      }
     }
   },
   "agentsPage": {

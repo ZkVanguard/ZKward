@@ -260,35 +260,31 @@
   },
   "landing": {
     "status": {
-      "liveOn": "Live on",
-      "hederaTestnet": "Hedera Testnet",
-      "suiMainnet": "SUI Mainnet",
       "member": "member",
-      "members": "members"
+      "members": "members",
+      "live": "运行中"
     },
     "hero": {
-      "headline1": "20 signal sources.",
-      "headline2": "Ranked by track record.",
-      "subtitle": "我们读取 20 多个市场，只在它们一致时交易，并在链上证明每一笔交易。"
+      "headline1": "可验证的",
+      "headline2": "加密信号。",
+      "subtitle": "我们读取 20 多个市场，只在它们一致时交易。每笔交易都公开。"
     },
     "stats": {
-      "eyebrow": "Right now, in production",
-      "sources": {
+      "markets": {
         "value": "20+",
-        "label": "每个币种的市场来源"
+        "label": "每个币种读取的市场"
       },
-      "accuracy": {
-        "value": "82.8%",
-        "label": "AI 解读市场问题的准确率"
+      "days": {
+        "value": "100+",
+        "label": "天持续运行"
       },
-      "mature": {
-        "value": "37",
-        "label": "有可靠记录的来源"
+      "always": {
+        "value": "24/7",
+        "label": "全天候运行"
       }
     },
     "sources": {
-      "eyebrow": "信号来源",
-      "caption": "预测市场 · 订单簿 · 资金费率 · 期权偏度",
+      "eyebrow": "数据来源",
       "roles": {
         "predictionMarket": "预测市场",
         "perpetuals": "永续合约",
@@ -298,11 +294,10 @@
       }
     },
     "cta": {
-      "depositUsdc": "See live signals",
-      "howItWorks": "How it works",
-      "viewSource": "View source",
+      "howItWorks": "运作方式",
       "installApp": "Install app",
-      "installIosHint": "To install: tap the Share icon in Safari, scroll down, and tap \"Add to Home Screen\"."
+      "installIosHint": "To install: tap the Share icon in Safari, scroll down, and tap \"Add to Home Screen\".",
+      "openApp": "打开应用"
     },
     "howItWorks": {
       "eyebrow": "The loop",
@@ -322,47 +317,7 @@
     },
     "finalCta": {
       "title": "看看它的运行。",
-      "body": "一切公开。准备好后再连接钱包。",
-      "alreadyIn": "{count} already in.",
       "paused": "Deposits paused for maintenance."
-    },
-    "production": {
-      "eyebrow": "In production",
-      "title": "Live on Sui mainnet since 2026-06-12.",
-      "daysLive": {
-        "title": "Days live",
-        "value": "100+",
-        "hint": "自上线以来不间断运行。"
-      },
-      "navSnapshots": {
-        "title": "NAV snapshots",
-        "value": "2,200+",
-        "hint": "资金池价值每 15 分钟上链保存。"
-      },
-      "hedges": {
-        "title": "Hedges executed",
-        "value": "214",
-        "hint": "覆盖 BTC、ETH、SUI 和 SOL。"
-      }
-    },
-    "startHere": {
-      "eyebrow": "Start here",
-      "body": "无需钱包即可浏览。",
-      "watchShadow": {
-        "title": "Watch the shadow trader",
-        "body": "一个 10 万美元的模拟账户，实时交易。",
-        "cta": "Open shadow trader"
-      },
-      "seeSignals": {
-        "title": "Read live signals",
-        "body": "每个币种当前的倾向。",
-        "cta": "Open dashboard"
-      },
-      "tryDemo": {
-        "title": "Deposit into the demo vault",
-        "body": "上限 1 万美元，随时可取。",
-        "cta": "Open vault"
-      }
     }
   },
   "agentsPage": {

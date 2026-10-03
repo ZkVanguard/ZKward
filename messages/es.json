@@ -260,35 +260,31 @@
   },
   "landing": {
     "status": {
-      "liveOn": "Live on",
-      "hederaTestnet": "Hedera Testnet",
-      "suiMainnet": "SUI Mainnet",
       "member": "member",
-      "members": "members"
+      "members": "members",
+      "live": "En vivo"
     },
     "hero": {
-      "headline1": "20 signal sources.",
-      "headline2": "Ranked by track record.",
-      "subtitle": "Leemos más de 20 mercados, operamos solo cuando coinciden y probamos cada operación on-chain."
+      "headline1": "Señales cripto",
+      "headline2": "que puedes verificar.",
+      "subtitle": "Leemos más de 20 mercados y operamos solo cuando coinciden. Cada operación es pública."
     },
     "stats": {
-      "eyebrow": "Right now, in production",
-      "sources": {
+      "markets": {
         "value": "20+",
-        "label": "fuentes de mercado por moneda"
+        "label": "mercados leídos por moneda"
       },
-      "accuracy": {
-        "value": "82.8%",
-        "label": "precisión de la IA al leer preguntas de mercado"
+      "days": {
+        "value": "100+",
+        "label": "días en vivo"
       },
-      "mature": {
-        "value": "37",
-        "label": "fuentes con historial probado"
+      "always": {
+        "value": "24/7",
+        "label": "siempre activo"
       }
     },
     "sources": {
-      "eyebrow": "Señales de",
-      "caption": "Mercados de predicción · libros de órdenes · funding · skew de opciones",
+      "eyebrow": "Datos de",
       "roles": {
         "predictionMarket": "Mercado de predicción",
         "perpetuals": "Futuros perpetuos",
@@ -298,11 +294,10 @@
       }
     },
     "cta": {
-      "depositUsdc": "See live signals",
-      "howItWorks": "How it works",
-      "viewSource": "View source",
+      "howItWorks": "Cómo funciona",
       "installApp": "Install app",
-      "installIosHint": "To install: tap the Share icon in Safari, scroll down, and tap \"Add to Home Screen\"."
+      "installIosHint": "To install: tap the Share icon in Safari, scroll down, and tap \"Add to Home Screen\".",
+      "openApp": "Abrir la app"
     },
     "howItWorks": {
       "eyebrow": "The loop",
@@ -322,47 +317,7 @@
     },
     "finalCta": {
       "title": "Míralo en acción.",
-      "body": "Todo es público. Conecta una billetera cuando quieras.",
-      "alreadyIn": "{count} already in.",
       "paused": "Deposits paused for maintenance."
-    },
-    "production": {
-      "eyebrow": "In production",
-      "title": "Live on Sui mainnet since 2026-06-12.",
-      "daysLive": {
-        "title": "Days live",
-        "value": "100+",
-        "hint": "Funcionando sin parar desde el lanzamiento."
-      },
-      "navSnapshots": {
-        "title": "NAV snapshots",
-        "value": "2,200+",
-        "hint": "Valor del pool guardado on-chain cada 15 minutos."
-      },
-      "hedges": {
-        "title": "Hedges executed",
-        "value": "214",
-        "hint": "En BTC, ETH, SUI y SOL."
-      }
-    },
-    "startHere": {
-      "eyebrow": "Start here",
-      "body": "No necesitas billetera para explorar.",
-      "watchShadow": {
-        "title": "Watch the shadow trader",
-        "body": "Una cartera simulada de $100K operando en vivo.",
-        "cta": "Open shadow trader"
-      },
-      "seeSignals": {
-        "title": "Read live signals",
-        "body": "Hacia dónde se inclina cada moneda ahora.",
-        "cta": "Open dashboard"
-      },
-      "tryDemo": {
-        "title": "Deposit into the demo vault",
-        "body": "Límite de $10K. Retira cuando quieras.",
-        "cta": "Open vault"
-      }
     }
   },
   "agentsPage": {

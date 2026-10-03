@@ -260,35 +260,31 @@
   },
   "landing": {
     "status": {
-      "liveOn": "Live on",
-      "hederaTestnet": "Hedera Testnet",
-      "suiMainnet": "SUI Mainnet",
       "member": "member",
-      "members": "members"
+      "members": "members",
+      "live": "운영 중"
     },
     "hero": {
-      "headline1": "20 signal sources.",
-      "headline2": "Ranked by track record.",
-      "subtitle": "20개 이상의 시장을 읽고, 의견이 일치할 때만 거래하며, 모든 거래를 온체인으로 증명합니다."
+      "headline1": "검증할 수 있는",
+      "headline2": "암호화폐 신호.",
+      "subtitle": "20개 이상의 시장을 읽고 의견이 일치할 때만 거래합니다. 모든 거래는 공개됩니다."
     },
     "stats": {
-      "eyebrow": "Right now, in production",
-      "sources": {
+      "markets": {
         "value": "20+",
-        "label": "코인별 시장 소스"
+        "label": "코인별로 읽는 시장"
       },
-      "accuracy": {
-        "value": "82.8%",
-        "label": "시장 질문을 읽는 AI 정확도"
+      "days": {
+        "value": "100+",
+        "label": "일째 운영"
       },
-      "mature": {
-        "value": "37",
-        "label": "검증된 기록이 있는 소스"
+      "always": {
+        "value": "24/7",
+        "label": "항상 작동"
       }
     },
     "sources": {
-      "eyebrow": "시그널 출처",
-      "caption": "예측 시장 · 호가창 · 펀딩 · 옵션 스큐",
+      "eyebrow": "데이터 출처",
       "roles": {
         "predictionMarket": "예측 시장",
         "perpetuals": "무기한 선물",
@@ -298,11 +294,10 @@
       }
     },
     "cta": {
-      "depositUsdc": "See live signals",
-      "howItWorks": "How it works",
-      "viewSource": "View source",
+      "howItWorks": "작동 방식",
       "installApp": "Install app",
-      "installIosHint": "To install: tap the Share icon in Safari, scroll down, and tap \"Add to Home Screen\"."
+      "installIosHint": "To install: tap the Share icon in Safari, scroll down, and tap \"Add to Home Screen\".",
+      "openApp": "앱 열기"
     },
     "howItWorks": {
       "eyebrow": "The loop",
@@ -322,47 +317,7 @@
     },
     "finalCta": {
       "title": "작동하는 모습을 보세요.",
-      "body": "모든 것이 공개되어 있습니다. 준비되면 지갑을 연결하세요.",
-      "alreadyIn": "{count} already in.",
       "paused": "Deposits paused for maintenance."
-    },
-    "production": {
-      "eyebrow": "In production",
-      "title": "Live on Sui mainnet since 2026-06-12.",
-      "daysLive": {
-        "title": "Days live",
-        "value": "100+",
-        "hint": "출시 이후 쉬지 않고 운영 중."
-      },
-      "navSnapshots": {
-        "title": "NAV snapshots",
-        "value": "2,200+",
-        "hint": "풀 가치를 15분마다 온체인에 저장."
-      },
-      "hedges": {
-        "title": "Hedges executed",
-        "value": "214",
-        "hint": "BTC, ETH, SUI, SOL 대상."
-      }
-    },
-    "startHere": {
-      "eyebrow": "Start here",
-      "body": "둘러보는 데 지갑은 필요 없습니다.",
-      "watchShadow": {
-        "title": "Watch the shadow trader",
-        "body": "10만 달러 규모의 시뮬레이션 계좌가 실시간 거래 중.",
-        "cta": "Open shadow trader"
-      },
-      "seeSignals": {
-        "title": "Read live signals",
-        "body": "각 코인이 지금 어느 쪽으로 기울어 있는지.",
-        "cta": "Open dashboard"
-      },
-      "tryDemo": {
-        "title": "Deposit into the demo vault",
-        "body": "한도 1만 달러. 언제든 출금 가능.",
-        "cta": "Open vault"
-      }
     }
   },
   "agentsPage": {
