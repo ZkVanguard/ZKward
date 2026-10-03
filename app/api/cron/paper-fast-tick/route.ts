@@ -148,6 +148,7 @@ async function effectiveConfig(): Promise<Record<string, unknown>> {
       exitMode: c.PAPER_EXIT_MODE,
       execution: c.PAPER_EXECUTION,
       restingEntryWaitMin: c.PAPER_RESTING_ENTRY_WAIT_MIN,
+      tradeAssets: c.PAPER_TRADE_ASSETS.join(','),
       targetTpBp: c.PAPER_TARGET_TP_BP,
       targetStopBp: c.PAPER_TARGET_STOP_BP,
       targetMaxHoldMin: c.PAPER_TARGET_MAX_HOLD_MIN,
