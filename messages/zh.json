@@ -138,6 +138,95 @@
         "down": "下",
         "flat": "持平"
       }
+    },
+    "nav": {
+      "pool": "资金池",
+      "portfolio": "投资组合",
+      "signals": "信号",
+      "platform": "平台",
+      "account": "账户",
+      "more": "更多"
+    },
+    "views": {
+      "summary": "概览",
+      "positions": "持仓",
+      "hedges": "对冲",
+      "products": "产品",
+      "markets": "市场",
+      "agents": "智能体",
+      "risk": "风险",
+      "custody": "托管",
+      "admin": "管理"
+    },
+    "shell": {
+      "greeting": {
+        "morning": "早上好",
+        "afternoon": "下午好",
+        "evening": "晚上好"
+      },
+      "subtitle": {
+        "pool": "存入、取出，看着你的资金池增长。",
+        "portfolio": "你持有的一切，集中在一处。",
+        "signals": "市场此刻的倾向。",
+        "platform": "每个基金的实时表现。",
+        "account": "你的登录、名称和钱包。"
+      },
+      "switchNetwork": "切换网络"
+    },
+    "pulse": {
+      "aria": "{lean}。打开信号。"
+    },
+    "connectHero": {
+      "title": "你的投资组合在这里",
+      "body": "连接钱包，在一处查看余额、持仓和对冲。",
+      "cta": "连接钱包",
+      "pools": "浏览资金池",
+      "signals": "查看实时信号",
+      "solanaTitle": "你的 Solana 持仓在资金池页面",
+      "solanaBody": "投资组合覆盖 SUI 和 Hedera。你的 Solana 资金池份额在资金池页面。",
+      "openPool": "打开资金池"
+    },
+    "sidebar": {
+      "connect": "连接钱包"
+    },
+    "poolStart": {
+      "title": "登录后即可存入",
+      "hedera": "使用邮箱或 Google 登录。我们为你创建 Hedera 钱包，无需安装。"
+    },
+    "guide": {
+      "title": "新手入门",
+      "subtitle": "三步完成第一笔存款。",
+      "hide": "隐藏",
+      "done": "已完成",
+      "connect": {
+        "title": "连接 {chain}",
+        "action": "连接"
+      },
+      "funds": {
+        "testTitle": "领取免费测试代币",
+        "testBody": "使用下方存款面板中的水龙头，免费。",
+        "realTitle": "准备好 USDC",
+        "realBody": "存款需要钱包里有 SUI 上的 USDC。",
+        "action": "带我去"
+      },
+      "deposit": {
+        "title": "完成第一笔存款",
+        "body": "在下方输入金额，并在钱包中确认。",
+        "action": "存入"
+      }
+    },
+    "trades": {
+      "long": "做多",
+      "short": "做空",
+      "held": "持有 {h} 小时",
+      "entry": "入场 ${price}",
+      "reasons": {
+        "takeProfit": "止盈",
+        "trailingStop": "移动止损",
+        "stop": "止损",
+        "timeLimit": "时间限制",
+        "signalFlip": "信号反转"
+      }
     }
   },
   "common": {

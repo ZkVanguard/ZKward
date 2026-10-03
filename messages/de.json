@@ -138,6 +138,95 @@
         "down": "ab",
         "flat": "flach"
       }
+    },
+    "nav": {
+      "pool": "Pool",
+      "portfolio": "Portfolio",
+      "signals": "Signale",
+      "platform": "Plattform",
+      "account": "Konto",
+      "more": "Mehr"
+    },
+    "views": {
+      "summary": "Übersicht",
+      "positions": "Positionen",
+      "hedges": "Absicherungen",
+      "products": "Produkte",
+      "markets": "Märkte",
+      "agents": "Agenten",
+      "risk": "Risiko",
+      "custody": "Verwahrung",
+      "admin": "Admin"
+    },
+    "shell": {
+      "greeting": {
+        "morning": "Guten Morgen",
+        "afternoon": "Guten Tag",
+        "evening": "Guten Abend"
+      },
+      "subtitle": {
+        "pool": "Einzahlen, abheben und deinen Pool wachsen sehen.",
+        "portfolio": "Alles, was du hältst, an einem Ort.",
+        "signals": "Wohin die Märkte gerade tendieren.",
+        "platform": "Wie es jedem Fonds geht, live.",
+        "account": "Deine Anmeldung, dein Name und deine Wallet."
+      },
+      "switchNetwork": "Netzwerk wechseln"
+    },
+    "pulse": {
+      "aria": "{lean}. Signale öffnen."
+    },
+    "connectHero": {
+      "title": "Hier lebt dein Portfolio",
+      "body": "Verbinde eine Wallet, um Guthaben, Positionen und Absicherungen an einem Ort zu sehen.",
+      "cta": "Wallet verbinden",
+      "pools": "Pools ansehen",
+      "signals": "Live-Signale ansehen",
+      "solanaTitle": "Deine Solana-Position ist im Pool-Tab",
+      "solanaBody": "Das Portfolio umfasst SUI und Hedera. Deine Solana-Pool-Anteile findest du auf der Pool-Seite.",
+      "openPool": "Pool öffnen"
+    },
+    "sidebar": {
+      "connect": "Wallet verbinden"
+    },
+    "poolStart": {
+      "title": "Zum Einzahlen anmelden",
+      "hedera": "Mit E-Mail oder Google. Wir erstellen deine Hedera-Wallet, nichts zu installieren."
+    },
+    "guide": {
+      "title": "Erste Schritte",
+      "subtitle": "Drei Schritte bis zur ersten Einzahlung.",
+      "hide": "Ausblenden",
+      "done": "Erledigt",
+      "connect": {
+        "title": "{chain} verbinden",
+        "action": "Verbinden"
+      },
+      "funds": {
+        "testTitle": "Kostenlose Test-Token holen",
+        "testBody": "Nutze den Faucet im Einzahlungsbereich unten. Kostenlos.",
+        "realTitle": "USDC bereithalten",
+        "realBody": "Zum Einzahlen brauchst du USDC auf SUI in deiner Wallet.",
+        "action": "Zeig mir"
+      },
+      "deposit": {
+        "title": "Erste Einzahlung machen",
+        "body": "Gib unten einen Betrag ein und bestätige in deiner Wallet.",
+        "action": "Einzahlen"
+      }
+    },
+    "trades": {
+      "long": "Long",
+      "short": "Short",
+      "held": "{h} Std. gehalten",
+      "entry": "Einstieg ${price}",
+      "reasons": {
+        "takeProfit": "Gewinnmitnahme",
+        "trailingStop": "Trailing-Stop",
+        "stop": "Stop",
+        "timeLimit": "Zeitlimit",
+        "signalFlip": "Signalwechsel"
+      }
     }
   },
   "common": {

@@ -47,6 +47,7 @@ import { SolanaRecentActivity, SolanaSleevePanel } from '@/components/solana/Sol
 import { CommunityPoolSkeleton } from './community-pool/Skeletons';
 import { NavHistoryChart } from './NavHistoryChart';
 import { PaperPoolPanel } from './PaperPoolPanel'; // Lazy load heavy panels (only load when in viewport)
+import { GettingStarted } from './community-pool/GettingStarted';
 const RiskMetricsPanel = lazy(() =>
   import('./RiskMetricsPanel').then((mod) => ({ default: mod.RiskMetricsPanel }))
 );
@@ -433,6 +434,14 @@ export const CommunityPool = memo(function CommunityPool({
         poolDeployed={solana ? true : pool.poolDeployed}
       />
 
+      {(sui || hedera || solana) && (
+        <GettingStarted
+          chain={sui ? 'sui' : hedera ? 'hedera' : 'solana'}
+          isMember={!!pool.userPosition?.isMember}
+          onShowActions={() => document.getElementById('pool-actions')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+        />
+      )}
+
       <NavHistoryChart chain={hedera ? 'hedera' : solana ? 'solana' : 'sui'} />
 
       <PoolStats poolData={pool.poolData} selectedChain={pool.selectedChain} />
@@ -454,7 +463,9 @@ export const CommunityPool = memo(function CommunityPool({
       )}
 
       {/* Each chain's own deposit/withdraw. Hedera prefers the Privy embedded
-          address so Google/email users see their wallet before wagmi resolves. */}
+          address so Google/email users see their wallet before wagmi resolves.
+          The anchor is where the getting-started guide sends people. */}
+      <div id="pool-actions" className="scroll-mt-28" />
       {hedera ? (
         <HederaVaultActions
           address={(privyEmbeddedAddress ?? pool.address) as `0x${string}` | undefined}

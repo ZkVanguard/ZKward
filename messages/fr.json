@@ -138,6 +138,95 @@
         "down": "baisse",
         "flat": "stable"
       }
+    },
+    "nav": {
+      "pool": "Pool",
+      "portfolio": "Portefeuille",
+      "signals": "Signaux",
+      "platform": "Plateforme",
+      "account": "Compte",
+      "more": "Plus"
+    },
+    "views": {
+      "summary": "Résumé",
+      "positions": "Positions",
+      "hedges": "Couvertures",
+      "products": "Produits",
+      "markets": "Marchés",
+      "agents": "Agents",
+      "risk": "Risque",
+      "custody": "Garde",
+      "admin": "Admin"
+    },
+    "shell": {
+      "greeting": {
+        "morning": "Bonjour",
+        "afternoon": "Bon après-midi",
+        "evening": "Bonsoir"
+      },
+      "subtitle": {
+        "pool": "Déposez, retirez et regardez votre pool grandir.",
+        "portfolio": "Tout ce que vous détenez, au même endroit.",
+        "signals": "Vers où penchent les marchés en ce moment.",
+        "platform": "Comment va chaque fonds, en direct.",
+        "account": "Votre connexion, votre nom et votre portefeuille."
+      },
+      "switchNetwork": "Changer de réseau"
+    },
+    "pulse": {
+      "aria": "{lean}. Ouvrir les signaux."
+    },
+    "connectHero": {
+      "title": "Votre portefeuille est ici",
+      "body": "Connectez un portefeuille pour voir votre solde, vos positions et vos couvertures au même endroit.",
+      "cta": "Connecter un portefeuille",
+      "pools": "Voir les pools",
+      "signals": "Voir les signaux en direct",
+      "solanaTitle": "Votre position Solana est dans l'onglet Pool",
+      "solanaBody": "Le portefeuille couvre SUI et Hedera. Vos parts du pool Solana sont sur la page Pool.",
+      "openPool": "Ouvrir le pool"
+    },
+    "sidebar": {
+      "connect": "Connecter un portefeuille"
+    },
+    "poolStart": {
+      "title": "Connectez-vous pour déposer",
+      "hedera": "Utilisez un e-mail ou Google. Nous créons votre portefeuille Hedera, rien à installer."
+    },
+    "guide": {
+      "title": "Pour commencer",
+      "subtitle": "Trois étapes jusqu'à votre premier dépôt.",
+      "hide": "Masquer",
+      "done": "Fait",
+      "connect": {
+        "title": "Connectez {chain}",
+        "action": "Connecter"
+      },
+      "funds": {
+        "testTitle": "Obtenez des jetons de test gratuits",
+        "testBody": "Utilisez le robinet dans le panneau de dépôt ci-dessous. C'est gratuit.",
+        "realTitle": "Préparez des USDC",
+        "realBody": "Il vous faut des USDC sur SUI dans votre portefeuille pour déposer.",
+        "action": "Montrez-moi"
+      },
+      "deposit": {
+        "title": "Faites votre premier dépôt",
+        "body": "Saisissez un montant ci-dessous et confirmez dans votre portefeuille.",
+        "action": "Déposer"
+      }
+    },
+    "trades": {
+      "long": "Long",
+      "short": "Short",
+      "held": "tenu {h} h",
+      "entry": "entrée ${price}",
+      "reasons": {
+        "takeProfit": "Prise de profit",
+        "trailingStop": "Stop suiveur",
+        "stop": "Stop",
+        "timeLimit": "Limite de temps",
+        "signalFlip": "Signal inversé"
+      }
     }
   },
   "common": {
