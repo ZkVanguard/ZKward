@@ -259,36 +259,13 @@
     "savePreferences": "保存偏好设置"
   },
   "landing": {
-    "status": {
-      "liveOn": "Live on",
-      "hederaTestnet": "Hedera Testnet",
-      "suiMainnet": "SUI Mainnet",
-      "member": "member",
-      "members": "members"
-    },
     "hero": {
-      "headline1": "20 signal sources.",
-      "headline2": "Ranked by track record.",
-      "subtitle": "Every prediction market, every funding rate, every on-chain signal — scored against real outcomes. Autonomous execution when the winners align."
-    },
-    "stats": {
-      "eyebrow": "Right now, in production",
-      "sources": {
-        "value": "20+",
-        "label": "signal sources fused per asset"
-      },
-      "accuracy": {
-        "value": "82.8%",
-        "label": "AI resolved accuracy on prediction market titles"
-      },
-      "mature": {
-        "value": "37",
-        "label": "sources with mature track records"
-      }
+      "headline1": "可验证的",
+      "headline2": "加密信号。",
+      "subtitle": "我们读取 20 多个市场，只在它们一致时交易。每笔交易都公开。"
     },
     "sources": {
-      "eyebrow": "信号来源",
-      "caption": "预测市场 · 订单簿 · 资金费率 · 期权偏度",
+      "eyebrow": "数据来源",
       "roles": {
         "predictionMarket": "预测市场",
         "perpetuals": "永续合约",
@@ -298,143 +275,58 @@
       }
     },
     "cta": {
-      "depositUsdc": "See live signals",
-      "howItWorks": "How it works",
-      "viewSource": "View source",
+      "howItWorks": "如何开始",
       "installApp": "Install app",
-      "installIosHint": "To install: tap the Share icon in Safari, scroll down, and tap \"Add to Home Screen\"."
-    },
-    "composition": {
-      "eyebrow": "Live signal",
-      "title": "What the aggregator says right now.",
-      "body": "20 sources fused per asset across BTC, ETH, SUI. Refreshes every 30 seconds."
-    },
-    "howItWorks": {
-      "eyebrow": "The loop",
-      "title": "Aggregate. Score. Execute.",
-      "body": "Runs every five minutes. All day. Without you.",
-      "step1": {
-        "title": "Fuse 20 sources per asset",
-        "body": "Polymarket, Kalshi, Delphi, Manifold, funding rates, orderbook depth, options skew, cross-asset correlation. Every tick, every asset."
-      },
-      "step2": {
-        "title": "Score each source against real outcomes",
-        "body": "Bayesian-shrunk hit rate per source. Auto-kill below 40%. Weights winners up to 2×, killed sources drop to 0.05×."
-      },
-      "step3": {
-        "title": "Execute when winners align",
-        "body": "Multi-agent safety guard. Adaptive stops. Every trade STARK-attested and written on-chain. Verifiable. Unfakeable."
-      }
-    },
-    "trust": {
-      "title": "Signal integrity, enforced by the code.",
-      "body": "Not a policy on our website. The pipeline itself refuses bad signals, bad venues, and stale data.",
-      "poolCap": {
-        "title": "Sources tracked",
-        "value": "111",
-        "hint": "Every source's hit rate accumulates against real outcomes."
-      },
-      "freshOracle": {
-        "title": "Signal freshness",
-        "value": "30s max",
-        "hint": "Aggregator refresh cadence per asset."
-      },
-      "withdrawThrottle": {
-        "title": "Auto-kill floor",
-        "value": "40%",
-        "hint": "Sources below this hit rate drop to 0.05× weight."
-      },
-      "proofs": {
-        "title": "Every trade attested",
-        "value": "Post-quantum",
-        "hint": "STARK on the Goldilocks field. 180-bit soundness."
-      },
-      "twoChains": {
-        "title": "Multi-venue execution",
-        "value": "SUI + EVM",
-        "hint": "Signal is chain-agnostic. Execution routes to the deepest venue."
-      }
-    },
-    "surfaces": {
-      "eyebrow": "Look around",
-      "title": "Every layer of ZKward is public.",
-      "body": "Signals, sources, trades, proofs. Nothing behind a login except your wallet.",
-      "dashboard": {
-        "eyebrow": "Dashboard",
-        "title": "Live capital, one screen.",
-        "body": "Balance, hedges, drawdown, proofs. Refreshed every minute."
-      },
-      "whitepaper": {
-        "eyebrow": "Whitepaper",
-        "title": "The technical version.",
-        "body": "20-source signal fusion, per-source calibration, AI-graded prediction market interpretation, STARK-attested execution."
-      },
-      "paper": {
-        "eyebrow": "Shadow trader",
-        "title": "$100K notional, full stack, public receipts.",
-        "body": "The same signals + agents + execution stack running against a live $100K paper book. Verify PnL before you fund anything."
-      }
+      "installIosHint": "To install: tap the Share icon in Safari, scroll down, and tap \"Add to Home Screen\".",
+      "openApp": "打开应用"
     },
     "finalCta": {
-      "title": "See the signal stack running.",
-      "body": "Every source, every hit rate, every trade — public. Connect a wallet to deposit into the live demo vault.",
-      "alreadyIn": "{count} already in.",
-      "paused": "Deposits paused for maintenance."
+      "title": "看看它的运行。"
     },
-    "production": {
-      "eyebrow": "In production",
-      "title": "Live on Sui mainnet since 2026-06-12.",
-      "body": "A public track record measured on-chain, not in press releases.",
-      "daysLive": {
-        "title": "Days live",
-        "value": "100+",
-        "hint": "Continuous, no restarts. Contract-enforced $10K TVL cap."
+    "signals": {
+      "label": "此刻",
+      "up": "倾向上涨",
+      "down": "倾向下跌",
+      "none": "无明显倾向",
+      "chip": "{coin}：{lean}，置信度 {pct}%"
+    },
+    "safeguards": {
+      "eyebrow": "安全第一",
+      "title1": "像基金一样管理。",
+      "title2": "向所有人开放。",
+      "contrast": "大基金要你信任他们。我们把过程摆在你面前。",
+      "live": "此刻已开启 {on}/{total} 项安全保护",
+      "crowd": {
+        "title": "群体把关每一步",
+        "body": "20 多个市场共同参与判断。经常出错的，分量会变小。"
       },
-      "navSnapshots": {
-        "title": "NAV snapshots",
-        "value": "2,200+",
-        "hint": "Written on-chain every 15 minutes since inception."
+      "brakes": {
+        "title": "会自己踩的刹车",
+        "body": "资金池下跌时，会先放慢，然后停下。"
       },
-      "hedges": {
-        "title": "Hedges executed",
-        "value": "214",
-        "hint": "Lifetime, across BTC, ETH, SUI, SOL perps."
+      "limits": {
+        "title": "牢固的上限",
+        "body": "资金池能容纳多少是锁定的，风险无法悄悄变大。"
+      },
+      "open": {
+        "title": "毫无隐藏",
+        "body": "每笔交易和资金池价值都是公开的。"
       }
     },
-    "builtFor": {
-      "eyebrow": "Built for",
-      "title": "Traders, researchers, and protocols.",
-      "body": "One signal pipeline, three audiences.",
-      "traders": {
-        "title": "Traders",
-        "body": "Signal quality that survives regime changes. Auto-kill for underperforming sources. Aggregator refreshes every 30 seconds."
+    "start": {
+      "eyebrow": "如何开始",
+      "title": "三步即可开始。",
+      "step1": {
+        "title": "打开应用",
+        "body": "先随便看看，无需注册。"
       },
-      "research": {
-        "title": "Research desks",
-        "body": "Every source hit rate is public. Historical calibration accessible via API. Reproducible from raw data."
+      "step2": {
+        "title": "选择你的网络",
+        "body": "我们会推荐最合适的。也可以用邮箱登录。"
       },
-      "protocols": {
-        "title": "Protocols",
-        "body": "Autonomous execution with STARK-attested proofs. Multi-agent consensus. Contract-enforced TVL caps."
-      }
-    },
-    "startHere": {
-      "eyebrow": "Start here",
-      "body": "Three ways to try the platform. No wallet required to explore.",
-      "watchShadow": {
-        "title": "Watch the shadow trader",
-        "body": "$100K live demo running the full stack. Public receipts.",
-        "cta": "Open shadow trader"
-      },
-      "seeSignals": {
-        "title": "Read live signals",
-        "body": "Per-asset aggregator output, refreshed every 30 seconds.",
-        "cta": "Open dashboard"
-      },
-      "tryDemo": {
-        "title": "Deposit into the demo vault",
-        "body": "$10K contract-capped. Withdraw anytime.",
-        "cta": "Open vault"
+      "step3": {
+        "title": "存入并跟进",
+        "body": "实时查看每笔交易，随时可以取出。"
       }
     }
   },
