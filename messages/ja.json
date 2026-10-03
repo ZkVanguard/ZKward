@@ -269,21 +269,21 @@
     "hero": {
       "headline1": "20 signal sources.",
       "headline2": "Ranked by track record.",
-      "subtitle": "Every prediction market, every funding rate, every on-chain signal — scored against real outcomes. Autonomous execution when the winners align."
+      "subtitle": "20 以上の市場を読み、意見が一致したときだけ取引し、すべての取引をオンチェーンで証明します。"
     },
     "stats": {
       "eyebrow": "Right now, in production",
       "sources": {
         "value": "20+",
-        "label": "signal sources fused per asset"
+        "label": "銘柄ごとの市場ソース"
       },
       "accuracy": {
         "value": "82.8%",
-        "label": "AI resolved accuracy on prediction market titles"
+        "label": "市場の問いを読む AI の正答率"
       },
       "mature": {
         "value": "37",
-        "label": "sources with mature track records"
+        "label": "実績が確認されたソース"
       }
     },
     "sources": {
@@ -304,136 +304,63 @@
       "installApp": "Install app",
       "installIosHint": "To install: tap the Share icon in Safari, scroll down, and tap \"Add to Home Screen\"."
     },
-    "composition": {
-      "eyebrow": "Live signal",
-      "title": "What the aggregator says right now.",
-      "body": "20 sources fused per asset across BTC, ETH, SUI. Refreshes every 30 seconds."
-    },
     "howItWorks": {
       "eyebrow": "The loop",
-      "title": "Aggregate. Score. Execute.",
-      "body": "Runs every five minutes. All day. Without you.",
+      "title": "読む。採点する。取引する。",
       "step1": {
-        "title": "Fuse 20 sources per asset",
-        "body": "Polymarket, Kalshi, Delphi, Manifold, funding rates, orderbook depth, options skew, cross-asset correlation. Every tick, every asset."
+        "title": "20 以上の市場を読む",
+        "body": "予測市場、取引所、オプションを 30 秒ごとに。"
       },
       "step2": {
-        "title": "Score each source against real outcomes",
-        "body": "Bayesian-shrunk hit rate per source. Auto-kill below 40%. Weights winners up to 2×, killed sources drop to 0.05×."
+        "title": "すべてのソースを採点",
+        "body": "外れ続けるソースは投票権を失います。"
       },
       "step3": {
-        "title": "Execute when winners align",
-        "body": "Multi-agent safety guard. Adaptive stops. Every trade STARK-attested and written on-chain. Verifiable. Unfakeable."
-      }
-    },
-    "trust": {
-      "title": "Signal integrity, enforced by the code.",
-      "body": "Not a policy on our website. The pipeline itself refuses bad signals, bad venues, and stale data.",
-      "poolCap": {
-        "title": "Sources tracked",
-        "value": "111",
-        "hint": "Every source's hit rate accumulates against real outcomes."
-      },
-      "freshOracle": {
-        "title": "Signal freshness",
-        "value": "30s max",
-        "hint": "Aggregator refresh cadence per asset."
-      },
-      "withdrawThrottle": {
-        "title": "Auto-kill floor",
-        "value": "40%",
-        "hint": "Sources below this hit rate drop to 0.05× weight."
-      },
-      "proofs": {
-        "title": "Every trade attested",
-        "value": "Post-quantum",
-        "hint": "STARK on the Goldilocks field. 180-bit soundness."
-      },
-      "twoChains": {
-        "title": "Multi-venue execution",
-        "value": "SUI + EVM",
-        "hint": "Signal is chain-agnostic. Execution routes to the deepest venue."
-      }
-    },
-    "surfaces": {
-      "eyebrow": "Look around",
-      "title": "Every layer of ZKward is public.",
-      "body": "Signals, sources, trades, proofs. Nothing behind a login except your wallet.",
-      "dashboard": {
-        "eyebrow": "Dashboard",
-        "title": "Live capital, one screen.",
-        "body": "Balance, hedges, drawdown, proofs. Refreshed every minute."
-      },
-      "whitepaper": {
-        "eyebrow": "Whitepaper",
-        "title": "The technical version.",
-        "body": "20-source signal fusion, per-source calibration, AI-graded prediction market interpretation, STARK-attested execution."
-      },
-      "paper": {
-        "eyebrow": "Shadow trader",
-        "title": "$100K notional, full stack, public receipts.",
-        "body": "The same signals + agents + execution stack running against a live $100K paper book. Verify PnL before you fund anything."
+        "title": "一致したときに取引",
+        "body": "すべての取引に、誰でも検証できる証明が付きます。"
       }
     },
     "finalCta": {
-      "title": "See the signal stack running.",
-      "body": "Every source, every hit rate, every trade — public. Connect a wallet to deposit into the live demo vault.",
+      "title": "動いている様子を見る。",
+      "body": "すべて公開されています。準備ができたらウォレットを接続してください。",
       "alreadyIn": "{count} already in.",
       "paused": "Deposits paused for maintenance."
     },
     "production": {
       "eyebrow": "In production",
       "title": "Live on Sui mainnet since 2026-06-12.",
-      "body": "A public track record measured on-chain, not in press releases.",
       "daysLive": {
         "title": "Days live",
         "value": "100+",
-        "hint": "Continuous, no restarts. Contract-enforced $10K TVL cap."
+        "hint": "ローンチ以来ノンストップで稼働。"
       },
       "navSnapshots": {
         "title": "NAV snapshots",
         "value": "2,200+",
-        "hint": "Written on-chain every 15 minutes since inception."
+        "hint": "プールの価値を 15 分ごとにオンチェーンに記録。"
       },
       "hedges": {
         "title": "Hedges executed",
         "value": "214",
-        "hint": "Lifetime, across BTC, ETH, SUI, SOL perps."
-      }
-    },
-    "builtFor": {
-      "eyebrow": "Built for",
-      "title": "Traders, researchers, and protocols.",
-      "body": "One signal pipeline, three audiences.",
-      "traders": {
-        "title": "Traders",
-        "body": "Signal quality that survives regime changes. Auto-kill for underperforming sources. Aggregator refreshes every 30 seconds."
-      },
-      "research": {
-        "title": "Research desks",
-        "body": "Every source hit rate is public. Historical calibration accessible via API. Reproducible from raw data."
-      },
-      "protocols": {
-        "title": "Protocols",
-        "body": "Autonomous execution with STARK-attested proofs. Multi-agent consensus. Contract-enforced TVL caps."
+        "hint": "BTC、ETH、SUI、SOL に対応。"
       }
     },
     "startHere": {
       "eyebrow": "Start here",
-      "body": "Three ways to try the platform. No wallet required to explore.",
+      "body": "見て回るだけならウォレットは不要です。",
       "watchShadow": {
         "title": "Watch the shadow trader",
-        "body": "$100K live demo running the full stack. Public receipts.",
+        "body": "10 万ドルのシミュレーション口座がライブで取引中。",
         "cta": "Open shadow trader"
       },
       "seeSignals": {
         "title": "Read live signals",
-        "body": "Per-asset aggregator output, refreshed every 30 seconds.",
+        "body": "各銘柄がいまどちらに傾いているか。",
         "cta": "Open dashboard"
       },
       "tryDemo": {
         "title": "Deposit into the demo vault",
-        "body": "$10K contract-capped. Withdraw anytime.",
+        "body": "上限 1 万ドル。いつでも引き出し可能。",
         "cta": "Open vault"
       }
     }

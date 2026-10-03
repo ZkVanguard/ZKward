@@ -1,59 +1,24 @@
 'use client';
 
-import type { RefObject } from 'react';
-import { memo, useEffect, useRef, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { memo, useEffect, useRef } from 'react';
 import { useTranslations } from 'next-intl';
 import { Link } from '@/i18n/routing';
 import { useHederaPool, type HederaPoolResponse } from '@/lib/hooks/useHederaPool';
 import {
   ArrowRight, ShieldCheck, Zap, BarChart3,
-  Sparkles, Layers, Lock,
+  Sparkles, Layers,
 } from 'lucide-react';
 import { InstallAppButton } from './InstallAppButton';
 import { DataSourceMarquee } from './landing/DataSourceMarquee';
-import { Reveal, LiveIndicator, StatusPill, TrustBadge } from './ui/landing';
+import { Reveal, StatusPill, TrustBadge } from './ui/landing';
 
 // Linear's signature spring curve. Read as: quick out, slow in — feels
 // like real mass behind interactive elements instead of the default
 // ease-in-out "slide-and-stop" cadence.
 const SPRING = 'cubic-bezier(0.32, 0.72, 0, 1)';
 
-// Cursor spotlight — updates --sx/--sy CSS variables on a container from
-// pointermove so children can drive a 3D tilt effect. rAF-throttled to
-// 60fps; disabled on touch devices + prefers-reduced-motion.
-//
-// Attached to the vault card container ONLY (not the whole hero) so the
-// card feels physical while the hero background stays flat (no
-// pointer-follow spotlight glow — user request).
 import { useReducedMotion } from 'framer-motion';
 
-function useCursorSpotlight<T extends HTMLElement>(ref: React.RefObject<T | null>) {
-  const reduce = useReducedMotion();
-  useEffect(() => {
-    if (reduce) return;
-    const el = ref.current;
-    if (!el) return;
-    const mq = window.matchMedia('(min-width: 768px) and (pointer: fine)');
-    if (!mq.matches) return;
-    let raf = 0;
-    const onMove = (e: PointerEvent) => {
-      cancelAnimationFrame(raf);
-      raf = requestAnimationFrame(() => {
-        const rect = el.getBoundingClientRect();
-        const x = ((e.clientX - rect.left) / rect.width) * 100;
-        const y = ((e.clientY - rect.top) / rect.height) * 100;
-        el.style.setProperty('--sx', `${x}%`);
-        el.style.setProperty('--sy', `${y}%`);
-      });
-    };
-    el.addEventListener('pointermove', onMove);
-    return () => {
-      el.removeEventListener('pointermove', onMove);
-      cancelAnimationFrame(raf);
-    };
-  }, [ref, reduce]);
-}
 
 // Touch devices have no cursor, so the hero's depth layers took no input
 // at all there and the backdrop was hidden. This drives the same --sx/--sy
@@ -98,33 +63,6 @@ function useTiltParallax<T extends HTMLElement>(ref: React.RefObject<T | null>) 
   }, [ref, reduce]);
 }
 
-// VaultTiltScene. Encapsulates the perspective wrapper + the cursor-
-// spotlight hook attached to the card container. Pulling this into its
-// own component lets us mount useCursorSpotlight in one place, scoped
-// to the card only (not the whole hero).
-function VaultTiltScene({ children }: { children: React.ReactNode }) {
-  const ref = useRef<HTMLDivElement>(null);
-  useCursorSpotlight(ref as RefObject<HTMLElement>);
-  return (
-    <div ref={ref} className="vault-tilt-scene max-w-[720px] mx-auto mb-3 sm:mb-4 relative">
-      <div className="vault-idle-float relative">
-        <div className="vault-scroll-lift rounded-[28px]">
-          <div className="vault-tilt rounded-[28px]">{children}</div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// TVL cap enforced by the Move contract. Surfacing "room remaining" on the
-// landing gives visitors a scale anchor without leading with the current
-// (small) NAV. If the on-chain cap changes, bump this constant. The display
-// is intentionally not fetched (it's a marketing rail, not a live gate).
-// Hedera testnet vault has no on-chain TVL cap (uncapped demo vault).
-// The bar just shows how full the demo is vs a soft target we've picked
-// for the visual. 100k is a reasonable "next milestone" that leaves room
-// to grow from the current 60k without pinning at 100%.
-const TVL_CAP_USD = 100_000;
 
 // Signal-source strip — real providers the aggregator reads every tick.
 // Colors are each brand's public-facing accent, used only as a small dot
@@ -156,27 +94,6 @@ interface PoolSummary {
   paused: boolean;
 }
 
-const ASSET_ICONS: Record<string, string> = {
-  BTC: '₿', ETH: 'Ξ', SUI: '💧', USDC: '$',
-};
-const ASSET_GRADIENTS: Record<string, string> = {
-  BTC: 'from-[#F7931A] to-[#FBB040]',
-  ETH: 'from-[#627EEA] to-[#8FA5F2]',
-  SUI: 'from-[#4DA2FF] to-[#79C2FF]',
-  USDC: 'from-[#2775CA] to-[#4A9CE8]',
-};
-
-function formatUsd(n: number, decimals = 2): string {
-  if (!Number.isFinite(n)) return '…';
-  const abs = Math.abs(n);
-  // Compact suffixes above 10k so the stat cards stay readable at scale.
-  // ($3,214,857 in a card is a nightmare; $3.21M is fine.)
-  if (abs >= 1_000_000_000) return `${n < 0 ? '-' : ''}$${(abs / 1_000_000_000).toFixed(2)}B`;
-  if (abs >= 1_000_000)     return `${n < 0 ? '-' : ''}$${(abs / 1_000_000).toFixed(2)}M`;
-  if (abs >= 10_000)        return `${n < 0 ? '-' : ''}$${(abs / 1_000).toFixed(1)}K`;
-  if (abs >= 1_000)         return '$' + n.toLocaleString('en-US', { maximumFractionDigits: 0 });
-  return '$' + n.toFixed(decimals);
-}
 
 // Compact member/share formatter that also handles pluralisation.
 // singular/plural come from translations — never inline English defaults.
@@ -545,20 +462,13 @@ export const SuiPoolLanding = memo(function SuiPoolLanding() {
   const t = useTranslations('landing');
   // Read the shared Hedera pool query. Same cache key as HederaVaultCallout
   // above + the dashboard's useCommunityPool. Three consumers, one fetch.
-  const { data: rawPool, isPending: loading } = useHederaPool('testnet');
+  const { data: rawPool } = useHederaPool('testnet');
   const pool = toPoolSummary(rawPool);
 
   // Cursor-follow on desktop was removed by design; on touch devices the
   // hero's depth layers follow tilt and scroll instead.
   const heroRef = useRef<HTMLElement>(null);
   useTiltParallax(heroRef);
-
-  // Build allocation legend (positive entries only)
-  const allocationEntries = pool
-    ? Object.entries(pool.allocation || {})
-        .filter(([, v]) => Number(v) > 0)
-        .sort((a, b) => Number(b[1]) - Number(a[1]))
-    : [];
 
   return (
     <div className="bg-system-bg-primary text-label-primary">
@@ -690,88 +600,6 @@ export const SuiPoolLanding = memo(function SuiPoolLanding() {
       </section>
 
       {/* ─────────────────────────────────────────────────────────────── */}
-      {/* LIVE COMPOSITION                                                */}
-      {/* ─────────────────────────────────────────────────────────────── */}
-      <section className="py-12 sm:py-20 md:py-24 px-4 sm:px-5 lg:px-8 bg-system-bg-secondary min-w-0">
-        <Reveal className="max-w-[1100px] mx-auto">
-          <div className="flex flex-col lg:flex-row gap-8 sm:gap-12 lg:gap-16 items-start min-w-0">
-            {/* Left: heading */}
-            <div className="lg:max-w-[420px] lg:sticky lg:top-24 min-w-0">
-              <p className="text-[11px] sm:text-caption-1 font-semibold uppercase tracking-wide text-ios-blue mb-2 sm:mb-3">
-                {t('composition.eyebrow')}
-              </p>
-              <h2 className="text-[26px] sm:text-[34px] md:text-[40px] lg:text-[48px] font-display font-semibold tracking-[-0.03em] leading-[1.05] text-label-primary mb-3 sm:mb-5 break-words">
-                {t('composition.title')}
-              </h2>
-              <p className="text-sm sm:text-callout text-label-secondary leading-relaxed sm:leading-[1.55]">
-                {t('composition.body')}
-              </p>
-            </div>
-
-            {/* Right: allocation visualization */}
-            <div className="flex-1 w-full">
-              {!loading && allocationEntries.length > 0 ? (
-                <div className="bg-system-bg-primary rounded-ios-xl p-6 sm:p-8 shadow-ios-1 border border-separator-opaque/30">
-                  {/* Stack bar */}
-                  <div className="h-3 rounded-full overflow-hidden flex mb-6 bg-system-bg-grouped">
-                    {allocationEntries.map(([asset, pct]) => (
-                      <div
-                        key={asset}
-                        className={`bg-gradient-to-r ${ASSET_GRADIENTS[asset] || 'from-gray-300 to-gray-400'}`}
-                        style={{ width: `${pct}%` }}
-                        title={`${asset} ${pct}%`}
-                      />
-                    ))}
-                  </div>
-
-                  {/* Legend */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-4">
-                    {allocationEntries.map(([asset, pct]) => (
-                      <div key={asset} className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <div
-                            className={`w-9 h-9 rounded-ios bg-gradient-to-br ${
-                              ASSET_GRADIENTS[asset] || 'from-gray-300 to-gray-400'
-                            } flex items-center justify-center text-white text-base font-semibold shadow-ios-1`}
-                          >
-                            {ASSET_ICONS[asset] || '?'}
-                          </div>
-                          <div>
-                            <div className="text-headline font-semibold text-label-primary">{asset}</div>
-                            <div className="text-caption-1 text-label-tertiary">
-                              {pool ? formatUsd((pool.totalNAV * Number(pct)) / 100, 2) : '…'}
-                            </div>
-                          </div>
-                        </div>
-                        <div className="text-title-3 font-semibold text-label-primary tabular-nums">
-                          {Number(pct).toFixed(1)}%
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ) : (
-                <div className="bg-system-bg-primary rounded-ios-xl p-8 shadow-ios-1 border border-separator-opaque/30 animate-pulse">
-                  <div className="h-3 bg-system-bg-grouped rounded-full mb-6" />
-                  <div className="space-y-4">
-                    {[1, 2, 3, 4].map(i => (
-                      <div key={i} className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-ios bg-system-bg-grouped" />
-                          <div className="w-16 h-4 bg-system-bg-grouped rounded" />
-                        </div>
-                        <div className="w-12 h-4 bg-system-bg-grouped rounded" />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </Reveal>
-      </section>
-
-      {/* ─────────────────────────────────────────────────────────────── */}
       {/* HOW IT WORKS                                                    */}
       {/* ─────────────────────────────────────────────────────────────── */}
       <section id="how-it-works" className="py-14 sm:py-20 md:py-28 px-4 sm:px-5 lg:px-8 bg-system-bg-primary min-w-0">
@@ -783,9 +611,6 @@ export const SuiPoolLanding = memo(function SuiPoolLanding() {
             <h2 className="text-[26px] sm:text-[34px] md:text-[44px] lg:text-[52px] font-display font-semibold tracking-[-0.03em] leading-[1.05] text-label-primary mb-3 sm:mb-4 break-words">
               {t('howItWorks.title')}
             </h2>
-            <p className="text-sm sm:text-callout text-label-secondary max-w-[560px] mx-auto leading-relaxed sm:leading-[1.55] px-1">
-              {t('howItWorks.body')}
-            </p>
           </div>
 
           <div className="max-w-[760px] mx-auto min-w-0">
@@ -827,9 +652,6 @@ export const SuiPoolLanding = memo(function SuiPoolLanding() {
             <h2 className="text-[24px] sm:text-[28px] md:text-[36px] lg:text-[44px] font-display font-semibold tracking-[-0.03em] leading-[1.05] text-label-primary mb-3 sm:mb-4 break-words">
               {t('production.title')}
             </h2>
-            <p className="text-sm sm:text-callout text-label-secondary max-w-[560px] mx-auto leading-relaxed">
-              {t('production.body')}
-            </p>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-4 min-w-0">
@@ -850,125 +672,6 @@ export const SuiPoolLanding = memo(function SuiPoolLanding() {
               title={t('production.hedges.title')}
               value={t('production.hedges.value')}
               hint={t('production.hedges.hint')}
-            />
-          </div>
-        </Reveal>
-      </section>
-
-      {/* ─────────────────────────────────────────────────────────────── */}
-      {/* BUILT FOR — audience triplet                                    */}
-      {/* ─────────────────────────────────────────────────────────────── */}
-      <section className="py-12 sm:py-20 md:py-24 px-4 sm:px-5 lg:px-8 bg-system-bg-primary min-w-0">
-        <Reveal className="max-w-[1100px] mx-auto">
-          <div className="text-center mb-8 sm:mb-12">
-            <p className="text-caption-1 font-medium uppercase tracking-wide text-label-tertiary mb-2 sm:mb-3">
-              {t('builtFor.eyebrow')}
-            </p>
-            <h2 className="text-[24px] sm:text-[28px] md:text-[36px] lg:text-[44px] font-display font-semibold tracking-[-0.03em] leading-[1.05] text-label-primary mb-3 sm:mb-4 break-words">
-              {t('builtFor.title')}
-            </h2>
-            <p className="text-sm sm:text-callout text-label-secondary max-w-[560px] mx-auto leading-relaxed">
-              {t('builtFor.body')}
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4 min-w-0">
-            <BuiltForCard title={t('builtFor.traders.title')} body={t('builtFor.traders.body')} />
-            <BuiltForCard title={t('builtFor.research.title')} body={t('builtFor.research.body')} />
-            <BuiltForCard title={t('builtFor.protocols.title')} body={t('builtFor.protocols.body')} />
-          </div>
-        </Reveal>
-      </section>
-
-      {/* ─────────────────────────────────────────────────────────────── */}
-      {/* TRUST STRIP — safety guarantees on chain                        */}
-      {/* ─────────────────────────────────────────────────────────────── */}
-      <section className="py-12 sm:py-20 md:py-24 px-4 sm:px-5 lg:px-8 bg-system-bg-secondary min-w-0">
-        <Reveal className="max-w-[1100px] mx-auto">
-          <div className="text-center mb-8 sm:mb-12">
-            <h2 className="text-[24px] sm:text-[28px] md:text-[36px] lg:text-[42px] font-display font-semibold tracking-[-0.03em] leading-[1.05] text-label-primary mb-3 break-words">
-              {t('trust.title')}
-            </h2>
-            <p className="text-sm sm:text-callout text-label-secondary max-w-[560px] mx-auto leading-relaxed mb-2">
-              {t('trust.body')}
-            </p>
-          </div>
-
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-2.5 sm:gap-4 min-w-0">
-            <TrustBadge
-              icon={<Lock className="w-5 h-5" />}
-              title={t('trust.poolCap.title')}
-              value={t('trust.poolCap.value')}
-              hint={t('trust.poolCap.hint')}
-            />
-            <TrustBadge
-              icon={<Layers className="w-5 h-5" />}
-              title={t('trust.freshOracle.title')}
-              value={t('trust.freshOracle.value')}
-              hint={t('trust.freshOracle.hint')}
-            />
-            <TrustBadge
-              icon={<ShieldCheck className="w-5 h-5" />}
-              title={t('trust.withdrawThrottle.title')}
-              value={t('trust.withdrawThrottle.value')}
-              hint={t('trust.withdrawThrottle.hint')}
-            />
-            <TrustBadge
-              icon={<BarChart3 className="w-5 h-5" />}
-              title={t('trust.proofs.title')}
-              value={t('trust.proofs.value')}
-              hint={t('trust.proofs.hint')}
-            />
-            <TrustBadge
-              icon={<Layers className="w-5 h-5" />}
-              title={t('trust.twoChains.title')}
-              value={t('trust.twoChains.value')}
-              hint={t('trust.twoChains.hint')}
-            />
-          </div>
-        </Reveal>
-      </section>
-
-      {/* PLATFORM SURFACES — discoverability for the BlackRock-shaped views */}
-      {/* ─────────────────────────────────────────────────────────────── */}
-      <section className="py-14 sm:py-20 md:py-24 px-4 sm:px-5 lg:px-8 bg-system-bg-secondary border-y border-separator-opaque/20 min-w-0">
-        <Reveal className="max-w-[1100px] mx-auto">
-          <div className="text-center mb-8 sm:mb-10 md:mb-12">
-            <div className="inline-block text-[11px] sm:text-caption-1 font-semibold uppercase tracking-wide text-label-tertiary mb-2 sm:mb-3">
-              {t('surfaces.eyebrow')}
-            </div>
-            <h2 className="text-[24px] sm:text-[28px] md:text-[36px] lg:text-[44px] font-display font-semibold tracking-[-0.03em] leading-[1.05] text-label-primary mb-3 sm:mb-4 break-words">
-              {t('surfaces.title')}
-            </h2>
-            <p className="text-sm sm:text-callout md:text-[18px] text-label-secondary max-w-[640px] mx-auto leading-relaxed sm:leading-[1.5] px-1">
-              {t('surfaces.body')}
-            </p>
-          </div>
-
-          {/* Cut from 6 → 3 cards. Explore paralysis — 6 equal-weight
-              tiles at the bottom of the page meant no clear next click.
-              Kept the three that map to the "Start here" hierarchy: safe
-              proof (paper), live capital (dashboard), technical depth
-              (whitepaper). RWA / Agents / ZK / Story remain reachable
-              via the top nav. */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4 min-w-0">
-            <SurfaceCard
-              href="/paper"
-              eyebrow={t('surfaces.paper.eyebrow')}
-              title={t('surfaces.paper.title')}
-              body={t('surfaces.paper.body')}
-            />
-            <SurfaceCard
-              href="/dashboard"
-              eyebrow={t('surfaces.dashboard.eyebrow')}
-              title={t('surfaces.dashboard.title')}
-              body={t('surfaces.dashboard.body')}
-            />
-            <SurfaceCard
-              href="/whitepaper"
-              eyebrow={t('surfaces.whitepaper.eyebrow')}
-              title={t('surfaces.whitepaper.title')}
-              body={t('surfaces.whitepaper.body')}
             />
           </div>
         </Reveal>
@@ -1033,119 +736,6 @@ export const SuiPoolLanding = memo(function SuiPoolLanding() {
 // Subcomponents (page-specific. Shared primitives live in ./ui/landing)
 // ───────────────────────────────────────────────────────────────────────────
 
-// VaultMeter. The hero's signature element. A single card that IS the
-// vault's live state: NAV, allocation, capacity. Replaces the generic
-// text-hero + 4-stat-card pattern. Every landing sells; this one shows.
-function VaultMeter({
-  pool, loading, cap, labels,
-}: {
-  pool: PoolSummary | null | undefined;
-  loading: boolean;
-  cap: number;
-  labels: {
-    poolNav: string;
-    sharePrice: string;
-    capacity: string;
-    capacityOf: (current: string, cap: string) => string;
-  };
-}) {
-  const entries = pool
-    ? Object.entries(pool.allocation || {})
-        .filter(([, v]) => Number(v) > 0)
-        .sort((a, b) => Number(b[1]) - Number(a[1]))
-    : [];
-  const capacityPct = pool ? Math.min(100, (pool.totalNAV / cap) * 100) : 0;
-
-  // Double-Bezel structure (soft-skill Doppelrand). Outer shell reads
-  // as an aluminium tray with a hairline ring; inner core is the glass
-  // plate with a subtle inner-highlight catching a light source above.
-  // Radii are mathematically concentric: outer 28px minus 6px padding
-  // = 22px inner. Reads as machined hardware, not a flat browser card.
-  return (
-    <div className="rounded-[28px] bg-gradient-to-b from-black/[0.03] to-black/[0.015] ring-1 ring-black/[0.06] p-1.5">
-      <div className="relative bg-system-bg-primary rounded-[22px] p-4 sm:p-6 overflow-hidden shadow-[inset_0_1px_1px_rgba(255,255,255,0.7),inset_0_-1px_1px_rgba(0,0,0,0.02)]">
-      {/* Brand accent bar — thinner + softer gradient for machined feel */}
-      <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-ios-blue to-transparent" />
-
-      {/* NAV + Share price */}
-      <div className="flex items-end justify-between gap-4 mb-5 sm:mb-6 pt-1">
-        <div className="min-w-0">
-          <div className="text-[10px] sm:text-caption-1 uppercase tracking-wide font-semibold text-label-tertiary mb-1.5">
-            {labels.poolNav}
-          </div>
-          {loading ? (
-            // Skeleton matches final NAV width (~7ch) + height so data
-            // arrival doesn't shift or "pop" — premium detail.
-            <div className="h-[36px] sm:h-[52px] md:h-[60px] w-[7ch] rounded-md bg-system-bg-grouped animate-pulse" />
-          ) : (
-            <div className="text-[36px] sm:text-[52px] md:text-[60px] font-bold tabular-nums leading-none text-label-primary break-all">
-              {formatUsd(pool?.totalNAV ?? 0)}
-            </div>
-          )}
-        </div>
-        <div className="text-right flex-shrink-0">
-          <div className="text-[10px] sm:text-caption-1 uppercase tracking-wide font-semibold text-label-tertiary mb-1.5">
-            {labels.sharePrice}
-          </div>
-          {loading ? (
-            <div className="h-[20px] sm:h-[26px] w-[6ch] rounded-md bg-system-bg-grouped animate-pulse ml-auto" />
-          ) : (
-            <div className="text-[20px] sm:text-[26px] font-semibold tabular-nums text-label-primary">
-              {`$${(pool?.sharePrice ?? 1).toFixed(4)}`}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Composition bar + legend */}
-      <div className="mb-5 sm:mb-6">
-        <div className="h-2.5 rounded-full overflow-hidden flex bg-system-bg-grouped">
-          {entries.length > 0 ? entries.map(([asset, pct]) => (
-            <div
-              key={asset}
-              className={`bg-gradient-to-r ${ASSET_GRADIENTS[asset] || 'from-gray-300 to-gray-400'} transition-all duration-500`}
-              style={{ width: `${pct}%` }}
-              title={`${asset} ${pct}%`}
-            />
-          )) : (
-            <div className="w-full bg-system-bg-grouped animate-pulse" />
-          )}
-        </div>
-        <div className="flex flex-wrap gap-x-4 gap-y-1.5 mt-3 text-xs sm:text-caption-1">
-          {entries.map(([asset, pct]) => (
-            <div key={asset} className="flex items-center gap-1.5">
-              <span className={`w-2 h-2 rounded-full bg-gradient-to-br ${ASSET_GRADIENTS[asset]}`} />
-              <span className="font-semibold text-label-primary">{asset}</span>
-              <span className="tabular-nums text-label-secondary">{Number(pct).toFixed(0)}%</span>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Capacity */}
-      <div className="pt-5 sm:pt-6 border-t border-separator-opaque/30">
-        <div className="flex items-center justify-between text-xs sm:text-caption-1 mb-2">
-          <span className="text-label-tertiary uppercase tracking-wide font-semibold">{labels.capacity}</span>
-          {loading ? (
-            <span className="inline-block h-[12px] w-[12ch] rounded bg-system-bg-grouped animate-pulse" />
-          ) : (
-            <span className="tabular-nums text-label-secondary">
-              {labels.capacityOf(formatUsd(pool?.totalNAV ?? 0), formatUsd(cap))}
-            </span>
-          )}
-        </div>
-        <div className="h-1 rounded-full bg-system-bg-grouped overflow-hidden">
-          <div
-            className="h-full bg-ios-blue rounded-full transition-all duration-700 ease-out"
-            style={{ width: `${capacityPct}%` }}
-          />
-        </div>
-      </div>
-      </div>
-    </div>
-  );
-}
-
 // TimelineStep. Vertical connected step. Replaces the banned "3 equal
 // feature cards" pattern. Content genuinely is a sequence, so numbers help.
 function TimelineStep({
@@ -1183,33 +773,6 @@ function TimelineStep({
   );
 }
 
-function SurfaceCard({
-  href, eyebrow, title, body,
-}: {
-  href: string; eyebrow: string; title: string; body: string;
-}) {
-  return (
-    <Link
-      href={href}
-      className="group block bg-system-bg-primary rounded-ios-xl p-4 sm:p-5 md:p-6 border border-separator-opaque/30 hover:shadow-ios-2 hover:border-ios-blue/30 active:scale-[0.99] transition-all duration-300 min-w-0"
-    >
-      <div className="flex items-center justify-between gap-2 mb-2 min-w-0">
-        <div className="text-[10px] sm:text-caption-1 font-semibold uppercase tracking-wide text-label-tertiary truncate">
-          {eyebrow}
-        </div>
-        <ArrowRight
-          className="w-4 h-4 text-label-tertiary group-hover:text-ios-blue group-hover:translate-x-1 transition-all flex-shrink-0"
-          strokeWidth={2}
-        />
-      </div>
-      <h3 className="text-sm sm:text-headline font-semibold text-label-primary mb-1 sm:mb-1.5 leading-tight break-words">
-        {title}
-      </h3>
-      <p className="text-xs sm:text-subheadline text-label-secondary leading-relaxed sm:leading-[1.5] break-words">{body}</p>
-    </Link>
-  );
-}
-
 function StartHereCard({
   href, title, body, cta, primary,
 }: {
@@ -1234,18 +797,5 @@ function StartHereCard({
         <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" strokeWidth={2.25} />
       </div>
     </Link>
-  );
-}
-
-function BuiltForCard({ title, body }: { title: string; body: string }) {
-  return (
-    <div className="bg-system-bg-secondary rounded-ios-xl p-5 sm:p-6 md:p-7 border border-separator-opaque/30 min-w-0">
-      <h3 className="text-headline sm:text-title-3 font-display font-semibold text-label-primary mb-2 sm:mb-3 leading-tight break-words">
-        {title}
-      </h3>
-      <p className="text-sm sm:text-callout text-label-secondary leading-relaxed break-words">
-        {body}
-      </p>
-    </div>
   );
 }

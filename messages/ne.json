@@ -26,21 +26,21 @@
     "hero": {
       "headline1": "20 signal sources.",
       "headline2": "Ranked by track record.",
-      "subtitle": "Every prediction market, every funding rate, every on-chain signal — scored against real outcomes. Autonomous execution when the winners align."
+      "subtitle": "हामी २० भन्दा बढी बजार पढ्छौं, ती सहमत हुँदा मात्र ट्रेड गर्छौं, र हरेक ट्रेड अन-चेन प्रमाणित गर्छौं।"
     },
     "stats": {
       "eyebrow": "Right now, in production",
       "sources": {
         "value": "20+",
-        "label": "signal sources fused per asset"
+        "label": "प्रति कोइन बजार स्रोत"
       },
       "accuracy": {
         "value": "82.8%",
-        "label": "AI resolved accuracy on prediction market titles"
+        "label": "बजारका प्रश्न पढ्दा AI को शुद्धता"
       },
       "mature": {
         "value": "37",
-        "label": "sources with mature track records"
+        "label": "प्रमाणित रेकर्ड भएका स्रोत"
       }
     },
     "sources": {
@@ -61,136 +61,63 @@
       "installApp": "Install app",
       "installIosHint": "To install: tap the Share icon in Safari, scroll down, and tap \"Add to Home Screen\"."
     },
-    "composition": {
-      "eyebrow": "Live signal",
-      "title": "What the aggregator says right now.",
-      "body": "20 sources fused per asset across BTC, ETH, SUI. Refreshes every 30 seconds."
-    },
     "howItWorks": {
       "eyebrow": "The loop",
-      "title": "Aggregate. Score. Execute.",
-      "body": "Runs every five minutes. All day. Without you.",
+      "title": "पढ्ने। जाँच्ने। ट्रेड गर्ने।",
       "step1": {
-        "title": "Fuse 20 sources per asset",
-        "body": "Polymarket, Kalshi, Delphi, Manifold, funding rates, orderbook depth, options skew, cross-asset correlation. Every tick, every asset."
+        "title": "२० भन्दा बढी बजार पढ्छौं",
+        "body": "प्रेडिक्सन बजार, एक्सचेन्ज र अप्सन, हरेक ३० सेकेन्डमा।"
       },
       "step2": {
-        "title": "Score each source against real outcomes",
-        "body": "Bayesian-shrunk hit rate per source. Auto-kill below 40%. Weights winners up to 2×, killed sources drop to 0.05×."
+        "title": "हरेक स्रोत जाँच्छौं",
+        "body": "बारम्बार गलत हुने स्रोतले आफ्नो भोट गुमाउँछ।"
       },
       "step3": {
-        "title": "Execute when winners align",
-        "body": "Multi-agent safety guard. Adaptive stops. Every trade STARK-attested and written on-chain. Verifiable. Unfakeable."
-      }
-    },
-    "trust": {
-      "title": "Signal integrity, enforced by the code.",
-      "body": "Not a policy on our website. The pipeline itself refuses bad signals, bad venues, and stale data.",
-      "poolCap": {
-        "title": "Sources tracked",
-        "value": "111",
-        "hint": "Every source's hit rate accumulates against real outcomes."
-      },
-      "freshOracle": {
-        "title": "Signal freshness",
-        "value": "30s max",
-        "hint": "Aggregator refresh cadence per asset."
-      },
-      "withdrawThrottle": {
-        "title": "Auto-kill floor",
-        "value": "40%",
-        "hint": "Sources below this hit rate drop to 0.05× weight."
-      },
-      "proofs": {
-        "title": "Every trade attested",
-        "value": "Post-quantum",
-        "hint": "STARK on the Goldilocks field. 180-bit soundness."
-      },
-      "twoChains": {
-        "title": "Multi-venue execution",
-        "value": "SUI + EVM",
-        "hint": "Signal is chain-agnostic. Execution routes to the deepest venue."
-      }
-    },
-    "surfaces": {
-      "eyebrow": "Look around",
-      "title": "Every layer of ZKward is public.",
-      "body": "Signals, sources, trades, proofs. Nothing behind a login except your wallet.",
-      "dashboard": {
-        "eyebrow": "Dashboard",
-        "title": "Live capital, one screen.",
-        "body": "Balance, hedges, drawdown, proofs. Refreshed every minute."
-      },
-      "whitepaper": {
-        "eyebrow": "Whitepaper",
-        "title": "The technical version.",
-        "body": "20-source signal fusion, per-source calibration, AI-graded prediction market interpretation, STARK-attested execution."
-      },
-      "paper": {
-        "eyebrow": "Shadow trader",
-        "title": "$100K notional, full stack, public receipts.",
-        "body": "The same signals + agents + execution stack running against a live $100K paper book. Verify PnL before you fund anything."
+        "title": "सहमत हुँदा ट्रेड गर्छौं",
+        "body": "हरेक ट्रेडसँग जो कोहीले जाँच्न सक्ने प्रमाण हुन्छ।"
       }
     },
     "finalCta": {
-      "title": "See the signal stack running.",
-      "body": "Every source, every hit rate, every trade — public. Connect a wallet to deposit into the live demo vault.",
+      "title": "चलिरहेको हेर्नुहोस्।",
+      "body": "सबै सार्वजनिक छ। तयार हुँदा वालेट जोड्नुहोस्।",
       "alreadyIn": "{count} already in.",
       "paused": "Deposits paused for maintenance."
     },
     "production": {
       "eyebrow": "In production",
       "title": "Live on Sui mainnet since 2026-06-12.",
-      "body": "A public track record measured on-chain, not in press releases.",
       "daysLive": {
         "title": "Days live",
         "value": "100+",
-        "hint": "Continuous, no restarts. Contract-enforced $10K TVL cap."
+        "hint": "सुरुदेखि नरोकिई चलिरहेको।"
       },
       "navSnapshots": {
         "title": "NAV snapshots",
         "value": "2,200+",
-        "hint": "Written on-chain every 15 minutes since inception."
+        "hint": "पूलको मूल्य हरेक १५ मिनेटमा अन-चेन सुरक्षित।"
       },
       "hedges": {
         "title": "Hedges executed",
         "value": "214",
-        "hint": "Lifetime, across BTC, ETH, SUI, SOL perps."
-      }
-    },
-    "builtFor": {
-      "eyebrow": "Built for",
-      "title": "Traders, researchers, and protocols.",
-      "body": "One signal pipeline, three audiences.",
-      "traders": {
-        "title": "Traders",
-        "body": "Signal quality that survives regime changes. Auto-kill for underperforming sources. Aggregator refreshes every 30 seconds."
-      },
-      "research": {
-        "title": "Research desks",
-        "body": "Every source hit rate is public. Historical calibration accessible via API. Reproducible from raw data."
-      },
-      "protocols": {
-        "title": "Protocols",
-        "body": "Autonomous execution with STARK-attested proofs. Multi-agent consensus. Contract-enforced TVL caps."
+        "hint": "BTC, ETH, SUI र SOL मा।"
       }
     },
     "startHere": {
       "eyebrow": "Start here",
-      "body": "Three ways to try the platform. No wallet required to explore.",
+      "body": "हेर्नका लागि वालेट चाहिँदैन।",
       "watchShadow": {
         "title": "Watch the shadow trader",
-        "body": "$100K live demo running the full stack. Public receipts.",
+        "body": "$100K को सिमुलेटेड खाता, लाइभ ट्रेडिङ।",
         "cta": "Open shadow trader"
       },
       "seeSignals": {
         "title": "Read live signals",
-        "body": "Per-asset aggregator output, refreshed every 30 seconds.",
+        "body": "हरेक कोइन अहिले कता ढल्किएको छ।",
         "cta": "Open dashboard"
       },
       "tryDemo": {
         "title": "Deposit into the demo vault",
-        "body": "$10K contract-capped. Withdraw anytime.",
+        "body": "सीमा $10K। जुनसुकै बेला निकाल्नुहोस्।",
         "cta": "Open vault"
       }
     }
