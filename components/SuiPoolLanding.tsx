@@ -11,6 +11,7 @@ import {
   Sparkles, Layers, Lock,
 } from 'lucide-react';
 import { InstallAppButton } from './InstallAppButton';
+import { DataSourceMarquee } from './landing/DataSourceMarquee';
 import { Reveal, LiveIndicator, StatusPill, TrustBadge } from './ui/landing';
 
 // Linear's signature spring curve. Read as: quick out, slow in — feels
@@ -54,6 +55,49 @@ function useCursorSpotlight<T extends HTMLElement>(ref: React.RefObject<T | null
   }, [ref, reduce]);
 }
 
+// Touch devices have no cursor, so the hero's depth layers took no input
+// at all there and the backdrop was hidden. This drives the same --sx/--sy
+// from the phone's tilt (where the browser reports it without a prompt)
+// and from scroll, so the layers still move at different speeds. Gated to
+// coarse pointers: the desktop cursor-follow was removed by design.
+function useTiltParallax<T extends HTMLElement>(ref: React.RefObject<T | null>) {
+  const reduce = useReducedMotion();
+  useEffect(() => {
+    if (reduce) return;
+    const el = ref.current;
+    if (!el) return;
+    if (!window.matchMedia('(pointer: coarse)').matches) return;
+    const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
+    let tiltX = 0, tiltY = 0, scrollY = 0, raf = 0;
+    const apply = () => {
+      raf = 0;
+      el.style.setProperty('--sx', `${50 + tiltX}%`);
+      el.style.setProperty('--sy', `${50 + tiltY + scrollY}%`);
+    };
+    const schedule = () => { if (!raf) raf = requestAnimationFrame(apply); };
+    const onOrient = (e: DeviceOrientationEvent) => {
+      if (e.gamma == null || e.beta == null) return;
+      // gamma: left-right roll (−90..90); beta: front-back pitch, ~45° when held normally.
+      tiltX = clamp(e.gamma / 30, -1, 1) * 28;
+      tiltY = clamp((e.beta - 45) / 30, -1, 1) * 18;
+      schedule();
+    };
+    const onScroll = () => {
+      const r = el.getBoundingClientRect();
+      scrollY = clamp(-r.top / Math.max(1, r.height), 0, 1) * 36;
+      schedule();
+    };
+    window.addEventListener('deviceorientation', onOrient);
+    window.addEventListener('scroll', onScroll, { passive: true });
+    onScroll();
+    return () => {
+      window.removeEventListener('deviceorientation', onOrient);
+      window.removeEventListener('scroll', onScroll);
+      cancelAnimationFrame(raf);
+    };
+  }, [ref, reduce]);
+}
+
 // VaultTiltScene. Encapsulates the perspective wrapper + the cursor-
 // spotlight hook attached to the card container. Pulling this into its
 // own component lets us mount useCursorSpotlight in one place, scoped
@@ -87,17 +131,6 @@ const TVL_CAP_USD = 100_000;
 // (nominative fair use — describing which services we consume, not
 // asserting endorsement). Ordered by weight class: prediction markets
 // first, then venues, then options.
-const DATA_SOURCES: Array<{ name: string; color: string }> = [
-  { name: 'Polymarket',  color: '#2D9CDB' },
-  { name: 'Kalshi',      color: '#00B87A' },
-  { name: 'Manifold',    color: '#4F46E5' },
-  { name: 'Delphi',      color: '#FF6B00' },
-  { name: 'Binance',     color: '#F3BA2F' },
-  { name: 'Bybit',       color: '#F7A600' },
-  { name: 'BlueFin',     color: '#3B82F6' },
-  { name: 'Deribit',     color: '#00D4AA' },
-  { name: 'Crypto.com',  color: '#003CDA' },
-];
 
 // ───────────────────────────────────────────────────────────────────────────
 // Live SUI Community Pool landing page. Apple-themed, single focus.
@@ -182,9 +215,9 @@ function toPoolSummary(res: HederaPoolResponse | undefined): PoolSummary | null 
 // published by useCursorSpotlight, translates each layer by a different
 // factor (calc((--sx - 50%) * k)) so back layers drift slowly and the
 // front layer tracks the cursor faster. That differential IS the 3D cue.
-// All ios-blue at low opacity so the white canvas stays clean. Hidden
-// below md: — mobile has no cursor and the graph would compete with
-// headline text at that width.
+// All ios-blue at low opacity so the white canvas stays clean. On phones
+// it is lighter (see .hero-graph-bg in globals.css) so the headline stays
+// legible, and it moves with tilt and scroll (useTiltParallax).
 //
 // Reduced-motion + hydration: gated purely in CSS (@media prefers-
 // reduced-motion). Not useReducedMotion() — that returns null on server
@@ -316,7 +349,7 @@ function HeroGraphBg() {
       // syncing the header with the hero backdrop instead of the
       // previous sharp cutoff at section top. Section must NOT clip
       // vertical overflow (see overflow-x-clip on the <section>).
-      className="hero-graph-bg hidden md:block absolute -top-24 left-0 right-0 bottom-0 -z-10 pointer-events-none overflow-hidden"
+      className="hero-graph-bg absolute -top-24 left-0 right-0 bottom-0 -z-10 pointer-events-none overflow-hidden"
       style={{
         perspective: '1400px',
         perspectiveOrigin: '50% 30%',
@@ -347,6 +380,13 @@ function HeroGraphBg() {
           text or the vault meter card. */}
       <div className="hero-graph-layer absolute -left-32 -right-32 top-0 bottom-0" style={LAYER_1_STYLE} />
 
+      {/* Both SVG layers carry an explicit width: an absolutely positioned
+          <svg> is a replaced element and keeps its intrinsic width (height ×
+          viewBox ratio) when only left and right are set. On a phone that
+          left the chart box ending at the viewport edge, which cut the fill
+          in a vertical line. max-w-none opts out of the phone-wide
+          `svg { max-width: 100% }` safety rule in globals.css, which would
+          cap the box at the viewport again. */}
       {/* Layer 2 — chart polylines. Slow dashoffset sweep on the dashed line
           gives a "live tape" feel without any JS. Paths extended beyond
           viewBox 0-1200 (starting at -200, ending at 1400) so the chart
@@ -355,7 +395,7 @@ function HeroGraphBg() {
           visible` allows the SVG to draw outside the viewBox. Layer
           stays extended -left-32/-right-32 for the 3D depth cue. */}
       <svg
-        className="hero-graph-layer absolute -left-32 -right-32 top-0 bottom-0 h-full"
+        className="hero-graph-layer absolute -left-32 -right-32 top-0 bottom-0 h-full w-[calc(100%+16rem)] max-w-none"
         preserveAspectRatio="none"
         viewBox="0 0 1200 600"
         overflow="visible"
@@ -399,7 +439,7 @@ function HeroGraphBg() {
           whole layer slowly rotates (72s per revolution) — sub-liminal
           but reinforces the "living system" read. */}
       <svg
-        className="hero-graph-layer absolute -left-32 -right-32 top-0 bottom-0 h-full"
+        className="hero-graph-layer absolute -left-32 -right-32 top-0 bottom-0 h-full w-[calc(100%+16rem)] max-w-none"
         preserveAspectRatio="xMidYMid slice"
         viewBox="0 0 1200 600"
         style={PX_LAYER_3}
@@ -473,6 +513,25 @@ function HeroGraphBg() {
         .hero-graph-bg[data-hero-visible="false"] .hero-spiral-rotate {
           animation-play-state: paused;
         }
+        /* Below the desktop breakpoint: the layers show (they were hidden
+           below md), lighter behind a headline that spans the width, and
+           their tilt/scroll-driven moves ease over a longer time than the
+           desktop cursor did. */
+        @media (max-width: 1023px) {
+          .hero-graph-bg {
+            opacity: 0.72;
+            /* The inline vignette clears an ellipse half the width of the
+               box. At 1440px that is a soft centre; at 768px and below its
+               edge falls inside the view and slices the chart fill with a
+               vertical line. These layers are faint already, so no vignette. */
+            -webkit-mask-image: none !important;
+            mask-image: none !important;
+          }
+          /* The spiral disk is the busiest layer and the headline and stats
+             fill the whole hero on a phone, so it goes fainter there. */
+          .hero-graph-layer:nth-child(3) { opacity: 0.45; }
+          .hero-graph-layer { transition-duration: 450ms; }
+        }
         @media (prefers-reduced-motion: reduce) {
           .hero-graph-layer { transform: none !important; transition: none !important; }
           .hero-chart-tape, .hero-node-drift, .hero-node-pulse, .hero-spiral-rotate { animation: none; }
@@ -489,9 +548,10 @@ export const SuiPoolLanding = memo(function SuiPoolLanding() {
   const { data: rawPool, isPending: loading } = useHederaPool('testnet');
   const pool = toPoolSummary(rawPool);
 
-  // Hero ref kept for structural anchor; cursor-follow effects removed
-  // per design request.
+  // Cursor-follow on desktop was removed by design; on touch devices the
+  // hero's depth layers follow tilt and scroll instead.
   const heroRef = useRef<HTMLElement>(null);
+  useTiltParallax(heroRef);
 
   // Build allocation legend (positive entries only)
   const allocationEntries = pool
@@ -581,35 +641,7 @@ export const SuiPoolLanding = memo(function SuiPoolLanding() {
             </div>
           </div>
 
-          {/* ─── READS FROM: data-source row ─── */}
-          {/* Brand chip strip — each source rendered as a bordered tile
-              with a brand-colored dot. Real "trusted by" lockup pattern
-              (Stripe, Vercel etc use it when raw logos aren't sourced).
-              Genuine social proof — these are the actual providers the
-              aggregator consumes every tick. */}
-          <div className="mx-auto max-w-[1100px] mb-12 sm:mb-16">
-            <p className="text-center text-[10px] sm:text-caption-2 font-semibold uppercase tracking-[0.14em] text-label-tertiary mb-4 sm:mb-5">
-              Signal sources
-            </p>
-            <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-2.5">
-              {DATA_SOURCES.map((s) => (
-                <span
-                  key={s.name}
-                  className="group inline-flex items-center gap-2 h-9 sm:h-10 pl-3 pr-4 rounded-full border border-separator-opaque/40 bg-white/60 backdrop-blur-sm text-label-secondary text-[13px] sm:text-[14px] font-medium tracking-[-0.005em] hover:border-separator-opaque hover:bg-white transition-colors"
-                >
-                  <span
-                    aria-hidden
-                    className="w-1.5 h-1.5 rounded-full shrink-0 group-hover:scale-125 transition-transform"
-                    style={{ backgroundColor: s.color }}
-                  />
-                  {s.name}
-                </span>
-              ))}
-            </div>
-            <p className="text-center text-[11px] sm:text-caption-1 text-label-tertiary mt-3 sm:mt-4">
-              Prediction markets · orderbook microstructure · funding · options implied vol
-            </p>
-          </div>
+          <DataSourceMarquee />
 
           {/* Start-here — 3 clear entry paths. Fixes the mismatch where
               the hero CTA said "See live signals" but the footer CTA asked

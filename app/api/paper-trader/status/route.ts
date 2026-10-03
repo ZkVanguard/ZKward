@@ -28,7 +28,6 @@ import {
 import type { SimulatedPosition } from '@/lib/services/paper-trader/simulated-executor';
 import { markToMarket } from '@/lib/services/paper-trader/simulated-executor';
 import { getLivePrice } from '@/lib/services/market-data/unified-price-provider';
-import { PredictionAggregatorService } from '@/lib/services/market-data/PredictionAggregatorService';
 import { CALIBRATION_EPOCH } from '@/lib/services/ai/source-calibrator';
 
 export const runtime = 'nodejs';
@@ -148,6 +147,13 @@ export async function GET(_req: NextRequest): Promise<NextResponse> {
 
     const currentNavRealized = nav ?? PAPER_STARTING_NAV;
 
+    // The trade record comes from the rows of this session; the counter is
+    // only a fallback (two overlapping ticks once counted one close twice).
+    const { bookRowStats } = await import('@/lib/db/book-row-stats');
+    const { KEY_SESSION_STARTED_AT } = await import('@/lib/services/paper-trader/config');
+    const sessionStart = Number(await getCronState<number>(KEY_SESSION_STARTED_AT)) || 0;
+    const rowRecord = await bookRowStats(PAPER_PORTFOLIO_ID, sessionStart);
+
     // Mark every active position to market so the dashboard shows a
     // live-ish NAV summing unrealized PnL across all open positions.
     // PRICES FETCHED IN PARALLEL — sequential await in a loop was
@@ -227,20 +233,8 @@ export async function GET(_req: NextRequest): Promise<NextResponse> {
       perAsset[r.asset] = bucket;
     }
 
-    // Live signals snapshot
-    let signals: Record<string, { recommendation: string; confidence: number; sources: number }> = {};
-    try {
-      const preds = await PredictionAggregatorService.getPerAssetPredictions(PAPER_UNIVERSE);
-      for (const [asset, p] of Object.entries(preds)) {
-        signals[asset] = {
-          recommendation: p.recommendation,
-          confidence: Math.round(p.confidence),
-          sources: p.sources.length,
-        };
-      }
-    } catch (e) {
-      logger.warn('[paper-trader/status] signals query failed', { error: errMsg(e) });
-    }
+    // No live-signal scan here: a cold aggregator run took about 12 s and
+    // held the whole page. The paper page reads /api/predictions/per-asset.
 
     const s: PaperStats = stats ?? {
       trades: 0,
@@ -250,6 +244,7 @@ export async function GET(_req: NextRequest): Promise<NextResponse> {
       peakNavUsd: PAPER_STARTING_NAV,
       lastRealizedUsd: 0,
     };
+    const record = rowRecord ?? { trades: s.trades, wins: s.wins, losses: s.losses, realizedUsd: s.cumRealizedUsd };
 
     const response = NextResponse.json({
       success: true,
@@ -274,11 +269,11 @@ export async function GET(_req: NextRequest): Promise<NextResponse> {
             : 0,
       },
       stats: {
-        trades: s.trades,
-        wins: s.wins,
-        losses: s.losses,
-        winRatePct: s.trades > 0 ? (s.wins / s.trades) * 100 : 0,
-        cumRealizedUsd: s.cumRealizedUsd,
+        trades: record.trades,
+        wins: record.wins,
+        losses: record.losses,
+        winRatePct: record.trades > 0 ? (record.wins / record.trades) * 100 : 0,
+        cumRealizedUsd: record.realizedUsd,
         lastRealizedUsd: s.lastRealizedUsd,
       },
       activePosition: activePosOut,
@@ -297,7 +292,6 @@ export async function GET(_req: NextRequest): Promise<NextResponse> {
         reason: r.reason,
       })),
       perAsset,
-      signals,
       navSeries: series ?? [],
       learning: await loadLearningSnapshot(),
     });

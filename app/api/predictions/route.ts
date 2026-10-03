@@ -17,12 +17,16 @@ export async function GET(request: NextRequest) {
 
   try {
     const { searchParams } = new URL(request.url);
-    const assetsParam = searchParams.get('assets') || 'BTC,ETH,CRO';
-    const assets = assetsParam.split(',').map(a => a.trim().toUpperCase());
+    // An explicit empty list means no assets; only a missing param gets the default.
+    const assetsParam = searchParams.has('assets') ? searchParams.get('assets') || '' : 'BTC,ETH,CRO';
+    const assets = assetsParam.split(',').map(a => a.trim().toUpperCase()).filter(Boolean);
+    const top = Math.min(Number(searchParams.get('top')) || 0, 50);
     
-    logger.info('Fetching predictions for assets', { assets });
+    logger.info('Fetching predictions', top > 0 ? { top } : { assets });
     
-    const predictions = await DelphiMarketService.getRelevantMarkets(assets);
+    const predictions = top > 0
+      ? await DelphiMarketService.getTopMarkets(top)
+      : await DelphiMarketService.getRelevantMarkets(assets);
     
     // Analyze predictions
     const analysis = analyzePredictions(predictions, assets);

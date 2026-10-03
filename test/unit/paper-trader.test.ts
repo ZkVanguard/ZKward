@@ -35,6 +35,10 @@ process.env.PAPER_TRADER_FLIP_EXIT = '1';
 // Fix O: max-hold ceiling (default 90) would clip the legacy scalar
 // assertions below; pin it out of the way. Ceiling has its own test.
 process.env.PAPER_TRADER_MAX_HOLD_CEILING_MIN = '10000';
+// These tests assert the single-tick open and the legacy exits; resting
+// execution (the default since 2026-10-02) has its own file,
+// paper-resting-orders.test.ts.
+process.env.PAPER_TRADER_EXECUTION = 'market';
 
 import { describe, it, expect, jest, beforeEach } from '@jest/globals';
 
@@ -617,9 +621,11 @@ describe('assetSideRecentPnl paper isolation (PR #131 sibling)', () => {
     );
     // At least one query hit the hedges table (the regret lookup).
     expect(selectCalls.length).toBeGreaterThan(0);
-    // Every hedges SELECT this tick made must isolate paper rows.
+    // Every hedges SELECT this tick made must isolate paper rows: by the
+    // paper order-id prefix, the simulation flag, or the book's own
+    // portfolio id (the scoreboard reads).
     for (const call of selectCalls) {
-      expect(call[0]).toMatch(/order_id LIKE 'paper_%'|simulation_mode\s*=\s*true/i);
+      expect(call[0]).toMatch(/order_id LIKE 'paper_%'|simulation_mode\s*=\s*true|portfolio_id = (\$1|ANY\(\$1\))/i);
     }
   });
 });

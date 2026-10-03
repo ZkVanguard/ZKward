@@ -11,54 +11,12 @@
  */
 
 import { logger } from '@/lib/utils/logger';
+import type { PredictionMarket } from '@/lib/types/market-signals';
+
+export type { PredictionMarket };
 import { cache } from '../../utils/cache';
 import { CACHE_TAG_CRYPTOCOM_TICKER } from './cache-tags';
 
-export interface PredictionMarket {
-  id: string;
-  question: string;
-  category: 'volatility' | 'price' | 'event' | 'protocol' | 'regulation' | 'adoption' | 'market' | 'defi';
-  probability: number; // 0-100
-  volume: string;
-  impact: 'HIGH' | 'MODERATE' | 'LOW';
-  relatedAssets: string[];
-  lastUpdate: number;
-  confidence: number; // 0-100, based on volume and liquidity
-  recommendation?: 'HEDGE' | 'MONITOR' | 'IGNORE';
-  source?: 'polymarket' | 'crypto-analysis' | 'delphi' | 'manifold';
-  aiSummary?: string; // AI-generated agent analysis summary
-  agentAnalysis?: {
-    riskAgent: string;
-    hedgingAgent: string;
-    sentiment: 'bullish' | 'bearish' | 'neutral';
-    actionRationale: string;
-    analyzedAt: number;
-  };
-  
-  // Enhanced AI-relevant fields
-  /** Liquidity depth on the prediction market */
-  liquidity?: number;
-  /** Open interest (total outstanding bets) */
-  openInterest?: number;
-  /** Probability change in last hour (momentum) */
-  probabilityChange1h?: number;
-  /** Probability change in last 24 hours */
-  probabilityChange24h?: number;
-  /** Time until market resolution (ms) */
-  timeToResolution?: number;
-  /** Resolution date ISO string */
-  resolutionDate?: string;
-  /** Market sentiment derived from order flow */
-  orderFlowSentiment?: 'buying' | 'selling' | 'balanced';
-  /** Smart money indicator based on large trades */
-  smartMoneyDirection?: 'accumulating' | 'distributing' | 'neutral';
-  /** Historical accuracy of similar markets from this source */
-  sourceAccuracy?: number;
-  /** Correlation with BTC price movement */
-  btcCorrelation?: number;
-  /** Urgency score for time-sensitive decisions */
-  urgencyScore?: number;
-}
 
 export interface DelphiInsight {
   asset: string;

@@ -107,6 +107,35 @@
         "protected": "La tua privacy è protetta",
         "protectedDesc": "Tutti i dati sensibili sono crittografati. Le prove ZK garantiscono che le tue posizioni rimangano private ma comunque verificabili on-chain."
       }
+    },
+    "marketBoard": {
+      "title": "Tendenza del mercato",
+      "subtitle": "Dove pendono i segnali per ciascun asset e quali mercati lo dicono",
+      "updated": "Aggiornato {s} s fa",
+      "refresh": "Aggiorna",
+      "leanUp": "Tendenza al rialzo",
+      "leanDown": "Tendenza al ribasso",
+      "noLean": "Nessuna tendenza",
+      "confidence": "{pct}% di confidenza",
+      "agree": "{n} fonti su {total} concordano",
+      "split": "{total} fonti, divise",
+      "sources": "Fonti",
+      "noSources": "Nessuna fonte riporta su questo asset al momento",
+      "weight": "{pct}% di peso",
+      "error": "Impossibile caricare i segnali.",
+      "retry": "Riprova",
+      "staleAfterError": "L’ultimo aggiornamento non è riuscito; questi numeri provengono dal precedente.",
+      "footer": "La tendenza è il voto ponderato delle fonti elencate. Il registro dei segnali valuta ogni fonte rispetto al prezzo successivo; una tendenza non è una previsione.",
+      "overall": {
+        "up": "Mercato in tendenza rialzista",
+        "down": "Mercato in tendenza ribassista",
+        "mixed": "Mercato misto"
+      },
+      "dir": {
+        "up": "su",
+        "down": "giù",
+        "flat": "piatto"
+      }
     }
   },
   "common": {
@@ -255,6 +284,17 @@
       "mature": {
         "value": "37",
         "label": "sources with mature track records"
+      }
+    },
+    "sources": {
+      "eyebrow": "Segnali da",
+      "caption": "Mercati predittivi · order book · funding · skew delle opzioni",
+      "roles": {
+        "predictionMarket": "Mercato predittivo",
+        "perpetuals": "Futures perpetui",
+        "options": "Opzioni",
+        "spot": "Prezzi spot",
+        "venue": "Venue di copertura"
       }
     },
     "cta": {

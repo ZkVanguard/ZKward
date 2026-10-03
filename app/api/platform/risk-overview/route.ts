@@ -29,11 +29,10 @@ import { query } from '@/lib/db/postgres';
 import { getLiveAssetSignals } from '@/lib/services/market-data/live-signals';
 
 export const runtime = 'nodejs';
-// 30s ISR — matches the underlying NAV cron cadence (30min) and the
-// frontend's 60s polling. force-dynamic was neutralising the existing
-// Cache-Control header, so every /dashboard load hit the DB. With
-// revalidate, N users → 1 DB query per 30s window.
-export const revalidate = 30;
+// Dynamic on purpose: no `revalidate`. A revalidate export makes the GET a
+// build-time static page whose regeneration can silently never land. The
+// explicit Cache-Control header on the response caches it at the CDN, so
+// N viewers still cost one DB read per 30 s window.
 export const maxDuration = 15;
 
 interface CronHealth {
@@ -660,26 +659,30 @@ async function getHedgeHistorySection(): Promise<RiskOverviewResponse['hedgeHist
 
 async function getPaperTraderSection(): Promise<RiskOverviewResponse['paperTrader']> {
   try {
-    const [{ getCronState }, { KEY_NAV, KEY_STATS, KEY_LAST_RUN, PAPER_STARTING_NAV }, { loadActivePositions }] = await Promise.all([
+    const [{ getCronState }, { KEY_NAV, KEY_STATS, KEY_LAST_RUN, KEY_SESSION_STARTED_AT, PAPER_STARTING_NAV, PAPER_PORTFOLIO_ID }, { loadActivePositions }, { bookRowStats }] = await Promise.all([
       import('@/lib/db/cron-state'),
       import('@/lib/services/paper-trader/config'),
       import('@/lib/services/paper-trader/concurrent'),
+      import('@/lib/db/book-row-stats'),
     ]);
-    const [nav, stats, lastRun, positions] = await Promise.all([
+    const [nav, stats, lastRun, positions, sessionStart] = await Promise.all([
       getCronState<number>(KEY_NAV),
       getCronState<{ trades: number; wins: number; losses: number; cumRealizedUsd: number }>(KEY_STATS),
       getCronState<number>(KEY_LAST_RUN),
       loadActivePositions().catch(() => []),
+      getCronState<number>(KEY_SESSION_STARTED_AT),
     ]);
-    const trades = stats?.trades ?? 0;
-    const wins = stats?.wins ?? 0;
+    // The trade record comes from the rows; the counter is only a fallback.
+    const rows = await bookRowStats(PAPER_PORTFOLIO_ID, Number(sessionStart) || 0);
+    const trades = rows?.trades ?? stats?.trades ?? 0;
+    const wins = rows?.wins ?? stats?.wins ?? 0;
     return {
       navUsd: Number(nav ?? PAPER_STARTING_NAV),
       startingNavUsd: PAPER_STARTING_NAV,
-      cumRealizedUsd: Number(stats?.cumRealizedUsd ?? 0),
+      cumRealizedUsd: Number(rows?.realizedUsd ?? stats?.cumRealizedUsd ?? 0),
       trades,
       wins,
-      losses: stats?.losses ?? 0,
+      losses: rows?.losses ?? stats?.losses ?? 0,
       winRatePct: trades > 0 ? Math.round((wins / trades) * 1000) / 10 : 0,
       lastTickIso: lastRun ? new Date(lastRun).toISOString() : null,
       activePositionsCount: positions.length,

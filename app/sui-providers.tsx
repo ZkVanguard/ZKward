@@ -64,7 +64,6 @@ interface SuiContextType {
   // Transactions
   executeTransaction: (tx: unknown) => Promise<{ digest: string; success: boolean; error?: string }>;
   signTransaction: (txBytes: Uint8Array) => Promise<{ signature: string }>;
-  sponsoredExecute: (tx: unknown) => Promise<{ digest: string; success: boolean; error?: string }>;
   
   // Utilities
   getExplorerUrl: (type: 'tx' | 'address' | 'object', value: string) => string;
@@ -321,68 +320,6 @@ function SuiContextProvider({
     return { signature: result.signature };
   }, [isConnected, isWrongNetwork, walletNetwork, network, walletSignTx]);
 
-  // Sponsored execute: 2-step flow
-  // Step 1: Server sets gas fields on unbuilt tx → returns modified tx
-  // Step 2: Wallet builds + signs → server admin co-signs the same bytes + executes
-  const sponsoredExecute = useCallback(async (tx: unknown): Promise<{ digest: string; success: boolean; error?: string }> => {
-    if (!isConnected || !address) throw new Error('Wallet not connected');
-    if (isWrongNetwork) throw new Error(`Wrong network: wallet is on ${walletNetwork || 'unknown'}, app expects ${network}`);
-
-    try {
-      const { Transaction } = await import('@mysten/sui/transactions');
-      const txObj = tx as InstanceType<typeof Transaction>;
-
-      // Step 1: Send unbuilt tx to server — server sets gasOwner, gasBudget, gasPayment
-      const serialized = txObj.serialize();
-      const txBase64 = Buffer.from(serialized).toString('base64');
-
-      const sponsorRes = await fetch('/api/sui/sponsor-gas', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ txBytes: txBase64, sender: address }),
-      });
-      const sponsorData = await sponsorRes.json();
-      if (!sponsorRes.ok || !sponsorData.success) {
-        throw new Error(sponsorData.error || 'Gas sponsoring failed');
-      }
-
-      // Reconstruct Transaction object from the server's modified JSON
-      const modifiedTxJson = Buffer.from(sponsorData.txBytes, 'base64').toString('utf-8');
-      const modifiedTx = Transaction.from(modifiedTxJson);
-
-      // Wallet builds (resolves objects via RPC) and signs the BCS bytes
-      // Cast needed: dynamic import Transaction vs dapp-kit's Transaction type are structurally same
-      const userSig = await walletSignTx({ transaction: modifiedTx as unknown as string });
-
-      // Step 2: Server admin co-signs the wallet's bytes and executes
-      const executeRes = await fetch('/api/sui/sponsor-execute', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          txBytes: userSig.bytes,       // base64 BCS bytes the wallet built and signed
-          userSignature: userSig.signature,
-          sender: address,
-        }),
-      });
-      const execData = await executeRes.json();
-
-      if (!executeRes.ok || !execData.success) {
-        throw new Error(execData.error || 'Sponsored execution failed');
-      }
-
-      return { digest: execData.digest || '', success: true };
-    } catch (error: unknown) {
-      logger.error('Sponsored transaction failed', error instanceof Error ? error : undefined, { component: 'SuiProvider' });
-      const message = error instanceof Error ? error.message : String(error);
-      const isUserRejection = message.includes('Rejected') || message.includes('User rejected') || message.includes('cancelled');
-      return {
-        digest: '',
-        success: false,
-        error: isUserRejection ? 'User rejected the transaction' : message,
-      };
-    }
-  }, [isConnected, isWrongNetwork, walletNetwork, network, address, walletSignTx]);
-
   const getExplorerUrl = useCallback((type: 'tx' | 'address' | 'object', value: string): string => {
     const baseUrl = network === 'mainnet' 
       ? 'https://suiexplorer.com'
@@ -452,7 +389,6 @@ function SuiContextProvider({
     disconnectWallet,
     executeTransaction,
     signTransaction,
-    sponsoredExecute,
     getExplorerUrl,
     requestFaucetTokens,
   }), [
@@ -470,7 +406,6 @@ function SuiContextProvider({
     disconnectWallet,
     executeTransaction,
     signTransaction,
-    sponsoredExecute,
     getExplorerUrl,
     requestFaucetTokens,
   ]);

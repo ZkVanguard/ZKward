@@ -276,14 +276,37 @@ export const PAPER_TIGHTEN_NOTIONAL_FRAC = Number(
 // coin flip at 60min, and 80% of 90-min max-hold exits closed red. The
 // ledger now picks each asset's hold horizon (ledger-cells.ts); this is
 // the ceiling it may reach. 24h is excluded — the signal inverts there.
+// Exit policy. 'target' (default): every new position gets a take-profit,
+// a stop and a time limit and closes only at one of them (see
+// target-exit.ts for the measurement behind the numbers). 'adaptive'
+// restores the vol-scaled stop, trailing stop, tighten and ledger hold.
+// Positions keep the policy they were opened with.
+export const PAPER_EXIT_MODE: 'target' | 'adaptive' =
+  (process.env.PAPER_TRADER_EXIT_MODE || 'target').trim().toLowerCase() === 'adaptive' ? 'adaptive' : 'target';
+/** Take-profit distance from entry, in bp of price. Must clear ~17 bp of friction to be a win. */
+export const PAPER_TARGET_TP_BP = Number(process.env.PAPER_TRADER_TARGET_TP_BP || 25);
+/** Stop distance from entry, in bp of price. */
+export const PAPER_TARGET_STOP_BP = Number(process.env.PAPER_TRADER_TARGET_STOP_BP || 200);
+/** Time limit; a trade still open then closes at the mark. */
+export const PAPER_TARGET_MAX_HOLD_MIN = Number(process.env.PAPER_TRADER_TARGET_MAX_HOLD_MIN || 1440);
+
+// Execution style. 'resting' (default): the entry and the take-profit are
+// resting limit orders (maker fee, no slippage, filled only on a
+// trade-through; see resting-orders.ts for the measurement). 'market'
+// restores market orders everywhere. The stop and the time limit are
+// market orders in both.
+export const PAPER_EXECUTION: 'resting' | 'market' =
+  (process.env.PAPER_TRADER_EXECUTION || 'resting').trim().toLowerCase() === 'market' ? 'market' : 'resting';
+/** An entry that has not filled after this long is cancelled. */
+export const PAPER_RESTING_ENTRY_WAIT_MIN = Number(process.env.PAPER_TRADER_RESTING_ENTRY_WAIT_MIN || 15);
+
 export const PAPER_MAX_HOLD_CEILING_MIN = Number(
   process.env.PAPER_TRADER_MAX_HOLD_CEILING_MIN || 240,
 );
 
-// Ledger admission (2026-10-01): skip an asset whose aggregate signal the
-// ledger has measured (n >= SIGNAL_LEDGER_MIN_N) with no edge at any hold
-// horizon, and hold to the horizon where it has one. Cold assets pass on
-// the heuristic hold. PAPER_TRADER_LEDGER_GATE=0 disables.
+// Ledger admission: skip an asset whose aggregate signal the ledger has
+// measured wrong-way at every hold horizon (see ledger-cells.ts for the
+// bar). Unproven and cold assets pass. PAPER_TRADER_LEDGER_GATE=0 disables.
 export const PAPER_LEDGER_GATE = (process.env.PAPER_TRADER_LEDGER_GATE || '1').trim() !== '0';
 /**
  * Signal-flip exit in the paper books. Off since 2026-10-02: 0 wins in 7
@@ -302,20 +325,8 @@ export const PAPER_REGRET_COOLDOWN_PCT = Number(
 );
 export const PAPER_REGRET_WINDOW = Number(process.env.PAPER_TRADER_REGRET_WINDOW || 20);
 
-// ── Discord digest mode ────────────────────────────────────────────
-// When enabled, TRADE-level OPEN/CLOSE events are buffered and flushed
-// as one summary Discord message on cadence. Halts, price failures, and
-// other WARN/KILL levels still fire immediately regardless. Opt-in —
-// default OFF preserves current per-trade behavior.
-export const PAPER_DISCORD_DIGEST_ENABLED =
-  (process.env.PAPER_TRADER_DISCORD_DIGEST || '').trim() === '1';
-export const PAPER_DIGEST_FLUSH_MS = Number(
-  process.env.PAPER_TRADER_DIGEST_FLUSH_MS || 60 * 60 * 1000,
-);
-export const PAPER_DIGEST_FLUSH_MAX_EVENTS = Number(
-  process.env.PAPER_TRADER_DIGEST_FLUSH_MAX_EVENTS || 20,
-);
-export const KEY_DIGEST_BUFFER = 'paper-trader:discord-digest';
+// Hours between scoreboard posts for the simulated books (0 = never).
+export const PAPER_SCOREBOARD_HOURS = Number(process.env.PAPER_TRADER_SCOREBOARD_HOURS || 4);
 
 /**
  * Per-asset volatility multiplier — the "vol parity" fix. SOL and small-caps
@@ -354,6 +365,7 @@ export const KEY_LAST_SKIP = 'paper-trader:last-skip';
 // KEY_POSITION + KEY_ORDER_ID untouched. Migration is automatic on
 // first tick after concurrent mode enables.
 export const KEY_POSITIONS = 'paper-trader:active-positions';
+export const KEY_RESTING_ENTRY = 'paper-trader:resting-entry';
 
 export const NAV_SERIES_MAX = 500;
 

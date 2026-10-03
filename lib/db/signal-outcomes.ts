@@ -288,17 +288,29 @@ export async function getSignalStats(windowDays = 7, source = 'polymarket-5min')
 }
 
 /**
- * Per-(source, asset, horizon) hit rates — the admission-decision read.
- * Only resolved rows count. Used by the (upcoming) proof-based source
- * admission gate: a source trades only where its ledger cell shows
- * hit ≥ threshold with enough samples.
+ * Per-(source, asset, horizon) evidence. Only resolved rows count.
+ *
+ * `n` and `hitRate` count every row. They are kept for display, but they
+ * measure the wrong thing twice over: rows overlap (a source scored every ten
+ * minutes at a 240 min horizon gives about ten independent observations in
+ * two days, not two hundred), and a hit rate rewards drift (a source that
+ * says DOWN all week is "58% right" in a falling week and knows nothing).
+ *
+ * `timingBp` is what a source knows about WHEN: the return in its direction
+ * minus the asset's own average return over the same window, averaged over
+ * non-overlapping horizon-length buckets. `windows` counts those buckets
+ * and `timingSeBp` is the standard error across them. A source that never
+ * changes its mind scores zero here by construction.
  */
 export async function getLedgerHitRates(options: {
   windowDays?: number;
   minN?: number;
   /** Never read rows before this (the signal definitions changed). */
   sinceMs?: number;
-} = {}): Promise<Array<{ source: string; asset: string; horizonMin: number; n: number; hitRate: number }>> {
+} = {}): Promise<Array<{
+  source: string; asset: string; horizonMin: number; n: number; hitRate: number;
+  windows: number; timingBp: number; timingSeBp: number;
+}>> {
   await ensureSignalOutcomesTable();
   const windowDays = options.windowDays ?? 30;
   const minN = options.minN ?? 50;
@@ -306,22 +318,50 @@ export async function getLedgerHitRates(options: {
   try {
     const rows = await query<{
       source: string; asset: string; horizon_min: number; n: string; hits: string;
+      windows: string; timing_bp: string | null; timing_sd: string | null;
     }>(
-      `SELECT source, asset, horizon_min, COUNT(*)::text AS n,
-              SUM(CASE WHEN correct THEN 1 ELSE 0 END)::text AS hits
-       FROM signal_outcomes
-       WHERE status = 'resolved' AND window_end_time >= $1 AND asset IS NOT NULL
+      `WITH scored AS (
+         SELECT source, asset, horizon_min, window_end_time, correct, direction,
+                CASE WHEN entry_price > 0 AND exit_price IS NOT NULL
+                     THEN (exit_price - entry_price) / entry_price * 10000 END AS ret_bp
+         FROM signal_outcomes
+         WHERE status = 'resolved' AND window_end_time >= $1 AND asset IS NOT NULL AND horizon_min > 0
+       ),
+       drift AS (
+         SELECT asset, horizon_min, AVG(ret_bp) AS drift_bp FROM scored GROUP BY asset, horizon_min
+       ),
+       buckets AS (
+         SELECT s.source, s.asset, s.horizon_min,
+                FLOOR(s.window_end_time / (s.horizon_min * 60000.0)) AS bucket,
+                COUNT(*) AS n,
+                SUM(CASE WHEN s.correct THEN 1 ELSE 0 END) AS hits,
+                AVG(CASE WHEN s.direction IN ('UP', 'DOWN')
+                         THEN (s.ret_bp - d.drift_bp) * (CASE WHEN s.direction = 'UP' THEN 1 ELSE -1 END) END) AS timing_bp
+         FROM scored s JOIN drift d ON d.asset = s.asset AND d.horizon_min = s.horizon_min
+         GROUP BY s.source, s.asset, s.horizon_min, bucket
+       )
+       SELECT source, asset, horizon_min, SUM(n)::text AS n, SUM(hits)::text AS hits,
+              COUNT(timing_bp)::text AS windows, AVG(timing_bp)::text AS timing_bp,
+              STDDEV_SAMP(timing_bp)::text AS timing_sd
+       FROM buckets
        GROUP BY source, asset, horizon_min
-       HAVING COUNT(*) >= $2`,
+       HAVING SUM(n) >= $2`,
       [sinceMs, minN],
     );
-    return rows.map((r) => ({
-      source: r.source,
-      asset: r.asset,
-      horizonMin: Number(r.horizon_min),
-      n: Number(r.n),
-      hitRate: Number(r.n) > 0 ? Number(r.hits) / Number(r.n) : 0,
-    }));
+    return rows.map((r) => {
+      const windows = Number(r.windows) || 0;
+      return {
+        source: r.source,
+        asset: r.asset,
+        horizonMin: Number(r.horizon_min),
+        n: Number(r.n),
+        hitRate: Number(r.n) > 0 ? Number(r.hits) / Number(r.n) : 0,
+        windows,
+        timingBp: Number(r.timing_bp) || 0,
+        // One window has no spread to measure: no evidence either way.
+        timingSeBp: windows > 1 ? (Number(r.timing_sd) || 0) / Math.sqrt(windows) : Number.POSITIVE_INFINITY,
+      };
+    });
   } catch (err) {
     logger.warn('[SignalOutcomes] getLedgerHitRates failed', { error: err instanceof Error ? err.message : err });
     return [];

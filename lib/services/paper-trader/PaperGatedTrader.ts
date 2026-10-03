@@ -38,6 +38,9 @@ import { errMsg } from '@/lib/utils/error-handler';
 import { selectCandidate, priceCandidate, sizeCandidate } from './entry-helpers';
 import { simulateOpen, simulateClose, markToMarket, type SimulatedPosition, type Side } from './simulated-executor';
 import { majorityAgreementPct } from './signal-quality';
+import { targetExitLevels, takeProfitFill } from './target-exit';
+import { checkRestingEntry, placeRestingEntry, type EntryPlan } from './resting-orders';
+import { notifyPaperOpen, notifyPaperClose } from './notifications';
 import { runAgentGate } from '@/app/api/cron/polymarket-edge-trader/handlers/agent-gate';
 import {
   PAPER_UNIVERSE,
@@ -59,6 +62,7 @@ const KEY_NAV           = 'paper-gated-trader:nav-usd';
 const KEY_STATS         = 'paper-gated-trader:stats';
 const KEY_LAST_RUN      = 'cron:lastRun:paper-gated-trader';
 const KEY_LAST_SKIP     = 'paper-gated-trader:last-skip';
+const KEY_RESTING_ENTRY = 'paper-gated-trader:resting-entry';
 
 const PORTFOLIO_ID = -4;
 const CHAIN = 'hedera-testnet';
@@ -151,6 +155,19 @@ export class PaperGatedTrader {
       }
     }
 
+    // 1b. Target-exit take-profit: such a position closes here, at the stop
+    //     above or at the time limit below, and skips every other exit.
+    const onTarget = pos.takeProfitPrice !== undefined;
+    const tpFill = takeProfitFill(pos, markPrice);
+    if (tpFill) {
+      return PaperGatedTrader.closeAtMark(
+        pos, tpFill.price, nav, now,
+        `take-profit: mark $${markPrice.toFixed(4)} reached $${(pos.takeProfitPrice ?? 0).toFixed(4)}`,
+        orderId,
+        tpFill.resting,
+      );
+    }
+
     // 2. Trailing stop. Fix O (2026-09-27): arm on the position's own
     //    notional, not NAV — the NAV-relative arm never fired once.
     //    Shared threshold math in adaptive-stops.ts.
@@ -161,7 +178,7 @@ export class PaperGatedTrader {
     const currentTrough = Math.min(priorTrough, mtm.unrealizedPnlUsd);
     const { trailingArmThresholdUsd, underwaterTightenTrip } = await import('./adaptive-stops');
     const trailingArmed = currentPeak >= trailingArmThresholdUsd(pos.notionalUsd);
-    if (trailingArmed && mtm.unrealizedPnlUsd < currentPeak * (1 - PAPER_TRAILING_STOP_GIVEBACK_PCT)) {
+    if (!onTarget && trailingArmed && mtm.unrealizedPnlUsd < currentPeak * (1 - PAPER_TRAILING_STOP_GIVEBACK_PCT)) {
       return PaperGatedTrader.closeAtMark(
         pos, markPrice, nav, now,
         `trailing-stop: peak +$${currentPeak.toFixed(2)}, gave back to +$${mtm.unrealizedPnlUsd.toFixed(2)}`,
@@ -181,7 +198,7 @@ export class PaperGatedTrader {
 
     // 2.5. Adaptive underwater tighten — same shared trip check as
     //      PaperTrader (Fix O: notional-relative depth + 45min age).
-    if (!trailingArmed && currentPeak <= 0) {
+    if (!onTarget && !trailingArmed && currentPeak <= 0) {
       const ageMin = (now - pos.openedAt) / 60_000;
       const lossUsd = -mtm.unrealizedPnlUsd;
       if (underwaterTightenTrip({ ageMin, lossUsd, notionalUsd: pos.notionalUsd })) {
@@ -208,7 +225,7 @@ export class PaperGatedTrader {
     // that fired -$35/-$38 BTC losses inside 15 min of open.
     const posAgeSec = (now - pos.openedAt) / 1000;
     const { PAPER_MIN_FLIP_AGE_SEC, PAPER_MIN_FLIP_CONFIDENCE, PAPER_FLIP_EXIT_ENABLED } = await import('./config');
-    if (PAPER_FLIP_EXIT_ENABLED && posAgeSec >= PAPER_MIN_FLIP_AGE_SEC) {
+    if (!onTarget && PAPER_FLIP_EXIT_ENABLED && posAgeSec >= PAPER_MIN_FLIP_AGE_SEC) {
       try {
         // scanAndPickBest.all returns ALL asset predictions regardless of
         // gates (gates only affect .best), so apply the flip-specific
@@ -250,6 +267,20 @@ export class PaperGatedTrader {
     // quality, etc.) so by the time it returns ok, the candidate has
     // already cleared the raw-paper gates. The gated-mode delta is
     // ONLY the runAgentGate call added below.
+    // A resting entry from an earlier tick is resolved first: filled = open
+    // it, still resting = wait, lapsed = look for a new candidate.
+    const resting = await checkRestingEntry(KEY_RESTING_ENTRY, now, async (a) => {
+      const p = await priceCandidate(a);
+      return p.ok ? p.markPrice : null;
+    });
+    if (resting.state === 'waiting') {
+      const { plan, limitPrice } = resting.entry;
+      return { action: 'held', reason: `resting ${plan.side} entry on ${plan.asset} @ $${limitPrice.toFixed(4)}`, nav };
+    }
+    if (resting.state === 'filled') {
+      return PaperGatedTrader.openPosition(resting.entry.plan, resting.entry.limitPrice, nav, now, true);
+    }
+
     const selection = await selectCandidate(now);
     if (!selection.ok) return { action: 'skipped', reason: selection.reason, nav };
     const picked = selection.picked;
@@ -312,41 +343,72 @@ export class PaperGatedTrader {
       };
     }
 
+    const { normalizeSourceKey } = await import('@/lib/services/ai/source-calibrator');
+    const plan: EntryPlan = {
+      asset, side, rec, notionalUsd, signalScalar,
+      conf: picked.prediction.confidence,
+      cons: (picked.prediction as { consensus?: number }).consensus ?? 0,
+      score: picked.score,
+      probe: picked.probe,
+      holdHorizonMin: picked.holdHorizonMin,
+      ledgerHitRate: picked.ledgerHitRate,
+      // Per-source directions at entry, so each source's call can be scored
+      // against the outcome at close.
+      sourceSnapshot: (picked.prediction.sources ?? []).map((s) => ({
+        key: normalizeSourceKey(s.name, s.type ?? ''),
+        direction: s.direction,
+      })),
+    };
+    const { PAPER_EXECUTION } = await import('./config');
+    if (PAPER_EXECUTION === 'resting') {
+      await placeRestingEntry(KEY_RESTING_ENTRY, plan, markPrice, now);
+      return { action: 'held', nav, reason: `resting ${side} entry placed on ${asset} @ $${markPrice.toFixed(4)}` };
+    }
+    return PaperGatedTrader.openPosition(plan, markPrice, nav, now, false);
+  }
+
+  /**
+   * Opens `plan` at `markPrice`. `resting` = the entry filled as a resting
+   * order at that price (maker fee, no slippage); otherwise a market fill.
+   */
+  private static async openPosition(
+    plan: EntryPlan,
+    markPrice: number,
+    nav: number,
+    now: number,
+    resting: boolean,
+  ): Promise<TickResult> {
+    const { asset, side, rec, notionalUsd, conf, cons, signalScalar, sourceSnapshot } = plan;
+
     // Fix O (2026-09-27): adaptive stop at entry, parity with raw paper —
     // the static 1.2% left all gated stop-outs at 0 wins (6 closes,
     // -$1,769); the 2.5% floor in computeAdaptiveThresholds is the wider
     // stop the 2026-09-22 revert actually wanted.
     // Shared hold math (Fix O, ceiling in config); a ledger-measured
-    // horizon (picked.holdHorizonMin) replaces the heuristic hold.
+    // horizon (plan.holdHorizonMin) replaces the heuristic hold.
     const { computeMaxHoldMinutes, holdPlanTag, holdPlanMeta } = await import('./sizing');
-    const maxHoldMin = computeMaxHoldMinutes(signalScalar, 1, picked.holdHorizonMin);
+    const { PAPER_EXIT_MODE } = await import('./config');
+    const target = PAPER_EXIT_MODE === 'target' ? targetExitLevels(side, markPrice) : null;
+    const maxHoldMin = target?.maxHoldMin ?? computeMaxHoldMinutes(signalScalar, 1, plan.holdHorizonMin);
 
     const { computeAdaptiveThresholds } = await import('./adaptive-stops');
     const stopFrac = (await computeAdaptiveThresholds(asset, { holdWindowMin: maxHoldMin })).stopLossPct;
-    const stopLossPrice = side === 'LONG'
+    const stopLossPrice = target?.stopLossPrice ?? (side === 'LONG'
       ? markPrice * (1 - stopFrac)
-      : markPrice * (1 + stopFrac);
-
-    // Snapshot the per-source directions at open so recordSourceOutcome
-    // can score each source's call against the actual outcome at close.
-    // Was missing until 2026-09-22 — gated closes never fed source-cal.
-    const { normalizeSourceKey } = await import('@/lib/services/ai/source-calibrator');
-    const sourceSnapshot = (picked.prediction.sources ?? []).map((s) => ({
-      key: normalizeSourceKey(s.name, s.type ?? ''),
-      direction: s.direction,
-    }));
+      : markPrice * (1 + stopFrac));
 
     const position: SimulatedPosition = {
       ...simulateOpen(
-        { asset, side, notionalUsd, leverage: PAPER_LEVERAGE, entryPrice: markPrice },
+        { asset, side, notionalUsd, leverage: PAPER_LEVERAGE, entryPrice: markPrice, resting },
         now,
       ),
       sourceSnapshot,
       peakUnrealizedPnl: 0,
-      entryConfidence: picked.prediction.confidence,
-      entryConsensus: (picked.prediction as { consensus?: number }).consensus,
+      entryConfidence: conf,
+      entryConsensus: cons,
       maxHoldMin,
       stopLossPrice,
+      ...(target ? { takeProfitPrice: target.takeProfitPrice } : {}),
     };
 
     const orderId = `${ORDER_ID_PREFIX}${asset}_${Math.floor(now / 1000)}`;
@@ -375,11 +437,15 @@ export class PaperGatedTrader {
         leverage: PAPER_LEVERAGE,
         entryPrice: markPrice,
         stopLoss: stopLossPrice,
+        takeProfit: target?.takeProfitPrice,
         simulationMode: true,
-        reason: `paper-gated: ${rec} conf=${picked.prediction.confidence.toFixed(0)} score=${picked.score.toFixed(1)} | gate=allow${holdPlanTag(maxHoldMin, picked.holdHorizonMin, picked.ledgerHitRate)}`,
+        reason: `paper-gated: ${rec} conf=${conf.toFixed(0)} score=${plan.score.toFixed(1)} | gate=allow${holdPlanTag(maxHoldMin, plan.holdHorizonMin, plan.ledgerHitRate)}`,
         predictionMarket: 'paper-aggregate',
         chain: CHAIN,
-        metadata: { holdPlan: holdPlanMeta(maxHoldMin, picked.holdHorizonMin, picked.ledgerHitRate) },
+        metadata: {
+          holdPlan: holdPlanMeta(maxHoldMin, plan.holdHorizonMin, plan.ledgerHitRate),
+          execution: resting ? 'resting' : 'market',
+        },
       });
     } catch (e) {
       logger.warn('[PaperGatedTrader] createHedge failed (state kept)', { error: errMsg(e) });
@@ -389,6 +455,8 @@ export class PaperGatedTrader {
       asset, side, notionalUsd: notionalUsd.toFixed(2), entryPrice: markPrice,
       stopLossPrice: stopLossPrice.toFixed(4), maxHoldMin: maxHoldMin.toFixed(0),
     });
+
+    void notifyPaperOpen('PaperGated', position, resting);
 
     return {
       action: 'opened', nav,
@@ -403,8 +471,9 @@ export class PaperGatedTrader {
     now: number,
     reason: string,
     orderId?: string,
+    resting: boolean = false,
   ): Promise<TickResult> {
-    const closeResult = simulateClose(pos, markPrice, now);
+    const closeResult = simulateClose(pos, markPrice, now, resting);
     const realizedPnl = closeResult.realizedPnlUsd;
     const newNav = priorNav + realizedPnl;
 
@@ -420,6 +489,25 @@ export class PaperGatedTrader {
     //      realizedPnl) into the shared trader:calibration:* buckets that
     //      both live + paper read on entry.
     const { recordCloseLearning, settleHedgeRow } = await import('./close-pipeline');
+
+    // Settle first — analytics parity with PaperTrader, and it decides which
+    // of two overlapping ticks closed the position; the loser counts nothing.
+    // Unification note (2026-09-29): gated's old inline UPDATE never wrote
+    // funding_paid; the pipeline settles it like every other book.
+    if (orderId && (await settleHedgeRow({ orderId, pos, result: closeResult, reason, nav: priorNav })) === false) {
+      // Clear the slot only if it still holds this position: the tick that
+      // closed it may already have opened the next one.
+      if ((await getCronState<string>(KEY_ORDER_ID)) === orderId) {
+        await setCronState(KEY_POSITION, null);
+        await setCronState(KEY_ORDER_ID, null);
+      }
+      return {
+        action: 'skipped',
+        reason: 'already closed by an overlapping tick',
+        nav: (await getCronState<number>(KEY_NAV)) ?? priorNav,
+      };
+    }
+
     await recordCloseLearning(pos, markPrice, realizedPnl, now, {
       calibratorNamespace: 'paper',
     });
@@ -438,17 +526,12 @@ export class PaperGatedTrader {
     await setCronState(KEY_ORDER_ID, null);
     await setCronState(KEY_STATS, stats);
 
-    // Settle via the shared pipeline — analytics parity with PaperTrader.
-    // Unification note (2026-09-29): gated's old inline UPDATE never wrote
-    // funding_paid; the pipeline settles it like every other book.
-    if (orderId) {
-      await settleHedgeRow({ orderId, pos, result: closeResult, reason, nav: priorNav });
-    }
-
     logger.info('[PaperGatedTrader] closed', {
       asset: pos.asset, side: pos.side, realizedPnl: realizedPnl.toFixed(2),
       newNav: newNav.toFixed(2), reason,
     });
+
+    void notifyPaperClose('PaperGated', PORTFOLIO_ID, closeResult, reason, now);
 
     return { action: 'closed', reason, nav: newNav };
   }

@@ -87,6 +87,7 @@ describe('settleHedgeRow', () => {
     expect(queryMock).toHaveBeenCalledTimes(1);
     const [sql, params] = queryMock.mock.calls[0] as [string, unknown[]];
     expect(sql).toMatch(/UPDATE hedges/);
+    expect(sql).toMatch(/status <> 'closed'/);
     expect(sql).toMatch(/funding_paid = \$2/);
     expect(params[0]).toBe(48.49);            // realized
     expect(params[1]).toBe(-0.01);            // funding
@@ -124,7 +125,25 @@ describe('settleHedgeRow', () => {
     queryMock.mockRejectedValueOnce(new Error('boom'));
     await expect(
       settleHedgeRow({ orderId: 'oid-3', pos: pos(), result: result(), reason: 'x' }),
-    ).resolves.toBeUndefined();
+    ).resolves.toBe(true);
+  });
+
+  it('reports false when an overlapping tick already closed the row', async () => {
+    queryMock.mockResolvedValueOnce([{ updated: 0, present: true }]);
+    await expect(
+      settleHedgeRow({ orderId: 'oid-4', pos: pos(), result: result(), reason: 'max-hold expired' }),
+    ).resolves.toBe(false);
+  });
+
+  it('reports true when this call closed the row, or there is no row at all', async () => {
+    queryMock.mockResolvedValueOnce([{ updated: 1, present: true }]);
+    await expect(
+      settleHedgeRow({ orderId: 'oid-5', pos: pos(), result: result(), reason: 'x' }),
+    ).resolves.toBe(true);
+    queryMock.mockResolvedValueOnce([{ updated: 0, present: false }]);
+    await expect(
+      settleHedgeRow({ orderId: 'oid-6', pos: pos(), result: result(), reason: 'x' }),
+    ).resolves.toBe(true);
   });
 });
 

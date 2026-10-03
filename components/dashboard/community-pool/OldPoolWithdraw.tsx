@@ -139,29 +139,7 @@ export function OldPoolWithdraw() {
         ],
       });
 
-      // Check if wallet has SUI for gas — if not, use admin-sponsored execution
-      const gasRes = await fetch('/api/rpc/sui', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          jsonrpc: '2.0', id: 1,
-          method: 'suix_getBalance',
-          params: [walletAddress, '0x2::sui::SUI'],
-        }),
-      });
-      const gasData = await gasRes.json();
-      const suiGasBalance = BigInt(gasData.result?.totalBalance || '0');
-      const needsSponsoring = suiGasBalance < BigInt(10_000_000); // < 0.01 SUI
-
-      let result: { digest: string; success: boolean; error?: string };
-
-      if (needsSponsoring) {
-        // Use admin-sponsored gas (admin wallet pays for gas)
-        result = await sui.sponsoredExecute(tx);
-      } else {
-        // User has gas, use normal execute
-        result = await sui.executeTransaction(tx);
-      }
+      const result = await sui.executeTransaction(tx);
 
       if (!result.success) {
         setError(result.error || 'Transaction failed. Please try again.');

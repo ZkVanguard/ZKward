@@ -54,6 +54,12 @@ export function useCommunityPool(propAddress?: string, evmActive: boolean = true
   const [txState, dispatchTx] = useReducer(txReducer, initialTxState);
 
   const mountedRef = useRef(true);
+  // Each fetch gets a number; a response from an earlier fetch (another
+  // chain, or a refresh that was superseded) is dropped. Without it the
+  // Hedera answer, still in flight when a `?chain=sui` link switched the
+  // pool, landed in the SUI view and showed there whenever SUI failed.
+  const fetchSeqRef = useRef(0);
+  const live = (seq: number) => mountedRef.current && seq === fetchSeqRef.current;
   const lastFetchRef = useRef<number>(0);
   const userSelectedChainRef = useRef(false);
   // Track pending action after chain switch (auto-retry)
@@ -111,7 +117,6 @@ export function useCommunityPool(propAddress?: string, evmActive: boolean = true
   const suiIsConnected = suiContext?.isConnected ?? false;
   const suiBalance = suiContext?.balance ?? '0';
   const suiExecuteTransaction = suiContext?.executeTransaction;
-  const suiSponsoredExecute = suiContext?.sponsoredExecute;
   const suiNetwork = suiContext?.network ?? 'testnet';
   const suiIsWrongNetwork = suiContext?.isWrongNetwork ?? false;
   const _suiSetNetwork = suiContext?.setNetwork;
@@ -298,6 +303,7 @@ export function useCommunityPool(propAddress?: string, evmActive: boolean = true
   // Reset state on chain change
   useEffect(() => {
     mountedRef.current = true;
+    fetchSeqRef.current += 1;
     dispatchPool({ type: 'RESET_FOR_CHAIN_CHANGE' });
     dispatchTx({ type: 'RESET_TX_STATE' });
 
@@ -340,6 +346,7 @@ export function useCommunityPool(propAddress?: string, evmActive: boolean = true
       const now = Date.now();
       if (!force && now - lastFetchRef.current < 5000) return;
       lastFetchRef.current = now;
+      const seq = ++fetchSeqRef.current;
 
       // Paper is a virtual pool — its data lives in cron_state via
       // /api/paper-trader/status, fetched by the PaperPoolPanel that
@@ -355,18 +362,18 @@ export function useCommunityPool(propAddress?: string, evmActive: boolean = true
         try {
           const res = await fetch('/api/solana-pool/status', { cache: 'no-store' });
           const status = (await res.json()) as SolanaPoolStatus;
-          if (!mountedRef.current) return;
+          if (!live(seq)) return;
           if (status.enabled && !status.error) {
             dispatchPool({ type: 'SET_POOL_DATA', payload: mapSolanaStatusToPoolSummary(status) });
           } else {
             dispatchPool({ type: 'SET_ERROR', payload: 'The Solana pool is not available right now.' });
           }
         } catch {
-          if (mountedRef.current) {
+          if (live(seq)) {
             dispatchPool({ type: 'SET_ERROR', payload: 'Could not load the Solana pool — try refresh.' });
           }
         } finally {
-          if (mountedRef.current) dispatchPool({ type: 'SET_LOADING', payload: false });
+          if (live(seq)) dispatchPool({ type: 'SET_LOADING', payload: false });
         }
         return;
       }
@@ -386,15 +393,19 @@ export function useCommunityPool(propAddress?: string, evmActive: boolean = true
             userRes ? userRes.json() : null,
           ]);
 
-          if (!mountedRef.current) return;
+          if (!live(seq)) return;
 
-          if (poolJson.success) {
-            if (poolJson.data.poolStateId) {
-              dispatchPool({ type: 'SET_SUI_POOL_STATE_ID', payload: poolJson.data.poolStateId });
-            }
-
-            dispatchPool({ type: 'SET_POOL_DATA', payload: mapApiToPoolSummary(poolJson.data) });
+          if (!poolJson.success) {
+            // The route answered but not with the pool: show that, never the
+            // previous chain's numbers or the reducer's defaults.
+            dispatchPool({ type: 'SET_ERROR', payload: String(poolJson.error || 'The SUI pool could not be read right now.') });
+            dispatchPool({ type: 'SET_LOADING', payload: false });
+            return;
           }
+          if (poolJson.data.poolStateId) {
+            dispatchPool({ type: 'SET_SUI_POOL_STATE_ID', payload: poolJson.data.poolStateId });
+          }
+          dispatchPool({ type: 'SET_POOL_DATA', payload: mapApiToPoolSummary(poolJson.data) });
 
           if (userJson?.success) {
             dispatchPool({
@@ -420,7 +431,7 @@ export function useCommunityPool(propAddress?: string, evmActive: boolean = true
           fetch(`/api/sui/community-pool?action=volatility&network=${suiNetwork}`)
             .then((res) => res.json())
             .then((volJson) => {
-              if (!mountedRef.current) return;
+              if (!live(seq)) return;
               const verifiedAthSp = Number(volJson?.data?.verifiedAth?.sharePrice) || 0;
               if (verifiedAthSp > 0) {
                 dispatchPool({
@@ -439,7 +450,7 @@ export function useCommunityPool(propAddress?: string, evmActive: boolean = true
           fetch(`/api/sui/community-pool?action=members&network=${suiNetwork}`)
             .then((res) => res.json())
             .then((memJson) => {
-              if (!mountedRef.current) return;
+              if (!live(seq)) return;
               const raw = memJson?.data?.members;
               // A failed read keeps the list already shown; clearing it
               // would read as "no members".
@@ -469,7 +480,7 @@ export function useCommunityPool(propAddress?: string, evmActive: boolean = true
             .catch((err) => logger.warn('[CommunityPool] SUI members fetch warning:', err));
         } catch (err: any) {
           logger.error('[CommunityPool] SUI fetch error:', err);
-          if (mountedRef.current) {
+          if (live(seq)) {
             dispatchPool({ type: 'SET_ERROR', payload: err.message });
             dispatchPool({ type: 'SET_LOADING', payload: false });
           }
@@ -492,11 +503,14 @@ export function useCommunityPool(propAddress?: string, evmActive: boolean = true
           userRes ? userRes.json() : null,
         ]);
 
-        if (!mountedRef.current) return;
+        if (!live(seq)) return;
 
-        if (poolJson.success) {
-          dispatchPool({ type: 'SET_POOL_DATA', payload: poolJson.pool });
+        if (!poolJson.success) {
+          dispatchPool({ type: 'SET_ERROR', payload: String(poolJson.error || 'The pool could not be read right now.') });
+          dispatchPool({ type: 'SET_LOADING', payload: false });
+          return;
         }
+        dispatchPool({ type: 'SET_POOL_DATA', payload: poolJson.pool });
         if (userJson?.success) {
           dispatchPool({ type: 'SET_USER_POSITION', payload: userJson.user });
         }
@@ -509,14 +523,14 @@ export function useCommunityPool(propAddress?: string, evmActive: boolean = true
         fetch(`/api/community-pool?action=leaderboard&limit=5${chainParam}`)
           .then((res) => res.json())
           .then((leaderJson) => {
-            if (mountedRef.current && leaderJson.success) {
+            if (live(seq) && leaderJson.success) {
               dispatchPool({ type: 'SET_LEADERBOARD', payload: leaderJson.leaderboard });
             }
           })
           .catch((err) => logger.warn('[CommunityPool] Leaderboard fetch warning:', err));
       } catch (err: any) {
         logger.error('[CommunityPool] Fetch error:', err);
-        if (mountedRef.current) {
+        if (live(seq)) {
           dispatchPool({ type: 'SET_ERROR', payload: err.message });
           dispatchPool({ type: 'SET_LOADING', payload: false });
         }
@@ -1598,22 +1612,7 @@ export function useCommunityPool(propAddress?: string, evmActive: boolean = true
         arguments: [tx.object(poolStateId), tx.pure.u64(sharesScaled), tx.object(clockId)],
       });
 
-      // Step 3: Execute transaction. Prefer sponsored execution so users don't
-      // need to hold SUI just to redeem shares. The withdraw payload IS USDC,
-      // so it's weird UX to require a separate token for gas. Fall back to
-      // wallet-paid gas if sponsorship fails (server unreachable, admin low
-      // on SUI, etc.).
-      let result;
-      if (suiSponsoredExecute) {
-        try {
-          result = await suiSponsoredExecute(tx);
-        } catch (sponsorErr) {
-          logger.warn('Sponsored withdraw failed, falling back to wallet-paid gas', sponsorErr);
-          result = await suiExecuteTransaction(tx);
-        }
-      } else {
-        result = await suiExecuteTransaction(tx);
-      }
+      const result = await suiExecuteTransaction(tx);
 
       if (result.success) {
         dispatchTx({ type: 'SET_TX_STATUS', payload: 'complete' });
@@ -1667,7 +1666,6 @@ export function useCommunityPool(propAddress?: string, evmActive: boolean = true
     suiIsConnected,
     suiAddress,
     suiExecuteTransaction,
-    suiSponsoredExecute,
     txState.suiWithdrawShares,
     suiNetwork,
     poolState.poolData,

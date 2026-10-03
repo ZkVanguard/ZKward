@@ -120,15 +120,22 @@ export async function runSolanaSleeveTick(
     }
 
     const result = simulateClose(pos, mark, now);
-    await recordCloseLearning(pos, mark, result.realizedPnlUsd, now, {
-      calibratorNamespace: 'solana',
-    });
-    await settleHedgeRow({
+    // Settle first: it decides which of two overlapping ticks closed the
+    // position. The loser counts nothing.
+    const settled = await settleHedgeRow({
       orderId: state.orderId,
       pos,
       result,
       reason: closeReason,
       nav: poolNavUsd ?? 0,
+    });
+    if (settled === false) {
+      const current = await getCronState<SleevePositionState>(KEY_POSITION);
+      if (current?.orderId === state.orderId) await setCronState(KEY_POSITION, null);
+      return { action: 'idle', detail: 'position already closed by an overlapping tick' };
+    }
+    await recordCloseLearning(pos, mark, result.realizedPnlUsd, now, {
+      calibratorNamespace: 'solana',
     });
 
     const stats = (await getCronState<SleeveStats>(KEY_STATS)) ?? {
@@ -183,8 +190,8 @@ export async function runSolanaSleeveTick(
     }
 
     // Highest-confidence directional signal above the floor, admitted and
-    // ranked by the ledger: an asset measured with no edge at any hold
-    // horizon is skipped; a measured edge scales the rank (fail-open cold).
+    // ranked by the ledger: an asset measured wrong-way at every hold
+    // horizon is skipped (fail-open cold).
     const { getLedgerCells, getRecentLedgerCells, assetHoldPlan } = await import('@/lib/services/market-data/ledger-cells');
     const [cells, recent] = await Promise.all([getLedgerCells().catch(() => []), getRecentLedgerCells().catch(() => [])]);
     let best: {

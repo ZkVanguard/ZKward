@@ -20,13 +20,11 @@ import { WalletAvatar } from '@/components/ui/WalletAvatar';
 import { useUserSession } from '@/lib/hooks/useUserSession';
 import { useContractAddresses } from '@/lib/contracts/hooks';
 import { usePositions } from '@/contexts/PositionsContext';
-import { usePortfolioAction, type CustomActionPayload } from '@/contexts/AIDecisionsContext';
 import { logger } from '@/lib/utils/logger';
 import { useSui } from '@/app/sui-providers';
 import { useWalletHub, type WalletChain } from '@/contexts/WalletHubContext';
 import { ChainBadge } from '@/components/wallet/ChainBadge';
 import { ReconnectBanner } from '@/components/wallet/ReconnectBanner';
-import type { PredictionMarket } from '@/lib/services/market-data/DelphiMarketService';
 
 // Dynamic imports for code splitting
 const AgentActivity = nextDynamic(
@@ -83,16 +81,6 @@ const ChainHedges = nextDynamic(
 // cleanup. Hedging is driven by the SUI Community Pool + BlueFin auto-hedge
 // cron instead of manual modals. Re-add here when other chains re-enable.
 
-const PredictionInsights = nextDynamic(
-  () =>
-    import('@/components/dashboard/PredictionInsights').then((mod) => ({
-      default: mod.PredictionInsights,
-    })),
-  {
-    loading: () => <LoadingSkeleton />,
-    ssr: false,
-  }
-);
 
 const EnhancedChat = nextDynamic(
   () =>
@@ -103,6 +91,10 @@ const EnhancedChat = nextDynamic(
   }
 );
 
+const MarketLeanBoard = nextDynamic(
+  () => import('@/components/dashboard/MarketLeanBoard').then((mod) => ({ default: mod.MarketLeanBoard })),
+  { ssr: false },
+);
 const FiveMinSignalWidget = nextDynamic(
   () =>
     import('@/components/dashboard/FiveMinSignalWidget').then((mod) => ({
@@ -313,7 +305,6 @@ export default function DashboardPage() {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { derived } = usePositions();
   // Use centralized AI service for portfolio actions
-  const { requestCustomAction } = usePortfolioAction();
   // Portfolio count available via derived?.portfolioCount if needed
 
   // Pool is home: clicking "Vault" in the top nav lands on deposit/withdraw.
@@ -327,9 +318,6 @@ export default function DashboardPage() {
   // Positions, risk and agent activity exist for SUI and Hedera wallets; a
   // Solana user is guided to the Pool tab by each surface's own empty state.
   const portfolioAddress = primaryChain === 'solana' ? '' : displayAddress;
-  // SUI-only mode: portfolio asset universe is fixed to SUI/USDC.
-  const portfolioAssets = ['SUI', 'USDC'];
-
   // `?tab=<dest>&view=<sub>` deep-links any view (old tab ids included);
   // every switch keeps the URL in step so a view can be shared. Scroll
   // resets because the sidebar is sticky.
@@ -363,65 +351,6 @@ export default function DashboardPage() {
     window.history.replaceState(null, '', `${window.location.pathname}${query ? `?${query}` : ''}`);
   }, []);
 
-
-  const handleAgentAnalysis = async (market: PredictionMarket) => {
-    logger.info('🤖 Triggering AI Agent Analysis', { market: market.question });
-
-    // Show loading message (icons rendered in the alert component; keep
-    // the text emoji-free so it composes with lucide icons upstream).
-    setAgentMessage(
-      'Analyzing…\n\nRisk, Hedging, and Settlement agents are evaluating your portfolio.'
-    );
-
-    try {
-      // Use centralized AI service with caching
-      const actionPayload: CustomActionPayload = {
-        portfolioId: 1,
-        currentValue: 50000,
-        targetYield: 12,
-        riskTolerance: 50,
-        assets: market.relatedAssets,
-        predictions: [
-          {
-            question: market.question,
-            probability: market.probability,
-            impact: market.impact,
-            recommendation: market.recommendation || 'HOLD',
-            source: market.source,
-          },
-        ],
-        realMetrics: {
-          riskScore: market.probability,
-          volatility: 0.35,
-          sharpeRatio: 1.2,
-          hedgeSignals: market.recommendation === 'HEDGE' ? 1 : 0,
-          totalValue: 50000,
-        },
-      };
-
-      const data = await requestCustomAction(actionPayload, true);
-
-      if (!data) {
-        throw new Error('AI analysis returned no data');
-      }
-
-      // Format the AI response
-      const agentName = 'AI Agent';
-      const reasoning =
-        typeof data.reasoning === 'string' ? data.reasoning.slice(0, 200) : 'Analysis complete';
-
-      const msg = `${agentName}\n\nAction: ${data.action}\nConfidence: ${Math.round(data.confidence * 100)}%\nUrgency: ${data.urgency}\n\n${reasoning}`;
-
-      setAgentMessage(msg);
-      logger.info('AI analysis complete', { action: data.action, confidence: data.confidence });
-    } catch (error) {
-      logger.error('AI analysis failed', { error });
-      setAgentMessage('Analysis failed.\n\nCheck the console for details or try again in a moment.');
-    }
-
-    // Auto-dismiss after 15 seconds
-    setTimeout(() => setAgentMessage(null), 15000);
-  };
 
   useEffect(() => {
     if (isConnected && contractAddresses) {
@@ -780,7 +709,7 @@ export default function DashboardPage() {
         return (
           <div className="space-y-3 sm:space-y-6">
             <FiveMinSignalWidget />
-            <PredictionInsights onTriggerAgentAnalysis={handleAgentAnalysis} assets={portfolioAssets} />
+            <MarketLeanBoard />
             <AgentAlert message={agentMessage} onDismiss={() => setAgentMessage(null)} />
           </div>
         );

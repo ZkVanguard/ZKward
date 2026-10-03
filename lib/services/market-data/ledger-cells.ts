@@ -1,15 +1,19 @@
 /**
- * Signal-ledger cells — per-(source, asset, horizon) hit rates from
- * `signal_outcomes`, the measured evidence the traders act on.
+ * Signal-ledger cells — per-(source, asset, horizon) evidence from
+ * `signal_outcomes`, what the traders and the aggregator act on. Rows from
+ * before the signal epoch are ignored — the aggregator changed meaning on
+ * 2026-09-30 16:55Z.
  *
- * 2026-10-01: 12.7k resolved rows since the odds-based signals shipped
- * said the aggregate signal is right 58–61% of the time at 240 min on
- * BTC/ETH and a coin flip at 30–60 min, while the paper books held for
- * 73–96 min and closed 80% of max-hold exits red. Holds, admission and
- * source weights now read these cells: trade the horizon where the signal
- * works, skip assets where it measurably doesn't, weight sources by what
- * they actually hit. Rows from before the signal epoch are ignored — the
- * aggregator changed meaning on 2026-09-30 16:55Z.
+ * Decisions read TIMING, never the hit rate (2026-10-02). A hit rate over
+ * ledger rows fails twice: the rows overlap, so two hundred of them at a
+ * 240 min horizon are about ten independent observations; and it rewards
+ * drift, so a source that said DOWN for two days in a falling market scores
+ * 58% and knows nothing. Under that rule about half of all source cells
+ * were being removed and others boosted on roughly ten windows of noise.
+ * A cell now acts only when its drift-removed return, over non-overlapping
+ * windows, is beyond LEDGER_TIMING_SE standard errors: wrong-way sources and
+ * assets are dropped, proven ones lifted, and everything unproven is left
+ * alone — which also means nothing is blocked on evidence it cannot get.
  */
 import { getLedgerHitRates } from '@/lib/db/signal-outcomes';
 import { logger } from '@/lib/utils/logger';
@@ -20,6 +24,12 @@ export interface LedgerCell {
   horizonMin: number;
   n: number;
   hitRate: number;
+  /** Non-overlapping horizon-length windows behind the timing figures. */
+  windows?: number;
+  /** Mean return in the source's direction with the asset's drift removed, in bp. */
+  timingBp?: number;
+  /** Standard error of that mean, in bp. */
+  timingSeBp?: number;
 }
 
 const num = (key: string, dflt: number): number => {
@@ -29,6 +39,10 @@ const num = (key: string, dflt: number): number => {
 
 export const LEDGER_WINDOW_DAYS = num('SIGNAL_LEDGER_WINDOW_DAYS', 14);
 export const LEDGER_MIN_N = num('SIGNAL_LEDGER_MIN_N', 50);
+/** Independent windows a cell needs before its timing says anything. */
+export const LEDGER_MIN_WINDOWS = num('SIGNAL_LEDGER_MIN_WINDOWS', 12);
+/** Standard errors from zero before a cell counts as wrong-way or proven. */
+export const LEDGER_TIMING_SE = num('SIGNAL_LEDGER_TIMING_SE', 2);
 /** Rows before this were scored against the pre-odds aggregator. */
 export const LEDGER_EPOCH_MS = num('SIGNAL_LEDGER_EPOCH_MS', Date.parse('2026-09-30T16:55:00Z'));
 /** Horizons a book may hold to; the ledger picks the best one per asset. */
@@ -36,14 +50,10 @@ export const HOLD_HORIZON_CANDIDATES_MIN: readonly number[] = (process.env.PAPER
   .split(',')
   .map((s) => Number(s.trim()))
   .filter((n) => Number.isFinite(n) && n > 0);
-/** A horizon counts as an edge only above a coin flip. */
-export const LEDGER_MIN_EDGE = 0.5;
 /**
- * Recency gate (2026-10-02): the 14-day cell can average across regimes —
- * BTC's 240 m hit rate ran 65% → 61% → 56% across successive 12 h buckets
- * while the 24 h horizon flipped from 39% to 72%. A horizon is admitted only
- * if it also holds above a coin flip over this recent window, when the
- * window has enough rows to say anything.
+ * Recency window: a 14-day cell can average across regimes, so a horizon
+ * that has turned wrong-way over the last hours is dropped even while the
+ * long window still looks fine.
  */
 export const LEDGER_RECENT_HOURS = num('SIGNAL_LEDGER_RECENT_HOURS', 48);
 export const LEDGER_RECENT_MIN_N = num('SIGNAL_LEDGER_RECENT_MIN_N', 20);
@@ -102,6 +112,25 @@ export function findCell(cells: readonly LedgerCell[], source: string, asset: st
   return cells.find((c) => c.source === source && c.asset.toUpperCase() === upper && c.horizonMin === horizonMin) ?? null;
 }
 
+export type TimingVerdict = 'wrong-way' | 'proven' | 'unproven';
+
+/**
+ * What a cell says about timing. 'wrong-way': following it lost against the
+ * asset's own drift, beyond LEDGER_TIMING_SE standard errors. 'proven': it
+ * gained, by the same margin. 'unproven': too few independent windows, or
+ * inside the noise — where a source that never changes direction always
+ * lands, whatever its hit rate.
+ */
+export function timingVerdict(c: LedgerCell | null | undefined): TimingVerdict {
+  if (!c || (c.windows ?? 0) < LEDGER_MIN_WINDOWS) return 'unproven';
+  const se = c.timingSeBp ?? Number.POSITIVE_INFINITY;
+  if (!Number.isFinite(se)) return 'unproven';
+  const mean = c.timingBp ?? 0;
+  if (mean + LEDGER_TIMING_SE * se < 0) return 'wrong-way';
+  if (mean - LEDGER_TIMING_SE * se > 0) return 'proven';
+  return 'unproven';
+}
+
 export interface HoldPlan {
   horizonMin: number;
   hitRate: number;
@@ -109,14 +138,13 @@ export interface HoldPlan {
 }
 
 /**
- * The hold horizon with the best measured edge for an asset's aggregate
- * signal. `measured` says whether the ledger has enough data on this asset
- * at all: measured + no plan = the signal has no edge here, skip it;
- * unmeasured = cold asset, caller falls back to its default hold.
- * `recent` cells (last LEDGER_RECENT_HOURS) veto a horizon whose edge has
- * gone: a recent cell with n ≥ LEDGER_RECENT_MIN_N at or below a coin flip
- * drops that horizon from the candidates; a thin or absent recent cell
- * leaves the window decision alone.
+ * The hold horizon for an asset's aggregate signal: the candidate with the
+ * best timing among those not measured wrong-way. `measured` says whether
+ * the ledger has data on this asset at all: measured + no plan = the
+ * aggregate is wrong-way at every candidate horizon, skip the asset;
+ * unmeasured = cold asset, the caller keeps its default hold.
+ * `recent` cells (last LEDGER_RECENT_HOURS) drop a horizon that has turned
+ * wrong-way lately; a thin or absent recent cell changes nothing.
  */
 export function assetHoldPlan(
   cells: readonly LedgerCell[],
@@ -129,13 +157,11 @@ export function assetHoldPlan(
     (c) => c.source === 'aggregate' && c.asset.toUpperCase() === upper && candidates.includes(c.horizonMin) && c.n >= LEDGER_MIN_N,
   );
   if (measured.length === 0) return { plan: null, measured: false };
-  const holdsRecently = (c: LedgerCell): boolean => {
-    const r = findCell(recent, 'aggregate', upper, c.horizonMin);
-    return !r || r.n < LEDGER_RECENT_MIN_N || r.hitRate > LEDGER_MIN_EDGE;
-  };
-  const eligible = measured.filter((c) => c.hitRate > LEDGER_MIN_EDGE && holdsRecently(c));
+  const eligible = measured.filter(
+    (c) => timingVerdict(c) !== 'wrong-way' && timingVerdict(findCell(recent, 'aggregate', upper, c.horizonMin)) !== 'wrong-way',
+  );
   if (eligible.length === 0) return { plan: null, measured: true };
-  const best = eligible.reduce((a, b) => (b.hitRate > a.hitRate ? b : a));
+  const best = eligible.reduce((a, b) => ((b.timingBp ?? 0) > (a.timingBp ?? 0) ? b : a));
   return { plan: { horizonMin: best.horizonMin, hitRate: best.hitRate, n: best.n }, measured: true };
 }
 

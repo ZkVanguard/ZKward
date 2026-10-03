@@ -1,6 +1,7 @@
 #!/usr/bin/env bun
 /**
- * Standalone paper-trader worker. Replaces the Vercel cron route.
+ * Standalone paper-trader worker: the fallback driver for books -3 and -4.
+ * The fast-tick cron is the driver; this ticks only when that cron is quiet.
  *
  * Runs one tick of PaperTrader (-3) + PaperGatedTrader (-4) then exits.
  * Invoke every 5 min from jobs.zkward.com (SSH exec or local HTTP call
@@ -78,6 +79,21 @@ async function main() {
     logger.info('[worker] using PROD_DATABASE_URL (DATABASE_URL not set)');
   }
 
+  // Standby. The 60 s fast-tick cron drives the same two books; while its
+  // heartbeat is fresh this worker must not tick, or both close the same
+  // position seconds apart and count the trade twice. It takes over only
+  // when the cron has gone quiet.
+  const standbyMs = Number(process.env.PAPER_WORKER_STANDBY_MS) || 3 * 60_000;
+  const { getCronState } = await import('@/lib/db/cron-state');
+  const lastFastTick = Number(await getCronState<number>('cron:lastRun:paper-fast-tick').catch(() => 0)) || 0;
+  if (Date.now() - lastFastTick < standbyMs) {
+    logger.info('[worker] standby: fast tick is alive', {
+      lastFastTickAgoSec: Math.round((Date.now() - lastFastTick) / 1000),
+    });
+    await closePool().catch(() => {});
+    process.exit(0);
+  }
+
   let ok = true;
 
   logger.info('[worker] tick start', { pid: process.pid, node: process.version });
@@ -119,6 +135,12 @@ async function main() {
       skipStrong: cfg.PAPER_SKIP_STRONG_SIGNALS,
       ledgerGate: cfg.PAPER_LEDGER_GATE,
       flipExit: cfg.PAPER_FLIP_EXIT_ENABLED,
+      exitMode: cfg.PAPER_EXIT_MODE,
+      execution: cfg.PAPER_EXECUTION,
+      restingEntryWaitMin: cfg.PAPER_RESTING_ENTRY_WAIT_MIN,
+      targetTpBp: cfg.PAPER_TARGET_TP_BP,
+      targetStopBp: cfg.PAPER_TARGET_STOP_BP,
+      targetMaxHoldMin: cfg.PAPER_TARGET_MAX_HOLD_MIN,
       ledgerRecentHours: (process.env.SIGNAL_LEDGER_RECENT_HOURS || '48').trim(),
       holdHorizons: (process.env.PAPER_TRADER_HOLD_HORIZONS_MIN || '60,240').trim(),
       calibrationEpoch: (process.env.SOURCE_CALIBRATOR_EPOCH || '2026-09-30').trim(),

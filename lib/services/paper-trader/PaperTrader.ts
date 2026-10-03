@@ -28,11 +28,12 @@ import { selectCandidate, priceCandidate, sizeCandidate } from './entry-helpers'
 import { createHedge } from '@/lib/db/hedges';
 import { orphanCloseIfExists } from './orphan-cleanup';
 import { recordCloseLearning, settleHedgeRow, categorizeCloseReason } from './close-pipeline';
+import { targetExitLevels, takeProfitFill } from './target-exit';
+import { checkRestingEntry, placeRestingEntry, type EntryPlan } from './resting-orders';
 import { query } from '@/lib/db/postgres';
 import { logger } from '@/lib/utils/logger';
 import { errMsg } from '@/lib/utils/error-handler';
-import { notifyDiscord } from '@/lib/utils/discord-notify';
-import { notifyPaper, flushPaperDigestIfDue } from './discord-digest';
+import { notifyPaper, notifyPaperOpen, notifyPaperClose, postPaperScoreboardIfDue } from './notifications';
 import {
   simulateOpen,
   simulateClose,
@@ -107,6 +108,9 @@ import {
   PAPER_DISABLE_HALTS,
   PAPER_MIN_FLIP_AGE_SEC,
   PAPER_FLIP_EXIT_ENABLED,
+  PAPER_EXIT_MODE,
+  PAPER_EXECUTION,
+  KEY_RESTING_ENTRY,
   PAPER_MIN_FLIP_CONFIDENCE,
   PAPER_TRAILING_STOP_GIVEBACK_PCT,
   PAPER_REGRET_COOLDOWN_PCT,
@@ -255,9 +259,7 @@ export class PaperTrader {
   static async runTick(now: number = Date.now()): Promise<TickResult> {
     let result: TickResult = { action: 'skipped', reason: 'unset' };
     try {
-      // Flush accumulated OPEN/CLOSE digest events if due (opt-in via
-      // PAPER_TRADER_DISCORD_DIGEST=1). No-op when digest disabled.
-      await flushPaperDigestIfDue(now);
+      await postPaperScoreboardIfDue(now);
 
       // L13 — rolling-drawdown kill switch. If the last 7-day PnL is
       // more than 2× worse than the previous 7-day period, halt for
@@ -455,6 +457,24 @@ export class PaperTrader {
       }
     }
 
+    // 1b. Target-exit take-profit. A position that carries one closes at the
+    //     target, the stop above or the time limit below, and skips every
+    //     other exit: each of those would end the trade early and pull the
+    //     realized win rate away from what the shape was measured to give.
+    const onTarget = pos.takeProfitPrice !== undefined;
+    const tpFill = takeProfitFill(pos, markPrice);
+    if (tpFill) {
+      return PaperTrader.closeAtMark(
+        pos,
+        tpFill.price,
+        nav,
+        now,
+        `take-profit: mark $${markPrice.toFixed(4)} reached $${(pos.takeProfitPrice ?? 0).toFixed(4)}`,
+        orderId,
+        tpFill.resting,
+      );
+    }
+
     // (No hard take-profit — see JSDoc on the entry-side stopLossPrice
     // computation. Trailing-stop below handles the "let winners run,
     // ratchet at give-back" case without capping the fat-tail winners
@@ -475,6 +495,7 @@ export class PaperTrader {
     const { trailingArmThresholdUsd, underwaterTightenTrip } = await import('./adaptive-stops');
     const trailingArmed = currentPeak >= trailingArmThresholdUsd(pos.notionalUsd);
     if (
+      !onTarget &&
       trailingArmed &&
       mtm.unrealizedPnlUsd < currentPeak * (1 - PAPER_TRAILING_STOP_GIVEBACK_PCT)
     ) {
@@ -505,7 +526,7 @@ export class PaperTrader {
     //      15 closes, 0 wins, -$2,660 since the 9/22 reset. Thresholds
     //      live in config (PAPER_TIGHTEN_AGE_MIN / _NOTIONAL_FRAC); the
     //      shared trip check is in adaptive-stops.ts.
-    if (orderId && !trailingArmed && currentPeak <= 0) {
+    if (orderId && !onTarget && !trailingArmed && currentPeak <= 0) {
       const ageMin = (now - pos.openedAt) / 60_000;
       const lossUsd = -mtm.unrealizedPnlUsd; // positive = deeper underwater
       if (underwaterTightenTrip({ ageMin, lossUsd, notionalUsd: pos.notionalUsd })) {
@@ -541,7 +562,7 @@ export class PaperTrader {
     //       higher than the 55 entry gate) to justify the round-trip cost.
     // Both env-tunable. Max-hold still catches anything that goes stale.
     const posAgeSec = (now - pos.openedAt) / 1000;
-    if (!PAPER_FLIP_EXIT_ENABLED || posAgeSec < PAPER_MIN_FLIP_AGE_SEC) {
+    if (onTarget || !PAPER_FLIP_EXIT_ENABLED || posAgeSec < PAPER_MIN_FLIP_AGE_SEC) {
       // Flip exit off (PAPER_TRADER_FLIP_EXIT) or too fresh to flip — falls
       // through to hold; stop, trailing and max-hold still close.
     } else {
@@ -651,7 +672,7 @@ export class PaperTrader {
         drawdownPct: (dailyDrawdown * 100).toFixed(1),
         haltedUntilMs: stats.haltedUntilMs,
       });
-      void notifyDiscord(
+      void notifyPaper(
         `Paper HALT (profit-lock) • daily peak $${(dailyPeak / 1000).toFixed(1)}k → NAV $${(nav / 1000).toFixed(1)}k • drawdown ${(dailyDrawdown * 100).toFixed(1)}% • resumes ${new Date(stats.haltedUntilMs).toISOString()}`,
         'KILL',
         { source: 'paper-trader', dailyPeak, nav, drawdownPct: dailyDrawdown },
@@ -667,7 +688,7 @@ export class PaperTrader {
         consecutiveLosses: stats.consecutiveLosses,
         haltHours: PAPER_HALT_HOURS,
       });
-      void notifyDiscord(
+      void notifyPaper(
         `Paper HALT (streak) • ${stats.consecutiveLosses} consecutive losses • cooling off ${PAPER_HALT_HOURS}h`,
         'KILL',
         { source: 'paper-trader', consecutiveLosses: stats.consecutiveLosses },
@@ -677,6 +698,23 @@ export class PaperTrader {
 
     // Persist any daily-peak refresh from loadStats().
     await setCronState(KEY_STATS, stats);
+
+    // A resting entry from an earlier tick is resolved before anything new
+    // is considered: filled = open it, still resting = wait, lapsed = move on.
+    const resting = await checkRestingEntry(KEY_RESTING_ENTRY, now, async (a) => {
+      const p = await priceCandidate(a);
+      return p.ok ? p.markPrice : null;
+    });
+    if (resting.state === 'waiting') {
+      const { plan, limitPrice } = resting.entry;
+      return { action: 'held', reason: `resting ${plan.side} entry on ${plan.asset} @ $${limitPrice.toFixed(4)}`, nav };
+    }
+    if (resting.state === 'filled') {
+      const { plan, limitPrice } = resting.entry;
+      if (!concurrencyFilter?.rejectionReason(plan.asset, plan.side)) {
+        return PaperTrader.openPosition(plan, limitPrice, nav, now, true);
+      }
+    }
 
     // 1. Signal scan + rank + filter → picked candidate (or skip reason).
     //    Helper handles: skip-STRONG, signal-quality, concurrency, signal-history,
@@ -720,7 +758,7 @@ export class PaperTrader {
     // 3. Multi-source validated price at open — catches stale-cache bugs.
     const priceResult = await priceCandidate(asset);
     if (!priceResult.ok) {
-      void notifyDiscord(
+      void notifyPaper(
         `Paper SKIP ${asset} ${side} — ${priceResult.reason}`,
         'WARN',
         { source: 'paper-trader', asset, error: priceResult.reason },
@@ -747,6 +785,39 @@ export class PaperTrader {
       direction: (s.direction ?? 'NEUTRAL') as 'UP' | 'DOWN' | 'NEUTRAL',
     }));
 
+    const plan: EntryPlan = {
+      asset, side, rec, notionalUsd, conf, cons, signalScalar, sourceSnapshot,
+      score: picked.score,
+      probe: picked.probe,
+      holdHorizonMin: picked.holdHorizonMin,
+      ledgerHitRate: picked.ledgerHitRate,
+    };
+    logger.info('[PaperTrader] entry sized', {
+      asset, side,
+      volMult: volMult.toFixed(2),
+      calibrationBoost: calibrationBoost.toFixed(2),
+      execution: PAPER_EXECUTION,
+    });
+    if (PAPER_EXECUTION === 'resting') {
+      await placeRestingEntry(KEY_RESTING_ENTRY, plan, markPrice, now);
+      return { action: 'held', reason: `resting ${side} entry placed on ${asset} @ $${markPrice.toFixed(4)}`, nav };
+    }
+    return PaperTrader.openPosition(plan, markPrice, nav, now, false);
+  }
+
+  /**
+   * Opens `plan` at `markPrice`. `resting` = the entry filled as a resting
+   * order at that price (maker fee, no slippage); otherwise a market fill.
+   */
+  private static async openPosition(
+    plan: EntryPlan,
+    markPrice: number,
+    nav: number,
+    now: number,
+    resting: boolean,
+  ): Promise<TickResult> {
+    const { asset, side, rec, notionalUsd, conf, cons, signalScalar, sourceSnapshot } = plan;
+
     // Price-anchored stop-loss computed from the adaptive vol threshold
     // AT OPEN. The prior implementation only compared mtm.unrealizedPnlUsd
     // against -nav*stopLossPct — a NAV-blow-up threshold, not a per-trade
@@ -772,19 +843,20 @@ export class PaperTrader {
     // floors; the raised floor is the wider stop that revert wanted.
     // Regime-scale the max-hold: CHOP shrinks 0.75× (~34min), TREND
     // expands 1.5× (~68min). maxHoldMult was dead until 2026-09-22.
-    // A ledger-measured horizon (picked.holdHorizonMin) replaces all of it.
+    // A ledger-measured horizon (plan.holdHorizonMin) replaces all of it.
     const { getCurrentRegime, getRegimeMultipliers } = await import('./regime');
     const { regime } = await getCurrentRegime(now);
     const regMults = getRegimeMultipliers(regime);
-    const maxHoldMin = computeMaxHoldMinutes(signalScalar, regMults.maxHoldMult, picked.holdHorizonMin);
+    const target = PAPER_EXIT_MODE === 'target' ? targetExitLevels(side, markPrice) : null;
+    const maxHoldMin = target?.maxHoldMin ?? computeMaxHoldMinutes(signalScalar, regMults.maxHoldMult, plan.holdHorizonMin);
 
     const { computeAdaptiveThresholds } = await import('./adaptive-stops');
     const stopFrac = (await computeAdaptiveThresholds(asset, { holdWindowMin: maxHoldMin })).stopLossPct;
-    const stopLossPrice = side === 'LONG' ? markPrice * (1 - stopFrac) : markPrice * (1 + stopFrac);
+    const stopLossPrice = target?.stopLossPrice ?? (side === 'LONG' ? markPrice * (1 - stopFrac) : markPrice * (1 + stopFrac));
 
     const position: SimulatedPosition = {
       ...simulateOpen(
-        { asset, side, notionalUsd, leverage: PAPER_LEVERAGE, entryPrice: markPrice },
+        { asset, side, notionalUsd, leverage: PAPER_LEVERAGE, entryPrice: markPrice, resting },
         now,
       ),
       sourceSnapshot,
@@ -793,6 +865,7 @@ export class PaperTrader {
       entryConsensus: cons,
       maxHoldMin,
       stopLossPrice,
+      ...(target ? { takeProfitPrice: target.takeProfitPrice } : {}),
     };
 
     const orderId = `paper_${asset}_${Math.floor(now / 1000)}`;
@@ -825,11 +898,15 @@ export class PaperTrader {
         leverage: PAPER_LEVERAGE,
         entryPrice: markPrice,
         stopLoss: stopLossPrice,
+        takeProfit: target?.takeProfitPrice,
         simulationMode: true,
-        reason: `paper: ${rec} conf=${picked.prediction.confidence.toFixed(0)} score=${picked.score.toFixed(1)}${picked.probe ? ' | probe' : ''}${holdPlanTag(maxHoldMin, picked.holdHorizonMin, picked.ledgerHitRate)}`,
+        reason: `paper: ${rec} conf=${conf.toFixed(0)} score=${plan.score.toFixed(1)}${plan.probe ? ' | probe' : ''}${holdPlanTag(maxHoldMin, plan.holdHorizonMin, plan.ledgerHitRate)}`,
         predictionMarket: 'paper-aggregate',
         chain: PAPER_CHAIN,
-        metadata: { holdPlan: holdPlanMeta(maxHoldMin, picked.holdHorizonMin, picked.ledgerHitRate) },
+        metadata: {
+          holdPlan: holdPlanMeta(maxHoldMin, plan.holdHorizonMin, plan.ledgerHitRate),
+          execution: resting ? 'resting' : 'market',
+        },
       });
     } catch (e) {
       logger.warn('[PaperTrader] createHedge failed (state kept)', { error: errMsg(e) });
@@ -841,29 +918,13 @@ export class PaperTrader {
       notionalUsd: notionalUsd.toFixed(2),
       entryPrice: markPrice,
       recommendation: rec,
-      score: picked.score.toFixed(1),
+      score: plan.score.toFixed(1),
       signalScalar: signalScalar.toFixed(2),
-      volMult: volMult.toFixed(2),
-      calibrationBoost: calibrationBoost.toFixed(2),
+      resting,
       maxHoldMin: (position.maxHoldMin ?? PAPER_MAX_HOLD_MIN).toFixed(0),
     });
 
-    void notifyPaper(
-      `Paper OPEN ${asset} ${side} @ $${markPrice.toFixed(2)} • notional $${(notionalUsd / 1000).toFixed(1)}k • conf ${conf.toFixed(0)} • cons ${cons.toFixed(0)}`,
-      'TRADE',
-      {
-        source: 'paper-trader',
-        asset,
-        side,
-        notionalUsd,
-        confidence: conf,
-        consensus: cons,
-        signalScalar,
-        volMult,
-        recommendation: rec,
-      },
-      { at: now, kind: 'open', asset, side, notionalUsd },
-    ).catch(() => undefined);
+    void notifyPaperOpen('PaperTrader', position, resting);
 
     return {
       action: 'opened',
@@ -923,8 +984,7 @@ export class PaperTrader {
         await setCronState(HALT_KEY, now + haltMs);
         const msg = `rolling-drawdown: 7d PnL $${recent.toFixed(0)} vs prior 7d $${prior.toFixed(0)} — halted 24h`;
         try {
-          const { notifyDiscord } = await import('@/lib/utils/discord-notify');
-          await notifyDiscord(msg, 'KILL', { component: 'paper-trader' });
+          await notifyPaper(`Paper HALT • ${msg}`, 'KILL', { component: 'paper-trader' });
         } catch { /* discord failure non-fatal */ }
         return msg;
       }
@@ -996,8 +1056,7 @@ export class PaperTrader {
         : 'usd';
       const msg = `short-window-loss halt (${trippedBy}): ${lossCount} losses / $${lossSum.toFixed(0)} in ${PAPER_ROLLING_LOSS_WINDOW_MIN}min — halted ${Math.round(haltMs / 60_000)}min`;
       try {
-        const { notifyDiscord } = await import('@/lib/utils/discord-notify');
-        await notifyDiscord(msg, 'KILL', {
+        await notifyPaper(`Paper HALT • ${msg}`, 'KILL', {
           component: 'paper-trader',
           lossCount, lossSumUsd: lossSum,
           windowMin: PAPER_ROLLING_LOSS_WINDOW_MIN,
@@ -1032,15 +1091,10 @@ export class PaperTrader {
     now: number,
     reason: string,
     passedOrderId?: string,
+    resting: boolean = false,
   ): Promise<TickResult> {
-    const result = simulateClose(pos, exitPrice, now);
+    const result = simulateClose(pos, exitPrice, now, resting);
     const newNav = nav + result.realizedPnlUsd;
-
-    // Learning callbacks — shared pipeline (source outcomes, bandit arm,
-    // probability-calibrator in the 'paper' namespace per Fix O).
-    await recordCloseLearning(pos, exitPrice, result.realizedPnlUsd, now, {
-      calibratorNamespace: 'paper',
-    });
 
     // Passed-in orderId is the source of truth. In legacy mode it may
     // be undefined (older call sites); fall back to KEY_ORDER_ID for
@@ -1049,6 +1103,27 @@ export class PaperTrader {
     // skipped the DB UPDATE and left rows status='active' after closing
     // in memory (observed on paper_XRP_1789759203).
     const orderId = passedOrderId ?? (await getCronState<string>(KEY_ORDER_ID)) ?? undefined;
+
+    // Settle the hedges row FIRST via the shared pipeline (single atomic
+    // UPDATE, MFE/MAE + attribution analytics): it decides which of two
+    // overlapping ticks closed the position. The loser counts nothing.
+    // Paper trades MUST NOT credit the real treasury — portfolio -3 stats
+    // live in cron_state only (the 2026-09-18 treasury-pollution lesson).
+    if (orderId && (await settleHedgeRow({ orderId, pos, result, reason, nav })) === false) {
+      await positionClose(orderId);
+      return {
+        action: 'skipped',
+        reason: 'already closed by an overlapping tick',
+        nav: (await getCronState<number>(KEY_NAV)) ?? nav,
+      };
+    }
+
+    // Learning callbacks — shared pipeline (source outcomes, bandit arm,
+    // probability-calibrator in the 'paper' namespace per Fix O).
+    await recordCloseLearning(pos, exitPrice, result.realizedPnlUsd, now, {
+      calibratorNamespace: 'paper',
+    });
+
     if (orderId) await positionClose(orderId);
     await setCronState(KEY_NAV, newNav);
 
@@ -1068,14 +1143,6 @@ export class PaperTrader {
     if ((stats.dailyPeakNavUsd ?? 0) < newNav) stats.dailyPeakNavUsd = newNav;
     await setCronState(KEY_STATS, stats);
 
-    // Settle the hedges row via the shared pipeline (single atomic UPDATE,
-    // MFE/MAE + attribution analytics). Paper trades MUST NOT credit the
-    // real treasury — portfolio -3 stats live in cron_state only (the
-    // 2026-09-18 treasury-pollution lesson).
-    if (orderId) {
-      await settleHedgeRow({ orderId, pos, result, reason, nav });
-    }
-
     logger.info('[PaperTrader] closed', {
       asset: pos.asset,
       side: pos.side,
@@ -1089,34 +1156,7 @@ export class PaperTrader {
       newNavUsd: newNav.toFixed(2),
     });
 
-    // Notify Discord — TRADE level for wins, WARN for losses. Stop-loss
-    // and trailing-stop closes get their own log line via `reason` so
-    // operators can distinguish them from natural signal-flip exits.
-    // TRADE-level closes buffer into digest when PAPER_TRADER_DISCORD_DIGEST=1;
-    // WARN (losses) always fires immediately so drawdowns are visible.
-    const level = result.realizedPnlUsd >= 0 ? 'TRADE' : 'WARN';
-    void notifyPaper(
-      `Paper CLOSE ${pos.asset} ${pos.side} • ${result.realizedPnlUsd >= 0 ? '+' : ''}$${result.realizedPnlUsd.toFixed(2)} • ${reason} • NAV $${(newNav / 1000).toFixed(1)}k`,
-      level,
-      {
-        source: 'paper-trader',
-        asset: pos.asset,
-        side: pos.side,
-        realizedUsd: result.realizedPnlUsd,
-        reason,
-        holdSec: result.holdSeconds,
-        newNavUsd: newNav,
-      },
-      {
-        at: now,
-        kind: 'close',
-        asset: pos.asset,
-        side: pos.side,
-        notionalUsd: pos.notionalUsd,
-        pnlUsd: result.realizedPnlUsd,
-        reason,
-      },
-    ).catch(() => undefined);
+    void notifyPaperClose('PaperTrader', PAPER_PORTFOLIO_ID, result, reason, now);
 
     return { action: 'closed', reason, detail: result, nav: newNav };
   }

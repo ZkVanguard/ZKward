@@ -3,7 +3,7 @@
  * Type definitions extracted from PositionsList.tsx
  */
 
-import type { PredictionMarket } from '@/lib/services/market-data/DelphiMarketService';
+import type { PredictionMarket } from '@/lib/types/market-signals';
 
 export interface Position {
   symbol: string;

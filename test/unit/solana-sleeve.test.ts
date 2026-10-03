@@ -30,7 +30,7 @@ jest.mock('@/lib/services/ai/source-calibrator', () => ({
 const createHedge = jest.fn(async () => ({}));
 jest.mock('@/lib/db/hedges', () => ({ createHedge: (...a: unknown[]) => createHedge(...a) }));
 
-const settle = jest.fn(async () => undefined);
+const settle = jest.fn(async (): Promise<boolean | undefined> => undefined);
 const learn = jest.fn(async () => undefined);
 jest.mock('@/lib/services/paper-trader/close-pipeline', () => ({
   settleHedgeRow: (...a: unknown[]) => settle(...a),
@@ -123,6 +123,18 @@ describe('runSolanaSleeveTick', () => {
     );
     const stats = state.get('solana-pool:sleeve-stats') as { trades: number; wins: number };
     expect(stats.wins).toBe(1); // small green close after fees? notional 300 @1x: gross=+1.5, fees 0.39+slip 0.06 → win
+  });
+
+  it('a close already settled by an overlapping tick is not counted again', async () => {
+    mockPreds = { BTC: pred('UP', 90) };
+    await runSolanaSleeveTick(1000, 0);
+    mockMark = 97.4; // stop breach
+    settle.mockResolvedValueOnce(false);
+    const lost = await runSolanaSleeveTick(1000, 120_000);
+    expect(lost.action).toBe('idle');
+    expect(learn).not.toHaveBeenCalled();
+    expect(state.get('solana-pool:sleeve-stats')).toBeUndefined();
+    expect(state.get('solana-pool:sleeve-position')).toBeNull();
   });
 
   it('kill switch: SOLANA_SLEEVE_DISABLE=1 is a no-op', async () => {
