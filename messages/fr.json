@@ -214,6 +214,19 @@
         "body": "Saisissez un montant ci-dessous et confirmez dans votre portefeuille.",
         "action": "Déposer"
       }
+    },
+    "trades": {
+      "long": "Long",
+      "short": "Short",
+      "held": "tenu {h} h",
+      "entry": "entrée ${price}",
+      "reasons": {
+        "takeProfit": "Prise de profit",
+        "trailingStop": "Stop suiveur",
+        "stop": "Stop",
+        "timeLimit": "Limite de temps",
+        "signalFlip": "Signal inversé"
+      }
     }
   },
   "common": {

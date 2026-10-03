@@ -214,6 +214,19 @@
         "body": "下で金額を入力し、ウォレットで承認してください。",
         "action": "入金する"
       }
+    },
+    "trades": {
+      "long": "ロング",
+      "short": "ショート",
+      "held": "{h} 時間保有",
+      "entry": "エントリー ${price}",
+      "reasons": {
+        "takeProfit": "利益確定",
+        "trailingStop": "トレーリングストップ",
+        "stop": "ストップ",
+        "timeLimit": "時間切れ",
+        "signalFlip": "シグナル反転"
+      }
     }
   },
   "common": {

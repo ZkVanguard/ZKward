@@ -214,6 +214,19 @@
         "body": "Gib unten einen Betrag ein und bestätige in deiner Wallet.",
         "action": "Einzahlen"
       }
+    },
+    "trades": {
+      "long": "Long",
+      "short": "Short",
+      "held": "{h} Std. gehalten",
+      "entry": "Einstieg ${price}",
+      "reasons": {
+        "takeProfit": "Gewinnmitnahme",
+        "trailingStop": "Trailing-Stop",
+        "stop": "Stop",
+        "timeLimit": "Zeitlimit",
+        "signalFlip": "Signalwechsel"
+      }
     }
   },
   "common": {

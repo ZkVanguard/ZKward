@@ -214,6 +214,19 @@
         "body": "नीचे राशि लिखें और वॉलेट में पुष्टि करें।",
         "action": "जमा करें"
       }
+    },
+    "trades": {
+      "long": "लॉन्ग",
+      "short": "शॉर्ट",
+      "held": "{h} घंटे रखा",
+      "entry": "एंट्री ${price}",
+      "reasons": {
+        "takeProfit": "मुनाफ़ा बुक",
+        "trailingStop": "ट्रेलिंग स्टॉप",
+        "stop": "स्टॉप",
+        "timeLimit": "समय सीमा",
+        "signalFlip": "सिग्नल पलटा"
+      }
     }
   },
   "common": {

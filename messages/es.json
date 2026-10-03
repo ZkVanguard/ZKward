@@ -214,6 +214,19 @@
         "body": "Escribe un importe abajo y confirma en tu billetera.",
         "action": "Depositar"
       }
+    },
+    "trades": {
+      "long": "Largo",
+      "short": "Corto",
+      "held": "{h} h abierta",
+      "entry": "entrada ${price}",
+      "reasons": {
+        "takeProfit": "Toma de ganancias",
+        "trailingStop": "Stop dinámico",
+        "stop": "Stop",
+        "timeLimit": "Límite de tiempo",
+        "signalFlip": "Cambio de señal"
+      }
     }
   },
   "common": {

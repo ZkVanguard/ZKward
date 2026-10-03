@@ -214,6 +214,19 @@
         "body": "Inserisci un importo qui sotto e conferma nel wallet.",
         "action": "Deposita"
       }
+    },
+    "trades": {
+      "long": "Long",
+      "short": "Short",
+      "held": "tenuta {h} h",
+      "entry": "ingresso ${price}",
+      "reasons": {
+        "takeProfit": "Presa di profitto",
+        "trailingStop": "Trailing stop",
+        "stop": "Stop",
+        "timeLimit": "Limite di tempo",
+        "signalFlip": "Cambio di segnale"
+      }
     }
   },
   "common": {

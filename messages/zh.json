@@ -214,6 +214,19 @@
         "body": "在下方输入金额，并在钱包中确认。",
         "action": "存入"
       }
+    },
+    "trades": {
+      "long": "做多",
+      "short": "做空",
+      "held": "持有 {h} 小时",
+      "entry": "入场 ${price}",
+      "reasons": {
+        "takeProfit": "止盈",
+        "trailingStop": "移动止损",
+        "stop": "止损",
+        "timeLimit": "时间限制",
+        "signalFlip": "信号反转"
+      }
     }
   },
   "common": {

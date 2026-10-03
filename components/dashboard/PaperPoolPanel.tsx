@@ -86,8 +86,7 @@ export function PaperPoolPanel() {
         <div>
           <div className="font-semibold text-label-primary text-callout">Paper pool — signal stack in production</div>
           <div className="text-sm text-label-secondary mt-1">
-            Shadow trader running the aggregator&apos;s output at $100K notional. Mark-price fills, 13&nbsp;bp
-            round-trip + 11% APR funding modeled. Answers: does the signal stack have edge net of fees?
+            A $100,000 simulated book that trades on our signals, net of fees, slippage and funding.
           </div>
         </div>
       </div>

@@ -214,6 +214,19 @@
         "body": "أدخل مبلغًا أدناه وأكّد في محفظتك.",
         "action": "إيداع"
       }
+    },
+    "trades": {
+      "long": "شراء",
+      "short": "بيع",
+      "held": "مدة {h} ساعة",
+      "entry": "الدخول ${price}",
+      "reasons": {
+        "takeProfit": "جني الربح",
+        "trailingStop": "وقف متحرك",
+        "stop": "وقف خسارة",
+        "timeLimit": "حد زمني",
+        "signalFlip": "انعكاس الإشارة"
+      }
     }
   },
   "common": {

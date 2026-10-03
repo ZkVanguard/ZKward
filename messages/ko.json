@@ -214,6 +214,19 @@
         "body": "아래에 금액을 입력하고 지갑에서 승인하세요.",
         "action": "입금"
       }
+    },
+    "trades": {
+      "long": "롱",
+      "short": "숏",
+      "held": "{h}시간 보유",
+      "entry": "진입 ${price}",
+      "reasons": {
+        "takeProfit": "익절",
+        "trailingStop": "트레일링 스톱",
+        "stop": "손절",
+        "timeLimit": "시간 제한",
+        "signalFlip": "신호 반전"
+      }
     }
   },
   "common": {

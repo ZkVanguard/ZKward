@@ -26,6 +26,7 @@ import {
   Legend,
 } from 'chart.js';
 import { Line } from 'react-chartjs-2';
+import { ClosedTradeList } from '@/components/dashboard/ClosedTradeList';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Filler, Legend);
 
@@ -194,10 +195,7 @@ export default function PaperTraderPage() {
         <header>
           <h1 className="text-[28px] sm:text-[34px] md:text-[42px] font-display font-semibold tracking-[-0.03em] leading-[1.1] text-label-primary">Signal Stack in Production</h1>
           <p className="text-label-secondary mt-1">
-            Live shadow-execution of the aggregator&apos;s output. 20 sources per asset, per-source
-            hit-rate-weighted, autonomous entry + exit with adaptive stops. Mark-price fills, 13&nbsp;bp
-            round-trip + 11% APR funding modeled. Answers: does the signal stack have edge net of
-            fees at $100k?
+            A $100,000 simulated book that trades on our signals, net of fees, slippage and funding.
           </p>
           <p className="text-xs text-label-tertiary mt-2">
             Last tick: {status.lastTickAt ? new Date(status.lastTickAt).toLocaleString() : 'never'}
@@ -394,64 +392,24 @@ export default function PaperTraderPage() {
         {/* Recent trades */}
         <div className="bg-system-bg-secondary rounded-ios-xl p-4 sm:p-5 border border-separator-opaque/30">
           <div className="text-xs text-label-secondary uppercase mb-2">Recent Closed Trades</div>
-          {status.recentTrades.length === 0 ? (
-            <div className="text-sm text-label-tertiary">No closed trades yet.</div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full text-sm">
-                <thead>
-                  <tr className="text-left text-label-tertiary text-xs uppercase border-b border-separator-opaque/30">
-                    <th className="py-2 pr-4">Asset</th>
-                    <th className="py-2 pr-4">Side</th>
-                    <th className="py-2 pr-4">Notional</th>
-                    <th className="py-2 pr-4">Entry</th>
-                    <th className="py-2 pr-4">Realized</th>
-                    <th className="py-2 pr-4">Funding</th>
-                    <th className="py-2 pr-4">Closed</th>
-                    <th className="py-2 pr-4">Reason</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {status.recentTrades.map((t) => (
-                    <tr key={t.id} className="border-b border-separator-opaque/30 last:border-0">
-                      <td className="py-2 pr-4">{t.asset}</td>
-                      <td
-                        className={
-                          'py-2 pr-4 ' + (t.side === 'LONG' ? 'text-green-700' : 'text-red-700')
-                        }
-                      >
-                        {t.side}
-                      </td>
-                      <td className="py-2 pr-4">{fmtUsd(t.notionalUsd)}</td>
-                      <td className="py-2 pr-4">${t.entryPrice.toFixed(2)}</td>
-                      <td
-                        className={
-                          'py-2 pr-4 ' +
-                          (t.realizedPnlUsd >= 0 ? 'text-green-700' : 'text-red-700')
-                        }
-                      >
-                        {fmtUsd(t.realizedPnlUsd)}
-                      </td>
-                      <td className="py-2 pr-4 text-label-secondary">
-                        {fmtUsd(t.fundingUsd)}
-                      </td>
-                      <td className="py-2 pr-4 text-label-secondary">
-                        {new Date(t.closedAt).toLocaleString()}
-                      </td>
-                      <td className="py-2 pr-4 text-label-tertiary max-w-xs truncate">
-                        {t.reason.split('|').pop()?.trim() ?? t.reason}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+          <ClosedTradeList
+            empty="No closed trades yet."
+            trades={status.recentTrades.map((tr) => ({
+              id: tr.id,
+              market: tr.asset,
+              side: tr.side,
+              pnlUsd: tr.realizedPnlUsd,
+              notionalUsd: tr.notionalUsd,
+              closedAt: tr.closedAt,
+              reason: tr.reason,
+              heldHours: (new Date(tr.closedAt).getTime() - new Date(tr.openedAt).getTime()) / 3_600_000,
+              entryPrice: tr.entryPrice,
+            }))}
+          />
         </div>
 
         <footer className="text-xs text-label-tertiary pt-4 pb-8">
-          Auto-refreshes every 30s. Paper-trader runs on the standalone systemd worker every 5 min. Fills at oracle mark price; no venue slippage. Fee model matches
-          BlueFin Pro observed 2026-09.
+          Refreshes every 30 seconds. A simulated book: every result is net of trading fees, slippage and funding.
         </footer>
       </div>
     </div>

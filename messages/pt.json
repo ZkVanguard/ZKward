@@ -214,6 +214,19 @@
         "body": "Digite um valor abaixo e confirme na sua carteira.",
         "action": "Depositar"
       }
+    },
+    "trades": {
+      "long": "Compra",
+      "short": "Venda",
+      "held": "{h} h aberta",
+      "entry": "entrada ${price}",
+      "reasons": {
+        "takeProfit": "Realização de lucro",
+        "trailingStop": "Stop móvel",
+        "stop": "Stop",
+        "timeLimit": "Limite de tempo",
+        "signalFlip": "Virada de sinal"
+      }
     }
   },
   "common": {

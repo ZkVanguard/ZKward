@@ -638,6 +638,19 @@
         "body": "Enter an amount below and confirm in your wallet.",
         "action": "Deposit"
       }
+    },
+    "trades": {
+      "long": "Long",
+      "short": "Short",
+      "held": "held {h}h",
+      "entry": "entry ${price}",
+      "reasons": {
+        "takeProfit": "Take profit",
+        "trailingStop": "Trailing stop",
+        "stop": "Stop",
+        "timeLimit": "Time limit",
+        "signalFlip": "Signal flip"
+      }
     }
   },
   "common": {
