@@ -37,6 +37,7 @@ export const maxDuration = 60;
 
 const CLAIM_ID = 'paper-fast-tick-claim';
 const CLAIM_MS = 50_000;
+const PUBLIC_URL = (process.env.PROD_URL || 'https://www.zkward.com').trim().replace(/\/$/, '');
 
 export async function POST(request: NextRequest) {
   return handle(request);
@@ -112,6 +113,18 @@ async function runStages(): Promise<Record<string, string>> {
   } catch (e) {
     results.ledger = `error: ${errMsg(e).slice(0, 80)}`;
     logger.warn('[PaperFastTick] signal-ledger tick failed (non-fatal)', { error: errMsg(e) });
+  }
+
+  // Keep the public signal read warm at the CDN. The homepage coin strip and
+  // the dashboard read /api/predictions/per-asset; after a deploy (the CDN
+  // starts empty) the first visitor otherwise waited 10-20 s for a cold
+  // aggregator scan. This request lands on the cached copy or refreshes it,
+  // so visitors are always answered from the CDN. Non-fatal.
+  try {
+    const r = await fetch(`${PUBLIC_URL}/api/predictions/per-asset`, { signal: AbortSignal.timeout(20_000) });
+    results.warm = `${r.status} ${r.headers.get('x-vercel-cache') ?? ''}`.trim();
+  } catch (e) {
+    results.warm = `error: ${errMsg(e).slice(0, 60)}`;
   }
 
   return results;
