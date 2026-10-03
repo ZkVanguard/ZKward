@@ -275,26 +275,10 @@
       }
     },
     "cta": {
-      "howItWorks": "仕組み",
+      "howItWorks": "始め方",
       "installApp": "Install app",
       "installIosHint": "To install: tap the Share icon in Safari, scroll down, and tap \"Add to Home Screen\".",
       "openApp": "アプリを開く"
-    },
-    "howItWorks": {
-      "eyebrow": "The loop",
-      "title": "読む。採点する。取引する。",
-      "step1": {
-        "title": "20 以上の市場を読む",
-        "body": "予測市場、取引所、オプションを 30 秒ごとに。"
-      },
-      "step2": {
-        "title": "すべてのソースを採点",
-        "body": "外れ続けるソースは投票権を失います。"
-      },
-      "step3": {
-        "title": "一致したときに取引",
-        "body": "すべての取引は公開されていて、誰でも確認できます。"
-      }
     },
     "finalCta": {
       "title": "動いている様子を見る。"
@@ -327,6 +311,22 @@
       "open": {
         "title": "隠し事なし",
         "body": "すべての取引とプールの価値は公開されています。"
+      }
+    },
+    "start": {
+      "eyebrow": "始め方",
+      "title": "3 ステップで始められます。",
+      "step1": {
+        "title": "アプリを開く",
+        "body": "まずは見て回るだけ。登録は不要です。"
+      },
+      "step2": {
+        "title": "ネットワークを選ぶ",
+        "body": "最適なものをおすすめします。メールでのサインインも使えます。"
+      },
+      "step3": {
+        "title": "入金して見守る",
+        "body": "すべての取引をライブで確認。いつでも引き出せます。"
       }
     }
   },

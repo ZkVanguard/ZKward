@@ -275,26 +275,10 @@
       }
     },
     "cta": {
-      "howItWorks": "Como funciona",
+      "howItWorks": "Como começar",
       "installApp": "Install app",
       "installIosHint": "To install: tap the Share icon in Safari, scroll down, and tap \"Add to Home Screen\".",
       "openApp": "Abrir o app"
-    },
-    "howItWorks": {
-      "eyebrow": "The loop",
-      "title": "Ler. Pontuar. Operar.",
-      "step1": {
-        "title": "Ler mais de 20 mercados",
-        "body": "Mercados de previsão, corretoras e opções, a cada 30 segundos."
-      },
-      "step2": {
-        "title": "Pontuar cada fonte",
-        "body": "Fontes que erram repetidamente perdem o voto."
-      },
-      "step3": {
-        "title": "Operar quando concordam",
-        "body": "Cada operação é pública, qualquer pessoa pode conferir."
-      }
     },
     "finalCta": {
       "title": "Veja funcionando."
@@ -327,6 +311,22 @@
       "open": {
         "title": "Nada escondido",
         "body": "Cada operação e o valor do pool são públicos."
+      }
+    },
+    "start": {
+      "eyebrow": "Como começar",
+      "title": "Comece em três passos.",
+      "step1": {
+        "title": "Abra o app",
+        "body": "Explore primeiro. Sem cadastro."
+      },
+      "step2": {
+        "title": "Escolha sua rede",
+        "body": "Sugerimos a ideal para você. Entrar com e-mail também funciona."
+      },
+      "step3": {
+        "title": "Deposite e acompanhe",
+        "body": "Veja cada operação ao vivo. Saque quando quiser."
       }
     }
   },

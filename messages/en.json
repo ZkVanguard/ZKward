@@ -32,26 +32,10 @@
       }
     },
     "cta": {
-      "howItWorks": "How it works",
+      "howItWorks": "How to start",
       "installApp": "Install app",
       "installIosHint": "To install: tap the Share icon in Safari, scroll down, and tap \"Add to Home Screen\".",
       "openApp": "Open the app"
-    },
-    "howItWorks": {
-      "eyebrow": "How it works",
-      "title": "Read. Score. Trade.",
-      "step1": {
-        "title": "Read 20+ markets",
-        "body": "Prediction markets, exchanges and options, every 30 seconds."
-      },
-      "step2": {
-        "title": "Score every source",
-        "body": "Sources that keep getting it wrong lose their vote."
-      },
-      "step3": {
-        "title": "Trade when they agree",
-        "body": "Every trade is public, so anyone can check it."
-      }
     },
     "finalCta": {
       "title": "See it running."
@@ -84,6 +68,22 @@
       "open": {
         "title": "Nothing hidden",
         "body": "Every trade and the pool's value are public."
+      }
+    },
+    "start": {
+      "eyebrow": "How to start",
+      "title": "Start in three steps.",
+      "step1": {
+        "title": "Open the app",
+        "body": "Look around first. No sign-up needed."
+      },
+      "step2": {
+        "title": "Pick your network",
+        "body": "We suggest the right one for you. Email sign-in works too."
+      },
+      "step3": {
+        "title": "Deposit and follow along",
+        "body": "Watch every trade live. Withdraw when you like."
       }
     }
   },

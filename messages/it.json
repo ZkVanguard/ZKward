@@ -275,26 +275,10 @@
       }
     },
     "cta": {
-      "howItWorks": "Come funziona",
+      "howItWorks": "Come iniziare",
       "installApp": "Install app",
       "installIosHint": "To install: tap the Share icon in Safari, scroll down, and tap \"Add to Home Screen\".",
       "openApp": "Apri l'app"
-    },
-    "howItWorks": {
-      "eyebrow": "The loop",
-      "title": "Leggere. Valutare. Operare.",
-      "step1": {
-        "title": "Leggere oltre 20 mercati",
-        "body": "Mercati predittivi, exchange e opzioni, ogni 30 secondi."
-      },
-      "step2": {
-        "title": "Valutare ogni fonte",
-        "body": "Le fonti che sbagliano di continuo perdono il voto."
-      },
-      "step3": {
-        "title": "Operare quando concordano",
-        "body": "Ogni operazione è pubblica, chiunque può verificarla."
-      }
     },
     "finalCta": {
       "title": "Guardalo in azione."
@@ -327,6 +311,22 @@
       "open": {
         "title": "Niente di nascosto",
         "body": "Ogni operazione e il valore del pool sono pubblici."
+      }
+    },
+    "start": {
+      "eyebrow": "Come iniziare",
+      "title": "Inizia in tre passi.",
+      "step1": {
+        "title": "Apri l'app",
+        "body": "Prima dai un'occhiata. Nessuna registrazione."
+      },
+      "step2": {
+        "title": "Scegli la tua rete",
+        "body": "Ti suggeriamo quella giusta. Funziona anche l'accesso via email."
+      },
+      "step3": {
+        "title": "Deposita e segui",
+        "body": "Guarda ogni operazione dal vivo. Preleva quando vuoi."
       }
     }
   },

@@ -275,26 +275,10 @@
       }
     },
     "cta": {
-      "howItWorks": "运作方式",
+      "howItWorks": "如何开始",
       "installApp": "Install app",
       "installIosHint": "To install: tap the Share icon in Safari, scroll down, and tap \"Add to Home Screen\".",
       "openApp": "打开应用"
-    },
-    "howItWorks": {
-      "eyebrow": "The loop",
-      "title": "读取。评分。交易。",
-      "step1": {
-        "title": "读取 20 多个市场",
-        "body": "预测市场、交易所和期权，每 30 秒更新。"
-      },
-      "step2": {
-        "title": "为每个来源评分",
-        "body": "经常判断错误的来源会失去投票权。"
-      },
-      "step3": {
-        "title": "一致时才交易",
-        "body": "每笔交易都公开，任何人都能查看。"
-      }
     },
     "finalCta": {
       "title": "看看它的运行。"
@@ -327,6 +311,22 @@
       "open": {
         "title": "毫无隐藏",
         "body": "每笔交易和资金池价值都是公开的。"
+      }
+    },
+    "start": {
+      "eyebrow": "如何开始",
+      "title": "三步即可开始。",
+      "step1": {
+        "title": "打开应用",
+        "body": "先随便看看，无需注册。"
+      },
+      "step2": {
+        "title": "选择你的网络",
+        "body": "我们会推荐最合适的。也可以用邮箱登录。"
+      },
+      "step3": {
+        "title": "存入并跟进",
+        "body": "实时查看每笔交易，随时可以取出。"
       }
     }
   },

@@ -4,8 +4,7 @@ import { memo, useEffect, useRef } from 'react';
 import { useTranslations } from 'next-intl';
 import { Link } from '@/i18n/routing';
 import {
-  ArrowRight, ShieldCheck, Zap,
-  Sparkles,
+  ArrowRight, LayoutDashboard, Compass, Wallet,
 } from 'lucide-react';
 import { InstallAppButton } from './InstallAppButton';
 import { DataSourceMarquee } from './landing/DataSourceMarquee';
@@ -479,40 +478,40 @@ export const SuiPoolLanding = memo(function SuiPoolLanding() {
       </section>
 
       {/* ─────────────────────────────────────────────────────────────── */}
-      {/* HOW IT WORKS                                                    */}
+      {/* HOW TO START: what a visitor does, step by step                 */}
       {/* ─────────────────────────────────────────────────────────────── */}
       <section id="how-it-works" className="py-14 sm:py-20 md:py-28 px-4 sm:px-5 lg:px-8 bg-system-bg-primary min-w-0">
         <Reveal className="max-w-[1100px] mx-auto">
           <div className="text-center mb-10 sm:mb-14 md:mb-16">
             <p className="text-[11px] sm:text-caption-1 font-semibold uppercase tracking-wide text-ios-blue mb-2 sm:mb-3">
-              {t('howItWorks.eyebrow')}
+              {t('start.eyebrow')}
             </p>
             <h2 className="text-[26px] sm:text-[34px] md:text-[44px] lg:text-[52px] font-display font-semibold tracking-[-0.03em] leading-[1.05] text-label-primary mb-3 sm:mb-4 break-words">
-              {t('howItWorks.title')}
+              {t('start.title')}
             </h2>
           </div>
 
           <div className="max-w-[760px] mx-auto min-w-0">
             <TimelineStep
               step={1}
-              icon={<Sparkles className="w-5 h-5" />}
+              icon={<LayoutDashboard className="w-5 h-5" />}
               accent="from-ios-blue to-[#5AC8FA]"
-              title={t('howItWorks.step1.title')}
-              body={t('howItWorks.step1.body')}
+              title={t('start.step1.title')}
+              body={t('start.step1.body')}
             />
             <TimelineStep
               step={2}
-              icon={<Zap className="w-5 h-5" />}
+              icon={<Compass className="w-5 h-5" />}
               accent="from-[#34C759] to-[#30D158]"
-              title={t('howItWorks.step2.title')}
-              body={t('howItWorks.step2.body')}
+              title={t('start.step2.title')}
+              body={t('start.step2.body')}
             />
             <TimelineStep
               step={3}
-              icon={<ShieldCheck className="w-5 h-5" />}
+              icon={<Wallet className="w-5 h-5" />}
               accent="from-[#AF52DE] to-[#BF5AF2]"
-              title={t('howItWorks.step3.title')}
-              body={t('howItWorks.step3.body')}
+              title={t('start.step3.title')}
+              body={t('start.step3.body')}
               last
             />
           </div>

@@ -275,26 +275,10 @@
       }
     },
     "cta": {
-      "howItWorks": "Comment ça marche",
+      "howItWorks": "Comment commencer",
       "installApp": "Install app",
       "installIosHint": "To install: tap the Share icon in Safari, scroll down, and tap \"Add to Home Screen\".",
       "openApp": "Ouvrir l'app"
-    },
-    "howItWorks": {
-      "eyebrow": "The loop",
-      "title": "Lire. Noter. Trader.",
-      "step1": {
-        "title": "Lire plus de 20 marchés",
-        "body": "Marchés de prédiction, exchanges et options, toutes les 30 secondes."
-      },
-      "step2": {
-        "title": "Noter chaque source",
-        "body": "Les sources qui se trompent sans cesse perdent leur voix."
-      },
-      "step3": {
-        "title": "Trader quand ils s'accordent",
-        "body": "Chaque trade est public, tout le monde peut le vérifier."
-      }
     },
     "finalCta": {
       "title": "Voyez-le tourner."
@@ -327,6 +311,22 @@
       "open": {
         "title": "Rien de caché",
         "body": "Chaque trade et la valeur du pool sont publics."
+      }
+    },
+    "start": {
+      "eyebrow": "Comment commencer",
+      "title": "Commencez en trois étapes.",
+      "step1": {
+        "title": "Ouvrez l'app",
+        "body": "Explorez d'abord. Aucune inscription nécessaire."
+      },
+      "step2": {
+        "title": "Choisissez votre réseau",
+        "body": "Nous vous suggérons le bon. La connexion par e-mail marche aussi."
+      },
+      "step3": {
+        "title": "Déposez et suivez",
+        "body": "Suivez chaque trade en direct. Retirez quand vous voulez."
       }
     }
   },

@@ -275,26 +275,10 @@
       }
     },
     "cta": {
-      "howItWorks": "So funktioniert's",
+      "howItWorks": "So startest du",
       "installApp": "Install app",
       "installIosHint": "To install: tap the Share icon in Safari, scroll down, and tap \"Add to Home Screen\".",
       "openApp": "App öffnen"
-    },
-    "howItWorks": {
-      "eyebrow": "The loop",
-      "title": "Lesen. Bewerten. Handeln.",
-      "step1": {
-        "title": "Über 20 Märkte lesen",
-        "body": "Prognosemärkte, Börsen und Optionen, alle 30 Sekunden."
-      },
-      "step2": {
-        "title": "Jede Quelle bewerten",
-        "body": "Quellen, die immer wieder falsch liegen, verlieren ihre Stimme."
-      },
-      "step3": {
-        "title": "Handeln, wenn sie übereinstimmen",
-        "body": "Jeder Trade ist öffentlich, jeder kann ihn prüfen."
-      }
     },
     "finalCta": {
       "title": "Sieh es live."
@@ -327,6 +311,22 @@
       "open": {
         "title": "Nichts versteckt",
         "body": "Jeder Trade und der Wert des Pools sind öffentlich."
+      }
+    },
+    "start": {
+      "eyebrow": "So startest du",
+      "title": "Starte in drei Schritten.",
+      "step1": {
+        "title": "Öffne die App",
+        "body": "Sieh dich zuerst um. Keine Anmeldung nötig."
+      },
+      "step2": {
+        "title": "Wähle dein Netzwerk",
+        "body": "Wir schlagen dir das passende vor. Anmeldung per E-Mail geht auch."
+      },
+      "step3": {
+        "title": "Einzahlen und mitverfolgen",
+        "body": "Sieh jeden Trade live. Heb ab, wann du willst."
       }
     }
   },
