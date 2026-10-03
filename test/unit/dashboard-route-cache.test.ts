@@ -45,6 +45,13 @@ describe('dashboard route caching', () => {
     },
   );
 
+  it('the minutely paper tick keeps the public signal read warm at the CDN', () => {
+    const tick = src('app/api/cron/paper-fast-tick/route.ts');
+    expect(tick).toMatch(/fetch\(`\$\{PUBLIC_URL\}\/api\/predictions\/per-asset`/);
+    // inside after(): the jobs service gets its 202 without waiting for the warm-up
+    expect(tick.indexOf('after(')).toBeLessThan(tick.indexOf('/api/predictions/per-asset'));
+  });
+
   it('every browser signal read shares one query over the bare per-asset URL', () => {
     const hook = src('lib/hooks/useLiveSignals.ts');
     expect(hook).toMatch(/queryKey: \['per-asset-signals'\]/);
