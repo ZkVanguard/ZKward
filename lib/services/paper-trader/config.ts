@@ -12,6 +12,16 @@ export const PAPER_UNIVERSE = (process.env.PAPER_TRADER_ASSETS || 'BTC,ETH,SOL,X
   .map((s) => s.trim().toUpperCase())
   .filter(Boolean);
 
+// The books open new positions only on these; the ledger, live signals and
+// flip checks still cover the whole universe so the evidence keeps coming.
+// Over 90 days of 1-minute candles under the live exits, a no-edge entry on
+// BTC/ETH averaged -3.7 bp against -6.2 bp across all five (every 30-day
+// block agreed): SOL, XRP and DOGE pay more slippage and hit the stop more.
+export const PAPER_TRADE_ASSETS = (process.env.PAPER_TRADER_TRADE_ASSETS || 'BTC,ETH')
+  .split(',')
+  .map((s) => s.trim().toUpperCase())
+  .filter((a) => PAPER_UNIVERSE.includes(a));
+
 export const PAPER_STARTING_NAV = Number(process.env.PAPER_TRADER_STARTING_NAV || 100_000);
 export const PAPER_LEVERAGE = Number(process.env.PAPER_TRADER_LEVERAGE || 3);
 
@@ -283,8 +293,13 @@ export const PAPER_TIGHTEN_NOTIONAL_FRAC = Number(
 // Positions keep the policy they were opened with.
 export const PAPER_EXIT_MODE: 'target' | 'adaptive' =
   (process.env.PAPER_TRADER_EXIT_MODE || 'target').trim().toLowerCase() === 'adaptive' ? 'adaptive' : 'target';
-/** Take-profit distance from entry, in bp of price. Must clear ~17 bp of friction to be a win. */
-export const PAPER_TARGET_TP_BP = Number(process.env.PAPER_TRADER_TARGET_TP_BP || 25);
+/**
+ * Take-profit distance from entry, in bp of price. It fills as a resting
+ * order (2 bp round trip), so +20 nets about +18. Against +25 it raised the
+ * win rate by about 2.5 points in every 30-day block of a 90-day replay with
+ * no measurable change in the average trade.
+ */
+export const PAPER_TARGET_TP_BP = Number(process.env.PAPER_TRADER_TARGET_TP_BP || 20);
 /** Stop distance from entry, in bp of price. */
 export const PAPER_TARGET_STOP_BP = Number(process.env.PAPER_TRADER_TARGET_STOP_BP || 200);
 /** Time limit; a trade still open then closes at the mark. */

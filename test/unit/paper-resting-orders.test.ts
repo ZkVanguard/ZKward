@@ -47,7 +47,7 @@ jest.mock('@/lib/services/paper-trader/volatility-gate', () => ({
 }));
 
 import { PaperTrader, KEY_POSITION } from '@/lib/services/paper-trader/PaperTrader';
-import { KEY_RESTING_ENTRY, PAPER_EXECUTION, PAPER_RESTING_ENTRY_WAIT_MIN } from '@/lib/services/paper-trader/config';
+import { KEY_RESTING_ENTRY, PAPER_EXECUTION, PAPER_RESTING_ENTRY_WAIT_MIN, PAPER_TARGET_TP_BP } from '@/lib/services/paper-trader/config';
 import {
   FEE_BPS_PER_SIDE,
   MAKER_FEE_BPS_PER_SIDE,
@@ -239,24 +239,25 @@ describe('PaperTrader — resting entry to resting take-profit', () => {
     expect(pos.entryPrice).toBe(65_000);
     expect(pos.openFeeUsd).toBeCloseTo(pos.notionalUsd * MAKER_FEE_BPS_PER_SIDE / 10_000, 8);
     expect(pos.slippageOpenUsd).toBe(0);
-    expect(pos.takeProfitPrice).toBeCloseTo(65_162.5, 6);
+    expect(pos.takeProfitPrice).toBeCloseTo(65_000 * (1 + PAPER_TARGET_TP_BP / 10_000), 6);
     expect(store[KEY_RESTING_ENTRY]).toBeNull();
     const row = (mockCreateHedge.mock.calls[0] as any[])[0];
     expect(row.entryPrice).toBe(65_000);
     expect(row.metadata.execution).toBe('resting');
 
-    stubPrice(65_163); // at the target, not through it
+    const target = 65_000 * (1 + PAPER_TARGET_TP_BP / 10_000);
+    stubPrice(target + 1); // at the target, not through it
     expect((await PaperTrader.runTick(NOW + 3 * MIN)).action).toBe('held');
 
-    stubPrice(65_175);
+    stubPrice(target * (1 + 2 / 10_000));
     const closed = await PaperTrader.runTick(NOW + 4 * MIN);
     expect(closed.action).toBe('closed');
     expect(closed.reason).toMatch(/^take-profit/);
     const detail = closed.detail as any;
-    expect(detail.exitPrice).toBeCloseTo(65_162.5, 6);
+    expect(detail.exitPrice).toBeCloseTo(65_000 * (1 + PAPER_TARGET_TP_BP / 10_000), 6);
     expect(detail.slippageUsd).toBe(0);
     expect(detail.closeFeeUsd).toBeCloseTo(pos.notionalUsd * MAKER_FEE_BPS_PER_SIDE / 10_000, 8);
-    expect(detail.realizedPnlUsd).toBeGreaterThan(pos.notionalUsd * 20 / 10_000);
+    expect(detail.realizedPnlUsd).toBeGreaterThan(pos.notionalUsd * (PAPER_TARGET_TP_BP - 2 * MAKER_FEE_BPS_PER_SIDE - 1) / 10_000);
   });
 
   it('a stop on a resting-entry position is still a market order at full cost', async () => {
