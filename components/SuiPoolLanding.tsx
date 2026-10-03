@@ -55,6 +55,49 @@ function useCursorSpotlight<T extends HTMLElement>(ref: React.RefObject<T | null
   }, [ref, reduce]);
 }
 
+// Touch devices have no cursor, so the hero's depth layers took no input
+// at all there and the backdrop was hidden. This drives the same --sx/--sy
+// from the phone's tilt (where the browser reports it without a prompt)
+// and from scroll, so the layers still move at different speeds. Gated to
+// coarse pointers: the desktop cursor-follow was removed by design.
+function useTiltParallax<T extends HTMLElement>(ref: React.RefObject<T | null>) {
+  const reduce = useReducedMotion();
+  useEffect(() => {
+    if (reduce) return;
+    const el = ref.current;
+    if (!el) return;
+    if (!window.matchMedia('(pointer: coarse)').matches) return;
+    const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
+    let tiltX = 0, tiltY = 0, scrollY = 0, raf = 0;
+    const apply = () => {
+      raf = 0;
+      el.style.setProperty('--sx', `${50 + tiltX}%`);
+      el.style.setProperty('--sy', `${50 + tiltY + scrollY}%`);
+    };
+    const schedule = () => { if (!raf) raf = requestAnimationFrame(apply); };
+    const onOrient = (e: DeviceOrientationEvent) => {
+      if (e.gamma == null || e.beta == null) return;
+      // gamma: left-right roll (−90..90); beta: front-back pitch, ~45° when held normally.
+      tiltX = clamp(e.gamma / 30, -1, 1) * 28;
+      tiltY = clamp((e.beta - 45) / 30, -1, 1) * 18;
+      schedule();
+    };
+    const onScroll = () => {
+      const r = el.getBoundingClientRect();
+      scrollY = clamp(-r.top / Math.max(1, r.height), 0, 1) * 36;
+      schedule();
+    };
+    window.addEventListener('deviceorientation', onOrient);
+    window.addEventListener('scroll', onScroll, { passive: true });
+    onScroll();
+    return () => {
+      window.removeEventListener('deviceorientation', onOrient);
+      window.removeEventListener('scroll', onScroll);
+      cancelAnimationFrame(raf);
+    };
+  }, [ref, reduce]);
+}
+
 // VaultTiltScene. Encapsulates the perspective wrapper + the cursor-
 // spotlight hook attached to the card container. Pulling this into its
 // own component lets us mount useCursorSpotlight in one place, scoped
@@ -172,9 +215,9 @@ function toPoolSummary(res: HederaPoolResponse | undefined): PoolSummary | null 
 // published by useCursorSpotlight, translates each layer by a different
 // factor (calc((--sx - 50%) * k)) so back layers drift slowly and the
 // front layer tracks the cursor faster. That differential IS the 3D cue.
-// All ios-blue at low opacity so the white canvas stays clean. Hidden
-// below md: — mobile has no cursor and the graph would compete with
-// headline text at that width.
+// All ios-blue at low opacity so the white canvas stays clean. On phones
+// it is lighter (see .hero-graph-bg in globals.css) so the headline stays
+// legible, and it moves with tilt and scroll (useTiltParallax).
 //
 // Reduced-motion + hydration: gated purely in CSS (@media prefers-
 // reduced-motion). Not useReducedMotion() — that returns null on server
@@ -306,7 +349,7 @@ function HeroGraphBg() {
       // syncing the header with the hero backdrop instead of the
       // previous sharp cutoff at section top. Section must NOT clip
       // vertical overflow (see overflow-x-clip on the <section>).
-      className="hero-graph-bg hidden md:block absolute -top-24 left-0 right-0 bottom-0 -z-10 pointer-events-none overflow-hidden"
+      className="hero-graph-bg absolute -top-24 left-0 right-0 bottom-0 -z-10 pointer-events-none overflow-hidden"
       style={{
         perspective: '1400px',
         perspectiveOrigin: '50% 30%',
@@ -463,6 +506,16 @@ function HeroGraphBg() {
         .hero-graph-bg[data-hero-visible="false"] .hero-spiral-rotate {
           animation-play-state: paused;
         }
+        /* Phones: the layers show (they were hidden below md), lighter behind
+           a headline that spans the width, and their tilt/scroll-driven
+           moves ease over a longer time than the desktop cursor did. */
+        @media (max-width: 767px) {
+          .hero-graph-bg { opacity: 0.72; }
+          /* The spiral disk is the busiest layer and the headline and stats
+             fill the whole hero on a phone, so it goes fainter there. */
+          .hero-graph-layer:nth-child(3) { opacity: 0.45; }
+          .hero-graph-layer { transition-duration: 450ms; }
+        }
         @media (prefers-reduced-motion: reduce) {
           .hero-graph-layer { transform: none !important; transition: none !important; }
           .hero-chart-tape, .hero-node-drift, .hero-node-pulse, .hero-spiral-rotate { animation: none; }
@@ -479,9 +532,10 @@ export const SuiPoolLanding = memo(function SuiPoolLanding() {
   const { data: rawPool, isPending: loading } = useHederaPool('testnet');
   const pool = toPoolSummary(rawPool);
 
-  // Hero ref kept for structural anchor; cursor-follow effects removed
-  // per design request.
+  // Cursor-follow on desktop was removed by design; on touch devices the
+  // hero's depth layers follow tilt and scroll instead.
   const heroRef = useRef<HTMLElement>(null);
+  useTiltParallax(heroRef);
 
   // Build allocation legend (positive entries only)
   const allocationEntries = pool
