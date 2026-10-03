@@ -4,7 +4,7 @@
  * The hero's live element: where each coin leans right now, straight from
  * the signal stack (/api/predictions/per-asset, cached at the CDN). An arrow
  * and a number say it without a sentence; each chip opens the signals view.
- * While loading it shows chip-shaped placeholders; if the read fails the
+ * While loading it shows chip-shaped placeholders; if the first read fails the
  * strip stays out of the way rather than showing made-up values.
  */
 
@@ -23,7 +23,10 @@ export function LiveSignalStrip() {
     staleTime: 30_000,
     refetchInterval: 60_000,
   });
-  if (isError) return null;
+  // A refresh that fails keeps the last good chips on screen; the strip
+  // stays out of the way only when nothing has ever loaded. Hiding on any
+  // failed refresh made it appear, then vanish.
+  if (isError && !data) return null;
   const entries = data ? Object.entries(data) : [];
 
   return (
