@@ -16,7 +16,7 @@ type SignalsMap = Record<string, PerAssetSignal>;
 export function usePerAssetSignals() {
   return useQuery({
     queryKey: ['per-asset-signals'],
-    queryFn: fetchPerAssetSignals,
+    queryFn: () => fetchPerAssetSignals(),
     staleTime: 30_000,
     refetchInterval: 60_000,
   });

@@ -19,9 +19,13 @@ export function LiveSignalStrip() {
   // Same key as the dashboard's signal hook, so opening the app reuses this read.
   const { data, isPending, isError } = useQuery({
     queryKey: ['per-asset-signals'],
-    queryFn: fetchPerAssetSignals,
+    // The strip is a teaser, not the product: if the signal service does not
+    // answer within 8 s it steps aside instead of showing empty pills (the
+    // endpoint takes ~20 s to fail when its backend is down). No retry.
+    queryFn: () => fetchPerAssetSignals(AbortSignal.timeout(8_000)),
     staleTime: 30_000,
     refetchInterval: 60_000,
+    retry: false,
   });
   // A refresh that fails keeps the last good chips on screen; the strip
   // stays out of the way only when nothing has ever loaded. Hiding on any
