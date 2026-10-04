@@ -88,7 +88,7 @@ export function Safeguards() {
           <h2 className="text-[34px] sm:text-[52px] md:text-[64px] font-display font-semibold tracking-[-0.04em] leading-[1.0]">
             {t('title1')}
             <br />
-            <span className="bg-gradient-to-r from-[#5AC8FA] via-[#64D2FF] to-[#7CF2A4] bg-clip-text text-transparent">{t('title2')}</span>
+            <span className="text-[#64D2FF]">{t('title2')}</span>
           </h2>
           <p className="mt-5 text-[17px] sm:text-[20px] text-white/70">{t('contrast')}</p>
         </div>
