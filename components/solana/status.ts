@@ -15,6 +15,12 @@ export interface SolanaDepositRow {
   blockTime: string | null;
 }
 
+export interface SolanaMember {
+  wallet: string;
+  shares: number;
+  percentage: number;
+}
+
 export interface SolanaSleevePosition {
   orderId: string;
   asset: string;
@@ -50,6 +56,8 @@ export interface SolanaPoolStatus {
   tokenUsd?: number | null;
   navUsd?: number | null;
   memberCount?: number;
+  /** Largest holders first, at most 25; memberCount is the full total. */
+  members?: SolanaMember[];
   sleeve?: SolanaSleeve | null;
   recentDeposits?: SolanaDepositRow[];
   error?: string;
