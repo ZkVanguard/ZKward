@@ -138,24 +138,23 @@ const HERO_GOLDEN_SPIRAL_PATH: string = (() => {
 // Precomputed parallax styles. Hoisting kills the per-render allocation
 // that would happen if we built these objects inside the component.
 // The factor triplet (-0.03, -0.07, -0.13) drives the differential
-// translate; the Z-offset triplet (-40, 0, +30) drives real perspective
-// depth (parent has perspective: 1400px). Combined, layers sit at
-// physically different distances AND drift at different apparent
-// speeds. The "3D" cue is both.
+// translate: the layers drift at different speeds, which reads as depth.
+// They stay flat (no perspective or translateZ): a 3D rendering context
+// behind the headline could be mis-composited after a scroll and blank it.
 //
 // Transition tightened 700ms → 250ms with a faster ease-out. Previous
 // value felt sticky on rapid cursor movement (layers lagged the cursor
 // by nearly a full second). New value tracks close enough to feel
 // responsive without losing the "premium smoothness" character.
 const HERO_PARALLAX_EASE = 'cubic-bezier(0.22, 1, 0.36, 1)';
-const parallaxStyle = (k: number, z: number): React.CSSProperties => ({
-  transform: `translate3d(calc((var(--sx, 50%) - 50%) * ${k}), calc((var(--sy, 50%) - 50%) * ${k * 0.7}), ${z}px)`,
+const parallaxStyle = (k: number): React.CSSProperties => ({
+  transform: `translate3d(calc((var(--sx, 50%) - 50%) * ${k}), calc((var(--sy, 50%) - 50%) * ${k * 0.7}), 0)`,
   transition: `transform 250ms ${HERO_PARALLAX_EASE}`,
   willChange: 'transform',
 });
-const PX_LAYER_1 = parallaxStyle(-0.03, -40);
-const PX_LAYER_2 = parallaxStyle(-0.07, 0);
-const PX_LAYER_3 = parallaxStyle(-0.13, 30);
+const PX_LAYER_1 = parallaxStyle(-0.03);
+const PX_LAYER_2 = parallaxStyle(-0.07);
+const PX_LAYER_3 = parallaxStyle(-0.13);
 // Responsive dot density: clamp with vw so 4K desktops don't get a
 // pinprick grid and 13" laptops don't get honeycombed. ~28-40px range
 // keeps the perceptual dot spacing roughly constant across the range.
@@ -171,13 +170,6 @@ const LAYER_1_STYLE: React.CSSProperties = {
 };
 
 function HeroGraphBg() {
-  // `perspective` on the wrapper + `translateZ` per layer gives real
-  // spatial depth (back layer literally further from the viewer, front
-  // literally closer). Combined with the cursor-driven parallax, that's
-  // the "3D" cue. Not just 2D differential translate. transform-style:
-  // preserve-3d on the wrapper is required so the child transforms
-  // compose in the same 3D space instead of flattening.
-  //
   // Pause-when-off-screen: IntersectionObserver flips
   // data-hero-visible="false" once the hero fully exits the viewport,
   // which CSS uses to pause the three ambient animations (chart tape,
@@ -211,9 +203,6 @@ function HeroGraphBg() {
       // vertical overflow (see overflow-x-clip on the <section>).
       className="hero-graph-bg absolute -top-24 left-0 right-0 bottom-0 -z-10 pointer-events-none overflow-hidden"
       style={{
-        perspective: '1400px',
-        perspectiveOrigin: '50% 30%',
-        transformStyle: 'preserve-3d',
         // `contain` isolates this subtree — the browser can skip layout
         // + paint work when nothing inside it changes, and knows the
         // effects don't leak out (accurate: all layers are z-negative
@@ -422,14 +411,16 @@ export const SuiPoolLanding = memo(function SuiPoolLanding() {
         <HeroGraphBg />
         <div className="max-w-[1100px] mx-auto">
 
-          {/* Two short lines; the promise (line two) carries the brand accent. */}
+          {/* Two short lines; the promise (line two) carries the brand accent. A
+              solid colour, not gradient-clipped text: that can fail to repaint
+              after scrolling and leave the line blank. */}
           <h1
             className="font-display text-center text-[38px] xs:text-[44px] sm:text-[54px] md:text-[62px] lg:text-[68px] xl:text-[80px] font-semibold tracking-[-0.04em] leading-[0.96] text-label-primary mb-4 sm:mb-6"
             style={{ textWrap: 'balance', hyphens: 'none', overflowWrap: 'normal' }}
           >
             {t('hero.headline1')}
             <br />
-            <span className="whitespace-nowrap bg-gradient-to-r from-ios-blue via-[#3B82F6] to-[#5AC8FA] bg-clip-text text-transparent">{t('hero.headline2')}</span>
+            <span className="whitespace-nowrap text-ios-blue">{t('hero.headline2')}</span>
           </h1>
 
           {/* Subtitle — plain-English promise; brand-forward for search. */}
