@@ -11,11 +11,12 @@
  * visitor most likely wants leads and says why (lib/wallet/suggest-chain).
  */
 
-import { Check, ExternalLink, Loader2, LogOut, Sparkles, Wallet, X } from 'lucide-react';
+import { Check, ExternalLink, Loader2, LogOut, Smartphone, Sparkles, Wallet, X } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { CHAIN_INFO, WALLET_CHAINS, useWalletHub, type WalletChain } from '@/contexts/WalletHubContext';
 import { ChainLogo, FundsTag } from '@/components/wallet/ChainLogo';
 import { installedSuiWallets } from '@/lib/wallet/suggest-chain';
+import { SOLANA_MOBILE_WALLETS, SUI_MOBILE_WALLETS, isMobileBrowser, walletHandoffLink } from '@/lib/utils/mobile-wallet';
 
 const short = (a: string) => `${a.slice(0, 6)}…${a.slice(-4)}`;
 
@@ -121,6 +122,12 @@ function ChainCard({ chain, highlighted, suggested }: { chain: WalletChain; high
           ? { ok: true, text: t('detect.solanaFound') }
           : { ok: false, text: t('detect.solanaMissing') };
 
+  // A phone's browser has no wallet extension: SUI and Solana wallets live in
+  // their own apps. Offer to open this page inside one (an <a>: iOS only hands
+  // universal links to the app from a real tap). Hedera needs no wallet app.
+  const needsApp = chain !== 'hedera' && !isActive && isMobileBrowser() && (chain === 'solana' ? !hub.solanaWalletFound : suiNames.length === 0);
+  const apps = needsApp ? (chain === 'solana' ? SOLANA_MOBILE_WALLETS : SUI_MOBILE_WALLETS) : [];
+
   return (
     <div
       className={`rounded-2xl border p-4 transition-colors ${
@@ -164,8 +171,8 @@ function ChainCard({ chain, highlighted, suggested }: { chain: WalletChain; high
           {!isActive && (
             <div className={`mt-1.5 flex flex-wrap items-center gap-1.5 text-[11px] ${detected.ok ? 'text-green-800' : 'text-[#86868b]'}`}>
               <span className={`w-1.5 h-1.5 rounded-full ${detected.ok ? 'bg-[#34C759]' : 'bg-[#c7c7cc]'}`} />
-              {detected.text}
-              {!detected.ok && info.installUrl && (
+              {apps.length > 0 ? t('detect.mobileHandoff') : detected.text}
+              {!detected.ok && apps.length === 0 && info.installUrl && (
                 <a href={info.installUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-0.5 font-semibold text-[#007AFF] hover:underline">
                   {t(`install.${chain}`)} <ExternalLink className="w-3 h-3" />
                 </a>
@@ -203,12 +210,31 @@ function ChainCard({ chain, highlighted, suggested }: { chain: WalletChain; high
             </div>
           )}
 
-          {!isActive && pickers.length <= 1 && (
+          {apps.length > 0 && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {apps.map((app, i) => (
+                <a
+                  key={app.id}
+                  href={walletHandoffLink(app, chain as 'sui' | 'solana', window.location.href)}
+                  className={`inline-flex items-center gap-2 h-10 px-4 rounded-xl text-[13px] font-semibold active:scale-[0.98] ${i === 0 ? 'text-white' : 'bg-[#f5f5f7] text-[#1d1d1f]'}`}
+                  style={i === 0 ? { background: highlighted || suggested ? '#007AFF' : info.color } : undefined}
+                >
+                  <Smartphone className="w-4 h-4" />
+                  {t('mobile.openIn', { wallet: app.name })}
+                </a>
+              ))}
+            </div>
+          )}
+
+          {/* Solana has no browser wallet on a phone, so its button would only
+              fail; SUI keeps it (Slush also signs in the browser). */}
+          {!isActive && pickers.length <= 1 && !(apps.length > 0 && chain === 'solana') && (
             <button
               onClick={() => void hub.connect(chain)}
               disabled={w.busy}
-              className="mt-3 inline-flex items-center gap-2 h-10 px-4 rounded-xl text-white text-[13px] font-semibold active:scale-[0.98] disabled:opacity-60"
-              style={{ background: highlighted || suggested ? '#007AFF' : info.color }}
+              // With wallet-app links above, this is the secondary way in.
+              className={`mt-3 inline-flex items-center gap-2 h-10 px-4 rounded-xl text-[13px] font-semibold active:scale-[0.98] disabled:opacity-60 ${apps.length > 0 ? 'bg-[#f5f5f7] text-[#1d1d1f]' : 'text-white'}`}
+              style={apps.length > 0 ? undefined : { background: highlighted || suggested ? '#007AFF' : info.color }}
             >
               {pending || w.busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wallet className="w-4 h-4" />}
               {pending || w.busy ? t('chooser.connecting') : switchLabel}

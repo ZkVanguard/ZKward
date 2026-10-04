@@ -735,7 +735,11 @@
       "suiFound": "{wallet} encontrada en este navegador",
       "suiMissing": "No hay billetera de SUI en este navegador",
       "solanaFound": "Phantom encontrada en este navegador",
-      "solanaMissing": "Phantom no encontrada en este navegador"
+      "solanaMissing": "Phantom no encontrada en este navegador",
+      "mobileHandoff": "Abre esta página en tu app de billetera"
+    },
+    "mobile": {
+      "openIn": "Abrir en {wallet}"
     }
   }
 }

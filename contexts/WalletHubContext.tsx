@@ -25,7 +25,7 @@ import { useSuiSafe } from '@/app/sui-providers';
 import { connectWallet as connectPhantom, getProvider as getPhantom } from '@/components/solana/wallet';
 import { ChainChooser } from '@/components/wallet/ChainChooser';
 import { CONSENT_EVENT, CONSENT_KEY } from '@/components/CookieConsent';
-import { suggestChain, type SuggestReason } from '@/lib/wallet/suggest-chain';
+import { installedSuiWallets, suggestChain, type SuggestReason } from '@/lib/wallet/suggest-chain';
 import { CHAIN_META, WALLET_CHAINS, type ChainMeta, type WalletChain } from '@/lib/wallet/chain-meta';
 
 // Names, tiers, marks and colours live in a plain module so marketing
@@ -289,6 +289,25 @@ export function WalletHubProvider({ children }: { children: ReactNode }) {
     },
     [wallets, disconnectRaw, setActive, login, suiWallets, connectSuiWallet],
   );
+
+  // Arrived inside a wallet app's browser from a handoff link
+  // (?connect=<chain>, lib/utils/mobile-wallet): connect as soon as that
+  // wallet is visible, once, then drop the parameter so a reload does not
+  // prompt again.
+  const handoffDone = useRef(false);
+  useEffect(() => {
+    if (!hydrated || handoffDone.current) return;
+    const params = new URLSearchParams(window.location.search);
+    const want = params.get('connect');
+    if (want !== 'solana' && want !== 'sui') return;
+    const suiPick = suiWallets.find((w) => installedSuiWallets([w.name]).length > 0);
+    if (want === 'solana' ? !solanaWalletFound : !suiPick) return;
+    handoffDone.current = true;
+    params.delete('connect');
+    const q = params.toString();
+    window.history.replaceState(null, '', window.location.pathname + (q ? `?${q}` : '') + window.location.hash);
+    void connect(want, want === 'sui' ? suiPick : undefined);
+  }, [hydrated, solanaWalletFound, suiWallets, connect]);
 
   const disconnect = useCallback(
     async (chain: WalletChain) => {

@@ -31,14 +31,17 @@ export function getProvider(): InjectedProvider | null {
   if (typeof window === 'undefined') return null;
   const w = window as unknown as {
     phantom?: { solana?: InjectedProvider };
+    solflare?: InjectedProvider & { isSolflare?: boolean };
     solana?: InjectedProvider;
   };
-  return w.phantom?.solana ?? w.solana ?? null;
+  // Phantom, then Solflare (its in-app browser injects window.solflare), then
+  // any other wallet that exposes the standard window.solana provider.
+  return w.phantom?.solana ?? (w.solflare?.isSolflare ? w.solflare : null) ?? w.solana ?? null;
 }
 
 export async function connectWallet(): Promise<string> {
   const p = getProvider();
-  if (!p) throw new Error('No Solana wallet found — install Phantom and set it to devnet');
+  if (!p) throw new Error('No Solana wallet found. Install Phantom or Solflare and set it to devnet.');
   const { publicKey } = await p.connect();
   return publicKey.toBase58();
 }

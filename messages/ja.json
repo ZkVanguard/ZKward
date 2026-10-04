@@ -735,7 +735,11 @@
       "suiFound": "このブラウザで {wallet} を検出",
       "suiMissing": "このブラウザに SUI ウォレットがありません",
       "solanaFound": "このブラウザで Phantom を検出",
-      "solanaMissing": "このブラウザに Phantom がありません"
+      "solanaMissing": "このブラウザに Phantom がありません",
+      "mobileHandoff": "このページをウォレットアプリで開きます"
+    },
+    "mobile": {
+      "openIn": "{wallet} で開く"
     }
   }
 }

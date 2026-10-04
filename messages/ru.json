@@ -735,7 +735,11 @@
       "suiFound": "{wallet} найден в этом браузере",
       "suiMissing": "В этом браузере нет кошелька SUI",
       "solanaFound": "Phantom найден в этом браузере",
-      "solanaMissing": "Phantom не найден в этом браузере"
+      "solanaMissing": "Phantom не найден в этом браузере",
+      "mobileHandoff": "Откроет эту страницу в приложении кошелька"
+    },
+    "mobile": {
+      "openIn": "Открыть в {wallet}"
     }
   }
 }

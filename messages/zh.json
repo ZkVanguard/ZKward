@@ -735,7 +735,11 @@
       "suiFound": "在此浏览器中找到 {wallet}",
       "suiMissing": "此浏览器中没有 SUI 钱包",
       "solanaFound": "在此浏览器中找到 Phantom",
-      "solanaMissing": "此浏览器中未找到 Phantom"
+      "solanaMissing": "此浏览器中未找到 Phantom",
+      "mobileHandoff": "在你的钱包应用中打开此页面"
+    },
+    "mobile": {
+      "openIn": "在 {wallet} 中打开"
     }
   }
 }

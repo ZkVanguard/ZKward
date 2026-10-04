@@ -735,7 +735,11 @@
       "suiFound": "이 브라우저에서 {wallet} 발견",
       "suiMissing": "이 브라우저에 SUI 지갑이 없습니다",
       "solanaFound": "이 브라우저에서 Phantom 발견",
-      "solanaMissing": "이 브라우저에서 Phantom을 찾을 수 없습니다"
+      "solanaMissing": "이 브라우저에서 Phantom을 찾을 수 없습니다",
+      "mobileHandoff": "이 페이지를 지갑 앱에서 엽니다"
+    },
+    "mobile": {
+      "openIn": "{wallet}에서 열기"
     }
   }
 }

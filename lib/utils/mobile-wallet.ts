@@ -1,5 +1,6 @@
 /**
- * Mobile wallet-connect helpers for the SUI ecosystem.
+ * Mobile wallet-connect helpers for every network that needs a wallet app
+ * (SUI and Solana; Hedera signs in with email, which works on any device).
  *
  * Problem: our previous mobile flow used
  *   window.location.href = `https://my.slush.app/browse/${encodeURIComponent(window.location.origin)}`
@@ -19,12 +20,14 @@
  */
 
 export interface MobileWalletOption {
-  id: 'slush' | 'sui-wallet' | 'suiet' | 'ethos';
+  id: 'slush' | 'sui-wallet' | 'suiet' | 'ethos' | 'phantom' | 'solflare';
   name: string;
   /** SVG icon URL served from the wallet's own CDN. */
   iconUrl?: string;
-  /** Universal link that opens the dApp inside the wallet's in-app browser. */
-  buildUniversalLink: (dappHref: string) => string;
+  /** Universal link that opens the dApp inside the wallet's in-app browser.
+   *  Both arguments arrive URL-encoded: the page, and its origin (some wallets
+   *  want it as `ref`). */
+  buildUniversalLink: (encodedHref: string, encodedOrigin: string) => string;
   /** Fallback install page when the wallet isn't installed. */
   installUrl: string;
 }
@@ -58,6 +61,42 @@ export function isMobileBrowser(): boolean {
 function dappHrefEncoded(): string {
   if (typeof window === 'undefined') return '';
   return encodeURIComponent(window.location.href);
+}
+
+// Solana wallet apps with an in-app browser. Phantom first (the pool's
+// instructions name it), Solflare as the other widely used one. Formats
+// from each wallet's deeplink docs (`/ul/browse/<url>?ref=<origin>`).
+export const SOLANA_MOBILE_WALLETS: MobileWalletOption[] = [
+  {
+    id: 'phantom',
+    name: 'Phantom',
+    buildUniversalLink: (encodedHref, encodedOrigin) => `https://phantom.app/ul/browse/${encodedHref}?ref=${encodedOrigin}`,
+    installUrl: 'https://phantom.app/download',
+  },
+  {
+    id: 'solflare',
+    name: 'Solflare',
+    buildUniversalLink: (encodedHref, encodedOrigin) => `https://solflare.com/ul/v1/browse/${encodedHref}?ref=${encodedOrigin}`,
+    installUrl: 'https://solflare.com/download',
+  },
+];
+
+/**
+ * The page a wallet app should open: this page, with the network selected
+ * and an instruction to connect on arrival, so the visitor does not have to
+ * find the button again inside the wallet's browser. Pure: takes the href.
+ */
+export function handoffTarget(href: string, chain: 'sui' | 'solana'): string {
+  const u = new URL(href);
+  u.searchParams.set('chain', chain);
+  u.searchParams.set('connect', chain);
+  return u.toString();
+}
+
+/** Universal link that opens this page, set up for `chain`, inside `wallet`. */
+export function walletHandoffLink(wallet: MobileWalletOption, chain: 'sui' | 'solana', href: string): string {
+  const target = handoffTarget(href, chain);
+  return wallet.buildUniversalLink(encodeURIComponent(target), encodeURIComponent(new URL(target).origin));
 }
 
 // SUI-first mobile flow: just Slush. It's the officially rebranded Sui
@@ -94,5 +133,5 @@ export const SUI_MOBILE_WALLETS: MobileWalletOption[] = [
 export function buildMobileWalletLink(wallet: MobileWalletOption): string {
   const encoded = dappHrefEncoded();
   if (!encoded) return '';
-  return wallet.buildUniversalLink(encoded);
+  return wallet.buildUniversalLink(encoded, encodeURIComponent(window.location.origin));
 }

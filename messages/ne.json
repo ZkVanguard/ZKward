@@ -735,7 +735,11 @@
       "suiFound": "यस ब्राउजरमा {wallet} भेटियो",
       "suiMissing": "यस ब्राउजरमा SUI वालेट छैन",
       "solanaFound": "यस ब्राउजरमा Phantom भेटियो",
-      "solanaMissing": "यस ब्राउजरमा Phantom भेटिएन"
+      "solanaMissing": "यस ब्राउजरमा Phantom भेटिएन",
+      "mobileHandoff": "यो पेज तपाईंको वालेट एपमा खुल्छ"
+    },
+    "mobile": {
+      "openIn": "{wallet} मा खोल्नुहोस्"
     }
   }
 }
