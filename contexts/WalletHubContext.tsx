@@ -282,6 +282,11 @@ export function WalletHubProvider({ children }: { children: ReactNode }) {
       } catch (e) {
         const error = e instanceof Error ? e.message : 'Could not connect';
         setErrors((prev) => ({ ...prev, [chain]: error }));
+        // The error is only shown in the chooser. Opening it here means a
+        // connect button outside the chooser (the reconnect banner) never
+        // fails silently: no wallet in a phone browser lands on the
+        // wallet-app links, a locked or dismissed wallet on a retry.
+        setChooser((c) => (c.open ? c : { open: true, chain, reason: null, welcome: false }));
         return { ok: false, error };
       } finally {
         switching.current = false;
