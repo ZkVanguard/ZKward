@@ -14,6 +14,7 @@
  * is seamless. It pauses on hover and focus, and with reduced motion it
  * stands still as a wrapped row (see `.source-marquee` in globals.css).
  */
+import { useEffect, useRef } from 'react';
 import Image from 'next/image';
 import { useTranslations } from 'next-intl';
 import { SIGNAL_PROVIDERS, logoPath, type SignalProvider } from '@/lib/api/signal-providers';
@@ -55,12 +56,24 @@ function Tile({ source, copy }: { source: SignalProvider; copy?: boolean }) {
 export function DataSourceMarquee() {
   const t = useTranslations('landing.sources');
   const mask = 'linear-gradient(90deg, transparent, #000 10%, #000 90%, transparent)';
+  // Stop the loop while the strip is off screen (styles/globals.css reads
+  // data-offscreen): no compositor work for a strip nobody can see.
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const io = new IntersectionObserver(([e]) => {
+      el.dataset.offscreen = e.isIntersecting ? 'false' : 'true';
+    });
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
   return (
     <div className="mx-auto max-w-[1100px] mb-12 sm:mb-16 min-w-0">
       <p className="text-center text-[10px] sm:text-caption-2 font-semibold uppercase tracking-[0.14em] text-label-tertiary mb-4 sm:mb-5">
         {t('eyebrow')}
       </p>
-      <div className="source-marquee relative overflow-hidden" style={{ WebkitMaskImage: mask, maskImage: mask }}>
+      <div ref={ref} className="source-marquee relative overflow-hidden" style={{ WebkitMaskImage: mask, maskImage: mask }}>
         <div className="source-marquee-track flex w-max gap-3 sm:gap-4 py-1">
           {SIGNAL_PROVIDERS.map((s) => <Tile key={s.slug} source={s} />)}
           {SIGNAL_PROVIDERS.map((s) => <Tile key={`${s.slug}-copy`} source={s} copy />)}
