@@ -55,7 +55,7 @@ describe('dashboard route caching', () => {
   it('every browser signal read shares one query over the bare per-asset URL', () => {
     const hook = src('lib/hooks/useLiveSignals.ts');
     expect(hook).toMatch(/queryKey: \['per-asset-signals'\]/);
-    expect(src('lib/api/market-signals.ts')).toMatch(/\('\/api\/predictions\/per-asset'\)/);
+    expect(src('lib/api/market-signals.ts')).toMatch(/\('\/api\/predictions\/per-asset'[,)]/);
     for (const rel of ['components/dashboard/MarketLeanBoard.tsx', 'app/[locale]/paper/page.tsx', 'components/dashboard/LiveAutonomyPanel.tsx', 'components/dashboard/pages/RiskTab.tsx']) {
       expect(src(rel)).toMatch(/usePerAssetSignals\(\)/);
     }

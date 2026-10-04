@@ -16,7 +16,7 @@ export function MarketPulse({ onOpen, compact = false }: { onOpen: () => void; c
   const t = useTranslations('dashboard');
   const { data, isPending, isError } = useQuery({
     queryKey: ['per-asset-signals'],
-    queryFn: fetchPerAssetSignals,
+    queryFn: () => fetchPerAssetSignals(),
     staleTime: 30_000,
     refetchInterval: 60_000,
   });

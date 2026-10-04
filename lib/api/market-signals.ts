@@ -5,8 +5,8 @@
  */
 import type { FiveMinBTCSignal, FiveMinSignalHistory, PerAssetSignal, PredictionMarket } from '@/lib/types/market-signals';
 
-async function getJson<T>(url: string): Promise<T> {
-  const res = await fetch(url);
+async function getJson<T>(url: string, signal?: AbortSignal): Promise<T> {
+  const res = await fetch(url, { signal });
   if (!res.ok) throw new Error(`${url} returned ${res.status}`);
   return (await res.json()) as T;
 }
@@ -46,8 +46,8 @@ export function formatTimeAgo(timestamp: number): string {
 }
 
 /** The aggregate signal per asset: the read behind the Risk, Agents and Markets views. */
-export async function fetchPerAssetSignals(): Promise<Record<string, PerAssetSignal>> {
-  const j = await getJson<{ success?: boolean; predictions?: Record<string, PerAssetSignal> }>('/api/predictions/per-asset');
+export async function fetchPerAssetSignals(signal?: AbortSignal): Promise<Record<string, PerAssetSignal>> {
+  const j = await getJson<{ success?: boolean; predictions?: Record<string, PerAssetSignal> }>('/api/predictions/per-asset', signal);
   if (!j.success || !j.predictions) throw new Error('per-asset signals unavailable');
   return j.predictions;
 }
