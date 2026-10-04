@@ -735,7 +735,11 @@
       "suiFound": "{wallet} encontrada neste navegador",
       "suiMissing": "Nenhuma carteira SUI neste navegador",
       "solanaFound": "Phantom encontrada neste navegador",
-      "solanaMissing": "Phantom não encontrada neste navegador"
+      "solanaMissing": "Phantom não encontrada neste navegador",
+      "mobileHandoff": "Abre esta página no app da sua carteira"
+    },
+    "mobile": {
+      "openIn": "Abrir no {wallet}"
     }
   }
 }

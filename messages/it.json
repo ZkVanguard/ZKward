@@ -735,7 +735,11 @@
       "suiFound": "{wallet} trovato in questo browser",
       "suiMissing": "Nessun wallet SUI in questo browser",
       "solanaFound": "Phantom trovato in questo browser",
-      "solanaMissing": "Phantom non trovato in questo browser"
+      "solanaMissing": "Phantom non trovato in questo browser",
+      "mobileHandoff": "Apre questa pagina nella tua app wallet"
+    },
+    "mobile": {
+      "openIn": "Apri in {wallet}"
     }
   }
 }

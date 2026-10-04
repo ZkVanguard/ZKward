@@ -735,7 +735,11 @@
       "suiFound": "تم العثور على {wallet} في هذا المتصفح",
       "suiMissing": "لا توجد محفظة SUI في هذا المتصفح",
       "solanaFound": "تم العثور على Phantom في هذا المتصفح",
-      "solanaMissing": "لم يتم العثور على Phantom في هذا المتصفح"
+      "solanaMissing": "لم يتم العثور على Phantom في هذا المتصفح",
+      "mobileHandoff": "يفتح هذه الصفحة في تطبيق محفظتك"
+    },
+    "mobile": {
+      "openIn": "افتح في {wallet}"
     }
   }
 }
