@@ -102,7 +102,7 @@ const HERO_PHYLLOTAXIS: Array<[number, number, number]> = (() => {
   const pts: Array<[number, number, number]> = [];
   const cx = 600, cy = 300;    // center of the 1200×600 viewBox
   const scale = 14;
-  const N = 90;
+  const N = 55;
   const round = (n: number) => Number(n.toFixed(2));
   for (let i = 1; i <= N; i++) {
     const angle = i * GOLDEN_ANGLE_RAD;
@@ -150,7 +150,6 @@ const HERO_PARALLAX_EASE = 'cubic-bezier(0.22, 1, 0.36, 1)';
 const parallaxStyle = (k: number): React.CSSProperties => ({
   transform: `translate3d(calc((var(--sx, 50%) - 50%) * ${k}), calc((var(--sy, 50%) - 50%) * ${k * 0.7}), 0)`,
   transition: `transform 250ms ${HERO_PARALLAX_EASE}`,
-  willChange: 'transform',
 });
 const PX_LAYER_1 = parallaxStyle(-0.03);
 const PX_LAYER_2 = parallaxStyle(-0.07);
@@ -278,19 +277,14 @@ function HeroGraphBg() {
           (feels closest to viewer). The spiral is one continuous
           logarithmic curve; the dots trace Vogel's sunflower model at
           the golden angle — same math that produces the arm patterns
-          in galaxies + nautilus shells. Wrapped in a `hero-node-drift`
-          group for a slow ambient float, and each dot pulses subtly
-          so the disk breathes without cursor input. Additionally, the
-          whole layer slowly rotates (72s per revolution) — sub-liminal
-          but reinforces the "living system" read. */}
-      <svg
-        className="hero-graph-layer absolute -left-32 -right-32 top-0 bottom-0 h-full w-[calc(100%+16rem)] max-w-none"
-        preserveAspectRatio="xMidYMid slice"
-        viewBox="0 0 1200 600"
-        style={PX_LAYER_3}
-      >
-        <g className="hero-node-drift">
-          <g className="hero-spiral-rotate">
+          in galaxies + nautilus shells. On desktop the disk slowly turns
+          (90 s per revolution); the dots themselves are static. */}
+      <div className="hero-graph-layer absolute -left-32 -right-32 top-0 bottom-0" style={PX_LAYER_3}>
+        {/* The disk turns as one element (a compositor transform, no repaint).
+            It used to rotate an SVG group and pulse 90 dots one by one, which
+            repainted the whole layer every frame. */}
+        <div className="hero-spiral-spin absolute inset-0">
+          <svg className="absolute inset-0 h-full w-full" preserveAspectRatio="xMidYMid slice" viewBox="0 0 1200 600">
             <path
               d={HERO_GOLDEN_SPIRAL_PATH}
               fill="none"
@@ -300,64 +294,27 @@ function HeroGraphBg() {
             />
             <g fill="rgba(0,105,217,0.62)">
               {HERO_PHYLLOTAXIS.map(([cx, cy, r], idx) => (
-                <circle
-                  key={idx}
-                  cx={cx}
-                  cy={cy}
-                  r={r}
-                  className="hero-node-pulse"
-                  // toFixed(2) so 0.3×9 = 2.6999999999997 doesn't drift
-                  // between SSR (17-digit) and CSR (16-digit) strings.
-                  style={{ animationDelay: `${((idx % 12) * 0.3).toFixed(2)}s` }}
-                />
+                <circle key={idx} cx={cx} cy={cy} r={r} />
               ))}
             </g>
-          </g>
-        </g>
-      </svg>
+          </svg>
+        </div>
+      </div>
 
       <style jsx>{`
-        .hero-chart-tape { animation: hero-tape 14s linear infinite; }
+        /* Motion only where it is cheap and visible: desktop, motion allowed,
+           hero on screen. The disk turns as one composited element; the
+           chart tape is a single dashed path. Phones get no continuous
+           animation (they have the tilt and scroll parallax), which keeps
+           GPU memory low enough that nothing on the page gets dropped. */
+        @media (min-width: 1024px) and (prefers-reduced-motion: no-preference) {
+          .hero-chart-tape { animation: hero-tape 14s linear infinite; }
+          .hero-spiral-spin { transform-origin: 50% 50%; animation: hero-spiral-spin 90s linear infinite; }
+          .hero-graph-bg[data-hero-visible="false"] .hero-chart-tape,
+          .hero-graph-bg[data-hero-visible="false"] .hero-spiral-spin { animation-play-state: paused; }
+        }
         @keyframes hero-tape { to { stroke-dashoffset: -220; } }
-        /* Continuous ambient float — 6px horizontal ping-pong over 11s
-           so the front layer breathes visibly without needing cursor
-           input (main reason the earlier revision felt like a static
-           overlay to users who kept the mouse still). */
-        .hero-node-drift {
-          transform-origin: 50% 50%;
-          animation: hero-node-drift 11s ease-in-out infinite alternate;
-        }
-        @keyframes hero-node-drift {
-          from { transform: translate3d(-3px, -2px, 0); }
-          to   { transform: translate3d(3px, 2px, 0); }
-        }
-        /* Nodes pulse subtly so they read as "alive" data points. */
-        .hero-node-pulse { animation: hero-node-pulse 3.6s ease-in-out infinite; }
-        @keyframes hero-node-pulse {
-          0%, 100% { opacity: 0.65; }
-          50%      { opacity: 1; }
-        }
-        /* Spiral disk slowly rotates — 72s per revolution is glacial
-           but visible over a session. Combined with the phyllotaxis
-           dot arrangement it produces the "galaxy arm" read where
-           multiple spiral patterns emerge from the same points. */
-        .hero-spiral-rotate {
-          transform-origin: 600px 300px; /* matches phyllotaxis center */
-          animation: hero-spiral-rotate 72s linear infinite;
-        }
-        @keyframes hero-spiral-rotate {
-          from { transform: rotate(0deg); }
-          to   { transform: rotate(360deg); }
-        }
-        /* CPU saver — pause every animation once the hero has fully
-           scrolled out of view. The wrapper's data-hero-visible attr
-           is flipped by an IntersectionObserver in HeroGraphBg. */
-        .hero-graph-bg[data-hero-visible="false"] .hero-chart-tape,
-        .hero-graph-bg[data-hero-visible="false"] .hero-node-drift,
-        .hero-graph-bg[data-hero-visible="false"] .hero-node-pulse,
-        .hero-graph-bg[data-hero-visible="false"] .hero-spiral-rotate {
-          animation-play-state: paused;
-        }
+        @keyframes hero-spiral-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         /* Below the desktop breakpoint: the layers show (they were hidden
            below md), lighter behind a headline that spans the width, and
            their tilt/scroll-driven moves ease over a longer time than the
@@ -381,7 +338,6 @@ function HeroGraphBg() {
         }
         @media (prefers-reduced-motion: reduce) {
           .hero-graph-layer { transform: none !important; transition: none !important; }
-          .hero-chart-tape, .hero-node-drift, .hero-node-pulse, .hero-spiral-rotate { animation: none; }
         }
       `}</style>
     </div>

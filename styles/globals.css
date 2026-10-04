@@ -277,7 +277,9 @@ h1, h2, h3, h4, h5, h6 { font-weight: 600; }
   from { transform: translateX(0); }
   to   { transform: translateX(-50%); }
 }
+.source-marquee { contain: paint; }
 .source-marquee-track { animation: sourceMarquee 40s linear infinite; will-change: transform; }
+.source-marquee[data-offscreen="true"] .source-marquee-track { animation-play-state: paused; }
 .source-marquee:hover .source-marquee-track,
 .source-marquee:focus-within .source-marquee-track { animation-play-state: paused; }
 @media (prefers-reduced-motion: reduce) {
