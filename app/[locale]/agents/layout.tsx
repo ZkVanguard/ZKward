@@ -9,7 +9,7 @@ export async function generateMetadata(
   const canonical = locale === defaultLocale ? path : `/${locale}${path}`;
   return {
     title: 'AI agents',
-    description: 'Seven specialised AI agents run the ZKward vault: Lead, Risk, Hedging, Settlement, Reporting, PriceMonitor, SuiPool. 2-of-3 consensus on trades over $100k.',
+    description: 'Six specialised AI agents run the ZKward vault: Lead, Risk, Hedging, Reporting, PriceMonitor, SuiPool. 2-of-3 consensus on trades over $100k.',
     alternates: {
       canonical,
       languages: Object.fromEntries(

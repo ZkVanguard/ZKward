@@ -66,7 +66,7 @@ const TERMS: Array<{ term: string; slug: string; definition: string }> = [
     term: 'Autonomous vault',
     slug: 'autonomous-vault',
     definition:
-      'A smart contract holding user deposits where allocation decisions are made by code (or AI), not by a human manager. ZKward is autonomous: seven agents read signals every 5 minutes, decide, execute, and write a proof. No human clicks a button before capital moves.',
+      'A smart contract holding user deposits where allocation decisions are made by code (or AI), not by a human manager. ZKward is autonomous: six agents read signals every 5 minutes, decide, execute, and write a proof. No human clicks a button before capital moves.',
   },
   {
     term: 'Zero-knowledge proof',

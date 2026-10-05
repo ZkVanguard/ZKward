@@ -241,96 +241,6 @@
     "next": "Siguiente",
     "language": "Idioma"
   },
-  "howItWorks": {
-    "title": "Cómo Funciona",
-    "subtitle": "Comienza en tres simples pasos",
-    "step1": {
-      "title": "Conectar",
-      "description": "Vincula tu billetera y configura preferencias",
-      "detail": "Integración con billetera Web3"
-    },
-    "step2": {
-      "title": "Monitorear",
-      "description": "Los agentes IA analizan el riesgo del portafolio 24/7",
-      "detail": "Análisis de riesgo en tiempo real"
-    },
-    "step3": {
-      "title": "Ejecutar",
-      "description": "Auto-cobertura y liquidación de transacciones",
-      "detail": "Protección automatizada"
-    }
-  },
-  "zkProof": {
-    "title": "Generador de pruebas ZK",
-    "subtitle": "Genere y verifique pruebas zero-knowledge para la privacidad del portafolio",
-    "selectScenario": "Seleccionar escenario",
-    "generateProof": "Generar prueba",
-    "verifyProof": "Verificar prueba",
-    "proofGenerated": "Prueba generada",
-    "proofVerified": "Prueba verificada",
-    "proofFailed": "Verificación fallida",
-    "showSecrets": "Mostrar secretos",
-    "hideSecrets": "Ocultar secretos",
-    "scenarios": {
-      "portfolioRisk": "Evaluación de riesgo del portafolio",
-      "portfolioRiskDesc": "Demuestre que el riesgo del portafolio está por debajo del umbral sin revelar posiciones",
-      "settlementBatch": "Validación de lote de liquidación",
-      "settlementBatchDesc": "Demuestre que el lote de liquidación es válido sin revelar detalles de transacciones",
-      "compliance": "Cumplimiento regulatorio",
-      "complianceDesc": "Demuestre cumplimiento con regulaciones sin exponer datos sensibles"
-    }
-  },
-  "zkAuthenticity": {
-    "title": "Verificación de autenticidad ZK-STARK",
-    "subtitle": "Verifique la autenticidad de nuestra implementación de prueba zero-knowledge",
-    "systemStatus": "Estado del sistema",
-    "operational": "Operacional",
-    "verifyProof": "Verificar una prueba",
-    "pasteProof": "Pegue su prueba JSON aquí",
-    "implementation": "Detalles de implementación",
-    "cryptoParams": "Parámetros criptográficos",
-    "sourceCode": "Código fuente"
-  },
-  "zkVerification": {
-    "title": "Prueba matemática ZK-STARK",
-    "subtitle": "Verificación formal de que ZKward implementa un verdadero ZK-STARK según las especificaciones académicas de Ben-Sasson et al.",
-    "auditorSummary": "Resumen rápido para auditores",
-    "implementation": "Implementación",
-    "securityLevel": "Nivel de seguridad",
-    "academicFoundation": "Fundamento académico"
-  },
-  "marketOpportunity": {
-    "title": "Gran oportunidad de mercado",
-    "subtitle": "Alpha de Polymarket + agentes IA + cripto consumidor — todo sucediendo a la vez",
-    "polymarketVolume": "Volumen de Polymarket",
-    "polymarketDescription": "Ritmo mensual (TRM Labs, 2026)",
-    "growthRate": "Tasa de crecimiento",
-    "growthDescription": "Expansión del mercado 2024-2030",
-    "targetMarket": "Mercado objetivo",
-    "targetDescription": "Retail cripto-nativo · usuarios DeFi · titulares de carteras individuales",
-    "potentialUsers": "Usuarios potenciales",
-    "usersDescription": "Apostadores de Polymarket, entusiastas de agentes IA, usuarios de bóvedas DeFi"
-  },
-  "liveMetrics": {
-    "title": "Métricas en tiempo real",
-    "subtitle": "Datos de rendimiento en vivo de SUI Mainnet",
-    "tvl": "Valor total bloqueado",
-    "transactions": "Transacciones",
-    "gasSavings": "Ahorro de gas",
-    "aiAgentsOnline": "Agentes IA en línea"
-  },
-  "roadmap": {
-    "title": "Roadmap del producto",
-    "subtitle": "Nuestro camino para hacer el alpha de los mercados de predicción accesible a todos",
-    "q1Title": "T1 2026: Fundación",
-    "q1Description": "Infraestructura central construida — contratos SUI, prototipo de 5 agentes, pipeline ZK",
-    "q2Title": "T2 2026: Lanzamiento Mainnet",
-    "q2Description": "CommunityPool y 7 agentes de trading IA en vivo (añadidos PriceMonitor + SuiPool) en SUI Mainnet",
-    "q3Title": "T3 2026: Crecimiento",
-    "q3Description": "Lanzamiento en producción con alianzas institucionales",
-    "q4Title": "T4 2026: Escalar",
-    "q4Description": "+$500M TVL en múltiples cadenas"
-  },
   "cookies": {
     "title": "Preferencias de cookies",
     "description": "Las cookies mejoran tu experiencia. Tu dirección de wallet es dato público de blockchain — no recopilamos información personal.",
@@ -416,11 +326,11 @@
   },
   "agentsPage": {
     "meta": {
-      "title": "Los siete agentes — ZKward",
-      "description": "Siete especialistas que discuten entre sí antes de mover un solo euro. Chat en vivo, solo lectura."
+      "title": "Los seis agentes — ZKward",
+      "description": "Seis especialistas que discuten entre sí antes de mover un solo euro. Chat en vivo, solo lectura."
     },
     "header": {
-      "badge": "Siete agentes, en vivo, solo lectura",
+      "badge": "Seis agentes, en vivo, solo lectura",
       "title": "Pregunta a ZKward.",
       "subtitle": "Cripto, mercados, la bóveda. Cada respuesta corre sobre datos en vivo — precios, señales de predicción, estado on-chain. Nada ensayado."
     },
@@ -461,17 +371,6 @@
           "c4": "Cada estrategia etiquetada con puntuación de confianza"
         }
       },
-      "settlement": {
-        "name": "Settlement",
-        "role": "El notario",
-        "description": "Convierte decisiones en transacciones on-chain. Agrupa para ahorrar gas, produce la prueba ZK, revierte si algo falla.",
-        "capabilities": {
-          "c1": "Procesamiento por lotes de transacciones",
-          "c2": "Optimización de gas, típicamente 20 a 40 por ciento",
-          "c3": "Coordinación de pruebas ZK-STARK",
-          "c4": "Rollback y reintento ante fallos"
-        }
-      },
       "reporting": {
         "name": "Reporting",
         "role": "El contable",
@@ -497,7 +396,7 @@
       "suiPool": {
         "name": "SUI Pool",
         "role": "El operador",
-        "description": "Opera el pool USDC de SUI. Lee la señal fusionada, elige la asignación entre cuatro activos, rebalancea vía BlueFin. Nunca se salta las protecciones on-chain.",
+        "description": "Opera el pool USDC de SUI. Lee la señal fusionada, elige la asignación entre tres activos, rebalancea vía BlueFin. Nunca se salta las protecciones on-chain.",
         "capabilities": {
           "c1": "Asignación entre cuatro activos: BTC, ETH, SUI, CRO",
           "c2": "Reequilibrio con agregador BlueFin",
@@ -570,7 +469,7 @@
     },
     "whyWeTell": {
       "heading": "Por qué te contamos cuando pierde",
-      "body1": "La mayoría de proyectos solo hablan de sus victorias. Ahora mismo, nuestro trader de pruebas va unos 68 000 $ en negativo sobre el papel. Te lo contamos porque ese es el punto. Si no puedes ver las pérdidas, las ganancias no significan mucho.",
+      "body1": "La mayoría de proyectos solo hablan de sus victorias. Ahora mismo, nuestros traders de prueba pierden ligeramente sobre el papel, y las señales aún no han mostrado una ventaja después de costes. Te lo contamos porque ese es el punto. Si no puedes ver las pérdidas, las ganancias no significan mucho.",
       "body2": "Además, esconder una pérdida es como una pérdida pequeña acaba siendo una mucho mayor tres meses después. Lo probamos una vez. No lo recomendamos."
     },
     "whoBuilds": {
@@ -601,7 +500,7 @@
     },
     "q1": {
       "q": "¿Qué es ZKward?",
-      "a": "ZKward es una bóveda cripto autónoma. Depositas USDC. Siete agentes de IA leen mercados de predicción, funding rates y momentum de precio, y operan en BTC, ETH y SUI. Cada decisión de cobertura se cierra con una prueba criptográfica que cualquiera puede verificar on-chain."
+      "a": "ZKward es una bóveda cripto autónoma. Depositas USDC. Seis agentes de IA leen mercados de predicción, funding rates y momentum de precio, y operan en BTC, ETH y SUI. Cada decisión de cobertura se cierra con una prueba criptográfica que cualquiera puede verificar on-chain."
     },
     "q2": {
       "q": "¿Es ZKward un hedge fund?",
@@ -613,7 +512,7 @@
     },
     "q4": {
       "q": "¿Dónde se guardan mis fondos?",
-      "a": "En un objeto SUI Move controlado por el contrato del pool. No-custodial — tus claves siguen contigo. Los retiros son sin permisos y están disponibles en todo momento, con un throttle del 25 % por día por cuenta aplicado on-chain para prevenir ataques de vaciado."
+      "a": "En un objeto Move de SUI controlado por el contrato del pool. Sin custodia: tus claves siguen contigo. Los retiros no requieren permiso y están disponibles en cualquier momento."
     },
     "q5": {
       "q": "¿Qué es una prueba STARK y por qué me importa?",
@@ -629,7 +528,7 @@
     },
     "q8": {
       "q": "¿Por qué el trader de pruebas está perdiendo dinero ahora?",
-      "a": "Transparencia pública. Corremos un paper trader contra señales reales y publicamos cada operación — victorias y derrotas. El PnL acumulado sobre papel ronda -68 000 $ mientras afinamos el nuevo sistema de gates (filtro de volatilidad, guarda de rachas, alineación de tendencia, calidad de señal). Si escondiéramos las pérdidas, las ganancias no significarían nada."
+      "a": "Transparencia pública. Operamos traders en papel con señales reales y publicamos cada operación, ganancias y pérdidas. Hasta ahora las señales no han mostrado una ventaja medible después de los costes de operación, así que los libros están ligeramente por debajo del punto de equilibrio. El registro actualizado está en la página de paper. Si ocultáramos las pérdidas, las ganancias no significarían nada."
     },
     "q9": {
       "q": "¿Cómo sé que la IA no se lo inventa?",
@@ -641,7 +540,7 @@
     },
     "q11": {
       "q": "¿Puedo retirar en cualquier momento?",
-      "a": "Sí. El retiro es sin permisos. Firmas una transacción, el contrato calcula tu parte del NAV del pool y los fondos vuelven a tu wallet. Un límite del 25 % diario por cuenta lo aplica el contrato para evitar vaciados bajo estrés. No hay bloqueo, ni preaviso, ni aprobación de un gestor."
+      "a": "Sí. El retiro no requiere permiso. Firmas una transacción, el contrato calcula tu parte del NAV del pool y los fondos vuelven a tu billetera. No hay bloqueo, ni preaviso, ni aprobación de un gestor."
     },
     "q12": {
       "q": "¿Cómo contacto con el equipo?",
@@ -656,7 +555,7 @@
   },
   "whitepaperMeta": {
     "title": "Whitepaper",
-    "description": "La tesis completa de ZKward: alpha de mercados de predicción, arquitectura de 7 agentes, ejecución con atestación STARK, tokenomics, hoja de ruta."
+    "description": "La tesis completa de ZKward: alpha de mercados de predicción, arquitectura de 6 agentes, ejecución con atestación STARK, tokenomics, hoja de ruta."
   },
   "legacyBanner": {
     "message": "<strong>zkward.xyz se retira</strong> — ahora estamos en <link>zkward.com</link>.",
