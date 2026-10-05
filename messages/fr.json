@@ -739,7 +739,8 @@
       "mobileHandoff": "Ouvre cette page dans votre app de portefeuille"
     },
     "mobile": {
-      "openIn": "Ouvrir dans {wallet}"
+      "openIn": "Ouvrir dans {wallet}",
+      "notOpened": "L'application du portefeuille ne s'est pas ouverte. Installez-la ou réessayez."
     }
   }
 }

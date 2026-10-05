@@ -739,7 +739,8 @@
       "mobileHandoff": "このページをウォレットアプリで開きます"
     },
     "mobile": {
-      "openIn": "{wallet} で開く"
+      "openIn": "{wallet} で開く",
+      "notOpened": "ウォレットアプリが開きませんでした。インストールするか、もう一度お試しください。"
     }
   }
 }

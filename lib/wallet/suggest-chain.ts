@@ -18,12 +18,12 @@ export interface SuggestInput {
 }
 
 /**
- * SUI wallets the visitor actually installed. The SDK registers its web
- * wallet ("Stashed") for everyone, and Phantom registers for SUI as well as
- * Solana, so neither says the visitor came for SUI.
+ * SUI wallets that say the visitor came for SUI. Phantom registers for SUI
+ * as well as Solana, so it does not. (The web wallet everyone gets never
+ * reaches this list: the hub leaves it out.)
  */
 export function installedSuiWallets(names: readonly string[]): string[] {
-  return names.filter((n) => !/stashed|phantom/i.test(n));
+  return names.filter((n) => !/phantom/i.test(n));
 }
 
 export function suggestChain(i: SuggestInput): { chain: SuggestChain; reason: SuggestReason } {
