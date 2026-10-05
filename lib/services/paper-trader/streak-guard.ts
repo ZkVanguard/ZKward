@@ -1,5 +1,5 @@
 /**
- * Per-(asset, side) consecutive-loss + trend-alignment guards.
+ * Consecutive-loss guards, per (asset, side) and per asset.
  *
  * Motivating incident 2026-09-19: 7 consecutive BTC LONG trades lost
  * -$651 total during a low-volatility grind ($81,020 → $81,317 range).
@@ -13,7 +13,6 @@
 import { query } from '@/lib/db/postgres';
 import { logger } from '@/lib/utils/logger';
 import { errMsg } from '@/lib/utils/error-handler';
-import { getMultiSourceValidatedPrice } from '@/lib/services/market-data/unified-price-provider';
 import type { Side } from './simulated-executor';
 
 /** Env-tunable — number of consecutive losses on (asset, side) that
@@ -129,74 +128,6 @@ export async function assetStreakRejection(
   } catch (e) {
     logger.debug('[PaperTrader] asset-streak lookup failed (non-fatal)', {
       asset, error: errMsg(e),
-    });
-    return null;
-  }
-}
-
-/** Trend-alignment filter. Refuses trades that fight the recent price
- *  trend on this asset. Uses a simple 1h SMA proxy computed from the
- *  paper trader's own history (which stores entry_price + closed_at
- *  for the last N trades on this asset). No external candle API.
- *
- *  Why paper-history proxy: adding an external candles API is a whole
- *  new integration surface (rate limits, error handling, staleness).
- *  Our own trade history has entry prices at ~5-min intervals during
- *  active periods — enough resolution for a trend read.
- *
- *  Rule: if the last 6 entry prices on this asset show a monotonic
- *  down-move and the candidate is LONG, refuse (or vice versa for
- *  SHORT). Only fires when trend signal is clear.
- */
-export async function trendMisalignmentRejection(
-  asset: string,
-  side: Side,
-): Promise<string | null> {
-  try {
-    // Filter by portfolio_id to avoid PaperGatedTrader (-4) entries
-    // polluting PaperTrader's (-3) trend proxy (see streak-guard fix).
-    const { PAPER_PORTFOLIO_ID } = await import('./config');
-    // Prefer multi-source live price + last N entry prices from paper history.
-    const rows = await query<{
-      entry_price: string | number | null;
-      created_at: Date;
-    }>(
-      `SELECT entry_price, created_at
-       FROM hedges
-       WHERE portfolio_id = $2
-         AND order_id LIKE 'paper_%'
-         AND asset = $1 AND entry_price IS NOT NULL
-       ORDER BY created_at DESC
-       LIMIT 6`,
-      [asset, PAPER_PORTFOLIO_ID],
-    );
-    if (rows.length < 4) return null; // not enough history to judge
-
-    const nowValidated = await getMultiSourceValidatedPrice(asset).catch(() => ({ price: 0 }));
-    const nowPrice = Number(nowValidated.price) || 0;
-    if (nowPrice <= 0) return null; // no live price to compare against
-
-    const oldestPrice = Number(rows[rows.length - 1].entry_price ?? 0);
-    if (oldestPrice <= 0) return null;
-    const changePct = (nowPrice - oldestPrice) / oldestPrice;
-
-    // Trend threshold: 0.3% move over the last ~30-60 min window (6 recent
-    // trades). Under this = flat/noise, don't apply trend filter.
-    const TREND_THRESHOLD = 0.003;
-    if (Math.abs(changePct) < TREND_THRESHOLD) return null;
-
-    const trendUp = changePct > 0;
-    // LONG when trend down = misalignment. SHORT when trend up = misalignment.
-    if (side === 'LONG' && !trendUp) {
-      return `trend-misalignment: ${asset} down ${(changePct * 100).toFixed(2)}% vs recent — LONG refused`;
-    }
-    if (side === 'SHORT' && trendUp) {
-      return `trend-misalignment: ${asset} up ${(changePct * 100).toFixed(2)}% vs recent — SHORT refused`;
-    }
-    return null;
-  } catch (e) {
-    logger.debug('[PaperTrader] trend-guard lookup failed (non-fatal)', {
-      asset, side, error: errMsg(e),
     });
     return null;
   }
