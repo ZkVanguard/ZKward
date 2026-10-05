@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, Suspense } from 'react';
+import { SectionErrorBoundary } from '@/components/CrashScreen';
 import nextDynamic from 'next/dynamic';
 import { useAccount, useBalance } from '@/lib/evm-wallet/hooks';
 import {
@@ -534,7 +535,8 @@ export default function DashboardPage() {
                 UINavigationController on iOS than a raw conditional swap. */}
             <Suspense fallback={<LoadingSkeleton height="h-96" />}>
               <div key={`${activeDest}:${activeView ?? ''}`} className="animate-fade-in">
-                {renderContent()}
+                {/* A view that throws shows a message and a retry; the navigation around it keeps working. */}
+                <SectionErrorBoundary resetKey={`${activeDest}:${activeView ?? ''}`}>{renderContent()}</SectionErrorBoundary>
               </div>
             </Suspense>
           </div>

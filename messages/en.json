@@ -735,5 +735,11 @@
       "openIn": "Open in {wallet}",
       "notOpened": "The wallet app did not open. Install it, or try again."
     }
+  },
+  "crash": {
+    "title": "This view could not be shown",
+    "body": "Something went wrong while drawing it. Your funds and data are not affected.",
+    "retry": "Try again",
+    "reference": "Reference {id}"
   }
 }

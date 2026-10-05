@@ -3,9 +3,10 @@
 // MUST be imported first - sets up BigInt serialization and fetch interceptor
 import './api-interceptor';
 
-import { ReactNode } from 'react';
+import { ReactNode, useEffect } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider as CustomThemeProvider } from '../contexts/ThemeContext';
+import { installClientErrorReporter } from '../lib/utils/client-error-reporter';
 
 // Light-weight providers used across every route (marketing + app).
 // Wallet-heavy providers (SuiWalletProviders — ~800 KB of @mysten SDKs)
@@ -49,6 +50,7 @@ function getQueryClient(): QueryClient {
 
 export function Providers({ children }: { children: ReactNode }) {
   const queryClient = getQueryClient();
+  useEffect(() => installClientErrorReporter(), []);
 
   return (
     <CustomThemeProvider>
