@@ -43,7 +43,7 @@ import {
 import type { ChainKey } from './community-pool/types';
 import { POOL_CHAIN_CONFIGS } from '@/lib/contracts/community-pool-config';
 import { Activity, PieChart, Shield, TrendingUp, Users } from 'lucide-react';
-import { SolanaRecentActivity, SolanaSleevePanel } from '@/components/solana/SolanaPoolDetails';
+import { SolanaMembers, SolanaRecentActivity, SolanaSleevePanel } from '@/components/solana/SolanaPoolDetails';
 import { CommunityPoolSkeleton } from './community-pool/Skeletons';
 import { NavHistoryChart } from './NavHistoryChart';
 import { PaperPoolPanel } from './PaperPoolPanel'; // Lazy load heavy panels (only load when in viewport)
@@ -612,7 +612,7 @@ export const CommunityPool = memo(function CommunityPool({
         </CollapsibleSection>
       )}
 
-      {!compact && !solana && (
+      {!compact && (
         <CollapsibleSection
           title="Members & pool info"
           icon={<Users className="w-4 h-4 text-yellow-500" />}
@@ -623,7 +623,7 @@ export const CommunityPool = memo(function CommunityPool({
           collapsibleOnDesktop
           defaultOpenDesktop={false}
         >
-          <Leaderboard
+          {solana ? <SolanaMembers /> : <Leaderboard
             entries={pool.leaderboard}
             totalMembers={pool.poolData?.memberCount}
             poolTVL={pool.poolData?.totalValueUSD}
@@ -632,7 +632,7 @@ export const CommunityPool = memo(function CommunityPool({
             }
             selectedChain={pool.selectedChain}
             chainConfig={pool.chainConfig}
-          />
+          />}
         </CollapsibleSection>
       )}
 

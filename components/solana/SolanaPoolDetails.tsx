@@ -6,7 +6,7 @@
  * chains read the same.
  */
 import { ArrowDownRight, ExternalLink, Loader2 } from 'lucide-react';
-import { explorerTx, shortAddr, useSolanaPoolStatus } from './status';
+import { explorerAddress, explorerTx, shortAddr, useSolanaPoolStatus } from './status';
 import { ChainLogo } from '@/components/wallet/ChainLogo';
 
 const SOLANA_ACCENT = '#9945FF';
@@ -88,6 +88,54 @@ export function SolanaSleevePanel() {
         Trades BTC, ETH and SOL on the platform&apos;s signals, sized to the pool&apos;s value, with real trading fees
         counted. {data?.testnet !== false && 'On testnet it is simulated; '}profits reach the vault as token buybacks.
       </p>
+    </div>
+  );
+}
+
+/** Current shareholders from the pool ledger, largest first. */
+export function SolanaMembers() {
+  const { data, isPending } = useSolanaPoolStatus();
+  const rows = data?.members ?? [];
+  const total = data?.memberCount ?? rows.length;
+  const cluster = data?.cluster ?? 'devnet';
+  const price = data?.sharePrice ?? 1;
+  return (
+    <div className="p-3 sm:p-4 border-b border-gray-100 dark:border-gray-700">
+      <div className="flex items-center gap-2 mb-3 flex-wrap pool-inner-heading">
+        <ChainLogo chain="solana" size={16} label="Solana" />
+        <h3 className="text-sm sm:text-[15px] font-semibold text-label-primary">Members</h3>
+        {total > rows.length && <span className="text-[11px] text-label-tertiary">top {rows.length} of {total}</span>}
+        {isPending && <Loader2 className="w-3.5 h-3.5 animate-spin text-label-tertiary" />}
+      </div>
+      {rows.length === 0 ? (
+        <div className="text-[12px] text-label-tertiary py-6 text-center">
+          {isPending ? 'Loading members…' : 'No members yet. Your first deposit makes you one.'}
+        </div>
+      ) : (
+        <div className="space-y-1.5">
+          {rows.map((m, i) => (
+            <div key={m.wallet} className="flex items-center gap-2 p-2 rounded-lg bg-system-bg-secondary text-[12px]">
+              <span className="w-5 text-center tabular-nums text-label-tertiary flex-shrink-0">{i + 1}</span>
+              <a
+                href={explorerAddress(m.wallet, cluster)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 min-w-0 inline-flex items-center gap-1 font-mono text-label-primary hover:underline truncate"
+              >
+                {shortAddr(m.wallet)} <ExternalLink className="w-2.5 h-2.5 flex-shrink-0 text-label-tertiary" />
+              </a>
+              <div className="text-right flex-shrink-0">
+                <div className="tabular-nums font-semibold text-label-primary">
+                  {(m.shares * price).toLocaleString(undefined, { maximumFractionDigits: 2 })} JIMP
+                </div>
+                <div className="text-[10px] text-label-tertiary tabular-nums">
+                  {m.shares.toLocaleString(undefined, { maximumFractionDigits: 2 })} shares · {m.percentage.toFixed(2)}%
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

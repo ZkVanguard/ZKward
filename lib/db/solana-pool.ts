@@ -124,19 +124,18 @@ export async function getWalletSharesRaw(wallet: string): Promise<bigint> {
   return BigInt(r[0]?.total ?? '0');
 }
 
-/** Wallets currently holding shares (minted − burned > 0). */
-export async function getMemberCount(): Promise<number> {
+/** Wallets currently holding shares (minted − burned > 0), largest first. */
+export async function getMembers(): Promise<{ wallet: string; sharesRaw: bigint }[]> {
   await ensureSolanaPoolTables();
-  const r = await query<{ n: number }>(
-    `SELECT COUNT(*)::int AS n FROM (
-       SELECT d.wallet
-       FROM (SELECT sender AS wallet, SUM(shares_minted_raw) AS minted FROM solana_pool_deposits GROUP BY sender) d
-       LEFT JOIN (SELECT wallet, SUM(shares_burned_raw) AS burned FROM solana_pool_withdrawals GROUP BY wallet) w
-         ON w.wallet = d.wallet
-       WHERE d.minted - COALESCE(w.burned, 0) > 0
-     ) holders`,
+  const r = await query<{ wallet: string; shares: string }>(
+    `SELECT d.wallet, (d.minted - COALESCE(w.burned, 0))::text AS shares
+     FROM (SELECT sender AS wallet, SUM(shares_minted_raw) AS minted FROM solana_pool_deposits GROUP BY sender) d
+     LEFT JOIN (SELECT wallet, SUM(shares_burned_raw) AS burned FROM solana_pool_withdrawals GROUP BY wallet) w
+       ON w.wallet = d.wallet
+     WHERE d.minted - COALESCE(w.burned, 0) > 0
+     ORDER BY d.minted - COALESCE(w.burned, 0) DESC`,
   );
-  return Number(r[0]?.n ?? 0);
+  return r.map((m) => ({ wallet: m.wallet, sharesRaw: BigInt(m.shares) }));
 }
 
 /** Idempotent by on-chain signature — replays are no-ops, like deposits. */
