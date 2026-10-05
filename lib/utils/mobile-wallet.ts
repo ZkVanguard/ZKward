@@ -28,8 +28,20 @@ export interface MobileWalletOption {
    *  Both arguments arrive URL-encoded: the page, and its origin (some wallets
    *  want it as `ref`). */
   buildUniversalLink: (encodedHref: string, encodedOrigin: string) => string;
+  /** The same browse action through the app's own URL scheme. It goes
+   *  straight to the installed app with no web page in between, so it is the
+   *  second try when the universal link stayed in the browser. */
+  buildAppLink: (encodedHref: string, encodedOrigin: string) => string;
+  /** Android package that claims the universal link. With it an Android
+   *  browser hands the link to the app even when the phone never verified
+   *  the link association (a common reason an installed app is skipped). */
+  androidPackage?: string;
   /** Fallback install page when the wallet isn't installed. */
   installUrl: string;
+}
+
+export function isAndroidBrowser(): boolean {
+  return typeof navigator !== 'undefined' && /Android/i.test(navigator.userAgent || '');
 }
 
 /**
@@ -71,12 +83,14 @@ export const SOLANA_MOBILE_WALLETS: MobileWalletOption[] = [
     id: 'phantom',
     name: 'Phantom',
     buildUniversalLink: (encodedHref, encodedOrigin) => `https://phantom.app/ul/browse/${encodedHref}?ref=${encodedOrigin}`,
+    buildAppLink: (encodedHref, encodedOrigin) => `phantom://browse/${encodedHref}?ref=${encodedOrigin}`,
     installUrl: 'https://phantom.app/download',
   },
   {
     id: 'solflare',
     name: 'Solflare',
     buildUniversalLink: (encodedHref, encodedOrigin) => `https://solflare.com/ul/v1/browse/${encodedHref}?ref=${encodedOrigin}`,
+    buildAppLink: (encodedHref, encodedOrigin) => `solflare://ul/v1/browse/${encodedHref}?ref=${encodedOrigin}`,
     installUrl: 'https://solflare.com/download',
   },
 ];
@@ -93,10 +107,23 @@ export function handoffTarget(href: string, chain: 'sui' | 'solana'): string {
   return u.toString();
 }
 
-/** Universal link that opens this page, set up for `chain`, inside `wallet`. */
-export function walletHandoffLink(wallet: MobileWalletOption, chain: 'sui' | 'solana', href: string): string {
+/**
+ * First-tap link that opens this page, set up for `chain`, inside `wallet`.
+ * The universal link; on Android, when the wallet's package is known, the
+ * same link as an intent addressed to that app, falling back to the plain
+ * link when the app is not installed.
+ */
+export function walletHandoffLink(wallet: MobileWalletOption, chain: 'sui' | 'solana', href: string, android = false): string {
   const target = handoffTarget(href, chain);
-  return wallet.buildUniversalLink(encodeURIComponent(target), encodeURIComponent(new URL(target).origin));
+  const universal = wallet.buildUniversalLink(encodeURIComponent(target), encodeURIComponent(new URL(target).origin));
+  if (!android || !wallet.androidPackage) return universal;
+  return `intent://${universal.slice('https://'.length)}#Intent;scheme=https;package=${wallet.androidPackage};S.browser_fallback_url=${encodeURIComponent(universal)};end`;
+}
+
+/** Second-try link: the wallet app's own URL scheme, for when the first link stayed in the browser. */
+export function walletAppLink(wallet: MobileWalletOption, chain: 'sui' | 'solana', href: string): string {
+  const target = handoffTarget(href, chain);
+  return wallet.buildAppLink(encodeURIComponent(target), encodeURIComponent(new URL(target).origin));
 }
 
 // SUI-first mobile flow: just Slush. It's the officially rebranded Sui
@@ -109,6 +136,8 @@ export const SUI_MOBILE_WALLETS: MobileWalletOption[] = [
     id: 'slush',
     name: 'Slush',
     buildUniversalLink: (encodedHref: string) => `https://my.slush.app/browse/${encodedHref}`,
+    buildAppLink: (encodedHref: string) => `slush://browse/${encodedHref}`,
+    androidPackage: 'com.mystenlabs.suiwallet',
     installUrl: 'https://slush.app/download',
   },
 ];

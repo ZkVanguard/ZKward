@@ -11,12 +11,23 @@
  * visitor most likely wants leads and says why (lib/wallet/suggest-chain).
  */
 
+import { useState } from 'react';
 import { Check, ExternalLink, Loader2, LogOut, Smartphone, Sparkles, Wallet, X } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { CHAIN_INFO, WALLET_CHAINS, useWalletHub, type WalletChain } from '@/contexts/WalletHubContext';
 import { ChainLogo, FundsTag } from '@/components/wallet/ChainLogo';
 import { installedSuiWallets } from '@/lib/wallet/suggest-chain';
-import { SOLANA_MOBILE_WALLETS, SUI_MOBILE_WALLETS, isMobileBrowser, walletHandoffLink } from '@/lib/utils/mobile-wallet';
+import { SOLANA_MOBILE_WALLETS, SUI_MOBILE_WALLETS, isAndroidBrowser, isMobileBrowser, walletAppLink, walletHandoffLink } from '@/lib/utils/mobile-wallet';
+
+/** Set when a wallet-app link was tapped in this tab. Anyone who sees the card after that is still in the browser. */
+const APP_LINK_TRIED_KEY = 'zkward.appLinkTried';
+function readTried(chain: string): boolean {
+  try {
+    return sessionStorage.getItem(APP_LINK_TRIED_KEY) === chain;
+  } catch {
+    return false;
+  }
+}
 
 const short = (a: string) => `${a.slice(0, 6)}…${a.slice(-4)}`;
 
@@ -127,6 +138,21 @@ function ChainCard({ chain, highlighted, suggested }: { chain: WalletChain; high
   // universal links to the app from a real tap). Hedera needs no wallet app.
   const needsApp = chain !== 'hedera' && !isActive && isMobileBrowser() && (chain === 'solana' ? !hub.solanaWalletFound : suiNames.length === 0);
   const apps = needsApp ? (chain === 'solana' ? SOLANA_MOBILE_WALLETS : SUI_MOBILE_WALLETS) : [];
+  // The first link can stay in the browser with the app installed (the phone
+  // never verified the link, or was told to keep that site in the browser).
+  // Whoever is looking at this card after tapping it is in that case, so the
+  // buttons switch to the app's own URL scheme, which goes straight to the app.
+  const [tried, setTried] = useState(() => readTried(chain));
+  const secondTry = apps.length > 0 && (tried || !!error);
+  const markTried = () => {
+    try {
+      sessionStorage.setItem(APP_LINK_TRIED_KEY, chain);
+    } catch {
+      /* this tab only */
+    }
+    // After the tap has navigated: changing the href mid-click would redirect it.
+    setTimeout(() => setTried(true), 1500);
+  };
 
   return (
     <div
@@ -215,7 +241,12 @@ function ChainCard({ chain, highlighted, suggested }: { chain: WalletChain; high
               {apps.map((app, i) => (
                 <a
                   key={app.id}
-                  href={walletHandoffLink(app, chain as 'sui' | 'solana', window.location.href)}
+                  href={
+                    secondTry
+                      ? walletAppLink(app, chain as 'sui' | 'solana', window.location.href)
+                      : walletHandoffLink(app, chain as 'sui' | 'solana', window.location.href, isAndroidBrowser())
+                  }
+                  onClick={markTried}
                   className={`inline-flex items-center gap-2 h-10 px-4 rounded-xl text-[13px] font-semibold active:scale-[0.98] ${i === 0 ? 'text-white' : 'bg-[#f5f5f7] text-[#1d1d1f]'}`}
                   style={i === 0 ? { background: highlighted || suggested ? '#007AFF' : info.color } : undefined}
                 >
@@ -241,9 +272,9 @@ function ChainCard({ chain, highlighted, suggested }: { chain: WalletChain; high
             </button>
           )}
 
-          {error && (
+          {(error || secondTry) && (
             <div className="mt-2 text-[12px] text-red-700 flex items-center gap-2 flex-wrap">
-              <span>{error}</span>
+              <span>{error || t('mobile.notOpened')}</span>
               {info.installUrl && (
                 <a
                   href={info.installUrl}
