@@ -762,7 +762,7 @@ describe('PaperTrader.runTick — profit-lock + halt gates', () => {
 
   it('skips (asset, side) after recent losses cross regret-cooldown threshold', async () => {
     // Multiple queries fire before assetSideRecentPnl (Fix G shortWindow,
-    // asset-streak, trend-misalignment); route by SQL text so the seeded
+    // asset-streak); route by SQL text so the seeded
     // regret loss series only lands where assetSideRecentPnl reads it
     // (SELECT COALESCE(current_pnl, realized_pnl, 0) ...).
     mockQuery.mockImplementation(((sql: string) => {

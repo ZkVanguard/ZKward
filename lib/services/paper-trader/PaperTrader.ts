@@ -718,22 +718,18 @@ export class PaperTrader {
 
     // 1. Signal scan + rank + filter → picked candidate (or skip reason).
     //    Helper handles: skip-STRONG, signal-quality, concurrency, signal-history,
-    //    calibrator, AND the extra gates below (streak/trend/vol/regret) via
+    //    calibrator, AND the extra gates below (streak/vol/regret) via
     //    the extraGate callback so a top-pick rejection walks to the next
     //    candidate instead of aborting the whole tick.
-    const { assetSideStreakRejection, assetStreakRejection, trendMisalignmentRejection } = await import('./streak-guard');
+    const { assetSideStreakRejection, assetStreakRejection } = await import('./streak-guard');
     const { lowVolatilityRejection } = await import('./volatility-gate');
     const extraGate = async (asset: string, side: Side, gateNow: number): Promise<string | null> => {
       const streakReject = await assetSideStreakRejection(asset, side, gateNow);
       if (streakReject) return streakReject;
       // Asset-level concentration guard — catches mixed-side loss piles
       // (e.g. SOL LONG loses → SOL SHORT loses → SOL LONG loses again).
-      // Runs BEFORE trend-guard so we don't waste price checks on a
-      // cooled-down asset.
       const assetReject = await assetStreakRejection(asset, gateNow);
       if (assetReject) return assetReject;
-      const trendReject = await trendMisalignmentRejection(asset, side);
-      if (trendReject) return trendReject;
       const volReject = await lowVolatilityRejection(asset);
       if (volReject) return volReject;
       const recentPnl = await assetSideRecentPnl(asset, side, PAPER_REGRET_WINDOW);
@@ -751,7 +747,7 @@ export class PaperTrader {
     const rec = picked.prediction.recommendation;
     const side = picked.side;
 
-    // Streak / trend / vol / regret gates all ran inside extraGate above,
+    // Streak / vol / regret gates all ran inside extraGate above,
     // so we walk down the ranked candidate list on any per-candidate
     // rejection rather than aborting the tick on the top pick alone.
 
