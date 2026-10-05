@@ -739,7 +739,8 @@
       "mobileHandoff": "Abre esta página no app da sua carteira"
     },
     "mobile": {
-      "openIn": "Abrir no {wallet}"
+      "openIn": "Abrir no {wallet}",
+      "notOpened": "O app da carteira não abriu. Instale-o ou tente novamente."
     }
   }
 }

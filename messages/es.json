@@ -739,7 +739,8 @@
       "mobileHandoff": "Abre esta página en tu app de billetera"
     },
     "mobile": {
-      "openIn": "Abrir en {wallet}"
+      "openIn": "Abrir en {wallet}",
+      "notOpened": "La app de la billetera no se abrió. Instálala o inténtalo de nuevo."
     }
   }
 }

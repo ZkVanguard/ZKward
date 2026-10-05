@@ -18,6 +18,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useLogin } from '@privy-io/react-auth';
+import { useTranslations } from 'next-intl';
 import { useConnectWallet, useWallets } from '@mysten/dapp-kit';
 import type { WalletWithRequiredFeatures } from '@mysten/wallet-standard';
 import { useUserSession } from '@/lib/hooks/useUserSession';
@@ -27,6 +28,8 @@ import { ChainChooser } from '@/components/wallet/ChainChooser';
 import { CONSENT_EVENT, CONSENT_KEY } from '@/components/CookieConsent';
 import { installedSuiWallets, suggestChain, type SuggestReason } from '@/lib/wallet/suggest-chain';
 import { CHAIN_META, WALLET_CHAINS, type ChainMeta, type WalletChain } from '@/lib/wallet/chain-meta';
+import { isSlushWeb } from '@/lib/wallet/slush-web';
+import { isMobileBrowser } from '@/lib/utils/mobile-wallet';
 
 // Names, tiers, marks and colours live in a plain module so marketing
 // pages can draw them without this provider's wallet SDKs.
@@ -37,6 +40,8 @@ const ADOPTION_ORDER: readonly WalletChain[] = ['sui', 'hedera', 'solana'];
 const ACTIVE_KEY = 'zkward.activeChain';
 /** Set once the user has chosen (or dismissed the choice); the welcome chooser never shows again on this device. */
 const ONBOARDED_KEY = 'zkward.onboarded';
+/** How long a page opened by a wallet-app link waits for that wallet to show up before saying the app did not open. */
+const HANDOFF_WAIT_MS = 4000;
 
 /** Chain facts plus the English copy a few prompts still use (the chooser reads `wallet.*`). */
 export const CHAIN_INFO: Record<WalletChain, ChainMeta & { pool: string; how: string; cta: string; installLabel: string }> = {
@@ -72,7 +77,7 @@ export interface WalletHub {
   hedera: ChainWallet;
   sui: ChainWallet;
   solana: ChainWallet;
-  /** SUI wallets the browser exposes; the chooser lists them when there is more than one. */
+  /** SUI wallets present in this browser (an extension, or a wallet app's own browser); the chooser lists them when there is more than one. */
   suiWallets: WalletWithRequiredFeatures[];
   /** Switch to `chain`: disconnect the current network, make `chain` active, connect it. */
   connect: (chain: WalletChain, pick?: WalletWithRequiredFeatures) => Promise<ConnectResult>;
@@ -123,10 +128,14 @@ export function WalletHubProvider({ children }: { children: ReactNode }) {
   const sui = useSuiSafe();
   const allWallets = useWallets();
   const { mutateAsync: connectSuiWallet, isPending: suiConnecting } = useConnectWallet();
-  const suiWallets = useMemo(
+  const suiCapable = useMemo(
     () => allWallets.filter((w) => w.chains?.some((c: string) => c.includes('sui'))),
     [allWallets],
   );
+  // The web wallet is registered for every visitor, so it never counts as
+  // "this browser has a wallet"; it is what connect falls back to when there is none.
+  const suiWallets = useMemo(() => suiCapable.filter((w) => !isSlushWeb(w)), [suiCapable]);
+  const suiWebWallet = useMemo(() => suiCapable.find((w) => isSlushWeb(w)) ?? null, [suiCapable]);
 
   // Solana: injected Phantom. State lives here so the pool card, the navbar
   // and the chooser all see the same address.
@@ -261,7 +270,7 @@ export function WalletHubProvider({ children }: { children: ReactNode }) {
         }
         if (chain === 'sui') {
           if (wallets.sui.connected) return { ok: true };
-          const wallet = pick ?? (suiWallets.length === 1 ? suiWallets[0] : null);
+          const wallet = pick ?? (suiWallets.length === 1 ? suiWallets[0] : suiWallets.length === 0 ? suiWebWallet : null);
           if (!wallet) {
             if (suiWallets.length === 0) throw new Error('No SUI wallet found in this browser.');
             // Several wallets detected: the chooser lists them, the user picks one.
@@ -292,27 +301,48 @@ export function WalletHubProvider({ children }: { children: ReactNode }) {
         switching.current = false;
       }
     },
-    [wallets, disconnectRaw, setActive, login, suiWallets, connectSuiWallet],
+    [wallets, disconnectRaw, setActive, login, suiWallets, suiWebWallet, connectSuiWallet],
   );
 
   // Arrived inside a wallet app's browser from a handoff link
   // (?connect=<chain>, lib/utils/mobile-wallet): connect as soon as that
   // wallet is visible, once, then drop the parameter so a reload does not
   // prompt again.
+  const tWallet = useTranslations('wallet');
   const handoffDone = useRef(false);
+  const handoffSince = useRef<number | null>(null);
   useEffect(() => {
     if (!hydrated || handoffDone.current) return;
     const params = new URLSearchParams(window.location.search);
     const want = params.get('connect');
     if (want !== 'solana' && want !== 'sui') return;
+    const finish = () => {
+      handoffDone.current = true;
+      params.delete('connect');
+      const q = params.toString();
+      window.history.replaceState(null, '', window.location.pathname + (q ? `?${q}` : '') + window.location.hash);
+    };
     const suiPick = suiWallets.find((w) => installedSuiWallets([w.name]).length > 0);
-    if (want === 'solana' ? !solanaWalletFound : !suiPick) return;
-    handoffDone.current = true;
-    params.delete('connect');
-    const q = params.toString();
-    window.history.replaceState(null, '', window.location.pathname + (q ? `?${q}` : '') + window.location.hash);
-    void connect(want, want === 'sui' ? suiPick : undefined);
-  }, [hydrated, solanaWalletFound, suiWallets, connect]);
+    if (want === 'solana' ? solanaWalletFound : suiPick) {
+      finish();
+      void connect(want, want === 'sui' ? suiPick : undefined);
+      return;
+    }
+    // No wallet after the wait: the link never reached the app (not
+    // installed, or the phone kept the link in its browser) and the wallet's
+    // own fallback page sent the visitor straight back here. Say so and show
+    // the ways in, instead of a page where nothing happened.
+    handoffSince.current ??= Date.now();
+    const timer = setTimeout(
+      () => {
+        finish();
+        if (isMobileBrowser()) setErrors((e) => ({ ...e, [want]: tWallet('mobile.notOpened') }));
+        setChooser({ open: true, chain: want, reason: null, welcome: false });
+      },
+      Math.max(0, handoffSince.current + HANDOFF_WAIT_MS - Date.now()),
+    );
+    return () => clearTimeout(timer);
+  }, [hydrated, solanaWalletFound, suiWallets, connect, tWallet]);
 
   const disconnect = useCallback(
     async (chain: WalletChain) => {

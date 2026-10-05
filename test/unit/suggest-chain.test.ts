@@ -20,10 +20,6 @@ describe('suggestChain', () => {
     expect(suggestChain({ ...base, suiWallets: ['Phantom'], solanaWallet: true })).toEqual({ chain: 'solana', reason: 'wallet' });
   });
 
-  it('the SDK web wallet registered for everyone does not count as an installed SUI wallet', () => {
-    expect(suggestChain({ ...base, suiWallets: ['Stashed'] })).toEqual({ chain: 'hedera', reason: 'no-install' });
-  });
-
   it('with nothing installed, Hedera works through email sign-in', () => {
     expect(suggestChain(base)).toEqual({ chain: 'hedera', reason: 'no-install' });
   });

@@ -739,7 +739,8 @@
       "mobileHandoff": "이 페이지를 지갑 앱에서 엽니다"
     },
     "mobile": {
-      "openIn": "{wallet}에서 열기"
+      "openIn": "{wallet}에서 열기",
+      "notOpened": "지갑 앱이 열리지 않았습니다. 설치하거나 다시 시도하세요."
     }
   }
 }

@@ -739,7 +739,8 @@
       "mobileHandoff": "Öffnet diese Seite in deiner Wallet-App"
     },
     "mobile": {
-      "openIn": "In {wallet} öffnen"
+      "openIn": "In {wallet} öffnen",
+      "notOpened": "Die Wallet-App hat sich nicht geöffnet. Installiere sie oder versuche es erneut."
     }
   }
 }

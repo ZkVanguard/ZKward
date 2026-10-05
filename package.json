@@ -106,6 +106,7 @@
     "@crypto.com/developer-platform-client": "^1.1.2",
     "@hashgraph/sdk": "^2.81.0",
     "@mysten/dapp-kit": "^0.14.0",
+    "@mysten/slush-wallet": "0.3.0",
     "@mysten/sui": "^1.0.0",
     "@noble/hashes": "^2.0.1",
     "@openzeppelin/contracts": "^5.6.1",

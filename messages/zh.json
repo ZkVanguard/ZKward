@@ -739,7 +739,8 @@
       "mobileHandoff": "在你的钱包应用中打开此页面"
     },
     "mobile": {
-      "openIn": "在 {wallet} 中打开"
+      "openIn": "在 {wallet} 中打开",
+      "notOpened": "钱包应用未能打开。请安装后重试。"
     }
   }
 }
