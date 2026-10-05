@@ -140,6 +140,22 @@ export function getRegimeMultipliers(regime: Regime): RegimeMultipliers {
   return REGIME_CONFIG[regime] ?? { stopLossMult: 1, maxHoldMult: 1, minConfidenceMult: 1 };
 }
 
+/**
+ * The confidence floor an entry must clear right now, and the regime behind
+ * it. The regime only ever TIGHTENS the floor (Fix O, 2026-09-27): the
+ * 0.95x relax in a trend pulled the gate from 70 to 66.5 and re-admitted
+ * the conf 65-69 bucket it was built to cut (43 trades, 33% wins, the
+ * single worst bucket). A failed regime read leaves the static floor.
+ */
+export async function entryConfidenceFloor(staticFloor: number, now: number): Promise<{ minConfidence: number; regime: Regime | null }> {
+  try {
+    const { regime } = await getCurrentRegime(now);
+    return { minConfidence: Math.max(staticFloor, staticFloor * getRegimeMultipliers(regime).minConfidenceMult), regime };
+  } catch {
+    return { minConfidence: staticFloor, regime: null };
+  }
+}
+
 // Test-only
 export {
   REGIME_KEY as _REGIME_KEY,

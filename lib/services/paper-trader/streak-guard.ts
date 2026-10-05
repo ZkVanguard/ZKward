@@ -14,6 +14,7 @@ import { query } from '@/lib/db/postgres';
 import { logger } from '@/lib/utils/logger';
 import { errMsg } from '@/lib/utils/error-handler';
 import type { Side } from './simulated-executor';
+import { PAPER_PORTFOLIO_ID, PAPER_REGRET_COOLDOWN_PCT, PAPER_REGRET_WINDOW } from './config';
 
 /** Env-tunable — number of consecutive losses on (asset, side) that
  *  triggers a cooldown. Default 3 balances fast-catch vs statistical
@@ -131,4 +132,33 @@ export async function assetStreakRejection(
     });
     return null;
   }
+}
+
+/**
+ * Regret cooldown: an (asset, side) whose last PAPER_REGRET_WINDOW closed
+ * trades lost more than PAPER_REGRET_COOLDOWN_PCT of NAV is skipped even
+ * when the current signal is strong. Fails soft (no refusal) so a DB blip
+ * does not paralyze the trader.
+ */
+export async function regretCooldownRejection(asset: string, side: Side, nav: number): Promise<string | null> {
+  let recentPnl = 0;
+  try {
+    // portfolio_id filter isolates PaperTrader (-3) from PaperGated (-4)
+    // so gated losses don't trigger raw's regret cooldown (2026-09-22).
+    const rows = await query<{ pnl: string | number }>(
+      `SELECT COALESCE(current_pnl, realized_pnl, 0) AS pnl
+       FROM hedges
+       WHERE portfolio_id = $4
+         AND order_id LIKE 'paper_%' AND asset = $1 AND side = $2 AND status = 'closed'
+       ORDER BY closed_at DESC NULLS LAST
+       LIMIT $3`,
+      [asset, side, PAPER_REGRET_WINDOW, PAPER_PORTFOLIO_ID],
+    );
+    recentPnl = rows.reduce((sum, r) => sum + Number(r.pnl ?? 0), 0);
+  } catch (e) {
+    logger.debug('[PaperTrader] regret lookup failed (non-fatal)', { error: errMsg(e) });
+    return null;
+  }
+  if (recentPnl >= -nav * PAPER_REGRET_COOLDOWN_PCT) return null;
+  return `regret-cooldown: ${asset} ${side} recent PnL $${recentPnl.toFixed(0)} < threshold $${(-nav * PAPER_REGRET_COOLDOWN_PCT).toFixed(0)}`;
 }

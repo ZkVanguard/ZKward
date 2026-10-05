@@ -17,7 +17,9 @@ jest.mock('@/lib/db/signal-outcomes', () => ({
 import { getCronState, setCronState } from '@/lib/db/cron-state';
 import { getLedgerBucketRows, type LedgerBucketRow } from '@/lib/db/signal-outcomes';
 import {
+  LOOP_PROVEN_MULTIPLIER,
   LOOP_STATE_KEY,
+  applyLoopVerdicts,
   cellEvidence,
   cellKey,
   evaluateLoop,
@@ -237,6 +239,40 @@ describe('resolveVerdict', () => {
 
   it('no state means nothing is proven', () => {
     expect(resolveVerdict(null, 'aggregate', 'BTC')).toEqual({ verdict: 'unproven', level: null });
+  });
+});
+
+describe('applyLoopVerdicts', () => {
+  const key = (name: string) => name;
+  const vote = (name: string, weight = 0.25) => ({ name, type: 'short_term', weight, direction: 'UP' as const });
+  const inForce = (verdict: 'proven' | 'wrong-way') => ({ verdict, timingBp: 0, seBp: 1, windows: 50 });
+  const votes = () => [vote('short_term:kalshi-eth'), vote('polymarket-5min-ETH'), vote('cross-asset-alignment'), vote('short_term:orderbook-eth-depth-imbalance')];
+  const weightOf = (out: Array<{ name: string; weight: number }>, name: string) => out.find((s) => s.name === name)?.weight;
+
+  it('with nothing in force every source keeps its base share', () => {
+    const out = applyLoopVerdicts(votes(), { cells: {}, families: {} }, 'ETH', key);
+    expect(out.map((s) => s.weight)).toEqual([0.25, 0.25, 0.25, 0.25]);
+    expect(applyLoopVerdicts(votes(), null, 'ETH', key)).toHaveLength(4);
+  });
+
+  it('removes a wrong-way source, lifts a proven one, and the weights sum to 1', () => {
+    const state = { cells: {}, families: { 'cross-asset-alignment': inForce('wrong-way'), 'order-book-imbalance': inForce('proven') } };
+    const out = applyLoopVerdicts(votes(), state, 'ETH', key);
+    expect(out.map((s) => s.name)).not.toContain('cross-asset-alignment');
+    expect(out.reduce((sum, s) => sum + s.weight, 0)).toBeCloseTo(1, 9);
+    expect(weightOf(out, 'short_term:orderbook-eth-depth-imbalance')! / weightOf(out, 'polymarket-5min-ETH')!).toBeCloseTo(LOOP_PROVEN_MULTIPLIER, 9);
+  });
+
+  it('never leaves fewer than two voices: one source is not a vote', () => {
+    const two = [vote('cross-asset-alignment', 0.5), vote('polymarket-5min-ETH', 0.5)];
+    const out = applyLoopVerdicts(two, { cells: {}, families: { 'cross-asset-alignment': inForce('wrong-way') } }, 'ETH', key);
+    expect(out).toHaveLength(2);
+  });
+
+  it('does not touch the list it was given', () => {
+    const input = votes();
+    applyLoopVerdicts(input, { cells: {}, families: { kalshi: inForce('proven') } }, 'ETH', key);
+    expect(input.map((s) => s.weight)).toEqual([0.25, 0.25, 0.25, 0.25]);
   });
 });
 

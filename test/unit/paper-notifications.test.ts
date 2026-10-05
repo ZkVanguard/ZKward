@@ -41,6 +41,8 @@ import {
   openEmbed,
   postPaperScoreboardIfDue,
   scoreboardEmbed,
+  evidenceLine,
+  EVIDENCE_FIELD,
   statsLine,
   type Scoreboard,
 } from '@/lib/services/paper-trader/notifications';
@@ -177,6 +179,14 @@ describe('scoreboard', () => {
     ],
     longLabel: 'since 2026-09-27',
     ...over,
+  });
+
+  it('shows what the ledger has proven only when a judgment is stored', () => {
+    const counts = { cellsJudged: 50, familiesJudged: 12, proven: 0, wrongWay: 0, pending: 1 };
+    expect(evidenceLine({ day: '2026-10-06', counts })).toBe('62 judged · nothing proven either way · 1 pending · as of 2026-10-06');
+    expect(evidenceLine({ day: '2026-10-06', counts: { ...counts, proven: 2, wrongWay: 1, pending: 0 } })).toBe('62 judged · 2 proven · 1 wrong-way · as of 2026-10-06');
+    expect(field(scoreboardEmbed(board({ evidence: 'x' }), NOW), EVIDENCE_FIELD)).toBe('x');
+    expect(field(scoreboardEmbed(board(), NOW), EVIDENCE_FIELD)).toBeUndefined();
   });
 
   it('the title leads with the profit and the market lean; the colour follows the profit', () => {
