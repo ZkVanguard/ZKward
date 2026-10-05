@@ -138,7 +138,7 @@ export const Sepolia = defineChain({
   },
   rpcUrls: {
     default: {
-      http: [getRpcUrl('sepolia'), 'https://rpc.sepolia.org'],
+      http: [getRpcUrl('sepolia')],
     },
   },
   blockExplorers: {
