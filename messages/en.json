@@ -82,11 +82,11 @@
   },
   "agentsPage": {
     "meta": {
-      "title": "The seven agents — ZKward",
-      "description": "Seven specialists that argue with each other before any real money moves. Live chat, read-only."
+      "title": "The six agents — ZKward",
+      "description": "Six specialists that argue with each other before any real money moves. Live chat, read-only."
     },
     "header": {
-      "badge": "Seven agents, live, read-only",
+      "badge": "Six agents, live, read-only",
       "title": "Ask ZKward.",
       "subtitle": "Crypto, markets, the vault. Every answer runs on live data — prices, prediction signals, on-chain state. Nothing rehearsed."
     },
@@ -156,17 +156,6 @@
           "c4": "Every strategy tagged with a confidence score"
         }
       },
-      "settlement": {
-        "name": "Settlement",
-        "role": "The notary",
-        "description": "Turns decisions into on-chain transactions. Batches to save gas, produces the ZK proof, rolls back on failure.",
-        "capabilities": {
-          "c1": "Batch transaction processing",
-          "c2": "Gas optimization, typically 20 to 40 percent",
-          "c3": "ZK-STARK proof coordination",
-          "c4": "Rollback and retry on failure"
-        }
-      },
       "reporting": {
         "name": "Reporting",
         "role": "The bookkeeper",
@@ -192,7 +181,7 @@
       "suiPool": {
         "name": "SUI Pool",
         "role": "The operator",
-        "description": "Runs the SUI USDC pool. Reads the fused signal, picks the four-asset allocation, rebalances via BlueFin. Never bypasses the on-chain guards.",
+        "description": "Runs the SUI USDC pool. Reads the fused signal, picks the three-asset allocation, rebalances via BlueFin. Never bypasses the on-chain guards.",
         "capabilities": {
           "c1": "Four-asset allocation across BTC, ETH, SUI, CRO",
           "c2": "BlueFin aggregator rebalance",
@@ -236,7 +225,7 @@
     },
     "whyWeTell": {
       "heading": "Why we tell you when it loses",
-      "body1": "Most projects only talk about their wins. Right now, our test trader is down about $68,000 on paper. We're telling you because that's the whole point. If you can't see the losses, the wins don't mean much.",
+      "body1": "Most projects only talk about their wins. Right now, our test traders are losing slightly on paper, and the signals have not yet shown an edge after costs. We're telling you because that's the whole point. If you can't see the losses, the wins don't mean much.",
       "body2": "Also, hiding a loss is how a small loss turns into a much larger one three months later. We tried that once. Do not recommend."
     },
     "whoBuilds": {
@@ -267,7 +256,7 @@
     },
     "q1": {
       "q": "What is ZKward?",
-      "a": "ZKward is an autonomous crypto vault. You deposit USDC. Seven AI agents read prediction markets, funding rates, and price momentum, then trade across BTC, ETH, and SUI. Every hedge decision closes with a cryptographic proof anyone can verify on-chain."
+      "a": "ZKward is an autonomous crypto vault. You deposit USDC. Six AI agents read prediction markets, funding rates, and price momentum, then trade across BTC, ETH, and SUI. Every hedge decision closes with a cryptographic proof anyone can verify on-chain."
     },
     "q2": {
       "q": "Is ZKward a hedge fund?",
@@ -279,7 +268,7 @@
     },
     "q4": {
       "q": "Where are my funds held?",
-      "a": "In a SUI Move object controlled by the pool contract. Non-custodial — your keys stay with you. Withdrawals are permissionless and available anytime, with a 25% per-day account throttle enforced on-chain to prevent draining attacks."
+      "a": "In a SUI Move object controlled by the pool contract. Non-custodial — your keys stay with you. Withdrawals are permissionless and available anytime."
     },
     "q5": {
       "q": "What is a STARK proof and why do I care?",
@@ -295,7 +284,7 @@
     },
     "q8": {
       "q": "Why is the paper trader losing money right now?",
-      "a": "Public transparency. We run a paper trader against real signals and publish every trade — wins and losses. Cumulative paper PnL sits around -$68,000 while we tune the new gate system (volatility filter, streak guard, trend alignment, signal-quality). If we hid the losses, the wins wouldn't mean anything."
+      "a": "Public transparency. We run paper traders against real signals and publish every trade — wins and losses. So far the signals have not shown a measurable edge after trading costs, so the books sit slightly below break-even. The running record is on the paper page. If we hid the losses, the wins wouldn't mean anything."
     },
     "q9": {
       "q": "How do I know the AI is not just making it up?",
@@ -307,7 +296,7 @@
     },
     "q11": {
       "q": "Can I withdraw at any time?",
-      "a": "Yes. Withdrawal is permissionless. You sign a transaction, the contract calculates your share of the pool NAV, funds return to your wallet. A 25% per-day throttle per account is enforced by the contract to prevent draining under stress. There is no lockup, no notice period, no manager approval."
+      "a": "Yes. Withdrawal is permissionless. You sign a transaction, the contract calculates your share of the pool NAV, funds return to your wallet. There is no lockup, no notice period, no manager approval."
     },
     "q12": {
       "q": "How do I contact the team?",
@@ -322,7 +311,7 @@
   },
   "whitepaperMeta": {
     "title": "Whitepaper",
-    "description": "The full ZKward thesis: prediction-market alpha, 7-agent architecture, STARK-attested execution, tokenomics, roadmap."
+    "description": "The full ZKward thesis: prediction-market alpha, 6-agent architecture, STARK-attested execution, tokenomics, roadmap."
   },
   "footer": {
     "product": "PRODUCT",
@@ -549,96 +538,6 @@
     "back": "Back",
     "next": "Next",
     "language": "Language"
-  },
-  "howItWorks": {
-    "title": "How it works",
-    "subtitle": "Three steps. No paperwork.",
-    "step1": {
-      "title": "You deposit",
-      "description": "Send USDC to the pool. Your keys, your funds. Always.",
-      "detail": "Non-custodial from minute one."
-    },
-    "step2": {
-      "title": "The AI reads the room",
-      "description": "Seven agents read prediction markets, funding rates, and price momentum. They agree on a move before capital touches an exchange.",
-      "detail": "Signals refreshed every five minutes."
-    },
-    "step3": {
-      "title": "A proof lands on-chain",
-      "description": "Every hedge closes with a STARK proof of the decision. You can verify it yourself. So can anyone.",
-      "detail": "Post-quantum. No trusted setup."
-    }
-  },
-  "zkProof": {
-    "title": "ZK Proof Generator",
-    "subtitle": "Generate and verify zero-knowledge proofs for portfolio privacy",
-    "selectScenario": "Select Scenario",
-    "generateProof": "Generate Proof",
-    "verifyProof": "Verify Proof",
-    "proofGenerated": "Proof Generated",
-    "proofVerified": "Proof Verified",
-    "proofFailed": "Verification Failed",
-    "showSecrets": "Show Secrets",
-    "hideSecrets": "Hide Secrets",
-    "scenarios": {
-      "portfolioRisk": "Portfolio Risk Assessment",
-      "portfolioRiskDesc": "Prove portfolio risk is below threshold without revealing positions",
-      "settlementBatch": "Settlement Batch Validation",
-      "settlementBatchDesc": "Prove settlement batch is valid without revealing transaction details",
-      "compliance": "Regulatory Compliance",
-      "complianceDesc": "Prove compliance with regulations without exposing sensitive data"
-    }
-  },
-  "zkAuthenticity": {
-    "title": "ZK-STARK Authenticity Verification",
-    "subtitle": "Verify the authenticity of our zero-knowledge proof implementation",
-    "systemStatus": "System Status",
-    "operational": "Operational",
-    "verifyProof": "Verify a Proof",
-    "pasteProof": "Paste your proof JSON here",
-    "implementation": "Implementation Details",
-    "cryptoParams": "Cryptographic Parameters",
-    "sourceCode": "Source Code"
-  },
-  "zkVerification": {
-    "title": "ZK-STARK Mathematical Proof",
-    "subtitle": "Formal verification that ZKward implements a TRUE ZK-STARK according to Ben-Sasson et al. academic specifications",
-    "auditorSummary": "Auditor Quick Summary",
-    "implementation": "Implementation",
-    "securityLevel": "Security Level",
-    "academicFoundation": "Academic Foundation"
-  },
-  "marketOpportunity": {
-    "title": "Why now",
-    "subtitle": "Three things happened at the same time.",
-    "polymarketVolume": "$20B/month",
-    "polymarketDescription": "Polymarket volume, early 2026. The signal is finally liquid enough to trade at retail size.",
-    "growthRate": "$63.5B",
-    "growthDescription": "Prediction-market sector, 2025. Grew from a niche into a real category.",
-    "targetMarket": "You",
-    "targetDescription": "People who own crypto and don't want to stare at charts. And who have been burned by 'trust me' AI.",
-    "potentialUsers": "One-click",
-    "usersDescription": "What it took a hedge fund a bot farm and a night shift to do, you now do with a deposit."
-  },
-  "liveMetrics": {
-    "title": "Live from the pool",
-    "subtitle": "Not screenshots. The dashboard reads on-chain state.",
-    "tvl": "Pool balance",
-    "transactions": "Trades this week",
-    "gasSavings": "Average gas",
-    "aiAgentsOnline": "Agents online"
-  },
-  "roadmap": {
-    "title": "What we're working on",
-    "subtitle": "Where we came from, and where the next six months go.",
-    "q1Title": "Q1 2026. First bricks",
-    "q1Description": "Core contracts, five-agent prototype, and the ZK pipeline we ended up rebuilding twice.",
-    "q2Title": "Q2 2026. Mainnet",
-    "q2Description": "Pool + seven agents live on SUI mainnet. A withdrawal bug got caught the hard way. We shipped v0.2.0 to fix it.",
-    "q3Title": "Q3 2026. Discipline",
-    "q3Description": "Autonomy defense (eight gates). Rebuilt the trader's sizing after a rough drawdown. Aiven → self-hosted Bakchodi database.",
-    "q4Title": "Q4 2026. Audit + scale",
-    "q4Description": "External audit through the SUI Foundation grant. Move the AdminCap to a multisig. Raise the deposit cap only after each step survives a real drawdown test."
   },
   "cookies": {
     "title": "Cookie Preferences",

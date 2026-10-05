@@ -5,7 +5,7 @@
 ZKward aggregates prediction markets, funding rates, orderbook microstructure, options skew, and cross-asset
 correlation into a single per-asset signal every 30 seconds. Each source's directional call is scored against realized
 outcomes; sources below a 40% hit rate over 15+ observations are auto-killed. A fine-tuned language model reads every
-new prediction-market title and extracts direction, horizon, and confidence at 82.8% resolved accuracy.
+new prediction-market title and extracts direction, horizon, and confidence.
 
 Signals feed an autonomous execution layer running on Sui mainnet and BlueFin perpetuals, guarded by a multi-agent
 consensus gate and settled through post-quantum STARK attestation. A public shadow trader (`/paper`) runs the full

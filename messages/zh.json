@@ -241,96 +241,6 @@
     "next": "下一步",
     "language": "语言"
   },
-  "howItWorks": {
-    "title": "如何运作",
-    "subtitle": "三个简单步骤开始",
-    "step1": {
-      "title": "连接",
-      "description": "链接您的钱包并设置偏好",
-      "detail": "Web3钱包集成"
-    },
-    "step2": {
-      "title": "监控",
-      "description": "AI代理全天候分析投资组合风险",
-      "detail": "实时风险分析"
-    },
-    "step3": {
-      "title": "执行",
-      "description": "自动对冲和交易结算",
-      "detail": "自动化保护"
-    }
-  },
-  "zkProof": {
-    "title": "ZK证明生成器",
-    "subtitle": "生成并验证零知识证明以保护投资组合隐私",
-    "selectScenario": "选择场景",
-    "generateProof": "生成证明",
-    "verifyProof": "验证证明",
-    "proofGenerated": "证明已生成",
-    "proofVerified": "证明已验证",
-    "proofFailed": "验证失败",
-    "showSecrets": "显示秘密",
-    "hideSecrets": "隐藏秘密",
-    "scenarios": {
-      "portfolioRisk": "投资组合风险评估",
-      "portfolioRiskDesc": "在不披露仓位的情况下证明投资组合风险低于阈值",
-      "settlementBatch": "结算批次验证",
-      "settlementBatchDesc": "在不披露交易详情的情况下证明结算批次有效",
-      "compliance": "监管合规",
-      "complianceDesc": "在不暴露敏感数据的情况下证明符合法规"
-    }
-  },
-  "zkAuthenticity": {
-    "title": "ZK-STARK真实性验证",
-    "subtitle": "验证我们零知识证明实现的真实性",
-    "systemStatus": "系统状态",
-    "operational": "运行中",
-    "verifyProof": "验证证明",
-    "pasteProof": "在此粘贴您的证明JSON",
-    "implementation": "实现详情",
-    "cryptoParams": "加密参数",
-    "sourceCode": "源代码"
-  },
-  "zkVerification": {
-    "title": "ZK-STARK数学证明",
-    "subtitle": "正式验证ZKward按照Ben-Sasson等人的学术规范实现了真正的ZK-STARK",
-    "auditorSummary": "审计师快速摘要",
-    "implementation": "实现",
-    "securityLevel": "安全级别",
-    "academicFoundation": "学术基础"
-  },
-  "marketOpportunity": {
-    "title": "巨大的市场机会",
-    "subtitle": "Polymarket alpha + AI 代理 + 消费级加密 — 一切同时发生",
-    "polymarketVolume": "Polymarket 月度交易量",
-    "polymarketDescription": "月度运行率 (TRM Labs, 2026)",
-    "growthRate": "增长率",
-    "growthDescription": "2024-2030市场扩张",
-    "targetMarket": "目标市场",
-    "targetDescription": "原生加密散户 · DeFi 用户 · 个人投资组合持有人",
-    "potentialUsers": "潜在用户",
-    "usersDescription": "Polymarket 投注者、AI 代理爱好者、DeFi 金库用户、代币化投资组合持有人"
-  },
-  "liveMetrics": {
-    "title": "实时平台指标",
-    "subtitle": "来自SUI主网的实时性能数据",
-    "tvl": "总锁仓价值",
-    "transactions": "交易",
-    "gasSavings": "Gas节省",
-    "aiAgentsOnline": "在线AI代理"
-  },
-  "roadmap": {
-    "title": "产品路线图",
-    "subtitle": "我们让预测市场 alpha 人人可用的路径",
-    "q1Title": "2026年第一季度：基础建设",
-    "q1Description": "核心基础设施构建完成 — SUI智能合约、5代理原型、ZK管道",
-    "q2Title": "2026年第二季度：主网上线",
-    "q2Description": "CommunityPool与7个AI交易代理（新增 PriceMonitor + SuiPool）在SUI主网上线",
-    "q3Title": "2026年第三季度：增长",
-    "q3Description": "与机构合作伙伴正式上线",
-    "q4Title": "2026年第四季度：扩展",
-    "q4Description": "多链$500M+ TVL"
-  },
   "cookies": {
     "title": "Cookie偏好设置",
     "description": "Cookie 会改善你的体验。你的钱包地址是公开的区块链数据 — 我们不收集个人信息。",
@@ -416,11 +326,11 @@
   },
   "agentsPage": {
     "meta": {
-      "title": "七个代理 — ZKward",
-      "description": "七位专家在任何真实资金移动之前相互辩论。实时聊天，只读。"
+      "title": "六个代理 — ZKward",
+      "description": "六位专家在任何真实资金移动之前相互辩论。实时聊天，只读。"
     },
     "header": {
-      "badge": "七个代理，实时，只读",
+      "badge": "六个代理，实时，只读",
       "title": "问 ZKward。",
       "subtitle": "加密货币、市场、金库。每个回答都跑在实时数据上 — 价格、预测信号、链上状态。毫无排练。"
     },
@@ -461,17 +371,6 @@
           "c4": "每个策略都带置信度得分"
         }
       },
-      "settlement": {
-        "name": "Settlement",
-        "role": "公证员",
-        "description": "把决策变成链上交易。批处理省 gas，生成 ZK 证明，失败时回滚。",
-        "capabilities": {
-          "c1": "批量交易处理",
-          "c2": "Gas 优化，通常 20 到 40%",
-          "c3": "ZK-STARK 证明协调",
-          "c4": "失败时回滚与重试"
-        }
-      },
       "reporting": {
         "name": "Reporting",
         "role": "记账员",
@@ -497,7 +396,7 @@
       "suiPool": {
         "name": "SUI Pool",
         "role": "运营者",
-        "description": "运营 SUI USDC 池。读取融合信号，在四种资产中选择配置，通过 BlueFin 再平衡。绝不绕过链上防护。",
+        "description": "运营 SUI USDC 池。读取融合信号，在三种资产中选择配置，通过 BlueFin 再平衡。绝不绕过链上防护。",
         "capabilities": {
           "c1": "BTC、ETH、SUI、CRO 四资产配置",
           "c2": "BlueFin 聚合再平衡",
@@ -570,7 +469,7 @@
     },
     "whyWeTell": {
       "heading": "为什么我们在赔钱时告诉你",
-      "body1": "大多数项目只谈胜利。目前，我们的测试交易员在纸面上大约亏损 68,000 美元。我们告诉你，因为这才是重点。如果你看不到亏损，胜利就没什么意义。",
+      "body1": "大多数项目只谈胜利。目前，我们的测试交易员在纸面上略有亏损，信号在扣除成本后也尚未显示出优势。我们告诉你，因为这才是重点。如果你看不到亏损，胜利就没什么意义。",
       "body2": "此外，隐藏亏损是小损失在三个月后变成更大损失的方式。我们试过一次。不推荐。"
     },
     "whoBuilds": {
@@ -601,7 +500,7 @@
     },
     "q1": {
       "q": "ZKward 是什么？",
-      "a": "ZKward 是一个自主运行的加密金库。你存入 USDC。七个 AI 代理读取预测市场、资金费率与价格动量，然后在 BTC、ETH 和 SUI 中交易。每次对冲决策都以任何人可以在链上验证的密码学证明结束。"
+      "a": "ZKward 是一个自主运行的加密金库。你存入 USDC。六个 AI 代理读取预测市场、资金费率与价格动量，然后在 BTC、ETH 和 SUI 中交易。每次对冲决策都以任何人可以在链上验证的密码学证明结束。"
     },
     "q2": {
       "q": "ZKward 是对冲基金吗？",
@@ -613,7 +512,7 @@
     },
     "q4": {
       "q": "我的资金保管在哪里？",
-      "a": "在由池子合约控制的 SUI Move 对象中。非托管 — 你的密钥仍在你手上。提现无许可且随时可用，并有链上强制执行的每账户每日 25% 节流，以防止抽干攻击。"
+      "a": "资金存放在由资金池合约控制的 SUI Move 对象中。非托管：密钥始终在你手中。提款无需许可，随时可用。"
     },
     "q5": {
       "q": "什么是 STARK 证明，为什么我需要关心？",
@@ -629,7 +528,7 @@
     },
     "q8": {
       "q": "为什么纸面交易员目前在亏钱？",
-      "a": "公开透明。我们对真实信号运行一个纸面交易员，并公布每笔交易 — 胜负都包括。累计纸面 PnL 大约在 -68,000 美元，同时我们在调整新的 gate 系统（波动率过滤、连败守卫、趋势对齐、信号质量）。如果我们隐瞒亏损，胜利就没有任何意义。"
+      "a": "公开透明。我们用真实信号运行模拟交易员，并公布每一笔交易，无论盈亏。到目前为止，扣除交易成本后，信号尚未显示出可衡量的优势，因此账面略低于盈亏平衡。实时记录见 paper 页面。如果我们隐藏亏损，盈利就毫无意义。"
     },
     "q9": {
       "q": "我怎么知道 AI 不是在编造？",
@@ -641,7 +540,7 @@
     },
     "q11": {
       "q": "我可以随时提现吗？",
-      "a": "可以。提现是无许可的。你签署一笔交易，合约计算你在池子 NAV 中的份额，资金返回你的钱包。合约会执行每账户每日 25% 的节流，以防止在压力下被抽干。没有锁定期、没有通知期、也没有管理者审批。"
+      "a": "可以。提款无需许可。你签署一笔交易，合约计算你在资金池 NAV 中的份额，资金返回你的钱包。没有锁定期，没有通知期，也无需管理人批准。"
     },
     "q12": {
       "q": "我如何联系团队？",
@@ -656,7 +555,7 @@
   },
   "whitepaperMeta": {
     "title": "白皮书",
-    "description": "ZKward 完整论述：预测市场 alpha、7 代理架构、STARK 证明执行、代币经济学、路线图。"
+    "description": "ZKward 完整论述：预测市场 alpha、6 代理架构、STARK 证明执行、代币经济学、路线图。"
   },
   "legacyBanner": {
     "message": "<strong>zkward.xyz 即将下线</strong> — 我们现在在 <link>zkward.com</link>。",

@@ -35,10 +35,10 @@ const ITEMS: Array<{
     pubDate: 'Sat, 20 Sep 2026 00:00:00 GMT',
   },
   {
-    title: 'The seven-agent system',
+    title: 'The six-agent system',
     path: '/agents',
     description:
-      'Lead, Risk, Hedging, Settlement, Reporting, Price Monitor, SUI Pool. Trades above $100K need a 2-of-3 vote.',
+      'Lead, Risk, Hedging, Reporting, Price Monitor, SUI Pool. Trades above $100K need a 2-of-3 vote.',
     pubDate: 'Fri, 19 Sep 2026 00:00:00 GMT',
   },
   {

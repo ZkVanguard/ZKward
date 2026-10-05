@@ -13,18 +13,18 @@ export async function GET() {
   const base = (process.env.NEXT_PUBLIC_BASE_URL || 'https://www.zkward.com').replace(/\/$/, '');
   const body = `# ZKward
 
-> ZKward is an autonomous crypto vault. Seven AI agents read prediction markets, size trades, and hedge on-chain. Every hedge decision closes with a zero-knowledge STARK proof anyone can verify. Live on SUI mainnet with a $10,000 contract-enforced deposit cap during the operational-proof phase. Cap-lifting is a governance action, not a code change.
+> ZKward is an autonomous crypto vault. Six AI agents read prediction markets, size trades, and hedge on-chain. Every hedge decision closes with a zero-knowledge STARK proof anyone can verify. Live on SUI mainnet with a $10,000 contract-enforced deposit cap during the operational-proof phase. Cap-lifting is a governance action, not a code change.
 
 ## Core documents
 
-- [Whitepaper](${base}/whitepaper): Full technical thesis. Prediction-market alpha, 7-agent architecture, STARK-attested execution, roadmap, references.
+- [Whitepaper](${base}/whitepaper): Full technical thesis. Signals measured in public, 6-agent architecture, STARK-attested execution, roadmap, references.
 - [Our story](${base}/story): Plain-English origin story. Warm, honest, five-minute read.
 - [How it works](${base}/): Homepage. Three-part loop: AI reads the room → pool rebalances → hedge lands with a proof.
 
 ## Product surfaces
 
 - [Dashboard](${base}/dashboard): Live pool state, hedges, drawdown, cron health (per-user; requires wallet).
-- [Seven-agent system](${base}/agents): Lead, Risk, Hedging, Settlement, Reporting, Price Monitor, SUI Pool. Trades above $100K need a 2-of-3 vote.
+- [Six-agent system](${base}/agents): Lead, Risk, Hedging, Reporting, Price Monitor, SUI Pool. Trades above $100K need a 2-of-3 vote.
 - [Zero-knowledge](${base}/zk): Post-quantum STARK prover. Goldilocks field, no trusted setup, 180-bit effective soundness, verifiable in-browser.
 - [Real-world assets](${base}/rwa): Custodian-signed attestations bind portfolios to off-chain assets, private by default.
 - [Simulator](${base}/simulator): Backtest the strategy against historical drawdowns.

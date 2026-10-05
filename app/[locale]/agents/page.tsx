@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useTranslations } from 'next-intl';
 import {
-  Brain, TrendingUp, Shield, Zap, FileText,
+  Brain, TrendingUp, Shield, FileText,
   Eye, Layers, CheckCircle, ChevronDown,
 } from 'lucide-react';
 import { AgentLiveChat } from '@/components/agents/AgentLiveChat';
@@ -15,7 +15,6 @@ const AGENT_KEYS = [
   { id: 'lead',         icon: Brain,      implementation: 'agents/core/LeadAgent.ts',                            api: undefined                                       },
   { id: 'risk',         icon: TrendingUp, implementation: 'agents/specialized/RiskAgent.ts',                     api: 'POST /api/agents/risk/assess'                  },
   { id: 'hedging',      icon: Shield,     implementation: 'agents/specialized/HedgingAgent.ts',                  api: 'POST /api/agents/hedging/recommend'            },
-  { id: 'settlement',   icon: Zap,        implementation: 'agents/specialized/SettlementAgent.ts',               api: 'POST /api/agents/settlement/execute'           },
   { id: 'reporting',    icon: FileText,   implementation: 'agents/specialized/ReportingAgent.ts',                api: 'POST /api/agents/reporting/generate'           },
   { id: 'priceMonitor', icon: Eye,        implementation: 'agents/specialized/PriceMonitorAgent.ts',             api: 'GET /api/predictions/per-asset'                },
   { id: 'suiPool',      icon: Layers,     implementation: 'agents/specialized/SuiPoolAgent.ts',                  api: 'GET /api/sui/community-pool'                   },
@@ -134,7 +133,7 @@ export default function AgentsPage() {
     ↓
 MessageBus (route to specialized agents)
     ↓
-Risk / Hedging / Settlement / Reporting (execute)
+Risk / Hedging / Reporting (execute)
     ↓
 MessageBus (return results)
     ↓

@@ -241,96 +241,6 @@
     "next": "다음",
     "language": "언어"
   },
-  "howItWorks": {
-    "title": "작동 방식",
-    "subtitle": "세 가지 간단한 단계로 시작하세요",
-    "step1": {
-      "title": "연결",
-      "description": "지갑을 연결하고 기본 설정을 하세요",
-      "detail": "Web3 지갑 통합"
-    },
-    "step2": {
-      "title": "모니터링",
-      "description": "AI 에이전트가 24시간 포트폴리오 위험을 분석합니다",
-      "detail": "실시간 위험 분석"
-    },
-    "step3": {
-      "title": "실행",
-      "description": "자동 헤지 및 거래 정산",
-      "detail": "자동화된 보호"
-    }
-  },
-  "zkProof": {
-    "title": "ZK 증명 생성기",
-    "subtitle": "포트폴리오 프라이버시를 위한 영지식 증명 생성 및 검증",
-    "selectScenario": "시나리오 선택",
-    "generateProof": "증명 생성",
-    "verifyProof": "증명 검증",
-    "proofGenerated": "증명 생성됨",
-    "proofVerified": "증명 검증됨",
-    "proofFailed": "검증 실패",
-    "showSecrets": "비밀 표시",
-    "hideSecrets": "비밀 숨기기",
-    "scenarios": {
-      "portfolioRisk": "포트폴리오 위험 평가",
-      "portfolioRiskDesc": "포지션을 공개하지 않고 포트폴리오 위험이 임계값 미만임을 증명",
-      "settlementBatch": "정산 배치 검증",
-      "settlementBatchDesc": "거래 세부 정보를 공개하지 않고 정산 배치가 유효함을 증명",
-      "compliance": "규정 준수",
-      "complianceDesc": "민감한 데이터를 노출하지 않고 규정 준수를 증명"
-    }
-  },
-  "zkAuthenticity": {
-    "title": "ZK-STARK 진정성 검증",
-    "subtitle": "우리의 영지식 증명 구현의 진정성 검증",
-    "systemStatus": "시스템 상태",
-    "operational": "운영 중",
-    "verifyProof": "증명 검증",
-    "pasteProof": "증명 JSON을 여기에 붙여넣으세요",
-    "implementation": "구현 세부 정보",
-    "cryptoParams": "암호화 매개변수",
-    "sourceCode": "소스 코드"
-  },
-  "zkVerification": {
-    "title": "ZK-STARK 수학적 증명",
-    "subtitle": "ZKward가 Ben-Sasson 등의 학술 사양에 따른 진정한 ZK-STARK를 구현함을 공식 검증",
-    "auditorSummary": "감사자 빠른 요약",
-    "implementation": "구현",
-    "securityLevel": "보안 레벨",
-    "academicFoundation": "학술적 기반"
-  },
-  "marketOpportunity": {
-    "title": "거대한 시장 기회",
-    "subtitle": "Polymarket 알파 + AI 에이전트 + 컨슈머 크립토 — 모든 것이 동시에 일어나고 있다",
-    "polymarketVolume": "Polymarket 거래량",
-    "polymarketDescription": "월간 런레이트 (TRM Labs, 2026)",
-    "growthRate": "성장률",
-    "growthDescription": "2024-2030 시장 확장",
-    "targetMarket": "타겟 시장",
-    "targetDescription": "크립토 네이티브 리테일 · DeFi 사용자 · 개인 포트폴리오 보유자",
-    "potentialUsers": "잠재 사용자",
-    "usersDescription": "Polymarket 베터, AI 에이전트 애호가, DeFi 볼트 사용자, 토큰화 포트폴리오 보유자"
-  },
-  "liveMetrics": {
-    "title": "실시간 플랫폼 메트릭",
-    "subtitle": "SUI Mainnet의 실시간 성능 데이터",
-    "tvl": "총 잠금 가치",
-    "transactions": "트랜잭션",
-    "gasSavings": "가스 절감",
-    "aiAgentsOnline": "온라인 AI 에이전트"
-  },
-  "roadmap": {
-    "title": "제품 로드맵",
-    "subtitle": "예측 시장의 알파를 누구나 사용할 수 있게 하는 우리의 여정",
-    "q1Title": "2026년 1분기: 기반 구축",
-    "q1Description": "핵심 인프라 구축 — SUI 스마트 계약, 5-에이전트 프로토타입, ZK 파이프라인",
-    "q2Title": "2026년 2분기: 메인넷 출시",
-    "q2Description": "CommunityPool & 7개 AI 트레이딩 에이전트(PriceMonitor + SuiPool 추가)가 SUI Mainnet에서 라이브",
-    "q3Title": "2026년 3분기: 성장",
-    "q3Description": "기관 파트너십과 함께 프로덕션 출시",
-    "q4Title": "2026년 4분기: 확장",
-    "q4Description": "여러 체인에서 $500M+ TVL"
-  },
   "cookies": {
     "title": "쿠키 설정",
     "description": "쿠키는 경험을 개선합니다. 당신의 지갑 주소는 공개 블록체인 데이터 — 우리는 개인정보를 수집하지 않습니다.",
@@ -416,11 +326,11 @@
   },
   "agentsPage": {
     "meta": {
-      "title": "일곱 에이전트 — ZKward",
-      "description": "실제 돈이 움직이기 전에 서로 논쟁하는 7명의 전문가. 라이브 채팅, 읽기 전용."
+      "title": "여섯 에이전트 — ZKward",
+      "description": "실제 돈이 움직이기 전에 서로 논쟁하는 6명의 전문가. 라이브 채팅, 읽기 전용."
     },
     "header": {
-      "badge": "일곱 에이전트, 라이브, 읽기 전용",
+      "badge": "여섯 에이전트, 라이브, 읽기 전용",
       "title": "ZKward에게 물어보세요.",
       "subtitle": "크립토, 시장, 볼트. 모든 답변은 실시간 데이터로 실행됩니다 — 가격, 예측 신호, 온체인 상태. 리허설 없음."
     },
@@ -461,17 +371,6 @@
           "c4": "모든 전략에 신뢰도 점수 태그"
         }
       },
-      "settlement": {
-        "name": "Settlement",
-        "role": "공증인",
-        "description": "결정을 온체인 거래로 바꿉니다. gas를 아끼려 배치하고, ZK 증명을 생성하며, 실패 시 롤백합니다.",
-        "capabilities": {
-          "c1": "배치 트랜잭션 처리",
-          "c2": "Gas 최적화, 일반적으로 20에서 40 퍼센트",
-          "c3": "ZK-STARK 증명 조정",
-          "c4": "실패 시 롤백과 재시도"
-        }
-      },
       "reporting": {
         "name": "Reporting",
         "role": "장부 담당",
@@ -497,7 +396,7 @@
       "suiPool": {
         "name": "SUI Pool",
         "role": "운영자",
-        "description": "SUI USDC 풀을 운영합니다. 융합 신호를 읽고, 네 자산 배분을 선택하고, BlueFin을 통해 리밸런싱합니다. 온체인 가드는 절대 우회하지 않습니다.",
+        "description": "SUI USDC 풀을 운영합니다. 융합 신호를 읽고, 세 자산 배분을 선택하고, BlueFin을 통해 리밸런싱합니다. 온체인 가드는 절대 우회하지 않습니다.",
         "capabilities": {
           "c1": "BTC, ETH, SUI, CRO 4자산 배분",
           "c2": "BlueFin 애그리게이터 리밸런스",
@@ -570,7 +469,7 @@
     },
     "whyWeTell": {
       "heading": "왜 잃을 때 알려주는가",
-      "body1": "대부분의 프로젝트는 승리만 이야기합니다. 지금 우리 테스트 트레이더는 종이상 약 $68,000 마이너스입니다. 알려드리는 것은 그것이 요점이기 때문입니다. 손실을 볼 수 없다면 승리는 별 의미가 없습니다.",
+      "body1": "대부분의 프로젝트는 승리만 이야기합니다. 지금 우리 테스트 트레이더는 종이상 약간 손실을 보고 있고, 신호도 아직 비용을 제한 우위를 보여주지 못했습니다. 알려드리는 것은 그것이 요점이기 때문입니다. 손실을 볼 수 없다면 승리는 별 의미가 없습니다.",
       "body2": "또, 손실을 숨기는 것이 작은 손실이 세 달 뒤 훨씬 큰 손실이 되는 방법입니다. 한 번 시도했습니다. 추천하지 않습니다."
     },
     "whoBuilds": {
@@ -601,7 +500,7 @@
     },
     "q1": {
       "q": "ZKward는 무엇인가요?",
-      "a": "ZKward는 자율 암호 볼트입니다. USDC를 입금합니다. 7명의 AI 에이전트가 예측 시장, funding rate, 가격 모멘텀을 읽고 BTC, ETH, SUI에서 거래합니다. 모든 헤지 결정은 누구든 온체인에서 검증할 수 있는 암호학적 증명으로 종료됩니다."
+      "a": "ZKward는 자율 암호 볼트입니다. USDC를 입금합니다. 6명의 AI 에이전트가 예측 시장, funding rate, 가격 모멘텀을 읽고 BTC, ETH, SUI에서 거래합니다. 모든 헤지 결정은 누구든 온체인에서 검증할 수 있는 암호학적 증명으로 종료됩니다."
     },
     "q2": {
       "q": "ZKward는 헤지펀드인가요?",
@@ -613,7 +512,7 @@
     },
     "q4": {
       "q": "내 자금은 어디에 보관되나요?",
-      "a": "풀 계약이 제어하는 SUI Move 오브젝트 안. 논커스토디얼 — 키는 당신에게 남습니다. 인출은 무허가이며 언제든 가능하고, 드레인 공격을 방지하기 위해 계정당 하루 25% 스로틀이 온체인에서 강제됩니다."
+      "a": "풀 컨트랙트가 제어하는 SUI Move 오브젝트에 보관됩니다. 비수탁형이므로 키는 본인이 보유합니다. 출금은 허가가 필요 없으며 언제든지 가능합니다."
     },
     "q5": {
       "q": "STARK 증명이란 무엇이고 왜 신경 써야 하나요?",
@@ -629,7 +528,7 @@
     },
     "q8": {
       "q": "종이 트레이더가 왜 지금 돈을 잃고 있나요?",
-      "a": "공개 투명성. 실제 신호에 대해 페이퍼 트레이더를 운영하고 모든 거래를 공개합니다 — 승과 패 모두. 누적 페이퍼 PnL은 약 -68,000 달러이며 새로운 게이트 시스템(변동성 필터, 연패 가드, 추세 정렬, 신호 품질)을 조정 중입니다. 손실을 숨겼다면 승리는 아무 의미도 없었을 겁니다."
+      "a": "공개 투명성 때문입니다. 실제 신호로 페이퍼 트레이더를 운영하고 수익과 손실을 가리지 않고 모든 거래를 공개합니다. 지금까지 신호는 거래 비용을 제하면 측정 가능한 우위를 보여주지 못했고, 그래서 장부는 손익분기점을 약간 밑돕니다. 최신 기록은 paper 페이지에 있습니다. 손실을 숨긴다면 수익은 아무 의미가 없습니다."
     },
     "q9": {
       "q": "AI가 그냥 지어내는 게 아닌지 어떻게 아나요?",
@@ -641,7 +540,7 @@
     },
     "q11": {
       "q": "언제든 출금할 수 있나요?",
-      "a": "네. 출금은 무허가입니다. 트랜잭션에 서명하면 계약이 풀 NAV 내 당신의 몫을 계산하고, 자금은 지갑으로 돌아갑니다. 스트레스 상황에서의 배출을 방지하기 위해 계약이 계정당 하루 25% 스로틀을 강제합니다. 락업 없음, 예고 기간 없음, 매니저 승인 없음."
+      "a": "네. 출금은 허가가 필요 없습니다. 트랜잭션에 서명하면 컨트랙트가 풀 NAV에서 본인 지분을 계산하고 자금이 지갑으로 돌아옵니다. 락업도, 통지 기간도, 운용자 승인도 없습니다."
     },
     "q12": {
       "q": "팀과 어떻게 연락하나요?",
@@ -656,7 +555,7 @@
   },
   "whitepaperMeta": {
     "title": "백서",
-    "description": "ZKward 완전 논고: 예측 시장 alpha, 7 에이전트 아키텍처, STARK 인증 실행, 토크노믹스, 로드맵."
+    "description": "ZKward 완전 논고: 예측 시장 alpha, 6 에이전트 아키텍처, STARK 인증 실행, 토크노믹스, 로드맵."
   },
   "legacyBanner": {
     "message": "<strong>zkward.xyz는 곧 종료됩니다</strong> — 이제 <link>zkward.com</link>입니다.",

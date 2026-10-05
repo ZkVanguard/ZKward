@@ -16,7 +16,7 @@ export default function TermsPage() {
           <section>
             <h2 className="text-2xl font-semibold mb-4 text-[#1D1D1F]">2. Description of Service</h2>
             <p>
-              ZKward is a multi-chain AI-managed vault platform that uses seven autonomous agents and
+              ZKward is a multi-chain AI-managed vault platform that uses six autonomous agents and
               zero-knowledge proofs to provide privacy-preserving financial services on Hedera
               (primary) and SUI (secondary) networks.
             </p>

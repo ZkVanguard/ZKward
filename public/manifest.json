@@ -50,7 +50,7 @@
     {
       "name": "Agents",
       "short_name": "Agents",
-      "description": "Live 7-agent status",
+      "description": "Live 6-agent status",
       "url": "/agents",
       "icons": [{ "src": "/api/icon", "sizes": "512x512", "type": "image/png" }]
     },
