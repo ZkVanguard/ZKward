@@ -374,13 +374,6 @@
     "finalCta": {
       "title": "動いている様子を見る。"
     },
-    "signals": {
-      "label": "いま",
-      "up": "上昇寄り",
-      "down": "下落寄り",
-      "none": "傾きなし",
-      "chip": "{coin}：{lean}、確信度 {pct}%"
-    },
     "safeguards": {
       "eyebrow": "安全を最優先に",
       "title1": "ファンドのように運用。",

@@ -40,13 +40,6 @@
     "finalCta": {
       "title": "See it running."
     },
-    "signals": {
-      "label": "Right now",
-      "up": "leaning up",
-      "down": "leaning down",
-      "none": "no lean",
-      "chip": "{coin}: {lean}, {pct}% confidence"
-    },
     "safeguards": {
       "eyebrow": "Safety first",
       "title1": "Managed like a fund.",

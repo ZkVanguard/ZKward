@@ -374,13 +374,6 @@
     "finalCta": {
       "title": "看看它的运行。"
     },
-    "signals": {
-      "label": "此刻",
-      "up": "倾向上涨",
-      "down": "倾向下跌",
-      "none": "无明显倾向",
-      "chip": "{coin}：{lean}，置信度 {pct}%"
-    },
     "safeguards": {
       "eyebrow": "安全第一",
       "title1": "像基金一样管理。",

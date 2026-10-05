@@ -374,13 +374,6 @@
     "finalCta": {
       "title": "Míralo en acción."
     },
-    "signals": {
-      "label": "Ahora mismo",
-      "up": "al alza",
-      "down": "a la baja",
-      "none": "sin tendencia",
-      "chip": "{coin}: {lean}, {pct}% de confianza"
-    },
     "safeguards": {
       "eyebrow": "La seguridad primero",
       "title1": "Gestionado como un fondo.",

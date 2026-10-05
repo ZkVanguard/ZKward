@@ -374,13 +374,6 @@
     "finalCta": {
       "title": "Voyez-le tourner."
     },
-    "signals": {
-      "label": "En ce moment",
-      "up": "à la hausse",
-      "down": "à la baisse",
-      "none": "sans tendance",
-      "chip": "{coin} : {lean}, {pct} % de confiance"
-    },
     "safeguards": {
       "eyebrow": "La sécurité d'abord",
       "title1": "Géré comme un fonds.",

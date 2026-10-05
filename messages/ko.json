@@ -374,13 +374,6 @@
     "finalCta": {
       "title": "작동하는 모습을 보세요."
     },
-    "signals": {
-      "label": "지금",
-      "up": "상승 쪽",
-      "down": "하락 쪽",
-      "none": "기울기 없음",
-      "chip": "{coin}: {lean}, 확신도 {pct}%"
-    },
     "safeguards": {
       "eyebrow": "안전이 먼저",
       "title1": "펀드처럼 운용합니다.",

@@ -8,7 +8,6 @@ import {
 } from 'lucide-react';
 import { InstallAppButton } from './InstallAppButton';
 import { DataSourceMarquee } from './landing/DataSourceMarquee';
-import { LiveSignalStrip } from './landing/LiveSignalStrip';
 import { Safeguards } from './landing/Safeguards';
 import { Reveal } from './ui/landing';
 
@@ -409,9 +408,6 @@ export const SuiPoolLanding = memo(function SuiPoolLanding() {
               {t('cta.howItWorks')}
             </a>
           </div>
-
-          <LiveSignalStrip />
-
 
           <DataSourceMarquee />
 

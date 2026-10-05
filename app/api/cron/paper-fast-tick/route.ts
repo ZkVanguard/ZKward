@@ -115,8 +115,8 @@ async function runStages(): Promise<Record<string, string>> {
     logger.warn('[PaperFastTick] signal-ledger tick failed (non-fatal)', { error: errMsg(e) });
   }
 
-  // Keep the public signal read warm at the CDN. The homepage coin strip and
-  // the dashboard read /api/predictions/per-asset; after a deploy (the CDN
+  // Keep the public signal read warm at the CDN. The dashboard reads
+  // /api/predictions/per-asset; after a deploy (the CDN
   // starts empty) the first visitor otherwise waited 10-20 s for a cold
   // aggregator scan. This request lands on the cached copy or refreshes it,
   // so visitors are always answered from the CDN. Non-fatal.
