@@ -192,6 +192,17 @@ export interface Scoreboard {
   open: OpenRow[];
   books: ScoreboardBook[];
   longLabel: string;
+  /** What the signal ledger has shown so far, in one line; absent when no judgment is stored. */
+  evidence?: string | null;
+}
+
+export const EVIDENCE_FIELD = 'Signal evidence (ledger)';
+
+/** One line for the scoreboard from the feedback loop's stored judgment. */
+export function evidenceLine(s: { day: string; counts: { cellsJudged: number; familiesJudged: number; proven: number; wrongWay: number; pending: number } }): string {
+  const { cellsJudged, familiesJudged, proven, wrongWay, pending } = s.counts;
+  const held = proven + wrongWay === 0 ? 'nothing proven either way' : `${proven} proven · ${wrongWay} wrong-way`;
+  return `${cellsJudged + familiesJudged} judged · ${held}${pending ? ` · ${pending} pending` : ''} · as of ${s.day}`;
 }
 
 function marketLine(m: MarketRow): string {
@@ -233,6 +244,7 @@ export function scoreboardEmbed(s: Scoreboard, now: number): DiscordEmbed {
   for (const b of s.books) {
     if (b.long && b.long.trades > (b.day?.trades ?? 0)) fields.push({ name: `${b.label} · ${s.longLabel}`, value: profitBlock(b.long), inline: true });
   }
+  if (s.evidence) fields.push({ name: EVIDENCE_FIELD, value: s.evidence, inline: false });
 
   return {
     title: `📊 Paper books ${usd(dayNet)} in 24 h${lean}`,
@@ -321,7 +333,9 @@ export async function postPaperScoreboardIfDue(now: number = Date.now()): Promis
       notionalUsd: p.notionalUsd,
       ...(market.marks.has(p.asset) ? { markPrice: market.marks.get(p.asset) } : {}),
     }));
-    await notifyPaper('Paper books scoreboard', 'INFO', {}, scoreboardEmbed({ market: market.rows, open, books, longLabel }, now));
+    const loop = await import('@/lib/services/market-data/feedback-loop').then((m) => m.getLoopState()).catch(() => null);
+    const evidence = loop ? evidenceLine(loop) : null;
+    await notifyPaper('Paper books scoreboard', 'INFO', {}, scoreboardEmbed({ market: market.rows, open, books, longLabel, evidence }, now));
   } catch (e) {
     logger.warn('[PaperNotify] scoreboard failed', { error: e instanceof Error ? e.message : String(e) });
   }

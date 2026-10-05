@@ -130,6 +130,7 @@ export class PredictionAggregatorService {
     assets: string[] = ['BTC', 'ETH'],
   ): Promise<Record<string, AggregatedPrediction>> {
     const cacheKey = `prediction_per_asset:${assets.slice().sort().join(',')}`;
+    const rawCacheKey = PredictionAggregatorService.rawSourcesCacheKey(assets);
     const cached = cache.get<Record<string, AggregatedPrediction>>(cacheKey);
     if (cached) {
       const fresh = Object.values(cached).every(
@@ -289,6 +290,7 @@ export class PredictionAggregatorService {
     }
 
     const out: Record<string, AggregatedPrediction> = {};
+    const rawSources: Record<string, PredictionSource[]> = {};
 
     for (const asset of upperAssets) {
       const sources: PredictionSource[] = [];
@@ -776,6 +778,11 @@ export class PredictionAggregatorService {
         });
       }
 
+      // Kept as they stand before any is weighted or removed: the ledger
+      // records these, so a removed source keeps being measured and can
+      // earn its way back.
+      rawSources[asset] = sources.map((s) => ({ ...s }));
+
       // Apply learned per-source weight multipliers BEFORE the final
       // normalization step. When a source has no calibration history the
       // multiplier is 1.0 (identity), so this is safe to enable pre-data.
@@ -803,6 +810,8 @@ export class PredictionAggregatorService {
       out[asset] = calculateAggregation(sources);
     }
 
+    // Stored first and for the same time, so a cached scan always has its votes.
+    cache.set(rawCacheKey, rawSources, CACHE_TTL_MS);
     cache.set(cacheKey, out, CACHE_TTL_MS);
 
     logger.info('[PredictionAggregator] Computed per-asset predictions', {
@@ -816,6 +825,21 @@ export class PredictionAggregatorService {
     });
 
     return out;
+  }
+
+  private static rawSourcesCacheKey(assets: string[]): string {
+    return `prediction_per_asset_raw:${assets.slice().sort().join(',')}`;
+  }
+
+  /**
+   * Every source's vote and base weight for the scan
+   * `getPerAssetPredictions(assets)` serves, before the feedback loop
+   * weighted or removed any. A coin is absent when that scan's votes are
+   * no longer held; the caller then has only the weighted list.
+   */
+  static async getPerAssetRawSources(assets: string[]): Promise<Record<string, PredictionSource[]>> {
+    await this.getPerAssetPredictions(assets);
+    return cache.get<Record<string, PredictionSource[]>>(PredictionAggregatorService.rawSourcesCacheKey(assets)) ?? {};
   }
 
   /**

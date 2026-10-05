@@ -26,6 +26,9 @@ import {
   pruneOldSignalOutcomes,
   type RecordSignalArgs,
 } from '@/lib/db/signal-outcomes';
+import type { GateSignal } from '@/lib/services/paper-trader/entry-gates';
+
+type GatePrediction = GateSignal['prediction'];
 
 const SNAPSHOT_DEBOUNCE_MS =
   Number(process.env.SIGNAL_LEDGER_SNAPSHOT_MIN || 10) * 60_000;
@@ -54,12 +57,38 @@ interface ScanPrediction {
   sources: ScanSource[];
 }
 
+/** The vote the feedback loop's verdicts would cast, recorded beside the live one. */
+export const SHADOW_SOURCE = 'aggregate:v2';
+export const gateSource = (gate: string): string => `gate:${gate}`;
+/**
+ * Shadow and gate rows exist to be judged, and nothing judges beyond four
+ * hours: a day-long horizon gives the loop about one window a day.
+ */
+const MEASURE_ONLY_MAX_HORIZON_MIN = 240;
+
+/**
+ * What the feedback loop needs recorded beside the votes the traders saw.
+ * Every part is optional: the plain snapshot never depends on one.
+ */
+export interface SnapshotExtras {
+  /** Each coin's votes before any was weighted or removed. Without it a removed source stops being measured and can never earn its way back. */
+  rawSources?: Record<string, ScanSource[]>;
+  /** The shadow vote per coin. */
+  shadow?: Record<string, Pick<ScanPrediction, 'direction' | 'confidence' | 'probability'>>;
+  /** Per coin, the entry gates that would refuse its current signal. */
+  gateRefusals?: Record<string, string[]>;
+}
+
 /**
  * Pure row builder: one row per directional source per horizon, plus one
  * 'aggregate' row per asset per horizon (the composite the traders act on).
  * NEUTRAL calls are not rows — "no opinion" can't be right or wrong.
  * Assets without a validated price are skipped entirely (no entry anchor
  * → the resolver could never score them).
+ *
+ * A gate row carries the direction of the signal the gate refused, so its
+ * measured result is the result of the trades that gate keeps out: negative
+ * means the gate helps.
  */
 export function buildSnapshotRows(
   scanAll: Record<string, ScanPrediction>,
@@ -67,6 +96,7 @@ export function buildSnapshotRows(
   now: number,
   normalizeKey: (name: string, type: string) => string,
   horizonsMin: number[] = HORIZONS_MIN,
+  extras: SnapshotExtras = {},
 ): RecordSignalArgs[] {
   const rows: RecordSignalArgs[] = [];
   for (const [asset, pred] of Object.entries(scanAll)) {
@@ -74,7 +104,7 @@ export function buildSnapshotRows(
     if (!entryPrice || entryPrice <= 0) continue;
     for (const horizonMin of horizonsMin) {
       const windowEndTime = now + horizonMin * 60_000;
-      for (const s of pred.sources ?? []) {
+      for (const s of extras.rawSources?.[asset] ?? pred.sources ?? []) {
         if (s.direction !== 'UP' && s.direction !== 'DOWN') continue;
         rows.push({
           source: normalizeKey(s.name ?? '', s.type ?? ''),
@@ -99,9 +129,85 @@ export function buildSnapshotRows(
           entryPrice,
         });
       }
+      if (horizonMin > MEASURE_ONLY_MAX_HORIZON_MIN) continue;
+      const shadow = extras.shadow?.[asset];
+      if (shadow && (shadow.direction === 'UP' || shadow.direction === 'DOWN')) {
+        rows.push({
+          source: SHADOW_SOURCE,
+          asset,
+          horizonMin,
+          windowEndTime,
+          direction: shadow.direction,
+          probability: Math.max(0, Math.min(1, (shadow.probability ?? shadow.confidence) / 100)),
+          confidence: shadow.confidence,
+          entryPrice,
+        });
+      }
+      if (pred.direction === 'UP' || pred.direction === 'DOWN') {
+        for (const gate of extras.gateRefusals?.[asset] ?? []) {
+          rows.push({
+            source: gateSource(gate),
+            asset,
+            horizonMin,
+            windowEndTime,
+            direction: pred.direction,
+            probability: Math.max(0, Math.min(1, (pred.probability ?? pred.confidence) / 100)),
+            confidence: pred.confidence,
+            entryPrice,
+          });
+        }
+      }
     }
   }
   return rows;
+}
+
+/** Gate checks read the book's history and a volatility feed; the snapshot does not wait on them past this. */
+const GATE_BUDGET_MS = 8_000;
+
+/**
+ * Gather the extras for one snapshot. Each part fails to "absent" on its
+ * own: a part that only measures must never cost the snapshot itself.
+ */
+async function gatherSnapshotExtras(
+  scanAll: Record<string, ScanPrediction>,
+  universe: string[],
+  now: number,
+  normalizeKey: (name: string, type: string) => string,
+): Promise<SnapshotExtras> {
+  const extras: SnapshotExtras = {};
+  try {
+    const { PredictionAggregatorService } = await import('./PredictionAggregatorService');
+    const raw = await PredictionAggregatorService.getPerAssetRawSources(universe);
+    extras.rawSources = raw;
+    const [{ applyLoopVerdicts, getLoopState }, { calculateAggregation }] = await Promise.all([import('./feedback-loop'), import('./aggregator-math')]);
+    const state = await getLoopState();
+    extras.shadow = Object.fromEntries(
+      Object.entries(raw).map(([asset, sources]) => [asset, calculateAggregation(applyLoopVerdicts(sources, state, asset, normalizeKey))]),
+    );
+  } catch (e) {
+    logger.warn('[SignalLedger] raw votes or shadow vote unavailable this snapshot', { error: errMsg(e) });
+  }
+  try {
+    const { entryGateSetting, gateRefusals } = await import('@/lib/services/paper-trader/entry-gates');
+    const collect = async (): Promise<Record<string, string[]>> => {
+      const setting = await entryGateSetting(now);
+      const out: Record<string, string[]> = {};
+      // One coin at a time: each coin's gates already run side by side, and
+      // five coins at once would take a large share of the connection pool.
+      for (const [asset, pred] of Object.entries(scanAll)) {
+        if (pred.direction !== 'UP' && pred.direction !== 'DOWN') continue;
+        out[asset] = await gateRefusals({ asset, direction: pred.direction, prediction: pred as unknown as GatePrediction }, setting);
+      }
+      return out;
+    };
+    const refusals = await Promise.race([collect(), new Promise<null>((resolve) => setTimeout(() => resolve(null), GATE_BUDGET_MS))]);
+    if (refusals) extras.gateRefusals = refusals;
+    else logger.warn('[SignalLedger] gate checks exceeded their budget; no gate rows this snapshot');
+  } catch (e) {
+    logger.warn('[SignalLedger] gate checks unavailable this snapshot', { error: errMsg(e) });
+  }
+  return extras;
 }
 
 export interface LedgerTickSummary {
@@ -160,12 +266,9 @@ export async function runSignalLedgerTick(now: number = Date.now()): Promise<Led
         }),
       );
 
-      const rows = buildSnapshotRows(
-        scan.all as unknown as Record<string, ScanPrediction>,
-        priceByAsset,
-        now,
-        normalizeSourceKey,
-      );
+      const scanAll = scan.all as unknown as Record<string, ScanPrediction>;
+      const extras = await gatherSnapshotExtras(scanAll, PAPER_UNIVERSE, now, normalizeSourceKey);
+      const rows = buildSnapshotRows(scanAll, priceByAsset, now, normalizeSourceKey, undefined, extras);
       // Sequential-ish in chunks — recordSignal is an idempotent single
       // INSERT; chunking keeps pool pressure bounded on a 20-row tick.
       const CHUNK = 20;

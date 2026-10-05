@@ -370,6 +370,32 @@ export function resolveVerdict(
   return { verdict: 'unproven', level: null };
 }
 
+/** Weight a proven source carries against its base weight; the figure the current weighting uses. */
+export const LOOP_PROVEN_MULTIPLIER = (() => {
+  const v = Number((process.env.SOURCE_LEDGER_PROVEN_MULTIPLIER || '').trim());
+  return Number.isFinite(v) && v > 0 ? v : 1.5;
+})();
+
+/**
+ * The loop's verdicts applied to a coin's raw votes: a wrong-way source is
+ * removed, a proven one lifted, the rest keep their base weight; weights
+ * then sum to 1. If fewer than two voices would be left, nothing is
+ * removed: one source is not a vote.
+ */
+export function applyLoopVerdicts<S extends { name: string; type?: string; weight: number }>(
+  sources: readonly S[],
+  state: Pick<LoopState, 'cells' | 'families'> | null | undefined,
+  asset: string,
+  keyOf: (name: string, type: string) => string,
+): S[] {
+  const judged = sources.map((s) => ({ s, verdict: resolveVerdict(state, keyOf(s.name, s.type ?? ''), asset).verdict }));
+  const kept = judged.filter((j) => j.verdict !== 'wrong-way');
+  const voting = kept.length >= 2 ? kept : judged;
+  const weighted = voting.map(({ s, verdict }) => ({ ...s, weight: s.weight * (verdict === 'proven' ? LOOP_PROVEN_MULTIPLIER : 1) }));
+  const total = weighted.reduce((sum, s) => sum + s.weight, 0);
+  return total > 0 ? weighted.map((s) => ({ ...s, weight: s.weight / total })) : [...sources];
+}
+
 export async function getLoopState(): Promise<LoopState | null> {
   const state = await getCronState<LoopState>(LOOP_STATE_KEY);
   return state?.version === 1 ? state : null;

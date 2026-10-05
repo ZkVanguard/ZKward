@@ -113,8 +113,6 @@ import {
   KEY_RESTING_ENTRY,
   PAPER_MIN_FLIP_CONFIDENCE,
   PAPER_TRAILING_STOP_GIVEBACK_PCT,
-  PAPER_REGRET_COOLDOWN_PCT,
-  PAPER_REGRET_WINDOW,
   PAPER_ASSET_VOL_MULT,
   PAPER_PORTFOLIO_ID,
   PAPER_CHAIN,
@@ -175,36 +173,6 @@ async function pushNavSample(ts: number, nav: number): Promise<void> {
 
 function utcDateStr(ts: number): string {
   return new Date(ts).toISOString().slice(0, 10);
-}
-
-/**
- * Sum realized PnL for the last N closed paper trades on (asset, side).
- * Feeds the regret cooldown — an (asset, side) with a deep recent loss
- * gets skipped even if the current signal is strong. Fails soft (returns 0)
- * so a DB blip doesn't paralyze the trader.
- */
-async function assetSideRecentPnl(
-  asset: string,
-  side: Side,
-  limit: number,
-): Promise<number> {
-  try {
-    // portfolio_id filter isolates PaperTrader (-3) from PaperGated (-4)
-    // so gated losses don't trigger raw's regret cooldown (2026-09-22).
-    const rows = await query<{ pnl: string | number }>(
-      `SELECT COALESCE(current_pnl, realized_pnl, 0) AS pnl
-       FROM hedges
-       WHERE portfolio_id = $4
-         AND order_id LIKE 'paper_%' AND asset = $1 AND side = $2 AND status = 'closed'
-       ORDER BY closed_at DESC NULLS LAST
-       LIMIT $3`,
-      [asset, side, limit, PAPER_PORTFOLIO_ID],
-    );
-    return rows.reduce((sum, r) => sum + Number(r.pnl ?? 0), 0);
-  } catch (e) {
-    logger.debug('[PaperTrader] regret lookup failed (non-fatal)', { error: errMsg(e) });
-    return 0;
-  }
 }
 
 /**
@@ -721,7 +689,7 @@ export class PaperTrader {
     //    calibrator, AND the extra gates below (streak/vol/regret) via
     //    the extraGate callback so a top-pick rejection walks to the next
     //    candidate instead of aborting the whole tick.
-    const { assetSideStreakRejection, assetStreakRejection } = await import('./streak-guard');
+    const { assetSideStreakRejection, assetStreakRejection, regretCooldownRejection } = await import('./streak-guard');
     const { lowVolatilityRejection } = await import('./volatility-gate');
     const extraGate = async (asset: string, side: Side, gateNow: number): Promise<string | null> => {
       const streakReject = await assetSideStreakRejection(asset, side, gateNow);
@@ -732,11 +700,7 @@ export class PaperTrader {
       if (assetReject) return assetReject;
       const volReject = await lowVolatilityRejection(asset);
       if (volReject) return volReject;
-      const recentPnl = await assetSideRecentPnl(asset, side, PAPER_REGRET_WINDOW);
-      if (recentPnl < -nav * PAPER_REGRET_COOLDOWN_PCT) {
-        return `regret-cooldown: ${asset} ${side} recent PnL $${recentPnl.toFixed(0)} < threshold $${(-nav * PAPER_REGRET_COOLDOWN_PCT).toFixed(0)}`;
-      }
-      return null;
+      return regretCooldownRejection(asset, side, nav);
     };
     const selection = await selectCandidate(now, concurrencyFilter, extraGate);
     if (!selection.ok) {

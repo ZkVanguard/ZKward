@@ -19,7 +19,7 @@ jest.mock('@/lib/services/market-data/unified-price-provider', () => ({
 
 import { query } from '@/lib/db/postgres';
 import { getMultiSourceValidatedPrice } from '@/lib/services/market-data/unified-price-provider';
-import { buildSnapshotRows } from '@/lib/services/market-data/signal-ledger';
+import { buildSnapshotRows, gateSource, SHADOW_SOURCE } from '@/lib/services/market-data/signal-ledger';
 import { resolveExpiredSignals } from '@/lib/db/signal-outcomes';
 
 const mockQuery = query as jest.MockedFunction<typeof query>;
@@ -64,6 +64,44 @@ describe('buildSnapshotRows', () => {
     expect(rows.find((r) => r.source.includes('noisy'))).toBeUndefined();
     // Every row carries the entry anchor.
     expect(rows.every((r) => r.entryPrice === 65_000 || r.entryPrice === 3_000)).toBe(true);
+  });
+
+  describe('with the feedback loop\'s extras', () => {
+    const prices = new Map([['BTC', 65_000], ['ETH', 3_000]]);
+    const src = (r: { source: string }) => r.source;
+
+    it('records the raw votes, so a source the weighting removed is still measured', () => {
+      const rawSources = { BTC: [...scanAll.BTC.sources, { name: 'removed', type: 'short_term', direction: 'DOWN' as const, confidence: 60 }] };
+      const rows = buildSnapshotRows(scanAll, prices, NOW, identityKey, [60], { rawSources });
+      expect(rows.filter((r) => r.asset === 'BTC').map(src)).toContain('short_term:removed');
+      // A coin with no raw votes on hand falls back to the weighted list.
+      expect(rows.filter((r) => r.asset === 'ETH').map(src)).toEqual(['on_chain:fundingB']);
+    });
+
+    it('records the shadow vote beside the live one, and not when it has no direction', () => {
+      const shadow = { BTC: { direction: 'DOWN' as const, confidence: 61, probability: 55 }, ETH: { direction: 'NEUTRAL' as const, confidence: 30 } };
+      const rows = buildSnapshotRows(scanAll, prices, NOW, identityKey, [60], { shadow });
+      const v2 = rows.filter((r) => r.source === SHADOW_SOURCE);
+      expect(v2).toHaveLength(1);
+      expect(v2[0]).toMatchObject({ asset: 'BTC', direction: 'DOWN', confidence: 61, entryPrice: 65_000 });
+      expect(rows.find((r) => r.asset === 'BTC' && r.source === 'aggregate')?.direction).toBe('UP');
+    });
+
+    it('a gate row carries the direction of the signal it refused', () => {
+      const rows = buildSnapshotRows(scanAll, prices, NOW, identityKey, [60], { gateRefusals: { BTC: ['low-volatility', 'majority'], ETH: ['majority'] } });
+      const gates = rows.filter((r) => r.source.startsWith('gate:'));
+      expect(gates.map(src)).toEqual([gateSource('low-volatility'), gateSource('majority')]);
+      expect(gates.every((r) => r.asset === 'BTC' && r.direction === 'UP')).toBe(true);
+      // ETH has no directional signal: there is nothing for a gate to refuse.
+    });
+
+    it('shadow and gate rows stop at four hours; the day-long horizon keeps only what it had', () => {
+      const extras = { shadow: { BTC: { direction: 'UP' as const, confidence: 70 } }, gateRefusals: { BTC: ['majority'] } };
+      const rows = buildSnapshotRows(scanAll, prices, NOW, identityKey, [240, 1440], extras);
+      const extra = rows.filter((r) => r.source === SHADOW_SOURCE || r.source.startsWith('gate:'));
+      expect(extra.map((r) => r.horizonMin)).toEqual([240, 240]);
+      expect(rows.some((r) => r.horizonMin === 1440 && r.source === 'aggregate')).toBe(true);
+    });
   });
 
   it('skips assets without a validated price entirely', () => {
