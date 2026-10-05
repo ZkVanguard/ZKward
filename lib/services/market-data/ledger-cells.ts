@@ -43,6 +43,13 @@ export const LEDGER_MIN_N = num('SIGNAL_LEDGER_MIN_N', 50);
 export const LEDGER_MIN_WINDOWS = num('SIGNAL_LEDGER_MIN_WINDOWS', 12);
 /** Standard errors from zero before a cell counts as wrong-way or proven. */
 export const LEDGER_TIMING_SE = num('SIGNAL_LEDGER_TIMING_SE', 2);
+/**
+ * Horizon sources are weighted and judged at. 60 min is the longest with
+ * enough independent windows to rate a source within days (about 45 per
+ * cell in two days; 240 min gives about 12), and the aggregate has no
+ * measured edge beyond it.
+ */
+export const LEDGER_WEIGHT_HORIZON_MIN = num('SIGNAL_LEDGER_WEIGHT_HORIZON_MIN', 60);
 /** Rows before this were scored against the pre-odds aggregator. */
 export const LEDGER_EPOCH_MS = num('SIGNAL_LEDGER_EPOCH_MS', Date.parse('2026-09-30T16:55:00Z'));
 /** Horizons a book may hold to; the ledger picks the best one per asset. */

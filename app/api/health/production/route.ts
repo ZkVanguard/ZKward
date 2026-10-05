@@ -25,6 +25,7 @@ import { readLimiter } from '@/lib/security/rate-limiter';
 import { query } from '@/lib/db/postgres';
 import { envFlag, envFlagOnByDefault } from '@/lib/utils/env-flag';
 import { notifyDiscord } from '@/lib/utils/discord-notify';
+import { LOOP_STATE_KEY, type LoopState } from '@/lib/services/market-data/feedback-loop';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -223,6 +224,35 @@ async function checkSignalSupply(): Promise<Component & { interpAgeH?: number; l
       return { status: 'warn', interpAgeH, ledgerAgeMin, detail: `signal ledger stale ${ledgerAgeMin}min (>2h) — snapshot loop not running` };
     }
     return { status: 'ok', interpAgeH, ledgerAgeMin };
+  } catch (e: any) {
+    return { status: 'warn', error: e?.message?.slice(0, 100) || 'unknown' };
+  }
+}
+
+/**
+ * Feedback-loop freshness. The loop re-judges the signal ledger once a day;
+ * the shadow vote and the reports read what it stored, so a stale judgment
+ * means they run on old evidence. The counts are the dashboard truth for
+ * "how much has the ledger proven": judged, in force either way, pending.
+ */
+async function checkFeedbackLoop(): Promise<Component & { day?: string; judged?: number; proven?: number; wrongWay?: number; pending?: number }> {
+  try {
+    const r = await query<{ value: LoopState }>(
+      'SELECT value FROM cron_state WHERE key = $1 LIMIT 1',
+      [LOOP_STATE_KEY],
+    );
+    const s = r[0]?.value;
+    if (!s || s.version !== 1) return { status: 'warn', detail: 'no evaluation stored yet' };
+    const out = {
+      day: s.day,
+      judged: s.counts.cellsJudged + s.counts.familiesJudged,
+      proven: s.counts.proven,
+      wrongWay: s.counts.wrongWay,
+      pending: s.counts.pending,
+    };
+    const ageH = Math.round((Date.now() - s.evaluatedAt) / 360_000) / 10;
+    if (ageH > 36) return { status: 'warn', ...out, detail: `last evaluation ${ageH}h ago (>36h) — daily re-judging not running` };
+    return { status: 'ok', ...out };
   } catch (e: any) {
     return { status: 'warn', error: e?.message?.slice(0, 100) || 'unknown' };
   }
@@ -665,8 +695,9 @@ export async function GET(req: NextRequest) {
   const traderActivity = await withCheckTimeout(checkTraderActivity(), 'traderActivity');
   const tvlHeadroom = await withCheckTimeout(checkTvlHeadroom(), 'tvlHeadroom');
   const signalSupply = await withCheckTimeout(checkSignalSupply(), 'signalSupply');
+  const feedbackLoop = await withCheckTimeout(checkFeedbackLoop(), 'feedbackLoop');
 
-  const components = { db, polymarket, suiRpc, bluefin, navFreshness, suiPoolCron, traderCron, hedgeReconcileCron, bluefinHealthCron, bluefinDbReconcileCron, poolNavMonitorCron, phantomRate, orphanRate, autohedgeHalt, traderActivity, tvlHeadroom, signalSupply };
+  const components = { db, polymarket, suiRpc, bluefin, navFreshness, suiPoolCron, traderCron, hedgeReconcileCron, bluefinHealthCron, bluefinDbReconcileCron, poolNavMonitorCron, phantomRate, orphanRate, autohedgeHalt, traderActivity, tvlHeadroom, signalSupply, feedbackLoop };
   const overall = worstStatus(Object.values(components));
 
   const body = {

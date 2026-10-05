@@ -368,6 +368,70 @@ export async function getLedgerHitRates(options: {
   }
 }
 
+export interface LedgerBucketRow {
+  source: string;
+  asset: string;
+  horizonMin: number;
+  /** Index of the horizon-length window the rows resolved in: floor(window_end_time / horizon). */
+  bucket: number;
+  n: number;
+  /** Mean return in the source's direction with the coin's drift removed, in bp, over the rows in this window. */
+  timingBp: number;
+}
+
+/**
+ * The ledger at its finest useful grain: one figure per source, coin and
+ * non-overlapping window. The feedback loop pools these itself, per cell and
+ * per source family across coins, so one definition of a window serves
+ * every level.
+ *
+ * The coin's drift is the mean over snapshots, one per moment however many
+ * sources spoke at it; a row-weighted mean leans toward the moments with the
+ * most rows.
+ *
+ * Parameters: $1 = earliest window end (epoch ms), $2 = horizons in minutes.
+ */
+export const LEDGER_BUCKET_ROWS_SQL = `
+  WITH scored AS (
+    SELECT source, asset, horizon_min, window_end_time, direction,
+           (exit_price - entry_price) / entry_price * 10000 AS ret_bp
+    FROM signal_outcomes
+    WHERE status = 'resolved' AND window_end_time >= $1 AND asset IS NOT NULL
+      AND horizon_min = ANY($2::int[]) AND entry_price > 0 AND exit_price IS NOT NULL
+      AND direction IN ('UP', 'DOWN')
+  ),
+  snapshots AS (
+    SELECT asset, horizon_min, window_end_time, AVG(ret_bp) AS ret_bp
+    FROM scored GROUP BY asset, horizon_min, window_end_time
+  ),
+  drift AS (
+    SELECT asset, horizon_min, AVG(ret_bp) AS drift_bp FROM snapshots GROUP BY asset, horizon_min
+  )
+  SELECT s.source, s.asset, s.horizon_min,
+         FLOOR(s.window_end_time / (s.horizon_min * 60000.0))::int AS bucket,
+         COUNT(*)::int AS n,
+         AVG((s.ret_bp - d.drift_bp) * (CASE WHEN s.direction = 'UP' THEN 1 ELSE -1 END))::float8 AS timing_bp
+  FROM scored s JOIN drift d ON d.asset = s.asset AND d.horizon_min = s.horizon_min
+  GROUP BY s.source, s.asset, s.horizon_min, bucket`;
+
+export interface LedgerBucketSqlRow { source: string; asset: string; horizon_min: number; bucket: number; n: number; timing_bp: number }
+
+export const toLedgerBucketRow = (r: LedgerBucketSqlRow): LedgerBucketRow => ({
+  source: r.source,
+  asset: r.asset,
+  horizonMin: Number(r.horizon_min),
+  bucket: Number(r.bucket),
+  n: Number(r.n),
+  timingBp: Number(r.timing_bp),
+});
+
+/** Throws on a failed read: an empty answer would read as "nothing is proven any more". */
+export async function getLedgerBucketRows(options: { sinceMs: number; horizonsMin: number[] }): Promise<LedgerBucketRow[]> {
+  await ensureSignalOutcomesTable();
+  const rows = await query<LedgerBucketSqlRow>(LEDGER_BUCKET_ROWS_SQL, [options.sinceMs, options.horizonsMin.map((h) => Math.round(h))]);
+  return rows.map(toLedgerBucketRow);
+}
+
 /** Prune terminal rows older than the retention window. Returns rows deleted. */
 export async function pruneOldSignalOutcomes(retentionDays = 90): Promise<number> {
   await ensureSignalOutcomesTable();

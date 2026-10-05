@@ -46,6 +46,8 @@ describe('learning-loop write paths are wired', () => {
     { fn: 'recordSignal', definedIn: 'lib/db/signal-outcomes.ts' },
     { fn: 'resolveExpiredSignals', definedIn: 'lib/db/signal-outcomes.ts' },
     { fn: 'runSignalLedgerTick', definedIn: 'lib/services/market-data/signal-ledger.ts' },
+    { fn: 'getLedgerBucketRows', definedIn: 'lib/db/signal-outcomes.ts' },
+    { fn: 'runFeedbackLoopEvaluation', definedIn: 'lib/services/market-data/feedback-loop.ts' },
     { fn: 'recordInterpretation', definedIn: 'lib/db/signal-interpretations.ts' },
     { fn: 'recordSourceOutcome', definedIn: 'lib/services/ai/source-calibrator.ts' },
     { fn: 'recordOutcome', definedIn: 'lib/services/ai/probability-calibrator.ts' },
