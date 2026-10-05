@@ -7,11 +7,12 @@
 import { NextResponse } from 'next/server';
 import { errMsg } from '@/lib/utils/error-handler';
 import { envFlag } from '@/lib/utils/env-flag';
+import { withOriginCache } from '@/lib/utils/origin-cache';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-export async function GET(): Promise<NextResponse> {
+async function handleGet(): Promise<NextResponse> {
   if (!envFlag('SOLANA_POOL_ENABLED')) {
     return NextResponse.json({ enabled: false });
   }
@@ -111,3 +112,5 @@ export async function GET(): Promise<NextResponse> {
     return NextResponse.json({ enabled: true, error: errMsg(e) }, { status: 500 });
   }
 }
+
+export const GET = withOriginCache({ name: 'solana-status', freshSec: 15 }, handleGet);

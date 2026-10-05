@@ -19,6 +19,7 @@ import { getCronStateByPrefix, getCronStateOr } from '@/lib/db/cron-state';
 import { query } from '@/lib/db/postgres';
 import { logger } from '@/lib/utils/logger';
 import { isLiveJob, staleLimitMin } from '@/lib/services/alerting/cron-cadence';
+import { withOriginCache } from '@/lib/utils/origin-cache';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -59,7 +60,7 @@ interface AutonomyStatus {
   };
 }
 
-export async function GET() {
+async function handleGet() {
   const startedAt = Date.now();
   try {
     // ── 1. Cron heartbeats ──
@@ -180,3 +181,5 @@ export async function GET() {
     );
   }
 }
+
+export const GET = withOriginCache({ name: 'autonomy-status', freshSec: 30 }, handleGet);

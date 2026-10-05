@@ -17,6 +17,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { keccak256, toHex, hexToBigInt } from 'viem';
 import { logger } from '@/lib/utils/logger';
 import { HEDERA_CONTRACT_ADDRESSES } from '@/lib/contracts/addresses';
+import { withOriginCache } from '@/lib/utils/origin-cache';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -72,7 +73,7 @@ function twoWords(data: string): [string, string] {
   return [w0, w1];
 }
 
-export async function GET(request: NextRequest): Promise<NextResponse<NavHistoryResponse | { error: string }>> {
+async function handleGet(request: NextRequest): Promise<NextResponse<NavHistoryResponse | { error: string }>> {
   const windowParam = (request.nextUrl.searchParams.get('window') ?? '30d') as '7d' | '30d' | '60d' | 'all';
   const bucketParam = request.nextUrl.searchParams.get('bucket') ?? 'hour';
 
@@ -201,3 +202,5 @@ export async function GET(request: NextRequest): Promise<NextResponse<NavHistory
     headers: { 'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=86400' },
   });
 }
+
+export const GET = withOriginCache({ name: 'hedera-nav-history', freshSec: 30, params: ['window', 'bucket'] }, handleGet);

@@ -23,6 +23,7 @@ import { readLimiter } from '@/lib/security/rate-limiter';
 import { query } from '@/lib/db/postgres';
 import { envFlag } from '@/lib/utils/env-flag';
 import { fetchNavHistoryFromSubgraph, type NavSnapshotRow } from '@/lib/graph/queries';
+import { withOriginCache } from '@/lib/utils/origin-cache';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -64,7 +65,7 @@ interface NavHistoryResponse {
   points: Point[];
 }
 
-export async function GET(request: NextRequest): Promise<NextResponse<NavHistoryResponse | { error: string }>> {
+async function handleGet(request: NextRequest): Promise<NextResponse<NavHistoryResponse | { error: string }>> {
   const limited = readLimiter.check(request);
   if (limited) return limited as NextResponse<NavHistoryResponse | { error: string }>;
 
@@ -144,3 +145,5 @@ export async function GET(request: NextRequest): Promise<NextResponse<NavHistory
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
+
+export const GET = withOriginCache({ name: 'platform-nav-history', freshSec: 60, params: ['window', 'bucket'] }, handleGet);

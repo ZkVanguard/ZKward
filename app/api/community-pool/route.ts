@@ -53,6 +53,7 @@ import {
   handleFullReset,
   type HandlerContext,
 } from './post-handlers';
+import { withOriginCache } from '@/lib/utils/origin-cache';
 
 /** Timing-safe cron-secret check — GET admin endpoints. */
 function verifyCronSecret(request: NextRequest): boolean {
@@ -70,7 +71,7 @@ export const dynamic = 'force-dynamic';
 /**
  * GET - Fetch pool info
  */
-export async function GET(request: NextRequest) {
+async function handleGet(request: NextRequest) {
   // Rate limit read operations
   const limited = readLimiter.check(request);
   if (limited) return limited;
@@ -734,3 +735,10 @@ export async function POST(request: NextRequest) {
     return safeErrorResponse(error, 'community-pool POST');
   }
 }
+
+export const GET = withOriginCache({
+  name: 'community-pool',
+  freshSec: 30,
+  params: ['chain', 'network', 'action', 'limit'],
+  eligible: (q) => [null, 'leaderboard'].includes(q.get('action')),
+}, handleGet);

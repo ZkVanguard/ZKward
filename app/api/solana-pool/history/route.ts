@@ -7,13 +7,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { errMsg } from '@/lib/utils/error-handler';
 import { envFlag } from '@/lib/utils/env-flag';
+import { withOriginCache } from '@/lib/utils/origin-cache';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const WINDOW_DAYS: Record<string, number | null> = { '7d': 7, '30d': 30, '60d': 60, all: null };
 
-export async function GET(request: NextRequest): Promise<NextResponse> {
+async function handleGet(request: NextRequest): Promise<NextResponse> {
   const window = request.nextUrl.searchParams.get('window') ?? '30d';
   const days = window in WINDOW_DAYS ? WINDOW_DAYS[window] : 30;
   const bucket = request.nextUrl.searchParams.get('bucket') === 'day' ? 'day' : 'hour';
@@ -48,3 +49,5 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ asOf, window, count: 0, points: [], error: errMsg(e) }, { status: 500 });
   }
 }
+
+export const GET = withOriginCache({ name: 'solana-history', freshSec: 60, params: ['window', 'bucket'] }, handleGet);
