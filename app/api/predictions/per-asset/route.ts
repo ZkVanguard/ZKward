@@ -17,12 +17,13 @@ import { readLimiter } from '@/lib/security/rate-limiter';
 import { PredictionAggregatorService } from '@/lib/services/market-data/PredictionAggregatorService';
 import { getDynamicTrackedAssets, getTrackedAssetList } from '@/lib/services/market-data/MultiAssetSignalService';
 import { SignalDriftFusion, type FusionUpgrade } from '@/lib/services/market-data/SignalDriftFusion';
+import { withOriginCache } from '@/lib/utils/origin-cache';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 20;
 
-export async function GET(req: NextRequest): Promise<NextResponse> {
+async function handleGet(req: NextRequest): Promise<NextResponse> {
   const limited = readLimiter.check(req);
   if (limited) return limited;
 
@@ -113,3 +114,5 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     headers: { 'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=86400' },
   });
 }
+
+export const GET = withOriginCache({ name: 'per-asset', freshSec: 30, params: ['assets', 'auto'] }, handleGet);

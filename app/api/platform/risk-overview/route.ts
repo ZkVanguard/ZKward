@@ -25,6 +25,7 @@ import { logger } from '@/lib/utils/logger';
 import { safeErrorResponse } from '@/lib/security/safe-error';
 import { readLimiter } from '@/lib/security/rate-limiter';
 import { query } from '@/lib/db/postgres';
+import { withOriginCache } from '@/lib/utils/origin-cache';
 
 export const runtime = 'nodejs';
 // Dynamic on purpose: no `revalidate`. A revalidate export makes the GET a
@@ -690,7 +691,7 @@ async function getPaperTraderSection(): Promise<RiskOverviewResponse['paperTrade
 }
 
 
-export async function GET(request: NextRequest): Promise<NextResponse<RiskOverviewResponse | { error: string }>> {
+async function handleGet(request: NextRequest): Promise<NextResponse<RiskOverviewResponse | { error: string }>> {
   const limited = readLimiter.check(request);
   if (limited) return limited as NextResponse<RiskOverviewResponse | { error: string }>;
 
@@ -761,3 +762,5 @@ export async function GET(request: NextRequest): Promise<NextResponse<RiskOvervi
     return safeErrorResponse(error, 'Platform risk overview') as NextResponse<RiskOverviewResponse | { error: string }>;
   }
 }
+
+export const GET = withOriginCache({ name: 'risk-overview', freshSec: 30 }, handleGet);

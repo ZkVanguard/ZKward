@@ -47,6 +47,7 @@ import {
   handleExecuteWithdrawSwaps,
   handleRecordWithdraw,
 } from './handlers/withdraw-actions';
+import { withOriginCache } from '@/lib/utils/origin-cache';
 
 export const runtime = 'nodejs';
 // 60s to give the withdraw preflight room to run its open+close top-up
@@ -100,7 +101,7 @@ function cachedJsonResponse(data: unknown, cdnTtlSeconds: number = 30, staleSeco
 // GET Handler
 // ============================================================================
 
-export async function GET(request: NextRequest) {
+async function handleGet(request: NextRequest) {
   // Rate limit
   const limited = readLimiter.check(request);
   if (limited) return limited;
@@ -692,3 +693,10 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
+export const GET = withOriginCache({
+  name: 'sui-pool',
+  freshSec: 30,
+  params: ['network', 'action'],
+  eligible: (q) => [null, 'members', 'volatility', 'allocation'].includes(q.get('action')),
+}, handleGet);

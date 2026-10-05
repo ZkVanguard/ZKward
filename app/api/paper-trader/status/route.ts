@@ -29,6 +29,7 @@ import type { SimulatedPosition } from '@/lib/services/paper-trader/simulated-ex
 import { markToMarket } from '@/lib/services/paper-trader/simulated-executor';
 import { getLivePrice } from '@/lib/services/market-data/unified-price-provider';
 import { CALIBRATION_EPOCH } from '@/lib/services/ai/source-calibrator';
+import { withOriginCache } from '@/lib/utils/origin-cache';
 
 export const runtime = 'nodejs';
 // Dynamic on purpose. `revalidate = 15` made this a build-time static page
@@ -124,7 +125,7 @@ interface PerAssetAgg {
   cumRealizedUsd: number;
 }
 
-export async function GET(_req: NextRequest): Promise<NextResponse> {
+async function handleGet(_req: NextRequest): Promise<NextResponse> {
   try {
     // Load active positions via the same helper the trader uses so we
     // pick up concurrent-mode entries (array under KEY_POSITIONS) AND
@@ -311,3 +312,5 @@ export async function GET(_req: NextRequest): Promise<NextResponse> {
     );
   }
 }
+
+export const GET = withOriginCache({ name: 'paper-status', freshSec: 15 }, handleGet);
