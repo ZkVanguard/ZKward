@@ -111,6 +111,8 @@ export interface LedgerTickSummary {
   correct: number;
   voided: number;
   pruned: number;
+  /** Set on the tick that re-judged the ledger: what the feedback loop now holds. */
+  loop?: string;
 }
 
 /** One ledger tick: resolve always, snapshot on debounce, prune daily. */
@@ -175,6 +177,22 @@ export async function runSignalLedgerTick(now: number = Date.now()): Promise<Led
     }
   } catch (e) {
     logger.warn('[SignalLedger] snapshot failed (non-fatal)', { error: errMsg(e) });
+  }
+
+  // 2b) Once a day the feedback loop re-judges the ledger. It rides a
+  //     snapshot tick so its "already done today?" read costs one state read
+  //     per ten minutes, not one per tick.
+  if (summary.snapshotted) {
+    try {
+      const { runFeedbackLoopEvaluation } = await import('./feedback-loop');
+      const state = await runFeedbackLoopEvaluation(now);
+      if (state) {
+        const c = state.counts;
+        summary.loop = `judged ${c.cellsJudged + c.familiesJudged}, proven ${c.proven}, wrong-way ${c.wrongWay}, pending ${c.pending}`;
+      }
+    } catch (e) {
+      logger.warn('[SignalLedger] feedback-loop evaluation failed (non-fatal)', { error: errMsg(e) });
+    }
   }
 
   // 3) Daily prune of terminal rows past retention.

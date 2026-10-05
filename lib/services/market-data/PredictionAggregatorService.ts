@@ -55,6 +55,7 @@ import {
 } from './aggregator-fetchers';
 import { calculateAggregation, crowdedFundingDirection } from './aggregator-math';
 import { marketImpliedDirection } from './market-implied';
+import { LEDGER_WEIGHT_HORIZON_MIN } from './ledger-cells';
 
 // ─── Types ───────────────────────────────────────────────────────────
 
@@ -89,12 +90,6 @@ export interface AggregatedPrediction {
   /** When this aggregation was computed */
   timestamp: number;
 }
-
-// Horizon the ledger weights sources at. 60 min is the longest horizon with
-// enough independent windows to rate a source within days (about 45 per
-// cell in two days; 240 min gives about 12), and the aggregate has no
-// measured edge beyond it.
-const LEDGER_WEIGHT_HORIZON_MIN = Number(process.env.SIGNAL_LEDGER_WEIGHT_HORIZON_MIN || 60);
 
 // Cache TTL for aggregated predictions
 const CACHE_TTL_MS = 20_000; // 20 seconds - balance freshness vs. API load

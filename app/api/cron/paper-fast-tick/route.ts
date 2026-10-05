@@ -109,7 +109,7 @@ async function runStages(): Promise<Record<string, string>> {
   try {
     const { runSignalLedgerTick } = await import('@/lib/services/market-data/signal-ledger');
     const s = await runSignalLedgerTick(Date.now());
-    results.ledger = `resolved ${s.resolved}${s.voided ? ` (+${s.voided} void)` : ''}${s.snapshotted ? `, recorded ${s.recorded}` : ''}${s.pruned ? `, pruned ${s.pruned}` : ''}`;
+    results.ledger = `resolved ${s.resolved}${s.voided ? ` (+${s.voided} void)` : ''}${s.snapshotted ? `, recorded ${s.recorded}` : ''}${s.pruned ? `, pruned ${s.pruned}` : ''}${s.loop ? `, loop: ${s.loop}` : ''}`;
   } catch (e) {
     results.ledger = `error: ${errMsg(e).slice(0, 80)}`;
     logger.warn('[PaperFastTick] signal-ledger tick failed (non-fatal)', { error: errMsg(e) });
