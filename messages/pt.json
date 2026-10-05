@@ -374,13 +374,6 @@
     "finalCta": {
       "title": "Veja funcionando."
     },
-    "signals": {
-      "label": "Agora mesmo",
-      "up": "em alta",
-      "down": "em baixa",
-      "none": "sem tendência",
-      "chip": "{coin}: {lean}, {pct}% de confiança"
-    },
     "safeguards": {
       "eyebrow": "Segurança em primeiro lugar",
       "title1": "Gerido como um fundo.",

@@ -374,13 +374,6 @@
     "finalCta": {
       "title": "Sieh es live."
     },
-    "signals": {
-      "label": "Gerade jetzt",
-      "up": "tendiert nach oben",
-      "down": "tendiert nach unten",
-      "none": "keine Tendenz",
-      "chip": "{coin}: {lean}, {pct} % Konfidenz"
-    },
     "safeguards": {
       "eyebrow": "Sicherheit zuerst",
       "title1": "Geführt wie ein Fonds.",

@@ -374,13 +374,6 @@
     "finalCta": {
       "title": "Guardalo in azione."
     },
-    "signals": {
-      "label": "In questo momento",
-      "up": "al rialzo",
-      "down": "al ribasso",
-      "none": "nessuna tendenza",
-      "chip": "{coin}: {lean}, {pct}% di fiducia"
-    },
     "safeguards": {
       "eyebrow": "Prima la sicurezza",
       "title1": "Gestito come un fondo.",
