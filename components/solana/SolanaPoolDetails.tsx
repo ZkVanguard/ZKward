@@ -22,15 +22,24 @@ function relative(iso: string | null): string {
   return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
+/** In place of an empty state when the status read failed with nothing on screen: an outage is not an empty pool. */
+function LoadFailed() {
+  return (
+    <div className="text-[12px] text-red-700 py-6 text-center" role="status">
+      Could not load this from the pool right now. Trying again every 30 seconds.
+    </div>
+  );
+}
+
 /** Signal-driven sleeve: what the pool's trading engine is doing right now. */
 export function SolanaSleevePanel() {
-  const { data } = useSolanaPoolStatus();
+  const { data, isError } = useSolanaPoolStatus();
   const sleeve = data?.sleeve;
   if (!sleeve) {
     return (
       <div className="space-y-2">
         <h3 className="text-sm sm:text-[15px] font-semibold text-label-primary pool-inner-heading">Trading sleeve</h3>
-        <div className="text-[12px] text-label-tertiary">No trading activity yet.</div>
+        {isError && !data ? <LoadFailed /> : <div className="text-[12px] text-label-tertiary">No trading activity yet.</div>}
       </div>
     );
   }
@@ -94,7 +103,7 @@ export function SolanaSleevePanel() {
 
 /** Current shareholders from the pool ledger, largest first. */
 export function SolanaMembers() {
-  const { data, isPending } = useSolanaPoolStatus();
+  const { data, isPending, isError } = useSolanaPoolStatus();
   const rows = data?.members ?? [];
   const total = data?.memberCount ?? rows.length;
   const cluster = data?.cluster ?? 'devnet';
@@ -107,7 +116,9 @@ export function SolanaMembers() {
         {total > rows.length && <span className="text-[11px] text-label-tertiary">top {rows.length} of {total}</span>}
         {isPending && <Loader2 className="w-3.5 h-3.5 animate-spin text-label-tertiary" />}
       </div>
-      {rows.length === 0 ? (
+      {isError && !data ? (
+        <LoadFailed />
+      ) : rows.length === 0 ? (
         <div className="text-[12px] text-label-tertiary py-6 text-center">
           {isPending ? 'Loading members…' : 'No members yet. Your first deposit makes you one.'}
         </div>
@@ -142,7 +153,7 @@ export function SolanaMembers() {
 
 /** On-chain deposit trail, newest first. */
 export function SolanaRecentActivity() {
-  const { data, isPending } = useSolanaPoolStatus();
+  const { data, isPending, isError } = useSolanaPoolStatus();
   const rows = data?.recentDeposits ?? [];
   const cluster = data?.cluster ?? 'devnet';
   return (
@@ -158,8 +169,12 @@ export function SolanaRecentActivity() {
         </span>
         {isPending && <Loader2 className="w-3.5 h-3.5 animate-spin text-label-tertiary" />}
       </div>
-      {rows.length === 0 ? (
-        <div className="text-[12px] text-label-tertiary py-6 text-center">No deposits yet. The first one shows up here within a minute.</div>
+      {isError && !data ? (
+        <LoadFailed />
+      ) : rows.length === 0 ? (
+        <div className="text-[12px] text-label-tertiary py-6 text-center">
+          {isPending ? 'Loading deposits…' : 'No deposits yet. The first one shows up here within a minute.'}
+        </div>
       ) : (
         <div className="space-y-1.5">
           {rows.map((r) => (

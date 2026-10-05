@@ -18,6 +18,7 @@
 import { createConfig, http } from 'wagmi';
 import { injected } from 'wagmi/connectors';
 import { defineChain } from 'viem';
+import { getRpcUrl } from '@/lib/rpc-urls';
 
 // ─── Hedera EVM chain definitions ──────────────────────────────────────────
 // viem/chains does not ship Hedera; define here with Hashio RPCs. HBAR is
@@ -59,7 +60,9 @@ export const sepolia = defineChain({
   name: 'Sepolia',
   nativeCurrency: { name: 'Sepolia ETH', symbol: 'ETH', decimals: 18 },
   rpcUrls: {
-    default: { http: ['https://rpc.sepolia.org'] },
+    // Same-origin proxy in the browser: public Sepolia endpoints send no CORS
+    // headers, and the one this pointed at has been retired.
+    default: { http: [getRpcUrl('sepolia')] },
   },
   blockExplorers: {
     default: { name: 'Etherscan', url: 'https://sepolia.etherscan.io' },

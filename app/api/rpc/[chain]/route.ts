@@ -12,10 +12,8 @@ export const maxDuration = 15;
 
 const UPSTREAM_RPC_URLS: Record<string, string[]> = {
   sepolia: [
-    'https://rpc.sepolia.org',
     'https://ethereum-sepolia-rpc.publicnode.com',
     'https://sepolia.drpc.org',
-    'https://rpc2.sepolia.org',
   ],
   ethereum: [
     'https://eth.drpc.org',
