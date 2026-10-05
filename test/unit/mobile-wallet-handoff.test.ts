@@ -4,7 +4,7 @@
  * an instruction to connect on arrival.
  */
 import { describe, it, expect } from '@jest/globals';
-import { SOLANA_MOBILE_WALLETS, SUI_MOBILE_WALLETS, handoffTarget, walletHandoffLink } from '@/lib/utils/mobile-wallet';
+import { SOLANA_MOBILE_WALLETS, SUI_MOBILE_WALLETS, handoffTarget, walletAppLink, walletHandoffLink } from '@/lib/utils/mobile-wallet';
 
 const PAGE = 'https://www.zkward.com/en/dashboard?tab=pool';
 
@@ -23,6 +23,31 @@ describe('mobile wallet handoff', () => {
     const ref = encodeURIComponent('https://www.zkward.com');
     expect(walletHandoffLink(phantom, 'solana', PAGE)).toBe(`https://phantom.app/ul/browse/${target}?ref=${ref}`);
     expect(walletHandoffLink(solflare, 'solana', PAGE)).toBe(`https://solflare.com/ul/v1/browse/${target}?ref=${ref}`);
+  });
+
+  it('on Android the Slush link is an intent addressed to the app, falling back to the plain link', () => {
+    const slush = SUI_MOBILE_WALLETS[0];
+    const universal = walletHandoffLink(slush, 'sui', PAGE);
+    const intent = walletHandoffLink(slush, 'sui', PAGE, true);
+    expect(intent.startsWith(`intent://${universal.slice('https://'.length)}#Intent;scheme=https;package=com.mystenlabs.suiwallet;`)).toBe(true);
+    expect(intent.endsWith(`S.browser_fallback_url=${encodeURIComponent(universal)};end`)).toBe(true);
+    // The page address must not carry a raw '#': it would cut the intent short.
+    expect(universal.includes('#')).toBe(false);
+  });
+
+  it('a wallet with no known Android package keeps the plain link on Android', () => {
+    const phantom = SOLANA_MOBILE_WALLETS[0];
+    expect(walletHandoffLink(phantom, 'solana', PAGE, true)).toBe(walletHandoffLink(phantom, 'solana', PAGE));
+  });
+
+  it('the second try goes through each app’s own scheme with the same page', () => {
+    const [phantom, solflare] = SOLANA_MOBILE_WALLETS;
+    const sui = encodeURIComponent(handoffTarget(PAGE, 'sui'));
+    const sol = encodeURIComponent(handoffTarget(PAGE, 'solana'));
+    const ref = encodeURIComponent('https://www.zkward.com');
+    expect(walletAppLink(SUI_MOBILE_WALLETS[0], 'sui', PAGE)).toBe(`slush://browse/${sui}`);
+    expect(walletAppLink(phantom, 'solana', PAGE)).toBe(`phantom://browse/${sol}?ref=${ref}`);
+    expect(walletAppLink(solflare, 'solana', PAGE)).toBe(`solflare://ul/v1/browse/${sol}?ref=${ref}`);
   });
 
   it('Slush opens the page set up for SUI', () => {
