@@ -735,5 +735,11 @@
       "openIn": "Apri in {wallet}",
       "notOpened": "L'app del wallet non si è aperta. Installala o riprova."
     }
+  },
+  "crash": {
+    "title": "Impossibile mostrare questa vista",
+    "body": "Si è verificato un errore durante la visualizzazione. I tuoi fondi e dati non sono coinvolti.",
+    "retry": "Riprova",
+    "reference": "Riferimento {id}"
   }
 }

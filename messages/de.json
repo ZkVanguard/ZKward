@@ -735,5 +735,11 @@
       "openIn": "In {wallet} öffnen",
       "notOpened": "Die Wallet-App hat sich nicht geöffnet. Installiere sie oder versuche es erneut."
     }
+  },
+  "crash": {
+    "title": "Diese Ansicht konnte nicht angezeigt werden",
+    "body": "Beim Darstellen ist ein Fehler aufgetreten. Deine Gelder und Daten sind nicht betroffen.",
+    "retry": "Erneut versuchen",
+    "reference": "Referenz {id}"
   }
 }

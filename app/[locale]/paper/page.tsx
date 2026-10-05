@@ -158,15 +158,17 @@ export default function PaperTraderPage() {
   if (loading && !status) {
     return (
       <div className="min-h-screen bg-system-bg-primary text-label-primary pt-20 sm:pt-24 px-4 sm:px-6 md:px-8 pb-16">
+        {/* Heights match the loaded page on desktop (header 140, cards 118,
+            chart card 362): a placeholder of another size moved everything
+            below it when the data arrived (layout shift 0.176). */}
         <div className="max-w-6xl mx-auto space-y-6 animate-pulse">
-          <div className="h-10 w-2/3 bg-system-bg-secondary rounded-ios" />
-          <div className="h-4 w-full bg-system-bg-secondary rounded-ios" />
+          <div className="h-20 md:h-[140px] w-2/3 bg-system-bg-secondary rounded-ios" />
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             {[0,1,2,3].map(i => (
-              <div key={i} className="h-28 bg-system-bg-secondary rounded-ios-xl border border-separator-opaque/30" />
+              <div key={i} className="h-28 md:h-[118px] bg-system-bg-secondary rounded-ios-xl border border-separator-opaque/30" />
             ))}
           </div>
-          <div className="h-72 bg-system-bg-secondary rounded-ios-xl border border-separator-opaque/30" />
+          <div className="h-72 md:h-[362px] bg-system-bg-secondary rounded-ios-xl border border-separator-opaque/30" />
         </div>
       </div>
     );

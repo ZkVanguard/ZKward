@@ -735,5 +735,11 @@
       "openIn": "Abrir no {wallet}",
       "notOpened": "O app da carteira não abriu. Instale-o ou tente novamente."
     }
+  },
+  "crash": {
+    "title": "Não foi possível mostrar esta vista",
+    "body": "Algo correu mal ao desenhá-la. Os seus fundos e dados não são afetados.",
+    "retry": "Tentar novamente",
+    "reference": "Referência {id}"
   }
 }

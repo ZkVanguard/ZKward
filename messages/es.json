@@ -735,5 +735,11 @@
       "openIn": "Abrir en {wallet}",
       "notOpened": "La app de la billetera no se abrió. Instálala o inténtalo de nuevo."
     }
+  },
+  "crash": {
+    "title": "No se pudo mostrar esta vista",
+    "body": "Algo falló al dibujarla. Tus fondos y datos no se ven afectados.",
+    "retry": "Reintentar",
+    "reference": "Referencia {id}"
   }
 }

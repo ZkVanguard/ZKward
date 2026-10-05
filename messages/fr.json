@@ -735,5 +735,11 @@
       "openIn": "Ouvrir dans {wallet}",
       "notOpened": "L'application du portefeuille ne s'est pas ouverte. Installez-la ou réessayez."
     }
+  },
+  "crash": {
+    "title": "Cette vue n'a pas pu s'afficher",
+    "body": "Une erreur est survenue pendant l'affichage. Vos fonds et vos données ne sont pas affectés.",
+    "retry": "Réessayer",
+    "reference": "Référence {id}"
   }
 }

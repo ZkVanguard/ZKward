@@ -16,13 +16,14 @@
 import type { ReactNode } from 'react';
 import { WagmiProvider as WagmiProviderRaw } from 'wagmi';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { PrivyProvider } from '@privy-io/react-auth';
 import { WagmiProvider as PrivyWagmiProvider } from '@privy-io/wagmi';
 import { getWagmiConfig } from '@/lib/evm-wallet/wagmi-config';
 import { isPrivyEnabled, getPrivyAppId } from '@/lib/evm-wallet/privy-config';
 import { buildPrivyClientConfig } from '@/lib/evm-wallet/privy-client-config';
 import { SuiWalletProviders } from './sui-providers';
+import { persistQueryClient } from '@/lib/utils/query-persist';
 
 export function WalletProviders({ children }: { children: ReactNode }) {
   // React Query client for wagmi — separate from the app-level one to
@@ -32,6 +33,9 @@ export function WalletProviders({ children }: { children: ReactNode }) {
       queries: { staleTime: 60_000, refetchOnWindowFocus: false, retry: 1 },
     },
   }));
+
+  // After hydration, so the first client render matches the server's.
+  useEffect(() => persistQueryClient(queryClient), [queryClient]);
 
   const wagmiConfig = getWagmiConfig();
   const privy = isPrivyEnabled();
