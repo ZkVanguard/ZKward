@@ -29,6 +29,13 @@ export const HEDGE_MIN_OPEN_USDC = Math.max(
 
 
 /**
+ * Gas budget for an open_hedge or close_hedge call: 0.01 SUI. The node
+ * refuses a transaction outright when the wallet holds less than its budget,
+ * so at 0.05 these stopped working long before gas was actually short.
+ */
+const POOL_TX_GAS_BUDGET = 10_000_000;
+
+/**
  * Return USDC from admin wallet back to the pool via close_hedge.
  * This settles active hedges by returning collateral (+ optional PnL) to the pool.
  *
@@ -45,6 +52,8 @@ export async function returnUsdcToPool(
   amountUsdc: number,
   pnlUsdc: number,
   isProfit: boolean,
+  /** Exact integers for the call, when the caller derived them from the hedge's on-chain collateral. */
+  raw?: { amountRaw: bigint; pnlRaw: bigint },
 ): Promise<{ success: boolean; txDigest?: string; error?: string }> {
   const adminKey = (process.env.SUI_POOL_ADMIN_KEY || process.env.BLUEFIN_PRIVATE_KEY || '').trim();
   const agentCapId = (process.env.SUI_AGENT_CAP_ID || process.env.SUI_ADMIN_CAP_ID || '').trim();
@@ -71,8 +80,8 @@ export async function returnUsdcToPool(
     const suiClient = createFailoverSuiClient(network);
 
     const usdcType = SUI_USDC_COIN_TYPE[network];
-    const amountRaw = Math.floor(amountUsdc * 1e6);
-    const pnlRaw = Math.floor(pnlUsdc * 1e6);
+    const amountRaw = raw ? Number(raw.amountRaw) : Math.floor(amountUsdc * 1e6);
+    const pnlRaw = raw ? Number(raw.pnlRaw) : Math.floor(pnlUsdc * 1e6);
 
     // Get admin's USDC coins and merge them into a single coin for the return
     const address = keypair.getPublicKey().toSuiAddress();
@@ -119,7 +128,7 @@ export async function returnUsdcToPool(
       ],
     });
 
-    tx.setGasBudget(50_000_000);
+    tx.setGasBudget(POOL_TX_GAS_BUDGET);
 
     const result = await suiClient.signAndExecuteTransaction({
       transaction: tx,
@@ -250,7 +259,7 @@ export async function transferUsdcFromPoolToAdmin(
       ],
     });
 
-    tx.setGasBudget(50_000_000);
+    tx.setGasBudget(POOL_TX_GAS_BUDGET);
 
     const result = await suiClient.signAndExecuteTransaction({
       transaction: tx,

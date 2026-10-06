@@ -28,6 +28,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { logger } from '@/lib/utils/logger';
+import { isPoolTradingEnabled } from '@/lib/services/sui/pool-trading-pause';
 import { verifyCronRequest } from '@/lib/qstash';
 import { errMsg } from '@/lib/utils/error-handler';
 import { BluefinService, type BluefinPosition } from '@/lib/services/sui/BluefinService';
@@ -178,7 +179,7 @@ export async function GET(request: NextRequest): Promise<NextResponse<HealthResu
   // whenever the venue is up. Skipped on DEGRADED/UNREACHABLE because
   // closing during venue distress compounds the problem.
   let driftResult: { checked: number; drifted: number; closed: number; skipped: number; errors: number } | null = null;
-  if (status === 'HEALTHY') {
+  if (status === 'HEALTHY' && isPoolTradingEnabled()) {
     try {
       const { checkAndCloseDrifts } = await import('@/lib/services/agents/position-drift-monitor');
       const bf = BluefinService.getInstance();

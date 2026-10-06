@@ -31,7 +31,7 @@ export interface BluefinSnapshot {
   free: number;
   lockedMargin: number;
   upnl: number;
-  totalValue: number;          // free + lockedMargin + upnl
+  totalValue: number;          // the venue's own account value
   positions: BluefinPosition[];
   positionsCount: number;
   source: 'live' | 'cache' | 'unknown';
@@ -39,7 +39,9 @@ export interface BluefinSnapshot {
   warning?: string;
 }
 
-const CACHE_KEY = 'bluefin:nav-last-good';
+/** v2: holds the venue's own account value. The unversioned key held a sum that double-counted cross-margin P&L. */
+export const BLUEFIN_NAV_CACHE_KEY = 'bluefin:nav-last-good:v2';
+const CACHE_KEY = BLUEFIN_NAV_CACHE_KEY;
 const CACHE_TTL_MS = 30 * 60 * 1000;
 
 interface CachedSnapshot {
@@ -90,9 +92,11 @@ async function readCache(): Promise<{ cached: CachedSnapshot | null; ageMs: numb
 export async function refreshBluefinCache(args: {
   free: number;
   positions: Array<Record<string, unknown>>;
+  /** The venue's own account value. Without it the counters are kept but the cached total is left alone. */
+  accountValue?: number;
   source?: string;          // which cron called us, for logging
 }): Promise<void> {
-  const { free, positions, source = 'unknown' } = args;
+  const { free, positions, accountValue, source = 'unknown' } = args;
   const venueLooksEmpty = free === 0 && positions.length === 0;
 
   if (venueLooksEmpty) {
@@ -139,8 +143,11 @@ export async function refreshBluefinCache(args: {
     lockedMargin += Number(p.margin ?? p.initialMargin ?? 0) || 0;
     upnl += Number(p.unrealizedPnl ?? 0) || 0;
   }
-  await setCronState('bluefin:nav-last-good', {
-    value: free + lockedMargin + upnl,
+  // Only the venue's own total may be cached as the NAV component; a sum of
+  // the parts double-counts cross-margin P&L. The NAV read refreshes it.
+  if (accountValue === undefined || !Number.isFinite(accountValue)) return;
+  await setCronState(CACHE_KEY, {
+    value: accountValue,
     free,
     lockedMargin,
     upnl,
@@ -197,16 +204,22 @@ export async function safeBluefinSnapshot(opts: {
     // (returns early on line 199–201) and re-runs auth if not.
     await bf.initialize(adminKey, opts.network);
 
-    const [freeRes, posRes] = await Promise.allSettled([
+    const [freeRes, posRes, valueRes] = await Promise.allSettled([
       bf.getBalance(),
       bf.getPositions(),
+      bf.getAccountValue(),
     ]);
     const free = freeRes.status === 'fulfilled' ? (Number(freeRes.value) || 0) : 0;
     const positions: BluefinPosition[] = posRes.status === 'fulfilled' ? posRes.value : [];
-    const bothOk = freeRes.status === 'fulfilled' && posRes.status === 'fulfilled';
+    // "Ok" includes the account value: without it there is no trustworthy
+    // total, and the cached one is used instead.
+    const bothOk = freeRes.status === 'fulfilled' && posRes.status === 'fulfilled' && valueRes.status === 'fulfilled';
 
     const { lockedMargin, upnl } = sumPositionFields(positions);
-    const computed = free + lockedMargin + upnl;
+    // The venue's own total. free + lockedMargin + upnl counted a cross-margin
+    // position's unrealized P&L twice (free collateral already includes it):
+    // on 2026-10-06 that sum read $9.47 against an account value of $16.22.
+    const computed = valueRes.status === 'fulfilled' ? valueRes.value : free + lockedMargin;
     const venueLooksEmpty = free === 0 && positions.length === 0;
 
     // Trust path 1: both fetches succeeded AND something is there.

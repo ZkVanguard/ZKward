@@ -731,6 +731,30 @@ export class BluefinService {
   }
 
   /**
+   * Total value of the venue account in USDC, as the venue computes it:
+   * deposited balance plus unrealized P&L of every position.
+   *
+   * This is the figure for NAV. Free collateral plus position margin plus
+   * unrealized P&L is not: for a cross-margin position the free collateral
+   * already has that position's P&L in it, so the sum counts it twice.
+   * Throws when the venue does not give the figure: a caller pricing the pool
+   * must not mistake "unknown" for zero.
+   */
+  async getAccountValue(): Promise<number> {
+    await this.ensureInitializedAsync();
+    const data = await this.apiRequest<Record<string, unknown>>(
+      'GET',
+      `/api/v1/account?accountAddress=${this.walletAddress}`,
+      undefined,
+      'exchange'
+    );
+    const e9 = data?.totalAccountValueE9;
+    const n = e9 === undefined || e9 === null ? NaN : parseFloat(String(e9));
+    if (!Number.isFinite(n)) throw new Error('venue account value missing from the account response');
+    return n / 1e9;
+  }
+
+  /**
    * Get all open positions from account data.
    *
    * Bluefin Pro returns numeric fields in E9 format (multiplied by 1e9, as
