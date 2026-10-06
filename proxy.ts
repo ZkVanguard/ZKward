@@ -127,7 +127,6 @@ const API_CACHE_POLICIES: Array<{ prefix: string; value: string }> = [
   { prefix: '/api/agents/auto-rebalance', value: 'public, s-maxage=30, stale-while-revalidate=60' },
   { prefix: '/api/portfolio/[', value: 'public, s-maxage=15, stale-while-revalidate=30' },
   { prefix: '/api/portfolio/', value: 'public, s-maxage=30, stale-while-revalidate=60' },
-  { prefix: '/api/price-alerts', value: 'public, s-maxage=15, stale-while-revalidate=30' },
   // Medium-lived data (30s)
   { prefix: '/api/community-pool/', value: 'public, s-maxage=30, stale-while-revalidate=60' },
   { prefix: '/api/community-pool', value: 'public, s-maxage=30, stale-while-revalidate=60' },

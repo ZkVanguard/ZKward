@@ -417,42 +417,6 @@ function updateInMemoryHistory(poolId: string, totalNAV: number): void {
 }
 
 /**
- * Trigger rebalance if needed
- */
-async function triggerRebalanceIfNeeded(
-  pool: (typeof POOLS)[0],
-  maxDrift: number
-): Promise<boolean> {
-  if (maxDrift < DRIFT_WARNING_PERCENT * 2) {
-    return false;
-  }
-
-  try {
-    const baseUrl = process.env.VERCEL
-      ? 'https://zkward.com'
-      : process.env.NEXTAUTH_URL || 'http://localhost:3000';
-
-    const response = await fetch(`${baseUrl}/api/cron/auto-rebalance`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${process.env.CRON_SECRET}`,
-      },
-      signal: AbortSignal.timeout(15000),
-    });
-
-    if (response.ok) {
-      logger.info(`[PoolNAVMonitor] Triggered rebalance for ${pool.id}`);
-      return true;
-    }
-  } catch (error) {
-    logger.error(`[PoolNAVMonitor] Failed to trigger rebalance:`, error);
-  }
-
-  return false;
-}
-
-/**
  * Trigger protective hedge for pool on significant loss
  */
 async function triggerPoolHedge(
@@ -587,7 +551,6 @@ async function monitorPools(): Promise<{
 
     // Trigger rebalance if drift too high
     if (maxDrift > DRIFT_WARNING_PERCENT * 2) {
-      await triggerRebalanceIfNeeded(pool, maxDrift);
     }
 
     // ============================================

@@ -298,8 +298,6 @@ export async function readAlertLogRedis<T = unknown>(): Promise<T[]> {
 // write to different keys per backend.
 
 export const CronKeys = {
-  heartbeatLastCheck: 'heartbeat:lastCheck',
-  poolCheckLastCheck: 'poolCheck:lastCheck',
   requestCounter: 'priceAlert:requestCounter',
   priceAlertLastAlert: (asset: string) => `priceAlert:lastAlert:${asset}`,
   poolNavPeak: (poolId: string) => `poolNav:peak:${poolId}`,
