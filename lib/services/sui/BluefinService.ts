@@ -786,7 +786,13 @@ export class BluefinService {
     const account = await this.apiRequest<{
       positions?: Array<Record<string, unknown>>;
     }>('GET', `/api/v1/account?accountAddress=${this.walletAddress}`, undefined, 'exchange');
-    if (!account || typeof account !== 'object' || !Array.isArray(account.positions)) {
+    if (!account || typeof account !== 'object') {
+      throw new Error('venue account response is not an object');
+    }
+    // A flat account may omit the list. That is a real "no positions" only
+    // when the response is recognisably this account.
+    if (account.positions === undefined && 'accountAddress' in account) return [];
+    if (!Array.isArray(account.positions)) {
       throw new Error('venue account response has no positions list');
     }
     return account.positions.map(parseAccountPosition);

@@ -19,6 +19,15 @@
  * which assets were dropped + why.
  */
 import { hedgeSizeBase } from '@/lib/services/sui/cron/hedge-sizing';
+import { snapToStepSize } from '@/lib/services/sui/bluefin-order-size';
+
+/**
+ * The open path refuses a position under 1.5x the minimum quantity (it would
+ * turn into unclosable dust). The clamp must refuse the same sizes, or it
+ * keeps an allocation whose spot leg is bought and whose hedge is then
+ * skipped. Same value as OPEN_MIN_QTY_BUFFER in dust-manager.ts.
+ */
+export const HEDGEABLE_MIN_QTY_BUFFER = 1.5;
 
 export interface PerpSpec {
   minQuantity: number;
@@ -59,12 +68,13 @@ export interface ClampOutput {
  *
  * The check uses the cron's own sizing (hedgeSizeBase):
  *   sizeBase    = NAV × alloc% × ratio / price
- *   snappedSize = floor(sizeBase / step) × step
- *   hedgeable iff snappedSize >= minQuantity
+ *   snappedSize = sizeBase snapped down to the step
+ *   hedgeable iff snappedSize >= 1.5 × minQuantity (the open path's own floor)
  *
  * Leverage does not make a small allocation hedgeable: it changes the margin
- * behind a position, not its size. A pool too small to reach an asset's
- * minimum quantity holds that share in USDC instead.
+ * behind a position, not its size. An asset the pool is too small to hedge
+ * is dropped, and its share goes to the assets that can be hedged (see
+ * clampAllocationsToHedgeable); when none can, the caller holds USDC.
  */
 export function isHedgeable(
   navUsd: number,
@@ -75,9 +85,9 @@ export function isHedgeable(
 ): { ok: boolean; sizeBase: number; snappedSize: number; notional: number } {
   if (allocationPct <= 0 || price <= 0) return { ok: false, sizeBase: 0, snappedSize: 0, notional: 0 };
   const sizeBase = hedgeSizeBase(navUsd, allocationPct, hedgeRatio, price);
-  const snappedSize = Math.floor(sizeBase / spec.stepSize) * spec.stepSize;
+  const snappedSize = snapToStepSize(sizeBase, spec.stepSize);
   const notional = snappedSize * price;
-  return { ok: snappedSize >= spec.minQuantity, sizeBase, snappedSize, notional };
+  return { ok: snappedSize >= spec.minQuantity * HEDGEABLE_MIN_QTY_BUFFER, sizeBase, snappedSize, notional };
 }
 
 /**

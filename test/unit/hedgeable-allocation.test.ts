@@ -12,8 +12,10 @@ import { describe, it, expect } from '@jest/globals';
 import {
   isHedgeable,
   clampAllocationsToHedgeable,
+  HEDGEABLE_MIN_QTY_BUFFER,
 } from '@/lib/services/sui/cron/hedgeable-allocation';
 import { hedgeSizeBase } from '@/lib/services/sui/cron/hedge-sizing';
+import { OPEN_MIN_QTY_BUFFER } from '@/lib/services/sui/dust-manager';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 
@@ -56,19 +58,36 @@ describe('perp size does not scale with leverage', () => {
   });
 });
 
-describe('isHedgeable', () => {
-  it('rejects when NAV × alloc% × ratio × leverage / price < minQty', () => {
-    // $50 NAV, 45% BTC, ratio 1.0, leverage 5x → hedgeValue $22.50,
-    // effective $112.50, size 0.0015 BTC. Steps to 0.001 → just clears
-    // minQty 0.001. Edge of hedgeable.
-    expect(isHedgeable(250, 45, 1.0, 75_000, SPECS.BTC).ok).toBe(true);
+describe('the clamp accepts exactly what the open path accepts', () => {
+  it('uses the same floor as the dust guard on opens', () => {
+    expect(HEDGEABLE_MIN_QTY_BUFFER).toBe(OPEN_MIN_QTY_BUFFER);
+  });
 
-    // $20 NAV, 30% BTC, 5x → $6.00 × 5 = $30.00, size 0.0004 BTC.
-    // Floors to 0.000. Below minQty 0.001 → not hedgeable.
+  it('refuses a size the open path would skip as dust-prone, so no spot is bought for a hedge that will not open', () => {
+    // $400 NAV, 30% BTC at $75k: 0.0016 BTC snaps to 0.001, exactly the minimum. The open path needs 0.0015.
+    const r = isHedgeable(400, 30, 1.0, 75_000, SPECS.BTC);
+    expect(r.snappedSize).toBe(0.001);
+    expect(r.ok).toBe(false);
+    // two steps clear it
+    expect(isHedgeable(500, 30, 1.0, 75_000, SPECS.BTC)).toMatchObject({ snappedSize: 0.002, ok: true });
+  });
+
+  it('snaps without losing a step to floating point', () => {
+    // 0.57 / 0.01 is 56.99999 in floating point; a bare floor gives 0.56
+    expect(isHedgeable(1140, 100, 1.0, 2_000, SPECS.ETH).snappedSize).toBe(0.57);
+  });
+});
+
+describe('isHedgeable', () => {
+  it('accepts and rejects on the notional alone', () => {
+    // $500 NAV, 45% BTC, ratio 1.0: $225 notional is 0.003 BTC, three steps,
+    // above the 1.5x-minimum floor.
+    expect(isHedgeable(500, 45, 1.0, 75_000, SPECS.BTC).ok).toBe(true);
+
+    // $100 NAV, 30% BTC: $30 notional is 0.0004 BTC, which floors to zero.
     expect(isHedgeable(100, 30, 1.0, 75_000, SPECS.BTC).ok).toBe(false);
 
-    // $50 NAV, 15% SUI, 5x at $1/SUI → $7.50 × 5 = $37.50, 37 SUI.
-    // Clears SUI's minQty=1.
+    // $250 NAV, 15% SUI at $1: 37 SUI, far above the 1 SUI minimum.
     expect(isHedgeable(250, 15, 1.0, 1, SPECS.SUI).ok).toBe(true);
   });
 

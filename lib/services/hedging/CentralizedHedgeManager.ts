@@ -830,11 +830,6 @@ export class CentralizedHedgeManager {
             errors++;
             continue;
           }
-          const rawLeverage = Number(hedge.leverage);
-          const leverage =
-            Number.isFinite(rawLeverage) && rawLeverage >= 1 && rawLeverage <= 125
-              ? rawLeverage
-              : 1;
 
           let pnlMultiplier: number;
           if (hedge.side === 'SHORT') {
@@ -842,7 +837,7 @@ export class CentralizedHedgeManager {
           } else {
             pnlMultiplier = (snapshotPrice.price - fixedEntryPrice) / fixedEntryPrice;
           }
-          const unrealizedPnL = rawNotionalValue * pnlMultiplier * leverage;
+          const unrealizedPnL = rawNotionalValue * pnlMultiplier;
           if (isFinite(unrealizedPnL)) {
             updates.push({ id: hedge.id, pnl: unrealizedPnL, price: snapshotPrice.price });
           }

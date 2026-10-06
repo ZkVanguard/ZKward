@@ -111,7 +111,7 @@ export async function GET(request: NextRequest): Promise<NextResponse<HealthResu
     // Probe 1: balance + positions in parallel with hard timeout
     const [balRes, posRes] = await Promise.allSettled([
       withTimeout(bf.getBalance(), HEALTH_API_TIMEOUT_MS, 'getBalance'),
-      withTimeout(bf.getPositions(), HEALTH_API_TIMEOUT_MS, 'getPositions'),
+      withTimeout(bf.getPositionsStrict(), HEALTH_API_TIMEOUT_MS, 'getPositions'),
     ]);
 
     if (balRes.status === 'fulfilled' && typeof balRes.value === 'number') {

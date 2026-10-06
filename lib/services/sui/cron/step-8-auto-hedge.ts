@@ -33,6 +33,7 @@ import { bluefinTreasury } from '@/lib/services/sui/BluefinTreasuryService';
 import { SUI_COMMUNITY_POOL_PORTFOLIO_ID, isSuiCommunityPool } from '@/lib/constants';
 import { createHedge, updateHedgeStatus } from '@/lib/db/hedges';
 import { resolveLeverage, hedgeRatioForNav, computeTargetMargin, hedgeValueUsd, hedgeSizeBase, scaledReserves } from '@/lib/services/sui/cron/hedge-sizing';
+import { snapToStepSize } from '@/lib/services/sui/bluefin-order-size';
 import { wouldBecomeDust } from '@/lib/services/sui/dust-manager';
 import { routeHedge } from '@/lib/services/perps/PerpVenueRouter';
 import { HyperliquidService } from '@/lib/services/perps/HyperliquidService';
@@ -420,7 +421,7 @@ export async function runStep8AutoHedge(input: Step8Input): Promise<Step8Result>
             // Size is the notional over price; leverage only sets the margin behind it.
             const sizeBase = hedgeSizeBase(navUsd, allocation, hedgeRatio, price);
             const spec = PERP_SPECS[asset];
-            const snappedSize = Math.floor(sizeBase / spec.stepSize) * spec.stepSize;
+            const snappedSize = snapToStepSize(sizeBase, spec.stepSize);
 
             if (snappedSize < spec.minQty) {
               logger.info(`[SUI Cron] Skip ${asset}-PERP: size ${snappedSize} < minQty ${spec.minQty}`, {
@@ -550,24 +551,11 @@ export async function runStep8AutoHedge(input: Step8Input): Promise<Step8Result>
               // fill can be rejected, leaving us with an orphan DB row.
               // Wait briefly and re-poll positions; only persist if the
               // (symbol, side) actually shows up.
-              let filled = false;
-              if (result.success && result.orderId) {
-                await new Promise(r => setTimeout(r, 2_500));
-                try {
-                  const post = await bluefin.getPositions();
-                  filled = post.some(p =>
-                    p.symbol === symbol &&
-                    (p.side || '').toUpperCase() === side &&
-                    Number((p as { size?: number }).size ?? 0) > 0,
-                  );
-                } catch {
-                  // If the verification call fails we can't confirm — be
-                  // conservative and skip persisting; the order is on
-                  // BlueFin and the next cycle's reconciler will adopt it
-                  // into the DB if it actually exists.
-                  filled = false;
-                }
-              }
+              // openHedge has already verified the fill by the position delta
+              // and reports success only then. A second, lenient read here
+              // answered a failed read with "no position" and threw away a
+              // fill that had been verified.
+              const filled = result.success && !!result.orderId;
 
               hedges.push({
                 symbol, side, size: snappedSize,

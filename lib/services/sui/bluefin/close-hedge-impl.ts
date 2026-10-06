@@ -16,6 +16,9 @@ import { snapToStepSize } from '@/lib/services/sui/bluefin-order-size';
 import { checkMarkPriceDivergence } from '@/lib/services/sui/bluefin/markprice-divergence';
 import type { OrderSignedFields } from '@/lib/services/sui/bluefin/sign-request';
 
+/** How long the fill verification may poll before giving up. */
+const VERIFY_POLL_DEADLINE_MS = 8_000;
+
 export interface CloseHedgeContext {
   walletAddress: string | null;
   network: 'mainnet' | 'testnet';
@@ -133,15 +136,22 @@ export async function performCloseHedge(
     let filledSize = parseFloat(orderResponse?.filledQty || '0');
     let positionShrunk = false;
     let postCloseSize = preCloseSize;
+    let polled = false;
+    let verificationReadOk = false;
 
     if (filledSize === 0 && (orderResponse?.realizedPnl ?? '') === '') {
       const POLL_MS = 500;
       const POLL_ATTEMPTS = 10;
-      for (let i = 0; i < POLL_ATTEMPTS; i++) {
+      // Bounded by time as well as attempts: a read that retries inside the
+      // client can take many seconds, and the callers run under a function limit.
+      const pollDeadline = Date.now() + VERIFY_POLL_DEADLINE_MS;
+      polled = true;
+      for (let i = 0; i < POLL_ATTEMPTS && Date.now() < pollDeadline; i++) {
         await new Promise((r) => setTimeout(r, POLL_MS));
         // A failed read is not "the position is gone": keep polling.
         const fresh = await ctx.getPositions().catch(() => null);
         if (!fresh) continue;
+        verificationReadOk = true;
         const stillThere = fresh.find((p) => p.symbol === params.symbol);
         postCloseSize = stillThere?.size ?? 0;
         const shrinkage = preCloseSize - postCloseSize;
@@ -167,6 +177,10 @@ export async function performCloseHedge(
         realizedPnl: orderResponse?.realizedPnl,
         rawResponse: JSON.stringify(orderResponse).slice(0, 500),
       });
+      // If no read succeeded we do not know that the venue rejected it.
+      if (polled && !verificationReadOk) {
+        return HedgeResult.unverified(hedgeId, params.symbol, orderResponse?.orderHash);
+      }
       // Classify with a machine code so callers can TTL-suppress this
       // failure the same way they do DUST_LOCKED. Prior rev returned
       // an untyped {code:undefined} which forced the stale-close and

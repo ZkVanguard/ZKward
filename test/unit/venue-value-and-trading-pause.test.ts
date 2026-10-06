@@ -18,7 +18,7 @@ const getBalance = jest.fn<() => Promise<number>>();
 const getPositions = jest.fn<() => Promise<unknown[]>>();
 const getAccountValue = jest.fn<() => Promise<number>>();
 jest.mock('@/lib/services/sui/BluefinService', () => ({
-  BluefinService: { getInstance: () => ({ initialize: jest.fn(async () => {}), getBalance, getPositions, getAccountValue }) },
+  BluefinService: { getInstance: () => ({ initialize: jest.fn(async () => {}), getBalance, getPositions, getPositionsStrict: getPositions, getAccountValue }) },
 }));
 
 import { safeBluefinSnapshot, refreshBluefinCache } from '@/lib/services/sui/bluefin-read-safe';

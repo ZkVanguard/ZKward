@@ -36,6 +36,14 @@ import { SuiCommunityPoolService } from '@/lib/services/sui/SuiCommunityPoolServ
 
 const USDC_DECIMALS = 6;
 
+/**
+ * An unpriced holding below this many whole units is ignored when deciding
+ * whether NAV is complete: a millionth of a coin is under a dollar for any
+ * asset the pool holds, and a few leftover base units must not stop the
+ * attestation whenever one price read fails.
+ */
+const UNPRICED_DUST_UNITS = 1e-6;
+
 export class SuiUsdcPoolService {
   private network: SuiNetworkType;
   private config: (typeof SUI_USDC_POOL_CONFIG)[SuiNetworkType];
@@ -225,7 +233,7 @@ export class SuiUsdcPoolService {
                       const v = swappable * sp.price;
                       adminAssetValueUsdc += v;
                       assetUsdValue.SUI += v;
-                    } else {
+                    } else if (swappable >= UNPRICED_DUST_UNITS) {
                       adminHoldingsPriced = false;
                     }
                   }
@@ -244,7 +252,7 @@ export class SuiUsdcPoolService {
                   const v = amount * priceData.price;
                   adminAssetValueUsdc += v;
                   if (asset in assetUsdValue) assetUsdValue[asset] += v;
-                } else {
+                } else if (amount >= UNPRICED_DUST_UNITS) {
                   adminHoldingsPriced = false;
                 }
               }

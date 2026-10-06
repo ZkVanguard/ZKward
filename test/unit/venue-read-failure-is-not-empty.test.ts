@@ -66,6 +66,9 @@ describe('closing a venue position', () => {
     expect(orders.length).toBe(1);
     expect(readCount()).toBeGreaterThan(5); // it kept polling
     expect(r.success).toBe(false);
+    // "we could not look" is not a venue rejection: no code, so nothing suppresses retries or raises an alert
+    expect((r as { code?: string }).code).toBeUndefined();
+    expect(r.error).toMatch(/could not be read to verify/);
     expect(closePerpHedgeBySymbolSide).not.toHaveBeenCalled();
   }, 15_000);
 
@@ -73,6 +76,7 @@ describe('closing a venue position', () => {
     const { ctx } = makeCtx(['open']);
     const r = await performCloseHedge(ctx, { symbol: 'SUI-PERP' });
     expect(r.success).toBe(false);
+    expect((r as { code?: string }).code).toBe('SILENT_REJECT');
   }, 15_000);
 
   it('reads that fail and then show the position gone confirm the close', async () => {
@@ -85,6 +89,22 @@ describe('closing a venue position', () => {
 
 describe('callers that act on positions use the strict read', () => {
   const read = (p: string) => readFileSync(join(process.cwd(), p), 'utf8').replace(/\r\n/g, '\n');
+
+  it('the auto-hedge step trusts the fill the open path verified, with no second lenient read', () => {
+    const src = read('lib/services/sui/cron/step-8-auto-hedge.ts');
+    expect(src).toContain('const filled = result.success && !!result.orderId;');
+    expect(src).not.toContain('await bluefin.getPositions()');
+  });
+
+  it('the health probe and the NAV snapshot see a failed read as a failure', () => {
+    expect(read('app/api/cron/bluefin-health/route.ts')).toContain('bf.getPositionsStrict()');
+    expect(read('lib/services/sui/bluefin-read-safe.ts')).toContain('bf.getPositionsStrict(),');
+  });
+
+  it('dollar P&L is notional x move, not multiplied by leverage', () => {
+    expect(read('lib/services/hedging/HedgePnLTracker.ts')).toContain('const unrealizedPnL = notionalValue * pnlMultiplier;');
+    expect(read('lib/services/hedging/CentralizedHedgeManager.ts')).not.toContain('rawNotionalValue * pnlMultiplier * leverage');
+  });
 
   it('the service keeps a lenient read for display and a strict one that throws', () => {
     const src = read('lib/services/sui/BluefinService.ts');
@@ -121,6 +141,9 @@ describe('a held asset that cannot be priced', () => {
 
   it('marks the NAV basis as incomplete, so that tick is not attested on chain', () => {
     expect(src.split('adminHoldingsPriced = false;').length - 1).toBe(2); // SUI above the gas reserve, and every other asset
+    // a few leftover base units must not stop the attestation when one price read fails
+    expect(src).toContain('} else if (amount >= UNPRICED_DUST_UNITS) {');
+    expect(src).toContain('const UNPRICED_DUST_UNITS = 1e-6;');
     expect(src).toContain('adminRead: usedAdminBalances && adminHoldingsPriced,');
     const step4 = readFileSync(join(process.cwd(), 'lib/services/sui/cron/step-4-nav-defense.ts'), 'utf8');
     expect(step4).toContain('!basis.adminRead');
