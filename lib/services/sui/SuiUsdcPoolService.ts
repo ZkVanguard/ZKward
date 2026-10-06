@@ -166,6 +166,9 @@ export class SuiUsdcPoolService {
           let adminAssetValueUsdc = 0;
           let adminUsdcInWallet = 0;
           let usedAdminBalances = false;
+          // False when a held asset could not be priced: it is then missing from NAV,
+          // and a NAV with a hole in it must not be attested on chain.
+          let adminHoldingsPriced = true;
           // Per-asset live composition (USD value held per asset).
           // Drives the dashboard "Current Holdings" chart so it shows the
           // REAL composition, not a hardcoded fallback.
@@ -222,6 +225,8 @@ export class SuiUsdcPoolService {
                       const v = swappable * sp.price;
                       adminAssetValueUsdc += v;
                       assetUsdValue.SUI += v;
+                    } else {
+                      adminHoldingsPriced = false;
                     }
                   }
                   continue;
@@ -239,6 +244,8 @@ export class SuiUsdcPoolService {
                   const v = amount * priceData.price;
                   adminAssetValueUsdc += v;
                   if (asset in assetUsdValue) assetUsdValue[asset] += v;
+                } else {
+                  adminHoldingsPriced = false;
                 }
               }
               usedAdminBalances = true;
@@ -377,7 +384,7 @@ export class SuiUsdcPoolService {
             navBasis: {
               poolBalanceUsdc: balanceUsdc,
               externalUsdc: offChainPoolCapital + bluefinValueUsdc,
-              adminRead: usedAdminBalances,
+              adminRead: usedAdminBalances && adminHoldingsPriced,
               venueSource: bfSnap.source,
             },
           };

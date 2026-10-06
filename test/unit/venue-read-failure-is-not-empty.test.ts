@@ -115,3 +115,14 @@ describe('callers that act on positions use the strict read', () => {
     expect(bail).toBeLessThan(vanished);
   });
 });
+
+describe('a held asset that cannot be priced', () => {
+  const src = readFileSync(join(process.cwd(), 'lib/services/sui/SuiUsdcPoolService.ts'), 'utf8').replace(/\r\n/g, '\n');
+
+  it('marks the NAV basis as incomplete, so that tick is not attested on chain', () => {
+    expect(src.split('adminHoldingsPriced = false;').length - 1).toBe(2); // SUI above the gas reserve, and every other asset
+    expect(src).toContain('adminRead: usedAdminBalances && adminHoldingsPriced,');
+    const step4 = readFileSync(join(process.cwd(), 'lib/services/sui/cron/step-4-nav-defense.ts'), 'utf8');
+    expect(step4).toContain('!basis.adminRead');
+  });
+});
