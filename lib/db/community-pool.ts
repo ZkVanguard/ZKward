@@ -445,8 +445,9 @@ export async function txHashExists(txHash: string): Promise<boolean> {
   if (!txHash) return false;
   try {
     const result = await queryOne(
-      `SELECT 1 FROM community_pool_transactions WHERE tx_hash = $1`,
-      [txHash.toLowerCase()]
+      // EVM hashes may be stored in either case; a Sui digest is case-sensitive.
+      `SELECT 1 FROM community_pool_transactions WHERE tx_hash = $1 OR tx_hash = $2 LIMIT 1`,
+      [txHash, txHash.toLowerCase()]
     );
     return !!result;
   } catch (error) {

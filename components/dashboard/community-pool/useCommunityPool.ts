@@ -49,6 +49,19 @@ import type { SolanaPoolStatus } from '@/components/solana/status'; // =========
 // HOOK
 // ============================================================================
 
+/**
+ * Tell the server which on-chain transaction to record. It reads the facts
+ * from the chain; a node that has not seen the transaction yet answers 503,
+ * so that one case is tried once more.
+ */
+async function postPoolRecord(url: string, body: { walletAddress: string; txDigest: string }): Promise<void> {
+  const send = () => fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  const res = await send();
+  if (res.status !== 503) return;
+  await new Promise((r) => setTimeout(r, 10_000));
+  await send();
+}
+
 export function useCommunityPool(propAddress?: string, evmActive: boolean = true) {
   const [poolState, dispatchPool] = useReducer(poolReducer, initialPoolState);
   const [txState, dispatchTx] = useReducer(txReducer, initialTxState);
@@ -1464,14 +1477,9 @@ export function useCommunityPool(propAddress?: string, evmActive: boolean = true
         // Step 4: Record the deposit server-side (idempotent by txDigest) so the
         // dashboard history + per-wallet share cache stays in sync. Fire-and-forget;
         // failure here doesn't affect the on-chain deposit which has already settled.
-        fetch(`/api/sui/community-pool?action=record-deposit&network=${suiNetwork}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            walletAddress: suiAddress,
-            amountUsdc: usdAmount,
-            txDigest: result.digest,
-          }),
+        postPoolRecord(`/api/sui/community-pool?action=record-deposit&network=${suiNetwork}`, {
+          walletAddress: suiAddress,
+          txDigest: result.digest,
         }).catch((err) => logger.warn('record-deposit failed (non-fatal)', err));
 
         // Refresh pool data after a short delay
@@ -1546,7 +1554,7 @@ export function useCommunityPool(propAddress?: string, evmActive: boolean = true
         fetch(`/api/sui/community-pool?action=withdraw&network=${suiNetwork}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ shares: sharesRaw.toString() }),
+          body: JSON.stringify({ shares: sharesRaw.toString(), walletAddress: suiAddress }),
         });
 
       let res = await fetchWithdrawParams();
@@ -1630,14 +1638,9 @@ export function useCommunityPool(propAddress?: string, evmActive: boolean = true
         // read as \$0 in analyze-pool-pnl and the dashboard forever.
         // Non-critical: DB write failure doesn't undo the on-chain
         // withdraw; the reconciler will pick it up later. Fire-and-forget.
-        void fetch(`/api/sui/community-pool?action=record-withdraw&network=${suiNetwork}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            walletAddress: suiAddress,
-            sharesToBurn: Number(sharesRaw) / 1e6,
-            txDigest: result.digest,
-          }),
+        void postPoolRecord(`/api/sui/community-pool?action=record-withdraw&network=${suiNetwork}`, {
+          walletAddress: suiAddress,
+          txDigest: result.digest,
         }).catch((err) => {
           logger.warn('Record-withdraw failed (non-critical, reconciler will retry)', err);
         });

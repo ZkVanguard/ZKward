@@ -2,7 +2,7 @@
  * Debug: SUI Pool Status & Last Cron Run
  *
  * Returns detailed info about the SUI pool state and last cron execution.
- * Protected by DEBUG_SECRET env var.
+ * Service credential only: it reports configuration state and recent decisions.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -12,13 +12,16 @@ import {
   SUI_USDC_POOL_CONFIG,
 } from '@/lib/services/sui/SuiCommunityPoolService';
 import { BluefinService } from '@/lib/services/sui/BluefinService';
+import { verifyCronRequest } from '@/lib/qstash';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const BUILD_TIMESTAMP = new Date().toISOString();
 
-export async function GET(_request: NextRequest): Promise<NextResponse> {
-  // Allow unauthenticated access - this endpoint only shows status, no secrets
+export async function GET(request: NextRequest): Promise<NextResponse> {
+  const authResult = await verifyCronRequest(request, 'debug/sui-pool-status');
+  if (authResult !== true) return authResult;
+
   const network = (process.env.SUI_NETWORK || 'testnet').trim() as 'mainnet' | 'testnet';
 
   const result: Record<string, unknown> = {

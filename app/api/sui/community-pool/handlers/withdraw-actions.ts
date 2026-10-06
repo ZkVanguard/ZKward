@@ -9,6 +9,8 @@ import { verifyCronRequest } from '@/lib/qstash';
 import { getSuiUsdcPoolService } from '@/lib/services/sui/SuiCommunityPoolService';
 import { getBluefinAggregatorService, type PoolAsset, type SwapExecutionResult } from '@/lib/services/sui/BluefinAggregatorService';
 import { withWalletLock } from './wallet-lock';
+import { provePoolTx, offNetworkError } from './pool-tx-proof';
+import { readMemberSharesStrict } from './member-shares';
 import type { ActionCtx } from './types';
 
 /**
@@ -19,21 +21,63 @@ import type { ActionCtx } from './types';
  * suggestion so the frontend can auto-fill a retry.
  */
 export async function handleWithdraw(ctx: ActionCtx): Promise<NextResponse> {
-  const { request, network, body } = ctx;
-  const shares = body.shares;
-  if (!shares) {
+  const { network, body } = ctx;
+  const offNetwork = offNetworkError(network);
+  if (offNetwork) return offNetwork;
+  const walletAddress = body.walletAddress;
+  if (walletAddress === undefined) {
+    // A page loaded before this check existed does not send the wallet.
+    return NextResponse.json({ success: false, error: 'This page is out of date. Reload it and try the withdrawal again.' }, { status: 400 });
+  }
+  if (typeof walletAddress !== 'string' || !/^0x[a-fA-F0-9]{64}$/.test(walletAddress)) {
+    return NextResponse.json({ success: false, error: 'Valid SUI wallet address required (0x + 64 hex chars)' }, { status: 400 });
+  }
+  if (!body.shares) {
     return NextResponse.json({ success: false, error: 'Shares required (raw u64, scaled by 10^6)' }, { status: 400 });
   }
-
-  const sharesScaled = BigInt(shares as string | number | bigint);
+  let sharesScaled: bigint;
+  try {
+    sharesScaled = BigInt(body.shares as string | number | bigint);
+  } catch {
+    return NextResponse.json({ success: false, error: 'Shares must be an integer (raw u64, scaled by 10^6)' }, { status: 400 });
+  }
   if (sharesScaled <= 0n) {
     return NextResponse.json({ success: false, error: 'Shares must be positive' }, { status: 400 });
   }
+  const sharesNum = Number(sharesScaled) / 1e6;
 
+  // The preflight below can make the server unwind positions to fund the
+  // payout, so it is bounded to shares this wallet holds on chain. That stops
+  // a request for shares nobody owns. It does not prove the caller is that
+  // member: the wallet is a body field and member addresses are public, so
+  // a stranger can still trigger a real member's preflight. Closing that
+  // needs the wallet to sign the request. The lock below is per instance.
+  let ownedShares: number;
+  try {
+    ownedShares = await readMemberSharesStrict(network, walletAddress);
+  } catch (err) {
+    logger.warn('[SUI-API] Withdraw preflight could not read the member position', {
+      error: err instanceof Error ? err.message : String(err),
+    });
+    return NextResponse.json(
+      { success: false, error: 'Could not read your pool position right now. Please try again in a moment.', chain: 'sui', network },
+      { status: 503 },
+    );
+  }
+  if (sharesNum > ownedShares + 1e-6) {
+    return NextResponse.json(
+      { success: false, error: `This wallet holds ${ownedShares.toFixed(6)} shares; cannot withdraw ${sharesNum.toFixed(6)}.`, chain: 'sui', network },
+      { status: 403 },
+    );
+  }
+
+  return withWalletLock(walletAddress, () => prepareWithdraw(ctx, sharesScaled, sharesNum));
+}
+
+async function prepareWithdraw(ctx: ActionCtx, sharesScaled: bigint, sharesNum: number): Promise<NextResponse> {
+  const { request, network } = ctx;
   const service = getSuiUsdcPoolService(network);
   await service.getPoolStats();
-
-  const sharesNum = Number(sharesScaled) / 1e6;
 
   // Pool-liquidity preflight — see original inline comment block for the full
   // reasoning; TL;DR: Move-side withdraw reverts if pool balance < payout, so
@@ -372,84 +416,47 @@ export async function handleExecuteWithdrawSwaps(ctx: ActionCtx): Promise<NextRe
   });
 }
 
+/**
+ * Record a withdrawal the wallet has already made on chain. As with deposits,
+ * the body only names the transaction; shares burned and USDC paid come from
+ * the event the pool contract emitted.
+ */
 export async function handleRecordWithdraw(ctx: ActionCtx): Promise<NextResponse> {
-  const { network, body } = ctx;
-  const walletAddress = body.walletAddress as string | undefined;
-  const sharesToBurn = body.sharesToBurn as number | undefined;
-  const txDigest = body.txDigest as string | undefined;
-
-  if (!walletAddress || typeof walletAddress !== 'string' || !/^0x[a-fA-F0-9]{64}$/.test(walletAddress)) {
-    return NextResponse.json({ success: false, error: 'Valid SUI wallet address required (0x + 64 hex chars)' }, { status: 400 });
-  }
-  if (!sharesToBurn || typeof sharesToBurn !== 'number' || sharesToBurn <= 0) {
-    return NextResponse.json({ success: false, error: 'sharesToBurn required (positive number)' }, { status: 400 });
-  }
-  if (txDigest && typeof txDigest === 'string' && !/^[A-Za-z0-9+/=]{32,64}$/.test(txDigest)) {
-    return NextResponse.json({ success: false, error: 'Invalid transaction digest format' }, { status: 400 });
-  }
+  const { network } = ctx;
+  const proven = await provePoolTx(ctx, 'UsdcWithdrawn');
+  if (proven instanceof NextResponse) return proven;
+  const { walletAddress, txDigest, proof } = proven;
+  const sharesBurned = proof.shares;
+  const usdcReturned = proof.amountUsdc;
+  const sharePrice = usdcReturned / sharesBurned;
 
   const service = getSuiUsdcPoolService(network);
-  const { saveUserSharesToDb, deleteUserSharesFromDb, addPoolTransactionToDb, txHashExists } = await import('@/lib/db/community-pool');
-
-  if (txDigest) {
-    const alreadyRecorded = await txHashExists(txDigest);
-    if (alreadyRecorded) {
-      return NextResponse.json({
-        success: true,
-        data: {
-          walletAddress,
-          sharesBurned: 0,
-          usdcReturned: 0,
-          message: 'Withdrawal already recorded (idempotent)',
-        },
-        chain: 'sui',
-        network,
-      });
-    }
-  }
+  const { saveUserSharesToDb, deleteUserSharesFromDb, addPoolTransactionToDb, getUserSharesFromDb, txHashExists } = await import('@/lib/db/community-pool');
 
   return withWalletLock(walletAddress, async () => {
-    let remainingShares = 0;
+    if (await txHashExists(txDigest)) {
+      return NextResponse.json({ success: true, data: { walletAddress, message: 'Transaction already recorded (idempotent)' }, chain: 'sui', network });
+    }
+    let remainingShares: number;
     let onChainVerified = false;
-    // Read pool stats FIRST so we know the current share price and can
-    // compute the actual USDC returned. Prior code used a hardcoded
-    // sharePrice = 1.0 (assumed dollar-parity), which is wrong every
-    // time NAV drifts from initial deposit — currently share price is
-    // ~$0.57 so withdrawals were being logged at 1.75x their real
-    // USDC value, corrupting analytics + cost-basis accounting.
-    let sharePrice = 1.0;
     try {
-      service.clearCaches();
-      await new Promise(r => setTimeout(r, 2000));
-      const [onChainPos, stats] = await Promise.all([
-        service.getMemberPosition(walletAddress),
-        service.getPoolStats(),
-      ]);
-      remainingShares = onChainPos.isMember ? onChainPos.shares : 0;
+      remainingShares = await readMemberSharesStrict(network, walletAddress);
       onChainVerified = true;
-      if (stats?.sharePrice && stats.sharePrice > 0) sharePrice = stats.sharePrice;
     } catch (err) {
       logger.error('[SUI-API] On-chain read failed during withdrawal recording', {
         error: err instanceof Error ? err.message : err,
       });
-      const { getUserSharesFromDb } = await import('@/lib/db/community-pool');
       const dbShares = await getUserSharesFromDb(walletAddress, 'sui');
-      remainingShares = Math.max(0, (dbShares?.shares || 0) - sharesToBurn);
-      // Fall through with sharePrice=1.0 default — better a slightly
-      // stale value than a hard failure. Reconciler will correct.
+      remainingShares = Math.max(0, (dbShares?.shares || 0) - sharesBurned);
     }
-
-    // Real USDC returned = shares burned × current share price.
-    const withdrawUsdc = sharesToBurn * sharePrice;
+    service.clearCaches();
 
     if (remainingShares <= 0.0001) {
       await deleteUserSharesFromDb(walletAddress, 'sui');
       remainingShares = 0;
     } else {
-      // Cost basis at share price — matches the deposit-side pattern.
-      // Not perfectly accurate (doesn't track weighted-avg entry) but
-      // consistent with how deposits get recorded now. FIFO accuracy
-      // is a separate refactor.
+      // Cost basis at share price, matching how deposits are recorded. It does
+      // not track a weighted-average entry.
       await saveUserSharesToDb({
         walletAddress,
         shares: remainingShares,
@@ -462,21 +469,17 @@ export async function handleRecordWithdraw(ctx: ActionCtx): Promise<NextResponse
       id: `sui-withdraw-${Date.now()}-${walletAddress.slice(-8)}`,
       type: 'WITHDRAWAL',
       walletAddress,
-      amountUSD: withdrawUsdc,
-      shares: sharesToBurn,
+      amountUSD: usdcReturned,
+      shares: sharesBurned,
       sharePrice,
-      details: {
-        network,
-        onChain: true,
-        onChainVerified,
-        remainingSharesOnChain: remainingShares,
-      },
-      txHash: txDigest || undefined,
+      details: { network, onChain: true, onChainVerified, remainingSharesOnChain: remainingShares },
+      txHash: txDigest,
+      chain: 'sui',
     });
 
     logger.info('[SUI-API] Withdrawal recorded', {
       wallet: walletAddress.slice(0, 10) + '...',
-      sharesBurned: sharesToBurn,
+      sharesBurned,
       remainingShares,
       onChainVerified,
       txDigest,
@@ -484,14 +487,7 @@ export async function handleRecordWithdraw(ctx: ActionCtx): Promise<NextResponse
 
     return NextResponse.json({
       success: true,
-      data: {
-        walletAddress,
-        sharesBurned: sharesToBurn,
-        usdcReturned: withdrawUsdc,
-        sharePrice,
-        remainingShares,
-        onChainVerified,
-      },
+      data: { walletAddress, sharesBurned, usdcReturned, sharePrice, remainingShares, onChainVerified },
       chain: 'sui',
       network,
     });

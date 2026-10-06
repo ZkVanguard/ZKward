@@ -19,6 +19,7 @@ import {
 } from '@/lib/services/AutoRebalanceService';
 import { logger } from '@/lib/utils/logger';
 import { requireAuth } from '@/lib/security/auth-middleware';
+import { walletScopeDenial, type Auth } from './wallet-scope';
 import { mutationLimiter } from '@/lib/security/rate-limiter';
 import { safeErrorResponse } from '@/lib/security/safe-error';
 import {
@@ -30,6 +31,11 @@ import {
 export const runtime = 'nodejs';
 export const maxDuration = 15;
 export const dynamic = 'force-dynamic';
+
+async function walletScopeError(auth: Auth, action: string | null, portfolioId: unknown, walletAddress: unknown): Promise<NextResponse | null> {
+  const denial = await walletScopeDenial(auth, action, portfolioId, walletAddress, async (id) => (await getAutoRebalanceConfig(id))?.walletAddress ?? null);
+  return denial ? NextResponse.json({ success: false, error: denial }, { status: 403 }) : null;
+}
 
 /**
  * POST - Control auto-rebalancing service
@@ -49,6 +55,9 @@ export async function POST(request: NextRequest) {
     if (authResult instanceof NextResponse) return authResult;
 
     const { portfolioId, walletAddress, config } = body;
+
+    const scopeError = await walletScopeError(authResult, action, portfolioId, walletAddress);
+    if (scopeError) return scopeError;
 
     switch (action) {
       case 'start':
@@ -231,11 +240,17 @@ export async function GET(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
   try {
     const body = await request.json().catch(() => ({}));
+    const authResult = await requireAuth(request, body as Record<string, unknown>);
+    if (authResult instanceof NextResponse) return authResult;
+
     const { portfolioId, walletAddress, lossProtection } = body;
 
     if (!portfolioId) {
       return NextResponse.json({ success: false, error: 'portfolioId required' }, { status: 400 });
     }
+
+    const scopeError = await walletScopeError(authResult, 'patch', portfolioId, walletAddress);
+    if (scopeError) return scopeError;
 
     // Get existing config or create new one
     let existingConfig = await getAutoRebalanceConfig(parseInt(portfolioId, 10));

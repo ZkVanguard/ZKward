@@ -9,6 +9,7 @@ import { verifyCronRequest } from '@/lib/qstash';
 import { getSuiUsdcPoolService } from '@/lib/services/sui/SuiCommunityPoolService';
 import { getBluefinAggregatorService, type PoolAsset } from '@/lib/services/sui/BluefinAggregatorService';
 import { withWalletLock } from './wallet-lock';
+import { provePoolTx } from './pool-tx-proof';
 import type { ActionCtx } from './types';
 
 export async function handleDeposit(ctx: ActionCtx): Promise<NextResponse> {
@@ -164,119 +165,44 @@ export async function handleDryRunDepositSwaps(ctx: ActionCtx): Promise<NextResp
   });
 }
 
+/**
+ * Record a deposit the wallet has already made on chain.
+ *
+ * The body only names the transaction. Who deposited, how much and how many
+ * shares come from the event the pool contract emitted in it. This action
+ * writes history rows and never signs or swaps anything: allocation of new
+ * deposits is the authenticated cron's job.
+ */
 export async function handleRecordDeposit(ctx: ActionCtx): Promise<NextResponse> {
-  const { network, body } = ctx;
-  const walletAddress = body.walletAddress as string | undefined;
-  const amountUsdc = body.amountUsdc as number | undefined;
-  const allocations = body.allocations as Record<string, number> | undefined;
-  const txDigest = body.txDigest as string | undefined;
-
-  if (!walletAddress || typeof walletAddress !== 'string' || !/^0x[a-fA-F0-9]{64}$/.test(walletAddress)) {
-    return NextResponse.json({ success: false, error: 'Valid SUI wallet address required (0x + 64 hex chars)' }, { status: 400 });
-  }
-  if (!amountUsdc || typeof amountUsdc !== 'number' || amountUsdc <= 0) {
-    return NextResponse.json({ success: false, error: 'amountUsdc required (positive number)' }, { status: 400 });
-  }
-  const MAX_SINGLE_DEPOSIT_USDC = 10_000_000; // $10M max per deposit
-  if (amountUsdc > MAX_SINGLE_DEPOSIT_USDC) {
-    return NextResponse.json({ success: false, error: `Deposit exceeds maximum ($${MAX_SINGLE_DEPOSIT_USDC.toLocaleString()} USDC)` }, { status: 400 });
-  }
-  if (txDigest && typeof txDigest === 'string' && !/^[A-Za-z0-9+/=]{32,64}$/.test(txDigest) && !txDigest.startsWith('usdc-deposit-')) {
-    return NextResponse.json({ success: false, error: 'Invalid transaction digest format' }, { status: 400 });
-  }
+  const { network } = ctx;
+  const proven = await provePoolTx(ctx, 'UsdcDeposited');
+  if (proven instanceof NextResponse) return proven;
+  const { walletAddress, txDigest, proof } = proven;
+  const amountUsdc = proof.amountUsdc;
+  const sharesMinted = proof.shares;
 
   const service = getSuiUsdcPoolService(network);
   const { getUserSharesFromDb, saveUserSharesToDb, addPoolTransactionToDb, txHashExists } = await import('@/lib/db/community-pool');
 
-  if (txDigest) {
-    const alreadyRecorded = await txHashExists(txDigest);
-    if (alreadyRecorded) {
-      const existingShares = await getUserSharesFromDb(walletAddress, 'sui');
-      return NextResponse.json({
-        success: true,
-        data: {
-          walletAddress,
-          amountUsdc,
-          sharesMinted: 0,
-          totalShares: existingShares?.shares || 0,
-          message: 'Transaction already recorded (idempotent)',
-        },
-        chain: 'sui',
-        network,
-      });
-    }
-  }
-
-  const isOnChainDeposit = !!txDigest && !txDigest.startsWith('usdc-deposit-');
-
   return withWalletLock(walletAddress, async () => {
-    let swapResult = { totalExecuted: 0, totalFailed: 0, results: [] as Array<{ asset: string; success: boolean; txDigest?: string; amountIn?: string; amountOut?: string; error?: string }> };
-    const hedgeResults: Array<{ asset: string; success: boolean; hedgeId?: string; method: string; error?: string }> = [];
-
-    if (!isOnChainDeposit && allocations && typeof allocations === 'object') {
-      const aggregator = getBluefinAggregatorService(network);
-      const wallet = await aggregator.checkAdminWallet();
-
-      if (wallet.configured && wallet.hasGas) {
-        let finalAllocations = allocations as Record<PoolAsset, number>;
-        const isStaticDefault = allocations.BTC === 30 && allocations.ETH === 30 && allocations.SUI === 25 && allocations.CRO === 15;
-        if (isStaticDefault) {
-          try {
-            const { getSuiPoolAgent } = await import('@/agents/specialized/SuiPoolAgent');
-            const agent = getSuiPoolAgent(network);
-            const indicators = await agent.analyzeMarket();
-            const decision = agent.generateAllocation(indicators);
-            finalAllocations = decision.allocations;
-          } catch {
-            // Keep static allocation on failure
-          }
-        }
-
-        const plan = await aggregator.planRebalanceSwaps(amountUsdc, finalAllocations);
-        swapResult = await aggregator.executeRebalance(plan, 0.01);
-      } else {
-        logger.info('[SUI-API] Admin wallet not configured — deposit recorded to DB only (on-chain deposit handled by user wallet)');
-      }
-    } else if (isOnChainDeposit) {
-      logger.info('[SUI-API] On-chain deposit detected, skipping server-side swaps', { txDigest });
+    // Re-checked under the lock: two posts of the same transaction must not both add to the cost basis.
+    if (await txHashExists(txDigest)) {
+      return NextResponse.json({ success: true, data: { walletAddress, message: 'Transaction already recorded (idempotent)' }, chain: 'sui', network });
     }
-
-    const sharesToMint = amountUsdc;
-    let newTotalShares = sharesToMint;
-    let newCostBasis = amountUsdc;
+    let newTotalShares = sharesMinted;
     let onChainVerified = false;
-    // Actual share price at the moment of the deposit — used to log a
-    // truthful sharePrice in community_pool_transactions. Prior code
-    // hard-coded 1.0 which was only true at pool inception. Falls back
-    // to 1.0 if the pool stats read fails (same fallback as the
-    // rest of this handler).
-    let sharePrice = 1.0;
+    const existingShares = await getUserSharesFromDb(walletAddress, 'sui');
+    const newCostBasis = (existingShares?.cost_basis_usd || 0) + amountUsdc;
 
     try {
       service.clearCaches();
-      if (isOnChainDeposit) {
-        await new Promise(r => setTimeout(r, 2000));
-      }
-      const [onChainPos, stats] = await Promise.all([
-        service.getMemberPosition(walletAddress),
-        service.getPoolStats(),
-      ]);
-      if (stats?.sharePrice && stats.sharePrice > 0) sharePrice = stats.sharePrice;
+      const onChainPos = await service.getMemberPosition(walletAddress);
       if (onChainPos.isMember && onChainPos.shares > 0) {
         newTotalShares = onChainPos.shares;
-        // Cost basis in USD: previous entries at their entry prices +
-        // this deposit at its USD amount. Prior code overwrote basis
-        // with `onChainPos.shares` (treating shares as USD). If we
-        // have no prior DB record, fall back to this deposit's USDC
-        // amount as the basis floor.
-        const existingShares = await getUserSharesFromDb(walletAddress, 'sui');
-        newCostBasis = (existingShares?.cost_basis_usd || 0) + amountUsdc;
         onChainVerified = true;
       } else {
-        const existingShares = await getUserSharesFromDb(walletAddress, 'sui');
-        newTotalShares = (existingShares?.shares || 0) + sharesToMint;
-        newCostBasis = (existingShares?.cost_basis_usd || 0) + amountUsdc;
-        logger.warn('[SUI-API] On-chain member not found yet, using DB + deposit estimate', {
+        newTotalShares = (existingShares?.shares || 0) + sharesMinted;
+        logger.warn('[SUI-API] On-chain member not readable yet, using DB + deposit', {
           wallet: walletAddress.slice(0, 10) + '...',
           estimate: newTotalShares,
         });
@@ -285,17 +211,22 @@ export async function handleRecordDeposit(ctx: ActionCtx): Promise<NextResponse>
       logger.error('[SUI-API] On-chain read failed during deposit recording', {
         error: err instanceof Error ? err.message : err,
       });
-      const existingShares = await getUserSharesFromDb(walletAddress, 'sui');
-      newTotalShares = (existingShares?.shares || 0) + sharesToMint;
-      newCostBasis = (existingShares?.cost_basis_usd || 0) + amountUsdc;
+      newTotalShares = (existingShares?.shares || 0) + sharesMinted;
     }
 
-    if (newTotalShares < 0 || newTotalShares > MAX_SINGLE_DEPOSIT_USDC * 100) {
-      logger.error('[SUI-API] SANITY CHECK FAILED on deposit shares', {
-        newTotalShares, walletAddress: walletAddress.slice(0, 10) + '...',
-      });
-      return NextResponse.json({ success: false, error: 'Calculated shares failed sanity check — please retry' }, { status: 500 });
-    }
+    // The history row goes first: its unique index on the digest stops a
+    // repeat before the share row is touched.
+    await addPoolTransactionToDb({
+      id: `sui-deposit-${Date.now()}-${walletAddress.slice(-8)}`,
+      type: 'DEPOSIT',
+      walletAddress,
+      amountUSD: amountUsdc,
+      shares: sharesMinted,
+      sharePrice: amountUsdc / sharesMinted,
+      details: { network, txDigest, onChainVerified },
+      txHash: txDigest,
+      chain: 'sui',
+    });
 
     await saveUserSharesToDb({
       walletAddress,
@@ -304,45 +235,16 @@ export async function handleRecordDeposit(ctx: ActionCtx): Promise<NextResponse>
       chain: 'sui',
     });
 
-    await addPoolTransactionToDb({
-      id: `sui-deposit-${Date.now()}-${walletAddress.slice(-8)}`,
-      type: 'DEPOSIT',
-      walletAddress,
-      amountUSD: amountUsdc,
-      shares: sharesToMint,
-      sharePrice,
-      details: {
-        network,
-        txDigest,
-        onChainVerified,
-        swapResults: swapResult.results,
-        allocations,
-      },
-      txHash: txDigest || undefined,
-    });
-
     logger.info('[SUI-API] USDC deposit recorded', {
       wallet: walletAddress.slice(0, 10) + '...',
       amountUsdc,
+      sharesMinted,
       sharesTotal: newTotalShares,
-      swapsExecuted: swapResult.totalExecuted,
-      hedgesAttempted: hedgeResults.length,
     });
 
     return NextResponse.json({
       success: true,
-      data: {
-        walletAddress,
-        amountUsdc,
-        sharesMinted: sharesToMint,
-        totalShares: newTotalShares,
-        swaps: {
-          executed: swapResult.totalExecuted,
-          failed: swapResult.totalFailed,
-          results: swapResult.results,
-        },
-        hedges: hedgeResults.length > 0 ? hedgeResults : undefined,
-      },
+      data: { walletAddress, amountUsdc, sharesMinted, totalShares: newTotalShares },
       chain: 'sui',
       network,
     });
