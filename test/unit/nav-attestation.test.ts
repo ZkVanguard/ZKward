@@ -4,8 +4,9 @@
  * wallet short of gas is reported instead of silently failing for days.
  */
 import { describe, it, expect, beforeEach, jest } from '@jest/globals';
+import { readFileSync } from 'fs';
+import { join } from 'path';
 
-const POOL = '0xe814e094' + 'd'.repeat(56);
 const CAP = '0xcap';
 const SIGNER_KEY = '11'.repeat(32);
 
@@ -38,14 +39,14 @@ jest.mock('@mysten/sui/transactions', () => ({
   },
 }));
 
-let chain = { balanceRaw: '3157800', hedgedRaw: '3095269', priorRaw: '7316909' as string | null, tsMs: Date.now() - 5 * 60_000, gasMist: '19815161', capOwner: '' };
+let chain = { balanceRaw: '3157800', priorRaw: '7316909' as string | null, tsMs: 0, gasMist: '19815161', capOwner: '' };
 const signAndExecuteTransaction = jest.fn(async (_: unknown) => ({ digest: 'DIGEST', effects: { status: { status: 'success' } } }));
 jest.mock('@/lib/services/sui/sui-failover-transport', () => ({
   createFailoverSuiClient: () => ({
     getObject: async ({ id }: { id: string }) =>
       id === CAP
         ? { data: { owner: { AddressOwner: chain.capOwner } } }
-        : { data: { content: { fields: { balance: chain.balanceRaw, hedge_state: { fields: { total_hedged_value: chain.hedgedRaw } } } } } },
+        : { data: { content: { fields: { balance: chain.balanceRaw, hedge_state: { fields: { total_hedged_value: '3095269' } } } } } },
     getDynamicFieldObject: async ({ name }: { name: { value: number[] } }) => {
       const key = Buffer.from(name.value).toString();
       if (key === 'external_nav_usdc') return chain.priorRaw === null ? { error: { code: 'dynamicFieldNotFound' } } : { data: { content: { fields: { value: chain.priorRaw } } } };
@@ -60,6 +61,20 @@ import { attestExternalNav } from '@/lib/services/sui/cron/nav-oracle';
 import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
 
 const attested = () => built[built.length - 1].calls.map((c) => (c.arguments[2] as { u64: bigint }).u64);
+const attest = (externalUsd: number, trusted = true) => attestExternalNav('mainnet', { externalUsd, trusted });
+const accepts = (prior: bigint, path: bigint[]) => {
+  let cur = prior;
+  for (const step of path) {
+    const delta = step > cur ? step - cur : cur - step;
+    if ((delta * 10_000n) / cur > 3000n) return false;
+    cur = step;
+  }
+  return true;
+};
+const PENDING = 'sui-nav-attest:pending-large-change';
+const LAST = 'sui-nav-attest:last';
+/** External the venue-and-wallet read gives today; 7.316909 is on chain. */
+const CORRECTED = 16.72;
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -69,50 +84,56 @@ beforeEach(() => {
   process.env.SUI_ADMIN_CAP_ID = CAP;
   delete process.env.SUI_ORACLE_CAP_ID;
   const signer = Ed25519Keypair.fromSecretKey(Buffer.from(SIGNER_KEY, 'hex')).toSuiAddress();
-  chain = { balanceRaw: '3157800', hedgedRaw: '3095269', priorRaw: '7316909', tsMs: Date.now() - 5 * 60_000, gasMist: '19815161', capOwner: signer };
+  chain = { balanceRaw: '3157800', priorRaw: '7316909', tsMs: Date.now() - 5 * 60_000, gasMist: '19815161', capOwner: signer };
 });
 
 describe('what is attested', () => {
-  it('external = NAV − pool balance. The hedged amount is NOT subtracted: it is off-chain value the share price must include', async () => {
-    // NAV 11.00 with 3.1578 in the pool → 7.8422 external. The old formula gave 7.8422 − 3.0953 = 4.7469.
-    const r = await attestExternalNav('mainnet', 11.0);
+  it('the external figure it is given, unchanged: nothing is subtracted for open hedges', async () => {
+    const r = await attest(7.8422);
     expect(r.pushed).toBe(true);
     expect(attested()).toEqual([7_842_200n]);
     expect(r.externalNavUsd).toBeCloseTo(7.8422, 6);
   });
 
-  it('share price on chain then equals NAV ÷ shares, with or without an open hedge', async () => {
-    await attestExternalNav('mainnet', 11.0);
-    const [external] = attested();
-    const pricedOn = BigInt(chain.balanceRaw) + external; // total_assets_including_external
-    expect(pricedOn).toBe(11_000_000n);
+  it('a deposit landing between the NAV read and the attestation does not move the attested value', async () => {
+    await attest(7.8422);
+    const before = attested();
+    chain.balanceRaw = String(3_157_800 + 4_900_000); // $4.90 deposited mid-tick
+    await attest(7.8422);
+    expect(attested()).toEqual(before);
   });
 
-  it('a NAV below the pool balance attests zero rather than a negative number', async () => {
-    chain.priorRaw = null;
-    const r = await attestExternalNav('mainnet', 1.0);
-    expect(r.pushed).toBe(true);
-    expect(attested()).toEqual([0n]);
+  it('the service builds that figure from one read: admin holdings plus the venue account', () => {
+    const src = readFileSync(join(process.cwd(), 'lib/services/sui/SuiUsdcPoolService.ts'), 'utf8');
+    expect(src).toContain('externalUsdc: offChainPoolCapital + bluefinValueUsdc');
+    expect(src).toContain('adminRead: usedAdminBalances');
+    const step4 = readFileSync(join(process.cwd(), 'lib/services/sui/cron/step-4-nav-defense.ts'), 'utf8');
+    expect(step4).toContain('externalUsd: basis.externalUsdc');
+    expect(step4).toContain('!basis.adminRead');
+    expect(step4).not.toMatch(/attestExternalNav\(network, navUsd\)/);
+  });
+
+  it('refuses a figure that is not a non-negative number', async () => {
+    for (const bad of [NaN, -1, Infinity]) expect((await attest(bad)).pushed).toBe(false);
+    expect(signAndExecuteTransaction).not.toHaveBeenCalled();
   });
 
   it('an unreadable pool object is refused, not treated as a zero balance', async () => {
     chain.balanceRaw = undefined as unknown as string;
-    const r = await attestExternalNav('mainnet', 11.0);
-    expect(r.pushed).toBe(false);
+    expect((await attest(7.8422)).pushed).toBe(false);
     expect(signAndExecuteTransaction).not.toHaveBeenCalled();
   });
 });
 
 describe('gas', () => {
   it('the budget fits the wallet that froze the pool (0.0198 SUI): the attestation goes through', async () => {
-    const r = await attestExternalNav('mainnet', 11.0);
-    expect(r.pushed).toBe(true);
+    expect((await attest(7.8422)).pushed).toBe(true);
     expect(built[0].budget!).toBeLessThan(Number(chain.gasMist));
   });
 
   it('a wallet that cannot cover the budget is reported with the numbers, and nothing is signed', async () => {
     chain.gasMist = '1000000';
-    const r = await attestExternalNav('mainnet', 11.0);
+    const r = await attest(7.8422);
     expect(r.pushed).toBe(false);
     expect(r.error).toMatch(/insufficient gas/);
     expect(signAndExecuteTransaction).not.toHaveBeenCalled();
@@ -121,18 +142,14 @@ describe('gas', () => {
   it('reports how old the on-chain attestation is, so the caller can alert', async () => {
     chain.tsMs = Date.now() - 6651 * 60_000;
     chain.gasMist = '1';
-    const r = await attestExternalNav('mainnet', 11.0);
-    expect(r.attestationAgeMin!).toBeGreaterThan(6650);
+    expect((await attest(7.8422)).attestationAgeMin!).toBeGreaterThan(6650);
   });
 });
 
-describe('a change of more than 30%', () => {
-  const NAV = 19.8778; // → external 16.72 against 7.316909 on chain
-
+describe('a repricing of more than 30%', () => {
   it('is not attested on the first or second sighting, and says why', async () => {
-    const first = await attestExternalNav('mainnet', NAV);
-    const second = await attestExternalNav('mainnet', NAV);
-    expect(first.pushed).toBe(false);
+    const first = await attest(CORRECTED);
+    const second = await attest(CORRECTED);
     expect(first.error).toMatch(/awaiting confirmation \(1\/3\)/);
     expect(second.error).toMatch(/awaiting confirmation \(2\/3\)/);
     expect(signAndExecuteTransaction).not.toHaveBeenCalled();
@@ -140,55 +157,112 @@ describe('a change of more than 30%', () => {
   });
 
   it('on the third consecutive sighting is walked there in ONE transaction, every link inside the contract bound', async () => {
-    await attestExternalNav('mainnet', NAV);
-    await attestExternalNav('mainnet', NAV);
-    const third = await attestExternalNav('mainnet', NAV);
+    await attest(CORRECTED);
+    await attest(CORRECTED);
+    const third = await attest(CORRECTED);
     expect(third.pushed).toBe(true);
     expect(signAndExecuteTransaction).toHaveBeenCalledTimes(1);
     const path = attested();
     expect(path.length).toBe(4);
     // the target is floored from a decimal, so it may sit one micro-dollar under
     expect(16_720_000n - path[path.length - 1] <= 1n).toBe(true);
-    let cur = 7_316_909n;
-    for (const step of path) {
-      const delta = step > cur ? step - cur : cur - step;
-      expect((delta * 10_000n) / cur <= 3000n).toBe(true);
-      cur = step;
-    }
+    expect(accepts(7_316_909n, path)).toBe(true);
     expect(built[built.length - 1].budget!).toBeLessThan(Number(chain.gasMist));
-    expect(state.get('sui-nav-attest:pending-large-change')).toBeNull();
+    expect(state.get(PENDING)).toBeNull();
+    const last = state.get(LAST) as { balanceRaw: string; externalRaw: string };
+    expect(last.balanceRaw).toBe('3157800');
+    expect(last.externalRaw).toBe(String(path[path.length - 1]));
   });
 
   it('a different target restarts the count: one bad read cannot reprice the pool', async () => {
-    await attestExternalNav('mainnet', NAV);
-    await attestExternalNav('mainnet', NAV);
-    const glitch = await attestExternalNav('mainnet', 60.0);
-    expect(glitch.pushed).toBe(false);
-    expect(glitch.error).toMatch(/1\/3/);
-    const after = await attestExternalNav('mainnet', NAV);
-    expect(after.error).toMatch(/1\/3/);
+    await attest(CORRECTED);
+    await attest(CORRECTED);
+    expect((await attest(12.0)).error).toMatch(/1\/3/);
+    expect((await attest(CORRECTED)).error).toMatch(/1\/3/);
     expect(signAndExecuteTransaction).not.toHaveBeenCalled();
   });
 
-  it('a normal-sized change is unaffected by a pending large one', async () => {
-    await attestExternalNav('mainnet', NAV);
-    const normal = await attestExternalNav('mainnet', 11.0);
-    expect(normal.pushed).toBe(true);
-    expect(attested().length).toBe(1);
+  it('an ordinary attestation in between ends the count: "in a row" means in a row', async () => {
+    await attest(CORRECTED);
+    await attest(CORRECTED);
+    expect((await attest(7.8422)).pushed).toBe(true);
+    expect(state.get(PENDING)).toBeNull();
+    chain.priorRaw = '7842200';
+    expect((await attest(CORRECTED)).error).toMatch(/1\/3/);
   });
 
-  it('a collapse to zero is refused instead of looping', async () => {
-    const r = await attestExternalNav('mainnet', 3.0);
+  it('a count older than an hour is not continued', async () => {
+    state.set(PENDING, { targetRaw: '16720000', count: 2, firstSeen: Date.now() - 2 * 60 * 60_000 });
+    expect((await attest(CORRECTED)).error).toMatch(/1\/3/);
+  });
+
+  it('needs a live venue read: a cached figure is never walked to', async () => {
+    for (let i = 0; i < 4; i++) {
+      const r = await attest(CORRECTED, false);
+      expect(r.pushed).toBe(false);
+      expect(r.error).toMatch(/not live/);
+    }
+    expect(signAndExecuteTransaction).not.toHaveBeenCalled();
+  });
+
+  it('is capped: a rise of more than three times needs an operator, however often it is read', async () => {
+    for (let i = 0; i < 4; i++) {
+      const r = await attest(60.0);
+      expect(r.pushed).toBe(false);
+      expect(r.error).toMatch(/more than 3x/);
+    }
+    expect(signAndExecuteTransaction).not.toHaveBeenCalled();
+  });
+
+  it('a collapse that cannot be reached needs an operator', async () => {
+    const r = await attest(0);
     expect(r.pushed).toBe(false);
-    expect(r.error).toMatch(/cannot be reached/);
+    expect(r.error).toMatch(/out of reach/);
+  });
+});
+
+describe('value moving between the pool and outside is not a repricing', () => {
+  it('USDC returned to the pool: external falls far, total is unchanged, and it is attested at once', async () => {
+    // last attestation: $3.16 in the pool, $16.72 outside
+    state.set(LAST, { balanceRaw: '3157800', externalRaw: '16720000', at: Date.now() });
+    chain.priorRaw = '16720000';
+    // the venue money comes back: $19.38 in the pool, $0.50 outside
+    chain.balanceRaw = '19377800';
+    const r = await attest(0.5);
+    expect(r.pushed).toBe(true);
+    const path = attested();
+    expect(path.length).toBeGreaterThan(1);
+    expect(path[path.length - 1]).toBe(500_000n);
+    expect(accepts(16_720_000n, path)).toBe(true);
+    expect(notifyDiscord).toHaveBeenCalledTimes(1); // the "moved in N steps" notice, no confirmation wait
+  });
+
+  it('when everything comes back, it walks as far as one transaction allows and continues next tick', async () => {
+    state.set(LAST, { balanceRaw: '3157800', externalRaw: '16720000', at: Date.now() });
+    chain.priorRaw = '16720000';
+    chain.balanceRaw = '19877800';
+    const r = await attest(0);
+    expect(r.pushed).toBe(true);
+    const path = attested();
+    expect(path.length).toBe(16);
+    expect(accepts(16_720_000n, path)).toBe(true);
+    expect(Number(path[path.length - 1])).toBeLessThan(16_720_000 * 0.005);
+    expect(built[built.length - 1].budget!).toBeLessThan(Number(chain.gasMist));
+  });
+
+  it('but a fall that is NOT matched by the pool balance is a repricing and waits', async () => {
+    state.set(LAST, { balanceRaw: '3157800', externalRaw: '16720000', at: Date.now() });
+    chain.priorRaw = '16720000';
+    const r = await attest(5.0);
+    expect(r.pushed).toBe(false);
+    expect(r.error).toMatch(/1\/3/);
   });
 });
 
 describe('who may attest', () => {
   it('does nothing when the cap is not held by the signer', async () => {
     chain.capOwner = '0x' + '9'.repeat(64);
-    const r = await attestExternalNav('mainnet', 11.0);
-    expect(r.pushed).toBe(false);
+    expect((await attest(7.8422)).pushed).toBe(false);
     expect(signAndExecuteTransaction).not.toHaveBeenCalled();
   });
 });

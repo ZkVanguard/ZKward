@@ -1,5 +1,9 @@
 /**
- * Whether the SUI pool cron may move capital: settle, swap, rebalance, hedge.
+ * Whether automated code may move the SUI pool's capital: the pool cron's
+ * settle, swap, rebalance and hedge steps, the withdraw liquidity top-up, and
+ * the automatic position closes in the signal, health and reconcile crons.
+ * Operator routes under /api/admin are not affected, and neither is the
+ * emergency flatten after repeated unhealthy venue probes.
  *
  * Off unless SUI_POOL_TRADING_ENABLED is set. The 2026-10-06 audit found
  * that the sizing and rebalance steps are wrong above the minimum-NAV gate

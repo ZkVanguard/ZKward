@@ -32,6 +32,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { logger } from '@/lib/utils/logger';
+import { isPoolTradingEnabled } from '@/lib/services/sui/pool-trading-pause';
 import { verifyCronRequest } from '@/lib/qstash';
 import { notifyDiscord } from '@/lib/utils/discord-notify';
 import { BluefinService, BLUEFIN_PAIRS } from '@/lib/services/sui/BluefinService';
@@ -198,6 +199,7 @@ export async function GET(request: NextRequest): Promise<NextResponse<ReconcileR
         if (suppressAt > 0 && Date.now() - suppressAt < CLOSE_SUPPRESS_TTL_MS) continue;
         const ageHours = (Date.now() - createdMs) / 3600_000;
         try {
+          if (!isPoolTradingEnabled()) continue;
           const closeRes = await bf.closeHedge({ symbol });
           ageForceClosed.push({
             id: h.id, symbol, side: String(h.side || ''),

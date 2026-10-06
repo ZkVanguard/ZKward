@@ -500,7 +500,16 @@ export async function runStep4NavDefense(input: Step4Input): Promise<Step4Result
   // will revert deposits/withdrawals if attestation goes stale,
   // pausing user flow until the cron catches up.
   if (!aboveSafetyCeiling) {
-    const attest = await attestExternalNav(network, navUsd);
+    // Only a figure whose parts were read together is attested. Fallback
+    // stats have no basis, and when the admin wallet could not be read its
+    // holdings were replaced by a cost basis that the venue figure may also
+    // contain.
+    const basis = poolStats.isUsdcPool ? poolStats.navBasis : undefined;
+    const attest: Awaited<ReturnType<typeof attestExternalNav>> = !basis
+      ? { pushed: false, error: 'pool stats came from the fallback path — not attesting' }
+      : !basis.adminRead
+        ? { pushed: false, error: 'admin wallet unreadable this tick — not attesting' }
+        : await attestExternalNav(network, { externalUsd: basis.externalUsdc, trusted: basis.venueSource === 'live' });
     if (attest.pushed) {
       logger.info('[SUI Cron] External NAV oracle updated', {
         externalNavUsd: attest.externalNavUsd?.toFixed(2),

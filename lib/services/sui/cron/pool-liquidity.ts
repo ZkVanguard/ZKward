@@ -14,6 +14,7 @@ import {
   SUI_USDC_COIN_TYPE,
 } from '@/lib/services/sui/SuiCommunityPoolService';
 import { returnUsdcToPool } from '@/lib/services/sui/cron/pool-transfer';
+import { isPoolTradingEnabled } from '@/lib/services/sui/pool-trading-pause';
 import { getAdminUsdcBalance, replenishAdminUsdc } from '@/lib/services/sui/cron/admin-swaps';
 import { getActiveHedges } from '@/lib/services/sui/cron/hedge-lifecycle';
 import { POOL_ASSETS } from '@/lib/services/sui/cron/allocation'; /**
@@ -272,6 +273,15 @@ export async function ensurePoolLiquidityForWithdraw(
   const state = await readPoolLiquidityState(network);
   if (!state) {
     return { success: false, error: 'Failed to read pool liquidity state' };
+  }
+
+  // The top-up signs with the admin key and moves USDC into the pool without
+  // re-attesting, which misprices shares until the next attestation. While
+  // trading is paused only what is already in the pool can be paid out.
+  if (!isPoolTradingEnabled()) {
+    return state.poolBalanceUsdc >= expectedPayoutUsdc
+      ? { success: true, alreadyLiquid: true }
+      : { success: false, error: 'Liquidity top-up is paused; only the pool\'s on-chain balance is available right now.' };
   }
 
   if (state.poolBalanceUsdc >= target) {

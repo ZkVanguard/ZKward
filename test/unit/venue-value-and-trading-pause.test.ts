@@ -56,11 +56,11 @@ describe('venue component of NAV', () => {
 
   it('caches the venue’s figure', async () => {
     await safeBluefinSnapshot({ network: 'mainnet', onChainHasExposure: true });
-    expect((state.get('bluefin:nav-last-good') as { value: number }).value).toBeCloseTo(16.2197, 4);
+    expect((state.get('bluefin:nav-last-good:v2') as { value: number }).value).toBeCloseTo(16.2197, 4);
   });
 
   it('when the account value cannot be read, the last good total is used instead of a sum of parts', async () => {
-    state.set('bluefin:nav-last-good', { value: 16.1, free: 6.7, lockedMargin: 9.45, upnl: -6.7, positions: 2, ts: Date.now() - 60_000 });
+    state.set('bluefin:nav-last-good:v2', { value: 16.1, free: 6.7, lockedMargin: 9.45, upnl: -6.7, positions: 2, ts: Date.now() - 60_000 });
     getAccountValue.mockRejectedValue(new Error('venue account value missing'));
     const snap = await safeBluefinSnapshot({ network: 'mainnet', onChainHasExposure: true });
     expect(snap.source).toBe('cache');
@@ -68,11 +68,11 @@ describe('venue component of NAV', () => {
   });
 
   it('other crons refreshing the cache without the account value leave the cached total alone', async () => {
-    state.set('bluefin:nav-last-good', { value: 16.1, free: 6.7, lockedMargin: 9.45, upnl: -6.7, positions: 2, ts: 1 });
+    state.set('bluefin:nav-last-good:v2', { value: 16.1, free: 6.7, lockedMargin: 9.45, upnl: -6.7, positions: 2, ts: 1 });
     await refreshBluefinCache({ free: LIVE.free, positions: LIVE.positions as Array<Record<string, unknown>>, source: 'test' });
-    expect((state.get('bluefin:nav-last-good') as { value: number }).value).toBe(16.1);
+    expect((state.get('bluefin:nav-last-good:v2') as { value: number }).value).toBe(16.1);
     await refreshBluefinCache({ free: LIVE.free, positions: LIVE.positions as Array<Record<string, unknown>>, accountValue: 16.2197, source: 'test' });
-    expect((state.get('bluefin:nav-last-good') as { value: number }).value).toBeCloseTo(16.2197, 4);
+    expect((state.get('bluefin:nav-last-good:v2') as { value: number }).value).toBeCloseTo(16.2197, 4);
   });
 });
 
@@ -104,6 +104,36 @@ describe('pool trading pause', () => {
     expect(src).toContain('if (!tradingPaused) await runStep7_9DriftClose();');
     const step4 = src.slice(src.indexOf('await runStep4NavDefense({'), src.indexOf('const tradingPaused'));
     expect(step4).not.toContain('skipCapitalSteps');
+  });
+
+  it('the figure cached by the old sum is never read: the cache key is versioned', async () => {
+    state.set('bluefin:nav-last-good', { value: 9.47, free: 6.7, lockedMargin: 9.45, upnl: -6.7, positions: 2, ts: Date.now() });
+    getAccountValue.mockRejectedValue(new Error('down'));
+    const snap = await safeBluefinSnapshot({ network: 'mainnet', onChainHasExposure: true });
+    expect(snap.source).toBe('unknown');
+    expect(snap.totalValue).not.toBeCloseTo(9.47, 2);
+  });
+
+  it('the automatic closes in the other crons and the withdraw top-up obey it', () => {
+    const read = (p: string) => readFileSync(join(process.cwd(), p), 'utf8').replace(/\r\n/g, '\n');
+    expect(read('app/api/cron/agent-signal-tick/route.ts')).toContain('if (adminKey && directionFlipped && isPoolTradingEnabled()) {');
+    expect(read('app/api/cron/bluefin-health/route.ts')).toContain("if (status === 'HEALTHY' && isPoolTradingEnabled()) {");
+    for (const p of ['app/api/cron/sui-hedge-reconcile/route.ts', 'app/api/cron/bluefin-db-reconcile/route.ts']) {
+      const src = read(p);
+      const close = src.indexOf('await bf.closeHedge({ symbol })');
+      expect(close).toBeGreaterThan(-1);
+      expect(src.slice(close - 80, close)).toContain('if (!isPoolTradingEnabled()) continue;');
+    }
+    const liq = read('lib/services/sui/cron/pool-liquidity.ts');
+    const fn = liq.indexOf('export async function ensurePoolLiquidityForWithdraw');
+    const gate = liq.indexOf('if (!isPoolTradingEnabled()) {', fn);
+    expect(gate).toBeGreaterThan(fn);
+    for (const signer of ['replenishAdminUsdc(', 'returnUsdcToPool(']) {
+      const at = liq.indexOf(signer, fn);
+      if (at !== -1) expect(at).toBeGreaterThan(gate);
+    }
+    // the operator's own route still closes
+    expect(read('app/api/admin/close-bluefin-positions/route.ts')).not.toContain('isPoolTradingEnabled');
   });
 
   it('the portfolio driver, which sells spot inside step 4, obeys it too', () => {

@@ -19,25 +19,30 @@ import { attestPath } from '@/lib/services/sui/cron/onchain-math';
 
 
 /**
- * Push the off-chain NAV portion to the Move contract's oracle field so
- * deposit/withdraw share math reflects true pool value.
+ * Push the off-chain part of NAV to the Move contract's oracle field so
+ * deposit and withdraw share maths reflect true pool value.
  *
- * external_nav_usdc = navUsd_total - balance_onchain_usdc
+ * The contract prices on `balance + external` (total_assets_including_external
+ * in the Move source); nothing else is added. `external` is therefore
+ * everything outside the pool object: the admin wallet's holdings and the
+ * venue account. USDC that left the pool through open_hedge sits in one of
+ * those two places and is counted there. Until 2026-10-06 this subtracted
+ * hedge_state.total_hedged_value as well, which left that value out of every
+ * share price. (get_total_nav does add the hedged value; it is a view used
+ * for ratios and reads high by that amount while a hedge is open.)
  *
- * Deposits and withdrawals are priced on `balance + external`
- * (total_assets_including_external in the Move source); nothing else is
- * added. USDC that left the pool through open_hedge sits in the admin wallet
- * or on the venue, and navUsdTotal already counts it there, so it belongs in
- * the external figure. Subtracting hedge_state.total_hedged_value as well, as
- * this did until 2026-10-06, left that value out of every share price: a
- * withdrawer was underpaid and a depositor over-issued by the hedged amount.
- * (get_total_nav does add the hedged value; it is a view used for ratios,
- * and reads high by that amount while a hedge is open.)
+ * The caller passes the external figure from the same read that produced its
+ * NAV. Deriving it here as NAV minus a freshly read balance let a deposit
+ * that landed between the two reads push the attested value down by its own
+ * size, and the next depositor bought shares at that price.
  *
- * A change of more than 30% cannot be attested in one call. It is walked
- * there in one transaction (see attestPath), but only once the same target
- * has been seen on LARGE_CHANGE_CONFIRMATIONS consecutive ticks, so a single
- * bad read cannot reprice the pool.
+ * A change beyond the contract's 30% bound is walked there in one transaction
+ * (attestPath). When that walk would reprice the pool (total value moved more
+ * than 30% since the last attestation) it needs a fresh venue read, the same
+ * target on LARGE_CHANGE_CONFIRMATIONS consecutive ticks, and stays within
+ * MAX_REPRICE_UP; a single bad read cannot do it. When only the split between
+ * pool and outside moved (USDC returned to the pool), it goes at once: waiting
+ * would leave that USDC counted twice.
  *
  * Returns pushed:false on any error. With strict mode on, the contract then
  * refuses deposits and withdrawals once the last attestation is two hours
@@ -46,13 +51,25 @@ import { attestPath } from '@/lib/services/sui/cron/onchain-math';
 const EXTERNAL_NAV_KEY = 'external_nav_usdc';
 const EXTERNAL_NAV_TS_KEY = 'external_nav_ts_ms';
 const PENDING_KEY = 'sui-nav-attest:pending-large-change';
+const LAST_KEY = 'sui-nav-attest:last';
 const LARGE_CHANGE_CONFIRMATIONS = 3;
 const SAME_TARGET_TOLERANCE = 0.05;
+const PENDING_MAX_AGE_MS = 60 * 60 * 1000;
+const REPRICE_THRESHOLD = 0.3;
+const MAX_REPRICE_UP = 3;
 /** A single attestation costs about 0.0002 SUI. The budget must stay under the wallet balance or the node rejects the transaction outright. */
 const ATTEST_GAS_BASE = 2_000_000;
 const ATTEST_GAS_PER_STEP = 1_000_000;
 
 interface PendingLargeChange { targetRaw: string; count: number; firstSeen: number }
+interface LastAttested { balanceRaw: string; externalRaw: string; at: number }
+
+export interface NavBasisForAttest {
+  /** Admin wallet holdings plus the venue account, in USD, from one read. */
+  externalUsd: number;
+  /** Whether that read was fresh (venue read live). A repricing walk needs it. */
+  trusted: boolean;
+}
 
 export interface AttestResult {
   pushed: boolean;
@@ -67,8 +84,11 @@ export interface AttestResult {
 
 export async function attestExternalNav(
   network: 'mainnet' | 'testnet',
-  navUsdTotal: number,
+  basis: NavBasisForAttest,
 ): Promise<AttestResult> {
+  if (!Number.isFinite(basis.externalUsd) || basis.externalUsd < 0) {
+    return { pushed: false, error: 'external NAV is not a non-negative number — skipping attestation' };
+  }
   const adminKey = (process.env.SUI_POOL_ADMIN_KEY || process.env.BLUEFIN_PRIVATE_KEY || '').trim();
   // v0.4.0: prefer OracleCap so cron survives AdminCap → MSafe migration.
   // Falls back to AdminCap for pre-v0.4.0 packages / pre-migration pools.
@@ -92,19 +112,17 @@ export async function attestExternalNav(
       : Ed25519Keypair.fromSecretKey(Buffer.from(adminKey.replace(/^0x/, ''), 'hex'));
     const suiClient = createFailoverSuiClient(network);
 
-    // Read on-chain balance + hedge_state from the pool object so we
-    // compute the external portion correctly. Cron's navUsdTotal already
-    // includes everything; subtracting these gives the bit that lives
-    // off-chain.
+    // The pool balance is read only to judge whether a large move is a
+    // repricing; it is not part of what is attested.
     const obj = await suiClient.getObject({ id: poolConfig.poolStateId!, options: { showContent: true } });
     const fields = (obj.data?.content as { fields?: Record<string, unknown> } | undefined)?.fields ?? {};
-    const balanceRaw = Number((fields as { balance?: string }).balance ?? 0);
     if ((fields as { balance?: unknown }).balance === undefined) {
       return { pushed: false, error: 'pool object unreadable — skipping attestation' };
     }
+    const balanceRaw = Number((fields as { balance?: string }).balance);
     const balanceUsd = balanceRaw / 1e6;
 
-    const externalNavUsd = Math.max(0, navUsdTotal - balanceUsd);
+    const externalNavUsd = basis.externalUsd;
     const externalNavRaw = Math.floor(externalNavUsd * 1e6); // USDC has 6 decimals
 
     // What is on chain now: the value the 30% bound is measured from, and its age.
@@ -125,26 +143,51 @@ export async function attestExternalNav(
     const priorRaw = BigInt(priorStr ?? '0');
     const attestationAgeMin = tsStr ? (Date.now() - Number(tsStr)) / 60_000 : undefined;
 
-    const path = attestPath(priorRaw, BigInt(externalNavRaw));
-    if (!path) {
-      return { pushed: false, attestationAgeMin, error: `external NAV ${externalNavUsd.toFixed(2)} cannot be reached from ${(Number(priorRaw) / 1e6).toFixed(2)} within the 30% bound` };
+    const walk = attestPath(priorRaw, BigInt(externalNavRaw));
+    if (!walk) {
+      return { pushed: false, attestationAgeMin, error: `external NAV ${externalNavUsd.toFixed(2)} cannot be walked to from ${(Number(priorRaw) / 1e6).toFixed(2)}` };
     }
+    const path = walk.path;
+    const priorUsd = Number(priorRaw) / 1e6;
+    const pending = await getCronStateOr<PendingLargeChange | null>(PENDING_KEY, null);
+
     if (path.length > 1) {
-      const pending = await getCronStateOr<PendingLargeChange | null>(PENDING_KEY, null);
-      const pendingTarget = pending ? Number(pending.targetRaw) : 0;
-      const sameTarget = !!pending && pendingTarget > 0 && Math.abs(externalNavRaw - pendingTarget) <= pendingTarget * SAME_TARGET_TOLERANCE;
-      const count = sameTarget ? pending!.count + 1 : 1;
-      if (count < LARGE_CHANGE_CONFIRMATIONS) {
-        await setCronState(PENDING_KEY, { targetRaw: String(externalNavRaw), count, firstSeen: sameTarget ? pending!.firstSeen : Date.now() });
-        if (count === 1) {
-          await notifyDiscord(
-            `External NAV wants to move from $${(Number(priorRaw) / 1e6).toFixed(2)} to $${externalNavUsd.toFixed(2)}, more than 30%. Not attesting until it reads the same on ${LARGE_CHANGE_CONFIRMATIONS} ticks in a row.`,
-            'WARN',
-            { chain: 'sui', priorUsd: (Number(priorRaw) / 1e6).toFixed(2), targetUsd: externalNavUsd.toFixed(2), navUsdTotal: navUsdTotal.toFixed(2) },
-          ).catch(() => {});
+      // Is the pool's total value changing, or only where the value sits?
+      const last = await getCronStateOr<LastAttested | null>(LAST_KEY, null);
+      const lastTotal = last ? Number(last.balanceRaw) + Number(last.externalRaw) : null;
+      const newTotal = balanceRaw + externalNavRaw;
+      const repricing = lastTotal === null || lastTotal <= 0 || Math.abs(newTotal - lastTotal) > lastTotal * REPRICE_THRESHOLD;
+
+      if (repricing) {
+        if (!basis.trusted) {
+          return { pushed: false, attestationAgeMin, error: 'large change from a venue figure that is not live — not attesting' };
         }
-        return { pushed: false, attestationAgeMin, error: `large change awaiting confirmation (${count}/${LARGE_CHANGE_CONFIRMATIONS})` };
+        if (!walk.reached) {
+          return { pushed: false, attestationAgeMin, error: `external NAV ${externalNavUsd.toFixed(2)} is out of reach from ${priorUsd.toFixed(2)} — needs an operator` };
+        }
+        const reference = lastTotal !== null && lastTotal > 0 ? lastTotal : balanceRaw + Number(priorRaw);
+        if (newTotal > reference * MAX_REPRICE_UP) {
+          return { pushed: false, attestationAgeMin, error: `pool value would rise more than ${MAX_REPRICE_UP}x (${(reference / 1e6).toFixed(2)} → ${(newTotal / 1e6).toFixed(2)}) — needs an operator` };
+        }
+        const fresh = !!pending && Date.now() - pending.firstSeen <= PENDING_MAX_AGE_MS;
+        const pendingTarget = fresh ? Number(pending!.targetRaw) : 0;
+        const sameTarget = pendingTarget > 0 && Math.abs(externalNavRaw - pendingTarget) <= pendingTarget * SAME_TARGET_TOLERANCE;
+        const count = sameTarget ? pending!.count + 1 : 1;
+        if (count < LARGE_CHANGE_CONFIRMATIONS) {
+          await setCronState(PENDING_KEY, { targetRaw: String(externalNavRaw), count, firstSeen: sameTarget ? pending!.firstSeen : Date.now() });
+          if (count === 1) {
+            await notifyDiscord(
+              `External NAV wants to move from $${priorUsd.toFixed(2)} to $${externalNavUsd.toFixed(2)}, more than 30%. Not attesting until it reads the same on ${LARGE_CHANGE_CONFIRMATIONS} ticks in a row.`,
+              'WARN',
+              { chain: 'sui', priorUsd: priorUsd.toFixed(2), targetUsd: externalNavUsd.toFixed(2), poolBalanceUsd: balanceUsd.toFixed(2) },
+            ).catch(() => {});
+          }
+          return { pushed: false, attestationAgeMin, error: `large change awaiting confirmation (${count}/${LARGE_CHANGE_CONFIRMATIONS})` };
+        }
       }
+    } else if (pending) {
+      // An ordinary attestation ends any count in progress: "in a row" means in a row.
+      await setCronState(PENDING_KEY, null).catch(() => {});
     }
 
     // Cap ownership check — cron gracefully no-ops when the cap has
@@ -193,19 +236,21 @@ export async function attestExternalNav(
         attestFn,
         externalNavUsd: externalNavUsd.toFixed(2),
         balanceUsd: balanceUsd.toFixed(2),
-        navUsdTotal: navUsdTotal.toFixed(2),
         steps: path.length,
+        reached: walk.reached,
         txDigest: result.digest,
       });
+      const attestedRaw = path[path.length - 1];
+      await setCronState(LAST_KEY, { balanceRaw: String(balanceRaw), externalRaw: String(attestedRaw), at: Date.now() }).catch(() => {});
       if (path.length > 1) {
         await setCronState(PENDING_KEY, null).catch(() => {});
         await notifyDiscord(
-          `External NAV caught up from $${(Number(priorRaw) / 1e6).toFixed(2)} to $${externalNavUsd.toFixed(2)} in ${path.length} steps in one transaction.`,
+          `External NAV moved from $${priorUsd.toFixed(2)} to $${(Number(attestedRaw) / 1e6).toFixed(2)} in ${path.length} steps in one transaction${walk.reached ? '' : ` (target $${externalNavUsd.toFixed(2)}; continuing next tick)`}.`,
           'WARN',
           { chain: 'sui', txDigest: result.digest, steps: path.length },
         ).catch(() => {});
       }
-      return { pushed: true, externalNavUsd, txDigest: result.digest, attestationAgeMin, steps: path.length };
+      return { pushed: true, externalNavUsd: Number(attestedRaw) / 1e6, txDigest: result.digest, attestationAgeMin, steps: path.length };
     }
     const errStr = result.effects?.status?.error || 'unknown';
     // E_EXTERNAL_NAV_CHANGE_TOO_LARGE is an expected reversion (anti-

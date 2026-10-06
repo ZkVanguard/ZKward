@@ -39,7 +39,9 @@ export interface BluefinSnapshot {
   warning?: string;
 }
 
-const CACHE_KEY = 'bluefin:nav-last-good';
+/** v2: holds the venue's own account value. The unversioned key held a sum that double-counted cross-margin P&L. */
+export const BLUEFIN_NAV_CACHE_KEY = 'bluefin:nav-last-good:v2';
+const CACHE_KEY = BLUEFIN_NAV_CACHE_KEY;
 const CACHE_TTL_MS = 30 * 60 * 1000;
 
 interface CachedSnapshot {
@@ -144,7 +146,7 @@ export async function refreshBluefinCache(args: {
   // Only the venue's own total may be cached as the NAV component; a sum of
   // the parts double-counts cross-margin P&L. The NAV read refreshes it.
   if (accountValue === undefined || !Number.isFinite(accountValue)) return;
-  await setCronState('bluefin:nav-last-good', {
+  await setCronState(CACHE_KEY, {
     value: accountValue,
     free,
     lockedMargin,

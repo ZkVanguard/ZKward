@@ -17,6 +17,7 @@ import { NextResponse } from 'next/server';
 import { query } from '@/lib/db/postgres';
 import { safeBluefinSnapshot } from '@/lib/services/sui/bluefin-read-safe';
 import { getCronStateOr } from '@/lib/db/cron-state';
+import { BLUEFIN_NAV_CACHE_KEY } from '@/lib/services/sui/bluefin-read-safe';
 import { errMsg } from '@/lib/utils/error-handler';
 
 export const runtime = 'nodejs';
@@ -66,7 +67,7 @@ export async function GET(): Promise<NextResponse> {
   }
 
   try {
-    cached = await getCronStateOr<CachedSnapshot | null>('bluefin:nav-last-good', null);
+    cached = await getCronStateOr<CachedSnapshot | null>(BLUEFIN_NAV_CACHE_KEY, null);
   } catch { /* fall back to null */ }
   try {
     consecutiveEmpty = await getCronStateOr<number>('bluefin:consecutiveEmptyReads', 0);

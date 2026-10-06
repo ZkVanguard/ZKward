@@ -10,18 +10,22 @@ const BPS = 10_000n;
 
 /**
  * The attested external value may move at most 30% from the value before it.
- * Returns the chain of values that gets from `priorRaw` to `targetRaw` with
- * every link inside that bound; one element when a single attestation is
+ * Returns the chain of values that walks from `priorRaw` toward `targetRaw`
+ * with every link inside that bound; one element when a single attestation is
  * enough. All links go in one transaction, so no price between them is ever
  * transactable.
  *
- * `null` when the target cannot be reached in `maxSteps`: a fall to zero never
- * converges, because 30% of the remainder always leaves a remainder.
+ * `reached` is false when `maxSteps` ran out first; the path then ends as
+ * close as it got and the next call continues from there. A fall to zero
+ * never converges exactly (30% of the remainder always leaves a remainder),
+ * but sixteen steps leave under half a percent.
+ *
+ * `null` for input that cannot be walked at all.
  */
-export function attestPath(priorRaw: bigint, targetRaw: bigint, maxSteps = 16): bigint[] | null {
-  if (priorRaw < 0n || targetRaw < 0n) return null;
+export function attestPath(priorRaw: bigint, targetRaw: bigint, maxSteps = 16): { path: bigint[]; reached: boolean } | null {
+  if (priorRaw < 0n || targetRaw < 0n || maxSteps < 1) return null;
   // First attestation: the contract has no prior to compare with.
-  if (priorRaw === 0n) return [targetRaw];
+  if (priorRaw === 0n) return { path: [targetRaw], reached: true };
 
   const path: bigint[] = [];
   let current = priorRaw;
@@ -29,14 +33,14 @@ export function attestPath(priorRaw: bigint, targetRaw: bigint, maxSteps = 16): 
     const delta = targetRaw > current ? targetRaw - current : current - targetRaw;
     if (delta * BPS <= current * ATTEST_STEP_BPS) {
       path.push(targetRaw);
-      return path;
+      return { path, reached: true };
     }
     const step = (current * ATTEST_STEP_BPS) / BPS;
-    if (step === 0n) return null;
+    if (step === 0n) return path.length ? { path, reached: false } : null;
     current = targetRaw > current ? current + step : current - step;
     path.push(current);
   }
-  return null;
+  return { path, reached: false };
 }
 
 /**
