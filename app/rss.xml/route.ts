@@ -41,13 +41,6 @@ const ITEMS: Array<{
       'Lead, Risk, Hedging, Reporting, Price Monitor, SUI Pool. Trades above $100K need a 2-of-3 vote.',
     pubDate: 'Fri, 19 Sep 2026 00:00:00 GMT',
   },
-  {
-    title: 'Zero-knowledge proofs — the ZK page',
-    path: '/zk',
-    description:
-      'Post-quantum STARK prover. Goldilocks field, no trusted setup, 180-bit soundness, verifiable in-browser.',
-    pubDate: 'Fri, 19 Sep 2026 00:00:00 GMT',
-  },
 ];
 
 function escapeXml(s: string): string {

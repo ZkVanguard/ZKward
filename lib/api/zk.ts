@@ -6,7 +6,8 @@
 import { zkApiHeaders } from '@/lib/utils/zk-api-auth';
 import { logger } from '../utils/logger';
 
-const ZK_API_URL = process.env.NEXT_PUBLIC_ZK_API_URL || 'https://zk-api.starknova.xyz';
+// No default host: an unset address must fail closed (.invalid never resolves).
+const ZK_API_URL = (process.env.NEXT_PUBLIC_ZK_API_URL || '').trim() || 'http://prover.invalid';
 
 export interface ZKProof {
   version: string;
