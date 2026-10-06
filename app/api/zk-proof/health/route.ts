@@ -9,7 +9,9 @@ export const runtime = 'nodejs';
 export const maxDuration = 30;
 export const dynamic = 'force-dynamic';
 
-const ZK_BACKEND_URL = process.env.ZK_BACKEND_URL || 'https://zk-api.starknova.xyz';
+// The prover address is ZK_API_URL, the same variable the other proof routes read.
+// No default host: an unset address must fail closed (.invalid never resolves).
+const ZK_BACKEND_URL = (process.env.ZK_API_URL || process.env.ZK_BACKEND_URL || '').trim() || 'http://prover.invalid';
 
 export async function GET() {
   try {

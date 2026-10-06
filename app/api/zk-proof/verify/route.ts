@@ -8,7 +8,8 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 30;
 
-const ZK_API_URL = process.env.ZK_API_URL || 'https://zk-api.starknova.xyz';
+// No default host: an unset address must fail closed (.invalid never resolves).
+const ZK_API_URL = (process.env.ZK_API_URL || '').trim() || 'http://prover.invalid';
 
 export async function POST(request: NextRequest) {
   const rateLimited = await heavyLimiter.checkDistributed(request);

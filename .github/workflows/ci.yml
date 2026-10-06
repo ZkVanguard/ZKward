@@ -65,8 +65,8 @@ jobs:
       env:
         CI: true
         NODE_TLS_REJECT_UNAUTHORIZED: '0'
-        ZK_API_URL: ${{ secrets.ZK_API_URL || 'https://zk-api.starknova.xyz' }}
-        NEXT_PUBLIC_ZK_API_URL: ${{ secrets.ZK_API_URL || 'https://zk-api.starknova.xyz' }}
+        ZK_API_URL: ${{ secrets.ZK_API_URL || 'http://prover.invalid' }}
+        NEXT_PUBLIC_ZK_API_URL: ${{ secrets.ZK_API_URL || 'http://prover.invalid' }}
         ZK_PYTHON_ENABLED: 'false'
     
     - name: Upload coverage

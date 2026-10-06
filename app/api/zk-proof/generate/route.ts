@@ -7,7 +7,8 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
-const ZK_API_URL = process.env.ZK_API_URL || 'https://zk-api.starknova.xyz';
+// No default host: an unset address must fail closed (.invalid never resolves).
+const ZK_API_URL = (process.env.ZK_API_URL || '').trim() || 'http://prover.invalid';
 
 // Generate deterministic fallback proof when ZK backend unavailable
 function generateFallbackProof(scenario: string, statement: Record<string, unknown>, _witness: Record<string, unknown>) {
@@ -74,7 +75,7 @@ export async function POST(request: NextRequest) {
       scenario, 
       statementKeys: Object.keys(statement), 
       witnessKeys: Object.keys(witness),
-      zkApiUrl: process.env.ZK_API_URL || 'https://zk-api.starknova.xyz (default)'
+      zkApiUrl: (process.env.ZK_API_URL || '').trim() ? 'configured' : 'not configured'
     });
 
     // Prepare data based on scenario type

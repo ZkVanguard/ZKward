@@ -37,7 +37,6 @@ export const Footer = memo(function Footer() {
             <div>
               <h3 className={HEADING_CLASS}>{t('platform')}</h3>
               <ul className="space-y-3">
-                <li><Link href="/zk" className={LINK_CLASS}>{t('zkVerification')}</Link></li>
                 <li><Link href="/rwa" className={LINK_CLASS}>{t('authenticity')}</Link></li>
               </ul>
             </div>

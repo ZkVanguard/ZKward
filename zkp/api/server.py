@@ -97,8 +97,6 @@ app.add_middleware(
         "https://zkvanguard.xyz",
         "https://www.zkvanguard.xyz",
         "https://*.vercel.app",
-        "https://starknova.xyz",
-        "https://*.starknova.xyz",
     ],
     allow_credentials=True,
     allow_methods=["*"],

@@ -10,7 +10,6 @@ import { locales, defaultLocale } from '@/i18n/routing';
 const MARKETING_ROUTES: Array<{ path: string; priority: number; changeFrequency: 'daily' | 'weekly' | 'monthly' }> = [
   { path: '', priority: 1.0, changeFrequency: 'daily' },
   { path: '/agents', priority: 0.9, changeFrequency: 'weekly' },
-  { path: '/zk', priority: 0.9, changeFrequency: 'weekly' },
   { path: '/rwa', priority: 0.8, changeFrequency: 'weekly' },
   { path: '/whitepaper', priority: 0.9, changeFrequency: 'monthly' },
   { path: '/story', priority: 0.8, changeFrequency: 'monthly' },
