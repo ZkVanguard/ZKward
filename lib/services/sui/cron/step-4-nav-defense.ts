@@ -37,8 +37,12 @@ import { replenishAdminUsdc } from '@/lib/services/sui/cron/admin-swaps';
 import { POOL_ASSETS } from '@/lib/services/sui/cron/allocation';
 import { recordPoolNavSnapshot } from '@/lib/services/sui/cron/persistence';
 import { envFlagOnByDefault } from '@/lib/utils/env-flag';
+import { isPoolTradingEnabled } from '@/lib/services/sui/pool-trading-pause';
 import type { AllocationDecision } from '@/agents/specialized/SuiPoolAgent';
 import type { SuiUsdcPoolStats } from '@/lib/types/sui-pool-types';
+
+/** The contract stops deposits and withdrawals at 120 minutes; alert well before. */
+const ATTESTATION_ALERT_AFTER_MIN = 30;
 
 export interface Step4Input {
   poolStats: SuiUsdcPoolStats;
@@ -341,7 +345,8 @@ export async function runStep4NavDefense(input: Step4Input): Promise<Step4Result
             spotPrices: pricesUSD,
           });
           if (actions.length > 0) {
-            const execute = envFlagOnByDefault('PORTFOLIO_DRIVER_EXECUTE');
+            // The driver sells spot; it obeys the pool-wide trading pause too.
+            const execute = envFlagOnByDefault('PORTFOLIO_DRIVER_EXECUTE') && isPoolTradingEnabled();
             logger.warn('[SUI Cron] PortfolioDriver suggests corrective actions', {
               execute, count: actions.length, actions,
             });
@@ -504,6 +509,19 @@ export async function runStep4NavDefense(input: Step4Input): Promise<Step4Result
     } else if (attest.error && !attest.error.includes('AdminCap is on MSafe')) {
       // MSafe-gated path is expected; everything else is worth surfacing.
       logger.warn('[SUI Cron] External NAV attestation failed (non-fatal)', { error: attest.error });
+      // Deposits and withdrawals stop when the attestation is two hours old.
+      // From 2026-10-01 that happened for days with only this log line to
+      // show for it. ERROR, not KILL: this is not a reason to shrink the book.
+      const ageMin = attest.attestationAgeMin;
+      if (ageMin === undefined || ageMin > ATTESTATION_ALERT_AFTER_MIN) {
+        await notifyDiscord(
+          ageMin !== undefined && ageMin > 120
+            ? `Pool deposits and withdrawals are BLOCKED: the on-chain NAV attestation is ${Math.round(ageMin)} min old (limit 120) and the last attempt failed: ${attest.error}`
+            : `NAV attestation is failing (${ageMin === undefined ? 'age unknown' : `${Math.round(ageMin)} min old`}); deposits and withdrawals stop at 120 min. Last error: ${attest.error}`,
+          'ERROR',
+          { chain: 'sui', attestationAgeMin: ageMin === undefined ? 'unknown' : Math.round(ageMin), error: attest.error },
+        ).catch(() => {});
+      }
     }
   }
 

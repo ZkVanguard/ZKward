@@ -16,6 +16,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { logger } from '@/lib/utils/logger';
+import { isPoolTradingEnabled } from '@/lib/services/sui/pool-trading-pause';
 import { verifyCronRequest } from '@/lib/qstash';
 import { getSuiUsdcPoolService, validateSuiMainnetConfig } from '@/lib/services/sui/SuiCommunityPoolService';
 import { initCommunityPoolTables } from '@/lib/db/community-pool';
@@ -421,12 +422,20 @@ export async function GET(request: NextRequest): Promise<NextResponse<SuiCronRes
       pricesUSD,
     });
 
+    // Capital-moving steps run only when trading is enabled (see
+    // pool-trading-pause.ts). They already skip on `aboveSafetyCeiling`, so
+    // the pause rides the same switch. Step 4 above (NAV, attestation,
+    // snapshot) always runs.
+    const tradingPaused = !isPoolTradingEnabled();
+    const skipCapitalSteps = aboveSafetyCeiling || tradingPaused;
+    if (tradingPaused) logger.info('[SUI Cron] Trading paused (SUI_POOL_TRADING_ENABLED is not set) — skipping settle, rebalance and hedge');
+
     // Step 6.5: Settle PREVIOUS cycle's hedges
     // ═══════════════════════════════════════════════════════════════
     // Extracted to lib/services/sui/cron/step-6-5-hedge-settle.ts —
     // shortfall-only replenish (598484a7 fix) + Audit-15 residual guard.
     const { hedgeSettlement } = await runStep65HedgeSettle({
-      navUsd, aboveSafetyCeiling, pricesUSD, network,
+      navUsd, aboveSafetyCeiling: skipCapitalSteps, pricesUSD, network,
     });
 
 
@@ -436,7 +445,7 @@ export async function GET(request: NextRequest): Promise<NextResponse<SuiCronRes
     // sells overweight asset(s) to USDC so Step 7 has budget to buy
     // underweight assets. Emits executionAllocations for Step 7.
     const { driftRebalance, executionAllocations } = await runStep66DriftRebalance({
-      navUsd, aboveSafetyCeiling, pricesUSD, aiResult, network,
+      navUsd, aboveSafetyCeiling: skipCapitalSteps, pricesUSD, aiResult, network,
     });
 
 
@@ -447,7 +456,7 @@ export async function GET(request: NextRequest): Promise<NextResponse<SuiCronRes
     // ratio + reserve + daily-cap enforcement and AI-driven daily reset)
     // + 7c (re-plan against actual budget) + 7d (log hedged positions).
     const { rebalanceSwaps } = await runStep7Rebalance({
-      navUsd, aboveSafetyCeiling,
+      navUsd, aboveSafetyCeiling: skipCapitalSteps,
       currentAllocations, executionAllocations,
       aiResult, enhancedContext, network,
     });
@@ -458,7 +467,7 @@ export async function GET(request: NextRequest): Promise<NextResponse<SuiCronRes
     // Extracted to lib/services/sui/cron/step-7-9-drift-close.ts.
     // Fire-and-forget: the module logs its own summary + swallows errors
     // so Step 8 continues even if the drift check throws.
-    await runStep7_9DriftClose();
+    if (!tradingPaused) await runStep7_9DriftClose();
 
     // Step 8: Auto-Hedge via BlueFin perpetuals — BTC, ETH, SUI
     // ═══════════════════════════════════════════════════════════════
@@ -468,7 +477,7 @@ export async function GET(request: NextRequest): Promise<NextResponse<SuiCronRes
     // verification, ZK commitment emission. Behavior verbatim.
     const autoHedgeResult = await runStep8AutoHedge({
       navUsd, pricesUSD, aiResult, enhancedContext,
-      aboveSafetyCeiling, navSafetyCeilingUsdc: NAV_SAFETY_CEILING_USDC, network,
+      aboveSafetyCeiling: skipCapitalSteps, navSafetyCeilingUsdc: NAV_SAFETY_CEILING_USDC, network,
       poolStats,
     });
 

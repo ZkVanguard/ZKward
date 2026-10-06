@@ -15,27 +15,60 @@ import {
 import { isStrongHedgeSignal } from '@/lib/services/sui/cron/signal-gating';
 import { getCronStateOr, setCronState } from '@/lib/db/cron-state';
 import { notifyDiscord } from '@/lib/utils/discord-notify';
+import { attestPath } from '@/lib/services/sui/cron/onchain-math';
 
 
 /**
  * Push the off-chain NAV portion to the Move contract's oracle field so
  * deposit/withdraw share math reflects true pool value.
  *
- * external_nav_usdc = navUsd_total - balance_onchain_usdc - hedge_state.total_hedged_value
+ * external_nav_usdc = navUsd_total - balance_onchain_usdc
  *
- * We subtract balance + hedge_state because the contract adds those on
- * the on-chain side already (see get_total_nav in the Move source).
- * Double-counting them in the oracle would over-pay withdrawers and
- * under-issue shares on deposit.
+ * Deposits and withdrawals are priced on `balance + external`
+ * (total_assets_including_external in the Move source); nothing else is
+ * added. USDC that left the pool through open_hedge sits in the admin wallet
+ * or on the venue, and navUsdTotal already counts it there, so it belongs in
+ * the external figure. Subtracting hedge_state.total_hedged_value as well, as
+ * this did until 2026-10-06, left that value out of every share price: a
+ * withdrawer was underpaid and a depositor over-issued by the hedged amount.
+ * (get_total_nav does add the hedged value; it is a view used for ratios,
+ * and reads high by that amount while a hedge is open.)
  *
- * Fails open on any error (logs warn, returns success:false). The
- * Move contract reverts on stale oracle when admin_set_external_nav_required(true)
- * has been called, so a missed attestation pauses withdrawals automatically.
+ * A change of more than 30% cannot be attested in one call. It is walked
+ * there in one transaction (see attestPath), but only once the same target
+ * has been seen on LARGE_CHANGE_CONFIRMATIONS consecutive ticks, so a single
+ * bad read cannot reprice the pool.
+ *
+ * Returns pushed:false on any error. With strict mode on, the contract then
+ * refuses deposits and withdrawals once the last attestation is two hours
+ * old; `attestationAgeMin` lets the caller alert before that.
  */
+const EXTERNAL_NAV_KEY = 'external_nav_usdc';
+const EXTERNAL_NAV_TS_KEY = 'external_nav_ts_ms';
+const PENDING_KEY = 'sui-nav-attest:pending-large-change';
+const LARGE_CHANGE_CONFIRMATIONS = 3;
+const SAME_TARGET_TOLERANCE = 0.05;
+/** A single attestation costs about 0.0002 SUI. The budget must stay under the wallet balance or the node rejects the transaction outright. */
+const ATTEST_GAS_BASE = 2_000_000;
+const ATTEST_GAS_PER_STEP = 1_000_000;
+
+interface PendingLargeChange { targetRaw: string; count: number; firstSeen: number }
+
+export interface AttestResult {
+  pushed: boolean;
+  externalNavUsd?: number;
+  txDigest?: string;
+  error?: string;
+  /** Age of the attestation on chain before this call, in minutes. */
+  attestationAgeMin?: number;
+  /** How many attestations the transaction carried (more than one means a stepped catch-up). */
+  steps?: number;
+}
+
 export async function attestExternalNav(
   network: 'mainnet' | 'testnet',
   navUsdTotal: number,
-): Promise<{ pushed: boolean; externalNavUsd?: number; txDigest?: string; error?: string }> {
+): Promise<AttestResult> {
   const adminKey = (process.env.SUI_POOL_ADMIN_KEY || process.env.BLUEFIN_PRIVATE_KEY || '').trim();
   // v0.4.0: prefer OracleCap so cron survives AdminCap → MSafe migration.
   // Falls back to AdminCap for pre-v0.4.0 packages / pre-migration pools.
@@ -66,13 +99,53 @@ export async function attestExternalNav(
     const obj = await suiClient.getObject({ id: poolConfig.poolStateId!, options: { showContent: true } });
     const fields = (obj.data?.content as { fields?: Record<string, unknown> } | undefined)?.fields ?? {};
     const balanceRaw = Number((fields as { balance?: string }).balance ?? 0);
-    const hedgeStateFields = ((fields as { hedge_state?: { fields?: Record<string, unknown> } }).hedge_state?.fields) ?? {};
-    const hedgedRaw = Number((hedgeStateFields as { total_hedged_value?: string }).total_hedged_value ?? 0);
+    if ((fields as { balance?: unknown }).balance === undefined) {
+      return { pushed: false, error: 'pool object unreadable — skipping attestation' };
+    }
     const balanceUsd = balanceRaw / 1e6;
-    const hedgedUsd = hedgedRaw / 1e6;
 
-    const externalNavUsd = Math.max(0, navUsdTotal - balanceUsd - hedgedUsd);
+    const externalNavUsd = Math.max(0, navUsdTotal - balanceUsd);
     const externalNavRaw = Math.floor(externalNavUsd * 1e6); // USDC has 6 decimals
+
+    // What is on chain now: the value the 30% bound is measured from, and its age.
+    const dynamicField = async (key: string): Promise<string | undefined> => {
+      const res = await suiClient.getDynamicFieldObject({
+        parentId: poolConfig.poolStateId!,
+        name: { type: 'vector<u8>', value: Array.from(Buffer.from(key)) },
+      });
+      if (res.error) {
+        if (res.error.code === 'dynamicFieldNotFound') return undefined;
+        throw new Error(`${key} read failed: ${res.error.code}`);
+      }
+      const value = (res.data?.content as { fields?: { value?: unknown } } | undefined)?.fields?.value;
+      if (value === undefined) throw new Error(`${key} has no value`);
+      return String(value);
+    };
+    const [priorStr, tsStr] = await Promise.all([dynamicField(EXTERNAL_NAV_KEY), dynamicField(EXTERNAL_NAV_TS_KEY)]);
+    const priorRaw = BigInt(priorStr ?? '0');
+    const attestationAgeMin = tsStr ? (Date.now() - Number(tsStr)) / 60_000 : undefined;
+
+    const path = attestPath(priorRaw, BigInt(externalNavRaw));
+    if (!path) {
+      return { pushed: false, attestationAgeMin, error: `external NAV ${externalNavUsd.toFixed(2)} cannot be reached from ${(Number(priorRaw) / 1e6).toFixed(2)} within the 30% bound` };
+    }
+    if (path.length > 1) {
+      const pending = await getCronStateOr<PendingLargeChange | null>(PENDING_KEY, null);
+      const pendingTarget = pending ? Number(pending.targetRaw) : 0;
+      const sameTarget = !!pending && pendingTarget > 0 && Math.abs(externalNavRaw - pendingTarget) <= pendingTarget * SAME_TARGET_TOLERANCE;
+      const count = sameTarget ? pending!.count + 1 : 1;
+      if (count < LARGE_CHANGE_CONFIRMATIONS) {
+        await setCronState(PENDING_KEY, { targetRaw: String(externalNavRaw), count, firstSeen: sameTarget ? pending!.firstSeen : Date.now() });
+        if (count === 1) {
+          await notifyDiscord(
+            `External NAV wants to move from $${(Number(priorRaw) / 1e6).toFixed(2)} to $${externalNavUsd.toFixed(2)}, more than 30%. Not attesting until it reads the same on ${LARGE_CHANGE_CONFIRMATIONS} ticks in a row.`,
+            'WARN',
+            { chain: 'sui', priorUsd: (Number(priorRaw) / 1e6).toFixed(2), targetUsd: externalNavUsd.toFixed(2), navUsdTotal: navUsdTotal.toFixed(2) },
+          ).catch(() => {});
+        }
+        return { pushed: false, attestationAgeMin, error: `large change awaiting confirmation (${count}/${LARGE_CHANGE_CONFIRMATIONS})` };
+      }
+    }
 
     // Cap ownership check — cron gracefully no-ops when the cap has
     // been transferred (e.g. AdminCap → MSafe). Post-v0.4.0 migration,
@@ -88,19 +161,27 @@ export async function attestExternalNav(
       return { pushed: false, error: `${capKind === 'oracle' ? 'OracleCap' : 'AdminCap'} is not held by cron signer (owner=${capOwner.AddressOwner.slice(0, 12)}…) — cannot attest.` };
     }
 
+    const gasBudget = ATTEST_GAS_BASE + ATTEST_GAS_PER_STEP * path.length;
+    const gas = await suiClient.getBalance({ owner: cronSigner });
+    if (BigInt(gas.totalBalance) < BigInt(gasBudget)) {
+      return { pushed: false, attestationAgeMin, error: `insufficient gas: signer holds ${(Number(gas.totalBalance) / 1e9).toFixed(4)} SUI, attestation needs ${(gasBudget / 1e9).toFixed(4)}` };
+    }
+
     const tx = new Transaction();
     const usdcType = SUI_USDC_COIN_TYPE[network];
-    tx.moveCall({
-      target: `${poolConfig.packageId}::${poolConfig.moduleName}::${attestFn}`,
-      typeArguments: [usdcType],
-      arguments: [
-        tx.object(capId),
-        tx.object(poolConfig.poolStateId!),
-        tx.pure.u64(externalNavRaw),
-        tx.object('0x6'),
-      ],
-    });
-    tx.setGasBudget(20_000_000);
+    for (const stepRaw of path) {
+      tx.moveCall({
+        target: `${poolConfig.packageId}::${poolConfig.moduleName}::${attestFn}`,
+        typeArguments: [usdcType],
+        arguments: [
+          tx.object(capId),
+          tx.object(poolConfig.poolStateId!),
+          tx.pure.u64(stepRaw),
+          tx.object('0x6'),
+        ],
+      });
+    }
+    tx.setGasBudget(gasBudget);
 
     const result = await suiClient.signAndExecuteTransaction({
       signer: keypair, transaction: tx, options: { showEffects: true },
@@ -112,11 +193,19 @@ export async function attestExternalNav(
         attestFn,
         externalNavUsd: externalNavUsd.toFixed(2),
         balanceUsd: balanceUsd.toFixed(2),
-        hedgedUsd: hedgedUsd.toFixed(2),
         navUsdTotal: navUsdTotal.toFixed(2),
+        steps: path.length,
         txDigest: result.digest,
       });
-      return { pushed: true, externalNavUsd, txDigest: result.digest };
+      if (path.length > 1) {
+        await setCronState(PENDING_KEY, null).catch(() => {});
+        await notifyDiscord(
+          `External NAV caught up from $${(Number(priorRaw) / 1e6).toFixed(2)} to $${externalNavUsd.toFixed(2)} in ${path.length} steps in one transaction.`,
+          'WARN',
+          { chain: 'sui', txDigest: result.digest, steps: path.length },
+        ).catch(() => {});
+      }
+      return { pushed: true, externalNavUsd, txDigest: result.digest, attestationAgeMin, steps: path.length };
     }
     const errStr = result.effects?.status?.error || 'unknown';
     // E_EXTERNAL_NAV_CHANGE_TOO_LARGE is an expected reversion (anti-
@@ -125,10 +214,10 @@ export async function attestExternalNav(
       logger.warn('[SUI Cron] External NAV attestation rejected — change > 30%', {
         externalNavUsd: externalNavUsd.toFixed(2), error: errStr,
       });
-      return { pushed: false, error: 'change > 30% guard' };
+      return { pushed: false, attestationAgeMin, error: 'change > 30% guard' };
     }
     logger.warn('[SUI Cron] External NAV attestation tx failed', { error: errStr, txDigest: result.digest });
-    return { pushed: false, error: errStr, txDigest: result.digest };
+    return { pushed: false, attestationAgeMin, error: errStr, txDigest: result.digest };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     logger.warn('[SUI Cron] External NAV attestation threw', { error: msg });

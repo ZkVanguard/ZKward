@@ -9,6 +9,7 @@
 import { logger } from '@/lib/utils/logger';
 import { SUI_USDC_POOL_CONFIG } from '@/lib/services/sui/SuiCommunityPoolService';
 import { returnUsdcToPool } from '@/lib/services/sui/cron/pool-transfer';
+import { closeHedgeArgs, splitProRata } from '@/lib/services/sui/cron/onchain-math';
 import { getAdminUsdcBalance } from '@/lib/services/sui/cron/admin-swaps';
 
 
@@ -19,6 +20,8 @@ import { getAdminUsdcBalance } from '@/lib/services/sui/cron/admin-swaps';
 export async function getActiveHedges(network: 'mainnet' | 'testnet'): Promise<Array<{
   hedgeId: number[];
   collateralUsdc: number;
+  /** The contract's own integer, for arguments the contract checks to the unit. */
+  collateralRaw: bigint;
   pairIndex: number;
   openTime: number;
 }>> {
@@ -44,6 +47,7 @@ export async function getActiveHedges(network: 'mainnet' | 'testnet'): Promise<A
           ? ((hf as Record<string, unknown>).hedge_id as number[])
           : [],
         collateralUsdc: Number((hf as Record<string, unknown>).collateral_usdc || 0) / 1e6,
+        collateralRaw: BigInt(String((hf as Record<string, unknown>).collateral_usdc || 0)),
         pairIndex: Number((hf as Record<string, unknown>).pair_index || 0),
         openTime: Number((hf as Record<string, unknown>).open_time || 0),
       };
@@ -88,9 +92,16 @@ export async function settleActiveHedges(
   // Distribute ALL admin USDC proportionally across hedges.
   // If assets appreciated → pool gets back MORE than collateral (profit).
   // If assets depreciated → pool gets back LESS than collateral (loss).
-  for (const hedge of hedges) {
-    const proportion = totalNeeded > 0 ? hedge.collateralUsdc / totalNeeded : 1 / hedges.length;
-    const returnAmount = Math.min(adminUsdc * proportion, remainingUsdc);
+  //
+  // In whole units: the contract checks coin >= collateral ± pnl to the
+  // unit. Flooring the return and the pnl separately from decimals left the
+  // coin one unit short whenever two hedges shared a shortfall, and every
+  // close aborted (and paid gas) until the wallet ran dry on 2026-09-30.
+  const shares = splitProRata(BigInt(Math.floor(adminUsdc * 1e6)), hedges.map((h) => h.collateralRaw));
+  for (let i = 0; i < hedges.length; i++) {
+    const hedge = hedges[i];
+    const args = closeHedgeArgs(hedge.collateralRaw, shares[i]);
+    const returnAmount = Math.min(Number(args.amountRaw) / 1e6, remainingUsdc);
     if (returnAmount < 0.000001) {
       logger.warn('[SUI Cron] Insufficient admin USDC to settle hedge', {
         needed: hedge.collateralUsdc,
@@ -106,8 +117,8 @@ export async function settleActiveHedges(
       continue;
     }
 
-    const pnlAmount = Math.abs(returnAmount - hedge.collateralUsdc);
-    const isProfit = returnAmount >= hedge.collateralUsdc;
+    const pnlAmount = Number(args.pnlRaw) / 1e6;
+    const isProfit = args.isProfit;
 
     const result = await returnUsdcToPool(
       network,
@@ -115,6 +126,7 @@ export async function settleActiveHedges(
       returnAmount,
       pnlAmount,
       isProfit,
+      { amountRaw: args.amountRaw, pnlRaw: args.pnlRaw },
     );
 
     details.push({
