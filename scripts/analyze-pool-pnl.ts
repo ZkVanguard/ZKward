@@ -48,7 +48,11 @@ async function safeQuery(pg: Pool, sql: string, params?: unknown[]): Promise<{ r
 
 async function main() {
   const sui = new SuiClient({ url: process.env.SUI_MAINNET_RPC?.trim() || getFullnodeUrl('mainnet') });
-  const pg = new Pool({ connectionString: process.env.DB_V2_DATABASE_URL, ssl: { rejectUnauthorized: false } });
+  // The self-hosted production database. This read the retired hosted one
+  // until 2026-10, so its figures were from a database nothing writes to.
+  const dbUrl = (process.env.PROD_DATABASE_URL || process.env.DATABASE_URL || '').trim().replace(/([?&])sslmode=[^&]+/g, '$1').replace(/[?&]$/, '');
+  if (!dbUrl) throw new Error('PROD_DATABASE_URL (or DATABASE_URL) is not set');
+  const pg = new Pool({ connectionString: dbUrl, ssl: /127\.0\.0\.1|localhost/.test(dbUrl) ? false : { rejectUnauthorized: true } });
 
   console.log('\n╔════════════════════════════════════════════════════════════════╗');
   console.log('║  SUI COMMUNITY POOL — DEEP PnL ANALYSIS                       ║');
