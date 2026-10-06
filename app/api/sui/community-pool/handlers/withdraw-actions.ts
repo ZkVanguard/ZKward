@@ -9,7 +9,7 @@ import { verifyCronRequest } from '@/lib/qstash';
 import { getSuiUsdcPoolService } from '@/lib/services/sui/SuiCommunityPoolService';
 import { getBluefinAggregatorService, type PoolAsset, type SwapExecutionResult } from '@/lib/services/sui/BluefinAggregatorService';
 import { withWalletLock } from './wallet-lock';
-import { provePoolTx } from './pool-tx-proof';
+import { provePoolTx, offNetworkError } from './pool-tx-proof';
 import { readMemberSharesStrict } from './member-shares';
 import type { ActionCtx } from './types';
 
@@ -22,7 +22,13 @@ import type { ActionCtx } from './types';
  */
 export async function handleWithdraw(ctx: ActionCtx): Promise<NextResponse> {
   const { network, body } = ctx;
+  const offNetwork = offNetworkError(network);
+  if (offNetwork) return offNetwork;
   const walletAddress = body.walletAddress;
+  if (walletAddress === undefined) {
+    // A page loaded before this check existed does not send the wallet.
+    return NextResponse.json({ success: false, error: 'This page is out of date. Reload it and try the withdrawal again.' }, { status: 400 });
+  }
   if (typeof walletAddress !== 'string' || !/^0x[a-fA-F0-9]{64}$/.test(walletAddress)) {
     return NextResponse.json({ success: false, error: 'Valid SUI wallet address required (0x + 64 hex chars)' }, { status: 400 });
   }
@@ -41,9 +47,11 @@ export async function handleWithdraw(ctx: ActionCtx): Promise<NextResponse> {
   const sharesNum = Number(sharesScaled) / 1e6;
 
   // The preflight below can make the server unwind positions to fund the
-  // payout. It runs only for shares this wallet holds on chain, one request
-  // per wallet at a time, so a caller cannot make the pool sell for a payout
-  // nobody is owed.
+  // payout, so it is bounded to shares this wallet holds on chain. That stops
+  // a request for shares nobody owns. It does not prove the caller is that
+  // member: the wallet is a body field and member addresses are public, so
+  // a stranger can still trigger a real member's preflight. Closing that
+  // needs the wallet to sign the request. The lock below is per instance.
   let ownedShares: number;
   try {
     ownedShares = await readMemberSharesStrict(network, walletAddress);
@@ -423,9 +431,12 @@ export async function handleRecordWithdraw(ctx: ActionCtx): Promise<NextResponse
   const sharePrice = usdcReturned / sharesBurned;
 
   const service = getSuiUsdcPoolService(network);
-  const { saveUserSharesToDb, deleteUserSharesFromDb, addPoolTransactionToDb, getUserSharesFromDb } = await import('@/lib/db/community-pool');
+  const { saveUserSharesToDb, deleteUserSharesFromDb, addPoolTransactionToDb, getUserSharesFromDb, txHashExists } = await import('@/lib/db/community-pool');
 
   return withWalletLock(walletAddress, async () => {
+    if (await txHashExists(txDigest)) {
+      return NextResponse.json({ success: true, data: { walletAddress, message: 'Transaction already recorded (idempotent)' }, chain: 'sui', network });
+    }
     let remainingShares: number;
     let onChainVerified = false;
     try {
@@ -463,6 +474,7 @@ export async function handleRecordWithdraw(ctx: ActionCtx): Promise<NextResponse
       sharePrice,
       details: { network, onChain: true, onChainVerified, remainingSharesOnChain: remainingShares },
       txHash: txDigest,
+      chain: 'sui',
     });
 
     logger.info('[SUI-API] Withdrawal recorded', {

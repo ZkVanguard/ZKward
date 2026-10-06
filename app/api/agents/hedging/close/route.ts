@@ -27,7 +27,7 @@ function verifyOwnership(walletAddress: string, hedgeId: string, storedWallet: s
 /**
  * POST /api/agents/hedging/close
  * Close a hedge position
- * SECURITY: walletAddress is REQUIRED and must match hedge owner.
+ * SECURITY: service credential only; walletAddress must also match the row's owner.
  */
 export async function POST(request: NextRequest) {
   const limited = await mutationLimiter.checkDistributed(request);

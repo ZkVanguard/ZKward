@@ -18,8 +18,8 @@
  * - POST /api/sui/community-pool?action=set-treasury      - Build set_treasury tx params (admin)
  * - POST /api/sui/community-pool?action=execute-deposit-swaps   - Swap deposited USDC → 4 assets
  * - POST /api/sui/community-pool?action=execute-withdraw-swaps  - Swap assets → USDC for withdrawal
- * - POST /api/sui/community-pool?action=record-deposit    - Record USDC deposit + execute swaps + mint shares
- * - POST /api/sui/community-pool?action=record-withdraw   - Burn shares + execute reverse swaps + record withdrawal
+ * - POST /api/sui/community-pool?action=record-deposit    - Record a deposit already made on chain (proved by its transaction)
+ * - POST /api/sui/community-pool?action=record-withdraw   - Record a withdrawal already made on chain (proved by its transaction)
  */
 
 import { NextRequest, NextResponse } from 'next/server';

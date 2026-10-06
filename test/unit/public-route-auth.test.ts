@@ -36,8 +36,16 @@ describe('service-only handlers authenticate before any work', () => {
       it(`${method} ${file}`, () => {
         const body = handler(read(file), method);
         expect(body).not.toBeNull();
-        const auth = body!.indexOf('verifyCronRequest(request');
-        expect(auth).toBeGreaterThan(-1);
+        // a live statement, not a comment
+        const line = body!.match(/^[ \t]*const authResult = await verifyCronRequest\(request, '[^']+'\);$/m);
+        expect(line).not.toBeNull();
+        const auth = body!.indexOf(line![0]);
+        // nothing is awaited before it except the rate limiter and loading the auth helper itself
+        const before = body!
+          .slice(0, auth)
+          .split('\n')
+          .filter((l) => /\bawait\b/.test(l) && !/Limiter|import\('@\/lib\/qstash'\)|import\('@\/lib\/security\/rate-limiter'\)/.test(l));
+        expect(before).toEqual([]);
         // the refusal is returned, not just computed
         expect(body!.slice(auth)).toMatch(/if \(authResult !== true\) return authResult;/);
         for (const work of ['request.json()', 'await import(\'@/lib/db', 'Service.', 'process.env.']) {
@@ -106,7 +114,7 @@ describe('browser-callable pool actions cannot move funds', () => {
 describe('proof verification never signs with the operator key', () => {
   const src = read('app/api/zk-proof/verify-hedge-onchain/route.ts');
   it('has no signing path', () => {
-    for (const s of ['signAndExecuteTransaction', 'SUI_POOL_ADMIN_KEY', 'Ed25519Keypair', "'execute'"]) expect(src).not.toContain(s);
+    for (const s of ['signAndExecuteTransaction', 'signTransaction', 'SUI_POOL_ADMIN_KEY', 'PRIVATE_KEY', 'Keypair', 'setSender']) expect(src).not.toContain(s);
   });
 });
 

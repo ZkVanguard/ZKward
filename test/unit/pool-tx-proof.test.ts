@@ -15,6 +15,8 @@ const ATTACKER_PKG = '0x' + 'e'.repeat(64);
 const MEMBER = '0x880cfa49' + 'c'.repeat(56);
 const STRANGER = '0x' + '1'.repeat(64);
 const MODULE = 'community_pool_usdc';
+const POOL = '0xe814e094' + 'd'.repeat(56);
+const OTHER_POOL = '0x' + '7'.repeat(64);
 
 const deposit = (over: Record<string, unknown> = {}, pkg = ORIGINAL_PKG, emitter = CURRENT_PKG) => ({
   type: `${pkg}::${MODULE}::UsdcDeposited`,
@@ -26,8 +28,8 @@ const withdrawal = (over: Record<string, unknown> = {}) => ({
   packageId: CURRENT_PKG,
   parsedJson: { member: MEMBER, shares_burned: '10000000', amount_usdc: '6837430', share_price: '683743', timestamp: '1', ...over },
 });
-const ok = { status: { status: 'success' } };
-const expectDeposit = { kind: 'UsdcDeposited' as const, packageId: CURRENT_PKG, moduleName: MODULE, wallet: MEMBER };
+const ok = { status: { status: 'success' }, mutated: [{ reference: { objectId: '0x' + '9'.repeat(64) } }, { reference: { objectId: POOL } }] };
+const expectDeposit = { kind: 'UsdcDeposited' as const, packageId: CURRENT_PKG, moduleName: MODULE, wallet: MEMBER, poolStateId: POOL };
 const expectWithdraw = { ...expectDeposit, kind: 'UsdcWithdrawn' as const };
 
 describe('checkPoolTx', () => {
@@ -52,6 +54,12 @@ describe('checkPoolTx', () => {
   it('refuses a transaction that failed on chain', () => {
     expect(checkPoolTx({ effects: { status: { status: 'failure' } }, events: [deposit()] }, expectDeposit)).toEqual({ ok: false, reason: 'tx-failed' });
     expect(checkPoolTx({ events: [deposit()] }, expectDeposit)).toEqual({ ok: false, reason: 'tx-failed' });
+  });
+
+  it('refuses a real pool event from a transaction that did not change this pool', () => {
+    const elsewhere = { status: { status: 'success' }, mutated: [{ reference: { objectId: OTHER_POOL } }] };
+    expect(checkPoolTx({ effects: elsewhere, events: [deposit()] }, expectDeposit)).toEqual({ ok: false, reason: 'other-pool' });
+    expect(checkPoolTx({ effects: { status: { status: 'success' } }, events: [deposit()] }, expectDeposit)).toEqual({ ok: false, reason: 'other-pool' });
   });
 
   it('refuses a real deposit claimed by a different wallet', () => {

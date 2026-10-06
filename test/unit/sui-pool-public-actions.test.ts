@@ -6,7 +6,7 @@
  * executor, the liquidity top-up and the database writers are mocked so each
  * test can assert they were never reached.
  */
-import { describe, it, expect, beforeEach, jest } from '@jest/globals';
+import { describe, it, expect, beforeEach, afterAll, jest } from '@jest/globals';
 import type { NextRequest } from 'next/server';
 
 const MEMBER = '0x880cfa49' + 'c'.repeat(56);
@@ -14,6 +14,7 @@ const STRANGER = '0x' + '1'.repeat(64);
 const DIGEST = '4QD4t1hkn2Rv9peY1qMSVHmr2qougATtJsyFZYTsTXvK';
 const PKG = '0x107292a6' + 'b'.repeat(56);
 const MODULE = 'community_pool_usdc';
+const POOL = '0xe814e094' + 'd'.repeat(56);
 
 const executeRebalance = jest.fn();
 const planRebalanceSwaps = jest.fn();
@@ -38,7 +39,7 @@ const getMemberPosition = jest.fn<(a: string) => Promise<{ isMember: boolean; sh
 jest.mock('@/lib/services/sui/SuiCommunityPoolService', () => ({
   getSuiUsdcPoolService: () => ({
     getContractInfo: () => ({ packageId: PKG, moduleName: MODULE }),
-    getPoolStateId: async () => '0xpool',
+    getPoolStateId: async () => POOL,
     getPoolStats: jest.fn(async () => ({ sharePrice: 0.68 })),
     getMemberPosition,
     clearCaches: jest.fn(),
@@ -69,11 +70,11 @@ const ctx = (body: Record<string, unknown>) => ({
   body,
 });
 const depositTx = (member = MEMBER) => ({
-  effects: { status: { status: 'success' } },
+  effects: { status: { status: 'success' }, mutated: [{ reference: { objectId: POOL } }] },
   events: [{ type: `0x8f2534a7${'a'.repeat(56)}::${MODULE}::UsdcDeposited`, packageId: PKG, parsedJson: { member, amount_usdc: '30000000', shares_received: '43876106' } }],
 });
 const withdrawTx = (member = MEMBER) => ({
-  effects: { status: { status: 'success' } },
+  effects: { status: { status: 'success' }, mutated: [{ reference: { objectId: POOL } }] },
   events: [{ type: `0x8f2534a7${'a'.repeat(56)}::${MODULE}::UsdcWithdrawn`, packageId: PKG, parsedJson: { member, shares_burned: '10000000', amount_usdc: '6837430' } }],
 });
 const memberOnChain = (sharesRaw: string | null) => {
@@ -131,8 +132,10 @@ describe('record-deposit', () => {
     expect(res.status).toBe(200);
     noFundsMoved();
     expect(addPoolTransactionToDb).toHaveBeenCalledTimes(1);
-    const row = addPoolTransactionToDb.mock.calls[0][0] as { amountUSD: number; shares: number; txHash: string; walletAddress: string; type: string };
-    expect(row).toMatchObject({ type: 'DEPOSIT', walletAddress: MEMBER, amountUSD: 30, shares: 43.876106, txHash: DIGEST });
+    const row = addPoolTransactionToDb.mock.calls[0][0] as Record<string, unknown>;
+    expect(row).toMatchObject({ type: 'DEPOSIT', walletAddress: MEMBER, amountUSD: 30, shares: 43.876106, txHash: DIGEST, chain: 'sui' });
+    // history row first: its unique index is the gate for the share write
+    expect(addPoolTransactionToDb.mock.invocationCallOrder[0]).toBeLessThan(saveUserSharesToDb.mock.invocationCallOrder[0]);
     expect(saveUserSharesToDb).toHaveBeenCalledWith(expect.objectContaining({ walletAddress: MEMBER, shares: 67.304454, costBasisUSD: 30 }));
   });
 
@@ -141,6 +144,31 @@ describe('record-deposit', () => {
     const res = await handleRecordDeposit(ctx({ walletAddress: MEMBER, txDigest: DIGEST }));
     expect(res.status).toBe(200);
     expect(getTransactionBlock).not.toHaveBeenCalled();
+    noWrites();
+  });
+});
+
+describe('record-deposit, repeats and other pools', () => {
+  it('a second post of the same transaction that slips past the first check adds nothing', async () => {
+    getTransactionBlock.mockResolvedValue(depositTx());
+    // not recorded when the request arrives, recorded by the time it holds the wallet lock
+    txHashExists.mockResolvedValueOnce(false).mockResolvedValueOnce(true);
+    const res = await handleRecordDeposit(ctx({ walletAddress: MEMBER, txDigest: DIGEST }));
+    expect(res.status).toBe(200);
+    noWrites();
+  });
+
+  it('if the history row cannot be written, the share row is not touched', async () => {
+    getTransactionBlock.mockResolvedValue(depositTx());
+    addPoolTransactionToDb.mockRejectedValueOnce(new Error('duplicate key value violates unique constraint'));
+    await expect(handleRecordDeposit(ctx({ walletAddress: MEMBER, txDigest: DIGEST }))).rejects.toThrow('duplicate key');
+    expect(saveUserSharesToDb).not.toHaveBeenCalled();
+  });
+
+  it('refuses a real pool event from a transaction that changed some other pool', async () => {
+    getTransactionBlock.mockResolvedValue({ ...depositTx(), effects: { status: { status: 'success' }, mutated: [{ reference: { objectId: '0x' + '7'.repeat(64) } }] } });
+    const res = await handleRecordDeposit(ctx({ walletAddress: MEMBER, txDigest: DIGEST }));
+    expect(res.status).toBe(403);
     noWrites();
   });
 });
@@ -165,7 +193,7 @@ describe('record-withdraw', () => {
     const res = await handleRecordWithdraw(ctx({ walletAddress: MEMBER, sharesToBurn: 9999, txDigest: DIGEST }));
     expect(res.status).toBe(200);
     const row = addPoolTransactionToDb.mock.calls[0][0] as Record<string, unknown>;
-    expect(row).toMatchObject({ type: 'WITHDRAWAL', walletAddress: MEMBER, amountUSD: 6.83743, shares: 10, txHash: DIGEST });
+    expect(row).toMatchObject({ type: 'WITHDRAWAL', walletAddress: MEMBER, amountUSD: 6.83743, shares: 10, txHash: DIGEST, chain: 'sui' });
     expect(saveUserSharesToDb).toHaveBeenCalledWith(expect.objectContaining({ shares: 57.304454 }));
     expect(deleteUserSharesFromDb).not.toHaveBeenCalled();
   });
@@ -204,7 +232,12 @@ describe('withdraw preflight', () => {
     noFundsMoved();
   });
 
-  it('refuses more shares than the wallet holds, even by one unit', async () => {
+  it('a page loaded before the check existed is told to reload, not shown an address error', async () => {
+    const res = await handleWithdraw(ctx({ shares: '1000000' }));
+    expect(((await res.json()) as { error: string }).error).toMatch(/Reload/);
+  });
+
+  it('refuses more shares than the wallet holds (two raw units over; one is inside the rounding tolerance)', async () => {
     memberOnChain('67304454');
     const res = await handleWithdraw(ctx({ shares: '67304456', walletAddress: MEMBER }));
     expect(res.status).toBe(403);
@@ -237,5 +270,36 @@ describe('withdraw preflight', () => {
     expect(ensurePoolLiquidityForWithdraw).toHaveBeenCalledTimes(1);
     // topped up for this member's payout and no more
     expect(ensurePoolLiquidityForWithdraw.mock.calls[0][1]).toBeCloseTo(67.304454 * 0.68, 4);
+  });
+});
+
+describe('a mainnet deployment refuses testnet transactions', () => {
+  const testnetCtx = (body: Record<string, unknown>) => ({ ...ctx(body), network: 'testnet' as const });
+  const saved = process.env.SUI_NETWORK;
+  beforeEach(() => { process.env.SUI_NETWORK = 'mainnet\r\n'; });
+  afterAll(() => { process.env.SUI_NETWORK = saved; });
+
+  it('record-deposit: a free testnet deposit is not recorded beside real ones', async () => {
+    getTransactionBlock.mockResolvedValue(depositTx());
+    const res = await handleRecordDeposit(testnetCtx({ walletAddress: MEMBER, txDigest: DIGEST }));
+    expect(res.status).toBe(400);
+    expect(getTransactionBlock).not.toHaveBeenCalled();
+    noWrites();
+  });
+
+  it('record-withdraw and the withdraw preflight are refused the same way', async () => {
+    memberOnChain('67304454');
+    expect((await handleRecordWithdraw(testnetCtx({ walletAddress: MEMBER, txDigest: DIGEST }))).status).toBe(400);
+    expect((await handleWithdraw(testnetCtx({ shares: '1000000', walletAddress: MEMBER }))).status).toBe(400);
+    noWrites();
+    noFundsMoved();
+    expect(getObject).not.toHaveBeenCalled();
+  });
+
+  it('a testnet deployment still serves testnet', async () => {
+    process.env.SUI_NETWORK = 'testnet';
+    getTransactionBlock.mockResolvedValue(depositTx());
+    const res = await handleRecordDeposit(testnetCtx({ walletAddress: MEMBER, txDigest: DIGEST }));
+    expect(res.status).toBe(200);
   });
 });

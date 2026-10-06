@@ -19,6 +19,7 @@ import {
 } from '@/lib/services/AutoRebalanceService';
 import { logger } from '@/lib/utils/logger';
 import { requireAuth } from '@/lib/security/auth-middleware';
+import { walletScopeDenial, type Auth } from './wallet-scope';
 import { mutationLimiter } from '@/lib/security/rate-limiter';
 import { safeErrorResponse } from '@/lib/security/safe-error';
 import {
@@ -31,34 +32,9 @@ export const runtime = 'nodejs';
 export const maxDuration = 15;
 export const dynamic = 'force-dynamic';
 
-type Auth = { method: 'internal' | 'wallet' | 'system'; identity: string };
-
-/**
- * What a wallet signature is allowed to change. It proves control of one
- * wallet, so it covers that wallet's own portfolio and nothing else: not the
- * service switch, not the pools' reserved (negative) ids, not a portfolio
- * whose stored owner is someone else. A service credential is not limited.
- */
-async function walletScopeError(
-  auth: Auth,
-  action: string | null,
-  portfolioId: unknown,
-  walletAddress: unknown,
-): Promise<NextResponse | null> {
-  if (auth.method !== 'wallet') return null;
-  const deny = (error: string) => NextResponse.json({ success: false, error }, { status: 403 });
-
-  if (action === 'start' || action === 'stop') return deny('Service control requires a service credential');
-  const id = parseInt(String(portfolioId), 10);
-  if (!Number.isInteger(id) || id <= 0) return deny('This portfolio cannot be changed with a wallet signature');
-  if (typeof walletAddress === 'string' && walletAddress.toLowerCase() !== auth.identity) {
-    return deny('walletAddress does not match the signing wallet');
-  }
-  const existing = await getAutoRebalanceConfig(id);
-  if (existing && existing.walletAddress?.toLowerCase() !== auth.identity) {
-    return deny('This portfolio belongs to another wallet');
-  }
-  return null;
+async function walletScopeError(auth: Auth, action: string | null, portfolioId: unknown, walletAddress: unknown): Promise<NextResponse | null> {
+  const denial = await walletScopeDenial(auth, action, portfolioId, walletAddress, async (id) => (await getAutoRebalanceConfig(id))?.walletAddress ?? null);
+  return denial ? NextResponse.json({ success: false, error: denial }, { status: 403 }) : null;
 }
 
 /**

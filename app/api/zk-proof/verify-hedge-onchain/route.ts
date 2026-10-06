@@ -56,6 +56,14 @@ export async function POST(request: NextRequest) {
     const body = (await request.json()) as RequestBody;
     const { proof, commitmentHashHex } = body;
 
+    // Say so, instead of answering a request for server signing with success.
+    if ((body as { mode?: unknown }).mode !== undefined && (body as { mode?: unknown }).mode !== 'buildOnly') {
+      return NextResponse.json(
+        { success: false, error: 'This route only builds the transaction; sign and submit it from a wallet.' },
+        { status: 400 },
+      );
+    }
+
     if (!proof || typeof proof !== 'object') {
       return NextResponse.json(
         { success: false, error: 'proof is required (Python prover JSON)' },

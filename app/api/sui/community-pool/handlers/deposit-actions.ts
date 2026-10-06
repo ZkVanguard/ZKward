@@ -182,9 +182,13 @@ export async function handleRecordDeposit(ctx: ActionCtx): Promise<NextResponse>
   const sharesMinted = proof.shares;
 
   const service = getSuiUsdcPoolService(network);
-  const { getUserSharesFromDb, saveUserSharesToDb, addPoolTransactionToDb } = await import('@/lib/db/community-pool');
+  const { getUserSharesFromDb, saveUserSharesToDb, addPoolTransactionToDb, txHashExists } = await import('@/lib/db/community-pool');
 
   return withWalletLock(walletAddress, async () => {
+    // Re-checked under the lock: two posts of the same transaction must not both add to the cost basis.
+    if (await txHashExists(txDigest)) {
+      return NextResponse.json({ success: true, data: { walletAddress, message: 'Transaction already recorded (idempotent)' }, chain: 'sui', network });
+    }
     let newTotalShares = sharesMinted;
     let onChainVerified = false;
     const existingShares = await getUserSharesFromDb(walletAddress, 'sui');
@@ -210,13 +214,8 @@ export async function handleRecordDeposit(ctx: ActionCtx): Promise<NextResponse>
       newTotalShares = (existingShares?.shares || 0) + sharesMinted;
     }
 
-    await saveUserSharesToDb({
-      walletAddress,
-      shares: newTotalShares,
-      costBasisUSD: newCostBasis,
-      chain: 'sui',
-    });
-
+    // The history row goes first: its unique index on the digest stops a
+    // repeat before the share row is touched.
     await addPoolTransactionToDb({
       id: `sui-deposit-${Date.now()}-${walletAddress.slice(-8)}`,
       type: 'DEPOSIT',
@@ -226,6 +225,14 @@ export async function handleRecordDeposit(ctx: ActionCtx): Promise<NextResponse>
       sharePrice: amountUsdc / sharesMinted,
       details: { network, txDigest, onChainVerified },
       txHash: txDigest,
+      chain: 'sui',
+    });
+
+    await saveUserSharesToDb({
+      walletAddress,
+      shares: newTotalShares,
+      costBasisUSD: newCostBasis,
+      chain: 'sui',
     });
 
     logger.info('[SUI-API] USDC deposit recorded', {

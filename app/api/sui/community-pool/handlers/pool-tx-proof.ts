@@ -20,14 +20,25 @@ export interface PoolTxProof {
 
 export type PoolTxCheck =
   | ({ ok: true } & PoolTxProof)
-  | { ok: false; reason: 'tx-failed' | 'no-pool-event' | 'not-your-transaction' | 'bad-event' };
+  | { ok: false; reason: 'tx-failed' | 'other-pool' | 'no-pool-event' | 'not-your-transaction' | 'bad-event' };
 
 interface TxLike {
-  effects?: { status?: { status?: string } } | null;
+  effects?: { status?: { status?: string }; mutated?: Array<{ reference?: { objectId?: string } }> | null } | null;
   events?: Array<{ type?: string; packageId?: string; parsedJson?: unknown }> | null;
 }
 
 const USDC_SCALE = 1_000_000;
+
+/**
+ * The network is a query parameter, and both networks write the same tables.
+ * On a mainnet deployment a testnet transaction, which costs nothing to make,
+ * must not be recorded or acted on as if it were real.
+ */
+export function offNetworkError(network: NetworkType): NextResponse | null {
+  const serverNetwork = (process.env.SUI_NETWORK || 'mainnet').trim();
+  if (serverNetwork !== 'mainnet' || network === 'mainnet') return null;
+  return NextResponse.json({ success: false, error: 'This deployment serves mainnet only', chain: 'sui', network }, { status: 400 });
+}
 
 function sameAddress(a: string, b: string): boolean {
   try {
@@ -39,9 +50,13 @@ function sameAddress(a: string, b: string): boolean {
 
 export function checkPoolTx(
   tx: TxLike,
-  expect: { kind: PoolEventKind; packageId: string; moduleName: string; wallet: string },
+  expect: { kind: PoolEventKind; packageId: string; moduleName: string; wallet: string; poolStateId: string },
 ): PoolTxCheck {
   if (tx.effects?.status?.status !== 'success') return { ok: false, reason: 'tx-failed' };
+  // The events carry no pool id. A deposit or withdrawal changes the pool
+  // object, so requiring that ties the event to this pool and no other.
+  const touchedPool = (tx.effects?.mutated ?? []).some((m) => !!m.reference?.objectId && sameAddress(m.reference.objectId, expect.poolStateId));
+  if (!touchedPool) return { ok: false, reason: 'other-pool' };
 
   const suffix = `::${expect.moduleName}::${expect.kind}`;
   // After a package upgrade the event type keeps the id of the package that
@@ -84,6 +99,8 @@ export async function provePoolTx(
   kind: PoolEventKind,
 ): Promise<NextResponse | { walletAddress: string; txDigest: string; proof: PoolTxProof }> {
   const { network, body } = ctx;
+  const offNetwork = offNetworkError(network);
+  if (offNetwork) return offNetwork;
   const walletAddress = body.walletAddress;
   const txDigest = body.txDigest;
 
@@ -141,16 +158,18 @@ export async function readPoolTxProof(
 ): Promise<PoolTxCheck> {
   const { getSuiUsdcPoolService } = await import('@/lib/services/sui/SuiCommunityPoolService');
   const { createFailoverSuiClient } = await import('@/lib/services/sui/sui-failover-transport');
-  const info = getSuiUsdcPoolService(network).getContractInfo();
-  if (!info.packageId) throw new PoolTxUnavailableError('pool package id is not configured');
+  const service = getSuiUsdcPoolService(network);
+  const info = service.getContractInfo();
+  const poolStateId = await service.getPoolStateId();
+  if (!info.packageId || !poolStateId) throw new PoolTxUnavailableError('pool ids are not available');
 
   const client = createFailoverSuiClient(network);
   let lastError: unknown;
-  for (let attempt = 0; attempt < 5; attempt++) {
+  for (let attempt = 0; attempt < 4; attempt++) {
     if (attempt > 0) await new Promise((r) => setTimeout(r, 1500));
     try {
       const tx = await client.getTransactionBlock({ digest, options: { showEffects: true, showEvents: true } });
-      return checkPoolTx(tx, { kind, packageId: info.packageId, moduleName: info.moduleName, wallet });
+      return checkPoolTx(tx, { kind, packageId: info.packageId, moduleName: info.moduleName, wallet, poolStateId });
     } catch (err) {
       lastError = err;
     }
