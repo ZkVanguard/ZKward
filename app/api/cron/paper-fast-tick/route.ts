@@ -115,6 +115,18 @@ async function runStages(): Promise<Record<string, string>> {
     logger.warn('[PaperFastTick] signal-ledger tick failed (non-fatal)', { error: errMsg(e) });
   }
 
+  // Lead trader (portfolio -7): one ledger source at its own horizon, with a
+  // resting entry and a time exit. After the ledger stage, so a reading
+  // recorded on this tick is seen on this tick.
+  try {
+    const { LeadTrader } = await import('@/lib/services/paper-trader/LeadTrader');
+    const s = await LeadTrader.runTick(Date.now());
+    results.lead = `placed ${s.placed}, filled ${s.filled}, cancelled ${s.cancelled}, closed ${s.closed}, active ${s.active}, resting ${s.resting}`;
+  } catch (e) {
+    results.lead = `error: ${errMsg(e).slice(0, 80)}`;
+    logger.warn('[PaperFastTick] lead tick failed (non-fatal)', { error: errMsg(e) });
+  }
+
   // Keep the public signal read warm at the CDN. The dashboard reads
   // /api/predictions/per-asset; after a deploy (the CDN
   // starts empty) the first visitor otherwise waited 10-20 s for a cold
