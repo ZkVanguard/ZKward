@@ -100,7 +100,10 @@ export interface CommunityPoolProps {
 
 export type TxStatus = 'idle' | 'resetting_approval' | 'signing_permit' | 'approving' | 'approved' | 'depositing' | 'withdrawing' | 'complete';
 
-export type ChainKey = 'ethereum' | 'cronos' | 'hedera' | 'sepolia' | 'sui' | 'solana' | 'paper';
+export const POOL_CHAIN_KEYS = ['hedera', 'sui', 'solana', 'paper'] as const;
+export type ChainKey = (typeof POOL_CHAIN_KEYS)[number];
+export const isPoolChainKey = (key: string): key is ChainKey =>
+  (POOL_CHAIN_KEYS as readonly string[]).includes(key);
 
 export interface CommunityPoolState {
   poolData: PoolSummary | null;

@@ -40,8 +40,8 @@ import {
   PoolVolatilityContext,
   useCommunityPool,
 } from './community-pool';
+import { isPoolChainKey } from './community-pool/types';
 import type { ChainKey } from './community-pool/types';
-import { POOL_CHAIN_CONFIGS } from '@/lib/contracts/community-pool-config';
 import { Activity, PieChart, Shield, TrendingUp, Users } from 'lucide-react';
 import { SolanaMembers, SolanaRecentActivity, SolanaSleevePanel } from '@/components/solana/SolanaPoolDetails';
 import { CommunityPoolSkeleton } from './community-pool/Skeletons';
@@ -121,9 +121,9 @@ export const CommunityPool = memo(function CommunityPool({
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const chain = params.get('chain') ?? (params.get('tab') === 'solana' ? 'solana' : null);
-    if (chain && chain !== pool.selectedChain && chain in POOL_CHAIN_CONFIGS) {
+    if (chain && chain !== pool.selectedChain && isPoolChainKey(chain)) {
       urlPinned.current = true;
-      pool.handleChainSelect(chain as ChainKey);
+      pool.handleChainSelect(chain);
     }
     // Read the URL once on mount; later picks go through selectChain.
   }, []);
@@ -153,7 +153,7 @@ export const CommunityPool = memo(function CommunityPool({
       return;
     }
     const { selected, selectChain: pick } = followRef.current;
-    if (activeChain in POOL_CHAIN_CONFIGS && selected !== activeChain) pick(activeChain as ChainKey);
+    if (isPoolChainKey(activeChain) && selected !== activeChain) pick(activeChain);
   }, [activeChain]);
 
   // Auto-select Hedera the first time a Privy embedded wallet appears.
@@ -175,7 +175,7 @@ export const CommunityPool = memo(function CommunityPool({
   }, [privyEmbeddedAddress, pool]);
 
   // ============================================================================
-  // TRANSACTION CONFIRMATION EFFECTS (tightly coupled to WDK lifecycle)
+  // TRANSACTION CONFIRMATION EFFECTS (tightly coupled to the wallet hook's lifecycle)
   // ============================================================================
 
   // Guard against duplicate isConfirmed fires (React Strict Mode / rapid tx)

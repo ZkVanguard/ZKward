@@ -7,7 +7,7 @@
  * import from here; server routes import from privy-config.ts only.
  */
 
-import { hederaTestnet, hederaMainnet, sepolia, cronosMainnet } from './wagmi-config';
+import { hederaTestnet, hederaMainnet } from './wagmi-config';
 
 /**
  * Privy client config for the browser <PrivyProvider>.
@@ -31,7 +31,7 @@ export function buildPrivyClientConfig(): Record<string, unknown> {
       logo: 'https://www.zkward.com/logo-official.svg',
       // Wallets Privy's modal will surface. Excluding coinbase_wallet
       // and base_account so their smart-wallet init doesn't throw on
-      // Hedera/Cronos chain IDs. detected_ethereum_wallets uses EIP-6963
+      // Hedera chain IDs. detected_ethereum_wallets uses EIP-6963
       // so MetaMask, Rabby, Trust, Brave etc. all appear.
       walletList: [
         'detected_ethereum_wallets',
@@ -59,7 +59,7 @@ export function buildPrivyClientConfig(): Record<string, unknown> {
       // their own explicit-approval story in the quorum route.
       noPromptOnSignature: true,
     },
-    supportedChains: [hederaTestnet, hederaMainnet, sepolia, cronosMainnet],
+    supportedChains: [hederaTestnet, hederaMainnet],
     defaultChain: hederaTestnet, // Hedera-primary pivot
     fundingMethodConfig: {
       moonpay: {

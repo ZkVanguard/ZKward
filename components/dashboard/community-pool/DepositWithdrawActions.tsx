@@ -94,7 +94,6 @@ export const DepositWithdrawActions = memo(function DepositWithdrawActions({
   const isSui = selectedChain === 'sui';
   const minDeposit = isFirstDeposit ? 100 : 10;
 
-  // User connects via WDK self-custodial wallet
   const effectiveAddress = address;
   const evmConnected = !!effectiveAddress;
 

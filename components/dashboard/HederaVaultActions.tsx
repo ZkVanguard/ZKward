@@ -2,9 +2,9 @@
 
 /**
  * HederaVaultActions — deposit / withdraw for the SimpleUsdcVault on
- * Hedera Testnet. Standalone from the SUI/Cronos DepositWithdrawActions
- * because that component's logic is welded to WDK + permit + smart-account
- * flows that Hedera doesn't need.
+ * Hedera Testnet. Standalone from DepositWithdrawActions because that
+ * component's logic is welded to permit + smart-account flows that Hedera
+ * doesn't need.
  *
  * Flow
  *   Deposit:  approve(usdc, pool, amount) → deposit(amount)

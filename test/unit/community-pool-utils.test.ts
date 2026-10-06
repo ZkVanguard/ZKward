@@ -43,18 +43,14 @@ describe('formatters', () => {
 
 describe('chain mapping', () => {
   it('getChainKeyFromId', () => {
-    expect(getChainKeyFromId(1)).toBe('ethereum');
-    expect(getChainKeyFromId(25)).toBe('cronos');
-    expect(getChainKeyFromId(338)).toBe('cronos');
     expect(getChainKeyFromId(296)).toBe('hedera');
-    expect(getChainKeyFromId(11155111)).toBe('sepolia');
+    expect(getChainKeyFromId(295)).toBe('hedera');
+    expect(getChainKeyFromId(1)).toBeNull();
     expect(getChainKeyFromId(999)).toBeNull();
   });
   it('getNetworkFromChainId', () => {
-    expect(getNetworkFromChainId(1)).toBe('mainnet');
-    expect(getNetworkFromChainId(25)).toBe('mainnet');
     expect(getNetworkFromChainId(295)).toBe('mainnet');
-    expect(getNetworkFromChainId(11155111)).toBe('testnet');
+    expect(getNetworkFromChainId(296)).toBe('testnet');
     expect(getNetworkFromChainId(0)).toBe('testnet');
   });
 });
