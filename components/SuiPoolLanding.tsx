@@ -10,14 +10,12 @@ import { InstallAppButton } from './InstallAppButton';
 import { DataSourceMarquee } from './landing/DataSourceMarquee';
 import { Safeguards } from './landing/Safeguards';
 import { Reveal } from './ui/landing';
+import { useReducedMotion } from 'framer-motion';
 
 // Linear's signature spring curve. Read as: quick out, slow in — feels
 // like real mass behind interactive elements instead of the default
 // ease-in-out "slide-and-stop" cadence.
 const SPRING = 'cubic-bezier(0.32, 0.72, 0, 1)';
-
-import { useReducedMotion } from 'framer-motion';
-
 
 // Touch devices have no cursor, so the hero's depth layers took no input
 // at all there and the backdrop was hidden. This drives the same --sx/--sy
@@ -63,20 +61,13 @@ function useTiltParallax<T extends HTMLElement>(ref: React.RefObject<T | null>) 
 }
 
 
-// Signal-source strip — real providers the aggregator reads every tick.
-// Colors are each brand's public-facing accent, used only as a small dot
-// (nominative fair use — describing which services we consume, not
-// asserting endorsement). Ordered by weight class: prediction markets
-// first, then venues, then options.
-
 // HeroGraphBg. Three parallax layers behind the hero (CSS dot-grid +
-// SVG chart curves + SVG node network). Reads --sx/--sy already
-// published by useCursorSpotlight, translates each layer by a different
-// factor (calc((--sx - 50%) * k)) so back layers drift slowly and the
-// front layer tracks the cursor faster. That differential IS the 3D cue.
-// All ios-blue at low opacity so the white canvas stays clean. On phones
-// it is lighter (see .hero-graph-bg in globals.css) so the headline stays
-// legible, and it moves with tilt and scroll (useTiltParallax).
+// SVG chart curves + SVG node network). Reads --sx/--sy published by
+// useTiltParallax and translates each layer by a different factor
+// (calc((--sx - 50%) * k)) so back layers drift slowly and the front
+// layer moves faster. That differential IS the 3D cue. All ios-blue at
+// low opacity so the white canvas stays clean. On phones it is lighter
+// (see the <style> block below) so the headline stays legible.
 //
 // Reduced-motion + hydration: gated purely in CSS (@media prefers-
 // reduced-motion). Not useReducedMotion() — that returns null on server
@@ -360,9 +351,8 @@ export const SuiPoolLanding = memo(function SuiPoolLanding() {
             the fixed navbar's backdrop-blur has something to blur
             instead of solid white. Height compensated via inset. */}
         <div className="absolute -top-24 left-0 right-0 bottom-0 -z-10 bg-gradient-to-b from-system-bg-tertiary via-system-bg-primary to-system-bg-primary" />
-        {/* Depth-parallax graph backdrop (3 layers, cursor-driven).
-            Reuses --sx/--sy from useCursorSpotlight — no extra listener.
-            Extends up under the navbar (see HeroGraphBg for details). */}
+        {/* Depth-parallax graph backdrop (3 layers, driven by tilt and scroll
+            on touch devices). Extends up under the navbar (see HeroGraphBg). */}
         <HeroGraphBg />
         <div className="max-w-[1100px] mx-auto">
 
@@ -471,8 +461,7 @@ export const SuiPoolLanding = memo(function SuiPoolLanding() {
           <h2 className="text-[24px] sm:text-[32px] md:text-[40px] font-display font-semibold tracking-[-0.03em] leading-[1.05] text-label-primary mb-3 break-words">
             {t('finalCta.title')}
           </h2>
-          <div className="mb-6" />
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+          <div className="mt-6 flex flex-col sm:flex-row items-center justify-center gap-3">
             <Link
               href="/dashboard"
               className="group inline-flex items-center justify-center gap-3 w-full sm:w-auto pl-6 pr-2.5 h-[52px] bg-ios-blue text-white text-headline font-semibold rounded-ios-xl hover:bg-ios-blueHover active:scale-[0.97] shadow-ios-2"

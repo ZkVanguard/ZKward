@@ -111,16 +111,6 @@ export type {
 } from '@/lib/services/ai-manager';
 
 // ============================================================================
-// React Hooks - For components that need AI management
-// ============================================================================
-export {
-  useAIManager,
-} from '@/lib/hooks/useAIManager';
-
-export type {
-  UseAIManagerReturn,
-} from '@/lib/hooks/useAIManager';
-// ============================================================================
 // Unified Price Provider - Real-time prices for all services
 // ============================================================================
 export {

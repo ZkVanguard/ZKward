@@ -4,8 +4,7 @@
  * Privy connect section — email / social / embedded-wallet flow.
  *
  * Shown by ConnectButton when Privy is enabled (NEXT_PUBLIC_PRIVY_APP_ID
- * set). Renders BEFORE EvmConnectSection so the "log in with email" CTA
- * is the primary path — matches the "hide unnecessary onchain complexity"
+ * set), so the "log in with email" CTA is the primary path — matches the "hide unnecessary onchain complexity"
  * criterion of the Privy Financial Flow prize track.
  *
  * When the user isn't logged in, we show "Sign in" that pops the Privy
