@@ -41,11 +41,11 @@ async function main() {
     'SUI_POOL_ADMIN_KEY',
     'SUI_ADMIN_CAP_ID',
     'SUI_AGENT_CAP_ID',
-    'DB_V2_DATABASE_URL',
+    'DATABASE_URL',
   ];
   for (const k of required) {
     const v = (process.env[k] || '').trim();
-    if (v) ok(`env.${k}`, `${v.slice(0, 8)}...`);
+    if (v) ok(`env.${k}`, 'set');
     else fail(`env.${k}`, 'NOT SET');
   }
 

@@ -91,7 +91,7 @@ async function main() {
 
   // ── 2. DB hedges (Postgres) ──────────────────────────────────
   log('\n── 2. DB HEDGES (chain=sui, status=active) ──');
-  const cs = process.env.DB_V2_DATABASE_URL || process.env.DATABASE_URL;
+  const cs = (process.env.PROD_DATABASE_URL || process.env.DATABASE_URL || '').trim();
   let dbHedges: any[] = [];
   // Canonical full NAV (idle pool USDC + off-chain BlueFin collateral + admin assets) is
   // snapshotted by the cron into community_pool_nav_history — same figure the auto-hedge
