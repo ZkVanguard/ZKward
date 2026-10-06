@@ -727,6 +727,7 @@ export async function GET(req: NextRequest) {
       alertResponseExecuteHalt: envFlag('ALERT_RESPONSE_EXECUTE_HALT'),
       regretTrackerDisable: envFlag('REGRET_TRACKER_DISABLE'),
       suiAutoHedgeDisable: envFlag('SUI_AUTO_HEDGE_DISABLE'),
+      suiPoolTradingEnabled: envFlag('SUI_POOL_TRADING_ENABLED'),
       profitLockDisable: envFlag('PROFIT_LOCK_DISABLE'),
     },
     // Rate-limiter backend — 'upstash' means globally consistent across all

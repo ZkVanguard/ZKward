@@ -23,6 +23,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyCronRequest } from '@/lib/qstash';
 import { tryClaimCronRun, getCronState, setCronState, getCronStateOr, CronKeys } from '@/lib/db/cron-state';
 import { logger } from '@/lib/utils/logger';
+import { isPoolTradingEnabled } from '@/lib/services/sui/pool-trading-pause';
 // Static so Graphify sees the signal-tick → defense-dispatch chain.
 // Previously loaded via await import() (9 sites); tree-sitter drops those.
 import { Polymarket5MinService } from '@/lib/services/market-data/Polymarket5MinService';
@@ -140,7 +141,7 @@ async function handle(request: NextRequest): Promise<NextResponse> {
     let driftResult: { checked: number; drifted: number; closed: number; skipped: number; errors: number } | null = null;
     try {
       const adminKey = (process.env.SUI_POOL_ADMIN_KEY || process.env.BLUEFIN_PRIVATE_KEY || '').trim();
-      if (adminKey && directionFlipped) {
+      if (adminKey && directionFlipped && isPoolTradingEnabled()) {
         const bf = BluefinService.getInstance();
         // Initialize if needed — BluefinService is a singleton but the
         // signal-tick cron often lives in a fresh Lambda so the shared

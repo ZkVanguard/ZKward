@@ -95,7 +95,23 @@ export interface SuiPoolStats {
   poolStateId: string | null;
 }
 
+/**
+ * The parts of NAV as read together in one pass, for the on-chain attestation.
+ * Absent on fallback stats, which must never be attested.
+ */
+export interface SuiNavBasis {
+  /** USDC in the pool object at the time of the read. */
+  poolBalanceUsdc: number;
+  /** Everything outside the pool object: admin wallet holdings plus the venue account. */
+  externalUsdc: number;
+  /** False when the admin wallet could not be read and a recorded cost basis was substituted. */
+  adminRead: boolean;
+  /** Where the venue figure came from; only 'live' is fresh. */
+  venueSource: 'live' | 'cache' | 'unknown';
+}
+
 export interface SuiUsdcPoolStats extends SuiPoolStats {
+  navBasis?: SuiNavBasis;
   totalNAVUsdc: number;
   sharePriceUsdc: number;
   allocation: SuiPoolAllocation;

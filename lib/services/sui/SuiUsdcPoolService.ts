@@ -374,6 +374,12 @@ export class SuiUsdcPoolService {
             poolStateId,
             allocation,
             isUsdcPool: true,
+            navBasis: {
+              poolBalanceUsdc: balanceUsdc,
+              externalUsdc: offChainPoolCapital + bluefinValueUsdc,
+              adminRead: usedAdminBalances,
+              venueSource: bfSnap.source,
+            },
           };
         } catch (err) {
           logger.error('[SuiUsdcPool] Failed to fetch pool stats:', err);

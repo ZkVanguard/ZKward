@@ -34,6 +34,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { logger } from '@/lib/utils/logger';
+import { isPoolTradingEnabled } from '@/lib/services/sui/pool-trading-pause';
 import { verifyCronRequest } from '@/lib/qstash';
 import { safeErrorResponse } from '@/lib/security/safe-error';
 import { errMsg } from '@/lib/utils/error-handler';
@@ -260,6 +261,7 @@ export async function GET(request: NextRequest): Promise<NextResponse<ReconcileR
                 // Previous call passed { size: 0, leverage: 3 } which was
                 // silently a no-op. Observed 2026-07-17: #190 ETH SHORT
                 // flagged for 3+ days with no actual close.
+                if (!isPoolTradingEnabled()) continue;
                 const result = await bf.closeHedge({ symbol });
                 if (!result.success) {
                   // Both DUST_LOCKED and SILENT_REJECT are "same failure
