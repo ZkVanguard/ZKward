@@ -708,7 +708,7 @@ export function RiskTab() {
                 </div>
               )}
               <p className="text-[11px] text-[#86868b] mt-3">
-                Post-quantum STARK proofs (NIST P-521) bound on-chain via <code className="bg-[#f5f5f7] px-1.5 py-0.5 rounded">zk_verifier.move</code>.
+                Experimental. No trade carries a verified proof today.
               </p>
             </section>
           </div>

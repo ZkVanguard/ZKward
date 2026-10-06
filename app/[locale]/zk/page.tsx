@@ -101,13 +101,14 @@ export default function ZkPage() {
             />
           </div>
           <h1 className="font-display font-semibold text-[36px] sm:text-[56px] md:text-[68px] lg:text-[80px] tracking-[-0.04em] leading-[0.96] text-label-primary mb-5 sm:mb-6 break-words">
-            Every vault decision,
+            An experimental proof system.
             <br />
-            cryptographically attested.
+            Not in use for trades today.
           </h1>
           <p className="text-base sm:text-[19px] text-label-secondary max-w-[620px] mx-auto leading-relaxed">
-            When our AI agents commit to a hedge, allocation, or rebalance, the decision is proven correct with a
-            zero-knowledge STARK. No trusted setup. Post-quantum secure by construction. Verifiable by anyone.
+            ZKward has a STARK prover in development. No trade carries a proof today, nothing is verified on-chain, and an
+            internal review in October 2026 found the prover is not yet sound. The material below describes the design,
+            not a guarantee.
           </p>
         </div>
       </section>

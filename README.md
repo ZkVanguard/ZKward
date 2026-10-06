@@ -8,7 +8,7 @@ outcomes; sources below a 40% hit rate over 15+ observations are auto-killed. A 
 new prediction-market title and extracts direction, horizon, and confidence.
 
 Signals feed an autonomous execution layer running on Sui mainnet and BlueFin perpetuals, guarded by a multi-agent
-consensus gate and settled through post-quantum STARK attestation. A public shadow trader (`/paper`) runs the full
+consensus gate. A public shadow trader (`/paper`) runs the full
 stack against $100k notional for anyone to verify strategy edge net of costs.
 
 ## Documentation

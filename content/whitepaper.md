@@ -1,15 +1,15 @@
 ---
 title: ZKward Whitepaper
-subtitle: An AI-managed USDC vault that trades on prediction-market and market-structure signals, measures every signal in public, and attaches a STARK proof to each hedge decision. Live on SUI mainnet.
-version: Version 2.2
+subtitle: An AI-managed USDC vault that trades on prediction-market and market-structure signals, and measures every signal in public. Accounting is on-chain on SUI mainnet. A proof system is in development and not in use.
+version: Version 2.3
 date: October 2026
 ---
 
 ## Abstract
 
-ZKward is a live USDC vault on SUI mainnet. Six agents read Polymarket, BlueFin funding, and mid-cap price momentum; allocate across BTC / ETH / SUI; hedge on BlueFin perps; and commit a zero-knowledge STARK proof of each hedge decision on-chain. The pool is capped at $10K by the Move contract during the operational-proof phase — this is not a scaling claim, it is a discipline. Cap-lifting is a governance action, not a code change.
+ZKward is a live USDC vault on SUI mainnet. Six agents read Polymarket, BlueFin funding, and mid-cap price momentum; allocate across BTC / ETH / SUI; and hedge on BlueFin perps. Deposits, withdrawals, shares and fees are recorded on-chain. The pool is capped at $10K by the Move contract during the operational-proof phase — this is not a scaling claim, it is a discipline. Cap-lifting is a governance action, not a code change.
 
-Prediction-market volume reached $20B/month in early 2026 (Polymarket) and the sector grew to $63.5B in 2025 (CertiK). The signal is liquid enough to trade at retail size. What has been missing is verifiable execution: most AI-agent products are black boxes. ZKward publishes the signal weights, the sizing math, and a post-quantum STARK proof for every decision that moves capital.
+Prediction-market volume reached $20B/month in early 2026 (Polymarket) and the sector grew to $63.5B in 2025 (CertiK). The signal is liquid enough to trade at retail size. What has been missing is accountability: most AI-agent products are black boxes. ZKward publishes how each signal source has performed and keeps the vault accounting on-chain. A cryptographic proof of each decision is a goal, not a feature that exists today (see "Proofs: what exists and what does not").
 
 Two revenue paths run today. On-chain: 50 bps annual management + 10 % performance, routed through a MSafe-held `FeeManagerCap` distinct from the operational `AdminCap`. Off-chain: tiered subscriptions for private hedges and the private portfolio creator. The consumer flow proves the ZK rails; the subscription flow prices them.
 
@@ -27,7 +27,7 @@ The convergence that makes 2026 the moment: Polymarket has real liquidity, ZK-ST
 
 ## What we do differently: signals, measured in public
 
-Traditional risk management reacts: an event fires, an alert lands, a human reviews, orders go in. ZKward acts on signals instead. A scheduled job reads the aggregator, sizes the hedge, opens on BlueFin, verifies the fill via the `getPositions()` delta, and commits a STARK proof.
+Traditional risk management reacts: an event fires, an alert lands, a human reviews, orders go in. ZKward acts on signals instead. A scheduled job reads the aggregator, sizes the hedge, opens on BlueFin, and verifies the fill via the `getPositions()` delta.
 
 Whether those signals lead the price is an empirical question, and we treat it as one. Every source's call is recorded and scored against the price that followed at fixed horizons (30, 60 and 240 minutes), whether or not anything traded. Evidence is counted over non-overlapping windows, coins that move together count as one observation, and a verdict has to survive a false-discovery check.
 
@@ -38,9 +38,9 @@ Whether those signals lead the price is an empirical question, and we treat it a
 Four layers. Every capital-touching action passes through all four. Diagnostics can short-circuit at any layer.
 
 1. **UI.** Next.js 16 App Router, React 19, Tailwind, 13-locale i18n. No wallet SDK on marketing pages (that bundle is lazy-loaded on /dashboard). PWA-registered.
-2. **Agent orchestration.** Six typed agents behind `SafeExecutionGuard`: single-trade cap $10M, daily cap $100M (UTC reset), 30 bps slippage ceiling, 4× leverage ceiling, 2-of-3 consensus threshold above $100K, 5-second cooldown, ZK proof hash stored for every execution above $1M.
+2. **Agent orchestration.** Six typed agents behind `SafeExecutionGuard`: single-trade cap $10M, daily cap $100M (UTC reset), 30 bps slippage ceiling, 4× leverage ceiling, 2-of-3 consensus threshold above $100K, 5-second cooldown. The guard has a slot for a proof hash on executions above $1M; no execution has reached that size and none carries one.
 3. **Data + integration.** Polymarket, Delphi, Manifold, Crypto.com prices, Pyth oracles, BlueFin (perps + funding), Kalshi (ATM strike), Deribit (implied vol), Binance and Bybit (funding, open interest, order-book depth), options skew. 20-second TTL in a shared aggregator. Self-hosted PostgreSQL 18 for off-chain state.
-4. **Blockchain.** SUI mainnet Move contracts (pool + hedge executor + STARK verifier + proxy vault) as the lead chain. A USDC vault on Hedera testnet and a token pool on Solana devnet run in the same app with test funds. Sepolia, Cronos EVM, Oasis Sapphire and Arbitrum Sepolia are reference deployments.
+4. **Blockchain.** SUI mainnet Move contracts (pool + hedge executor + proxy vault) as the lead chain. A USDC vault on Hedera testnet and a token pool on Solana devnet run in the same app with test funds. Sepolia, Cronos EVM, Oasis Sapphire and Arbitrum Sepolia are reference deployments.
 
 ### The six agents
 
@@ -55,53 +55,25 @@ Lead (intent parse), Risk (VaR + Sharpe + drawdown), Hedging (fused-signal hedge
 
 Prior deployment (v0.1.0 at `0x9ccb…c88`) is dormant. The withdrawal-underpayment bug that motivated the v0.2.0 redeploy is fixed on-chain; reproduce via `bun run scripts/analyze-pool-pnl.ts`.
 
-## Zero-knowledge, without hand-waving
+## Proofs: what exists and what does not
 
-The STARK backend is transparent. No trusted setup, no elliptic curves, no discrete-log assumptions.
+Earlier versions of this paper said that every hedge decision carries a STARK proof verified on-chain. That was not true, and an internal review in October 2026 established how far from true it was. This section replaces those claims.
 
-- **Field.** Goldilocks prime `p = 2^64 − 2^32 + 1 = 18446744069414584321` (same field as Polygon zkEVM and Plonky2), primitive root `g = 7`. Native 64-bit arithmetic; fast NTT.
-- **Soundness.** Per FRI Theorem 1.2 (Ben-Sasson–Bentov–Horesh–Riabzev, ePrint 2018/828), `ε ≤ ρ^q`. We configure `ρ = 1/4` and `q = 80`, giving `ε = 2^(−160)`. Add 20 bits of proof-of-work grinding: `2^(−180)` total, 52 bits above NIST Post-Quantum Level 1. Hedge proofs use 24-bit grinding and 16× blowup for a bit more headroom.
-- **Non-interactivity.** Fiat–Shamir over SHA-256 in the random-oracle model.
-- **Prover.** GPU-optimised NTT via CuPy/Numba (CUDA), probe-verified on import, with a CPU fallback. The serverless deployment has no GPU, so the prover runs on a self-hosted machine that the platform reaches over an authenticated tunnel. The server proves a full statement at boot and exits if it cannot.
+**What exists.** A STARK prover written in Python (Goldilocks field, SHA-256 Merkle trees, FRI, Fiat–Shamir, with a GPU path), a canonical encoding of a hedge decision into a commitment hash, and Move source for an on-chain verifier.
 
-Enforced end-to-end at every FRI layer: value + sibling Merkle binding; folding-consistency `f_{L+1}(x²) = (v+s)/2 + α·(v−s)/(2x)` over the multiplicative coset; Fiat–Shamir challenges bound to `sha256(root_L)`; final-polynomial degree bound.
+**What does not.**
 
-### What a hedge proof commits
+- **No trade carries a proof.** The job that opens and closes hedges does not call the prover. No hedge record has a proof attached, and no proof has been verified on-chain.
+- **The on-chain STARK verifier is not deployed.** The package on SUI mainnet contains an older module that checks a signature, not a STARK. The STARK verifier exists in source only.
+- **The prover is not sound.** The review produced proofs the verifier accepts for statements that are false, including a hedge with leverage far above its cap, and a proof built from random numbers. The low-degree test does not constrain the committed function, the trace is not tested, and openings are not bound to their positions.
+- **The statement would not bind a trade even if it were sound.** It asserts that an asset code, a side and a leverage within a cap exist. It does not tie them to the order that was placed, its size, its price or its time.
+- **It is not zero-knowledge.** The witness can be recovered from a proof.
 
-```
-Commitment hash — 146-byte SHA-256 preimage, fixed binary layout
-  version_u32BE                      (4)
-  portfolioId_u32BE                  (4)
-  timestampMs_u64BE                  (8)
-  asset_code_u8                      (1)   BTC=1, ETH=2, SUI=3
-  side_code_u8                       (1)   LONG=0, SHORT=1
-  leverageX_u32BE                    (4)
-  leverageCap_u32BE                  (4)
-  entryPriceUsdcCents_u64BE          (8)
-  sizeUnits_u64BE                    (8)   per-asset step units
-  notionalValueUsdcCents_u128BE      (16)
-  notionalCapUsdcCents_u128BE        (16)
-  salt_32B                           (32)
-  inputsHash_32B                     (32)  SHA-256 of canonical JSON
-```
+**What you can check instead.** Every deposit, withdrawal, share issuance, fee and transfer out of the pool is a SUI transaction. The pool's share price comes from the on-chain balance plus a value the operator attests; that attestation is a trust assumption, bounded by the contract but not eliminated. Signal quality is measured in public, as described above.
 
-On-chain verification: `zk_verifier::verify_hedge_stark_proof_entry` → grinding PoW check (≥ 20 bits, 24 for hedge) → FRI (Merkle + folding-consistency + Fiat–Shamir) → composition polynomial identity for asset / side / leverage → replay protection via `used_proofs`.
+**What would have to be true before we claim proofs again.** A sound verifier (an audited library, or this one fixed and independently reviewed), a statement that binds the proof to the executed order, the verifier deployed on-chain, and execution that refuses to proceed without a verified proof.
 
-The whole binding path is SHA-256. No elliptic curves, no pairings — Shor's algorithm is a non-threat. The legacy ed25519 fast path can be disabled by an admin via `admin_set_stark_only_mode(true)`, forcing every verify through the post-quantum STARK path.
-
-### What's checked, and what isn't
-
-| Property | Reference | Verification | Status |
-|---|---|---|---|
-| Transparency (no trusted setup) | ePrint 2018/046 Def 1.1 | All parameters are public constants | ✓ |
-| Post-quantum | 2018/046 §1.1 | No DLP or factoring; SHA-256 only | ✓ |
-| FRI soundness | 2018/828 Thm 1.2 | `ε = ρ^q = 2^(−160)`; with grinding, `2^(−180)` | ✓ |
-| Zero-knowledge | 2018/046 Def 1.3 | Witness hidden; proof reveals nothing | ✓ |
-| Completeness | 2018/046 Def 1.2 | Valid witness → valid proof (Python STARK test suite) | ✓ |
-| Soundness (empirical) | this repo | Tamper-vector harness: tampered proofs rejected | ✓ |
-| Hedge invariants (AIR-in-STARK) | this repo, 2026-07 | Asset / side / leverage constraints in the composition polynomial, verified on-chain | ✓ |
-
-**Honest scope note.** Empirical soundness harness (`python zkp/tests/empirical_soundness_harness.py`) confirms round-trip success and tamper-vector rejection on the inputs we tried. That is a necessary signal, not a machine-checked formal proof. A full Coq / Lean encoding of the STARK protocol is out of scope for this repo. No external audit has been completed; all review so far is internal.
+No external audit has been completed; all review so far is internal.
 
 ## Autonomy defense (v0.3.0 — 8 gates)
 
@@ -154,7 +126,7 @@ SUI is the lead chain by design. Other chains are proven at testnet level so poo
 
 | Chain | Role | Status |
 |---|---|---|
-| **SUI Mainnet** | Lead — pool, hedge executor, STARK verifier | ✅ Live (v0.2.0) |
+| **SUI Mainnet** | Lead — pool, hedge executor | ✅ Live (v0.2.0) |
 | Cronos EVM | Multi-chain reference; x402 gasless research | ✅ Deployed |
 | Oasis Sapphire | Confidential-EVM primitive validation | ✅ Testnet |
 | Arbitrum Sepolia | L2 pool + hedge reference | ✅ Testnet |
@@ -165,7 +137,7 @@ SUI is the lead chain by design. Other chains are proven at testnet level so poo
 
 **Contracts.** OpenZeppelin where EVM applies; Move code uses `sui::` with explicit `entry` boundaries. 15 internal audit phases completed (2026-06-04 through 2026-06-12). No external audit has been completed.
 
-**Cryptographic.** 180-bit effective STARK soundness (80 FRI queries × 20-bit grinding). SHA-256 Merkle trees, 10-layer FRI hierarchy. Goldilocks field. ECDH stealth addresses for private hedges. `admin_set_stark_only_mode(true)` forces post-quantum-only verification.
+**Cryptographic.** Funds are secured by the SUI contract and standard SUI signatures. The STARK prover is experimental, is not sound, and secures nothing today (see "Proofs: what exists and what does not").
 
 **Operational.** Non-custodial — the pool holds capital under Move object custody, not admin authority. Every cron uses `verifyCronRequest` + `tryClaimCronRun` (idempotency) + `setCronState` (heartbeat). Missing heartbeats trip alerts within one interval. Every capital-moving action fires a Discord alert and appends to `alert-log:ring-buffer`. Reconcilers cross-check on-chain Move ↔ BlueFin (hourly) and BlueFin ↔ DB (every 15 min). Pre-push hook runs the security scan on every push.
 
@@ -195,7 +167,7 @@ Growth projections are omitted deliberately. The whitepaper describes what runs 
 
 ## Conclusion
 
-ZKward is a live vault, not a pitch deck. Signals measured in public, six typed agents, an eight-gate defense system, a $10K contract-enforced cap during the operational-proof phase, and a STARK proof for every hedge decision. Cap-lifting is a governance action, not a code change. Ship what runs today.
+ZKward is a live vault, not a pitch deck. Signals measured in public, six typed agents, an eight-gate defense system, a $10K contract-enforced cap during the operational-proof phase, and on-chain accounting. Cap-lifting is a governance action, not a code change. Ship what runs today.
 
 ## References
 

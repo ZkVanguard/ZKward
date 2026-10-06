@@ -37,7 +37,7 @@
     "rights": "Tous droits réservés.",
     "stage": "Mainnet En Direct",
     "migrationNotice": "Formerly zkvanguard.xyz — zkward.com is our new home.",
-    "builtWith": "Développé avec ZK-STARK",
+    "builtWith": "Construit sur SUI",
     "story": "Notre histoire",
     "multichain": "Multichaîne",
     "mainnetTesting": "Tests mainnet",
@@ -465,7 +465,7 @@
       "item1": "Un vrai pool sur SUI mainnet. Petit exprès. Le contrat lui-même plafonne les dépôts à 10 000 $. On voulait prouver que ça marche avant de scaler. La lenteur est le point.",
       "item2": "Huit interrupteurs de sécurité qui peuvent tout mettre en pause si quelque chose paraît louche. L'un s'est déclenché hier, après une journée dure de tests (plus bas là-dessus).",
       "item3": "Une boucle d'apprentissage : l'IA note ses propres trades, se réentraîne la nuit et réessaie. Parfois elle s'améliore. Parfois elle trouve de nouvelles façons d'échouer. On publie les deux.",
-      "item4": "Un reçu cryptographique pour chaque trade. Pas une capture. Une preuve."
+      "item4": "Un registre on-chain de chaque dépôt, retrait et transfert. Pas une capture d’écran."
     },
     "whyWeTell": {
       "heading": "Pourquoi on vous dit quand ça perd",
@@ -500,11 +500,11 @@
     },
     "q1": {
       "q": "Qu'est-ce que ZKward ?",
-      "a": "ZKward est un coffre crypto autonome. Vous déposez des USDC. Six agents IA lisent les marchés de prédiction, les funding rates et le momentum des prix, puis tradent sur BTC, ETH et SUI. Chaque décision de couverture se ferme avec une preuve cryptographique que n'importe qui peut vérifier on-chain."
+      "a": "ZKward est un coffre crypto autonome. Vous déposez des USDC. Six agents IA lisent les marchés de prédiction, les taux de financement et la dynamique des prix, puis tradent BTC, ETH et SUI. Les soldes, les parts et les frais sont enregistrés on-chain."
     },
     "q2": {
       "q": "ZKward est-il un hedge fund ?",
-      "a": "Non. Un hedge fund est une structure juridique régulée. ZKward est un coffre on-chain — non-custodial, sans permission, sans accréditation, comptabilité des fees on-chain, stratégie open-source. Des plays directionnels similaires, mais avec des preuves publiques au lieu de lettres trimestrielles."
+      "a": "Non. Un hedge fund est une structure juridique réglementée. ZKward est un coffre on-chain : non dépositaire, sans permission, sans accréditation, avec une comptabilité des frais on-chain. Des paris directionnels similaires, avec des registres publics on-chain à la place de lettres trimestrielles."
     },
     "q3": {
       "q": "Combien puis-je déposer ?",
@@ -515,8 +515,8 @@
       "a": "Dans un objet Move de SUI contrôlé par le contrat du pool. Non-custodial : vos clés restent chez vous. Les retraits sont sans permission et possibles à tout moment."
     },
     "q5": {
-      "q": "Qu'est-ce qu'une preuve STARK et pourquoi ça m'importe ?",
-      "a": "Une preuve STARK est un reçu mathématique qui permet à n'importe qui de vérifier qu'un calcul s'est déroulé correctement, sans voir les entrées privées. Quand ZKward ouvre ou ferme une couverture, il écrit une preuve STARK sur la chaîne prouvant que le trade a suivi les règles du coffre (plafonds d'actif, de levier, de taille). Pas de boîte noire. Pas de « faites-nous confiance »."
+      "q": "Qu’est-ce qu’une preuve STARK, et ZKward en utilise-t-il une aujourd’hui ?",
+      "a": "Une preuve STARK permet à chacun de vérifier un calcul sans voir ses entrées privées. ZKward dispose d’un prouveur expérimental, mais aujourd’hui aucun trade ne porte de preuve et rien n’est vérifié on-chain. Notre propre revue d’octobre 2026 a montré que le prouveur ne prouve pas encore qu’un trade a respecté les règles du coffre. Tant que ce n’est pas corrigé et revu de façon indépendante, fiez-vous aux registres on-chain."
     },
     "q6": {
       "q": "Sur quelles chaînes ZKward tourne-t-il ?",
@@ -532,11 +532,11 @@
     },
     "q9": {
       "q": "Comment je sais que l'IA n'invente pas ?",
-      "a": "Chaque décision qui bouge du capital émet une preuve STARK ancrée sur la chaîne SUI. La preuve lie la décision aux invariants on-chain (plafonds d'actif, de levier, de taille). N'importe qui peut vérifier avec le vérificateur on-chain. Les trades sous 100 K $ passent aussi un cooldown de 5 secondes, un plafond de slippage de 30 bps et un breaker à 3 concurrents max. Les trades au-dessus de 100 K $ requièrent un vote 2 sur 3 du quorum d'agents."
+      "a": "Vous pouvez vérifier ce qu’elle a fait, pas pourquoi. Chaque dépôt, retrait et transfert hors du pool est une transaction on-chain, et chaque source de signal est notée publiquement par rapport au prix qui a suivi. Les trades respectent aussi des limites fixes : 5 secondes d’attente, 30 points de base de slippage au plus et un plafond de levier. Il n’existe pas aujourd’hui de preuve cryptographique de chaque décision."
     },
     "q10": {
       "q": "ZKward est-il sûr face aux ordinateurs quantiques ?",
-      "a": "Le système de preuves STARK est transparent (pas de trusted setup) et n'utilise que des arbres de Merkle SHA-256 et le corps premier Goldilocks. Pas de courbes elliptiques, pas de discrete-log, pas de pairings. L'algorithme de Shor, qui casse RSA et ECDSA, n'est pas une menace ici. La solidité effective est de 180 bits, 52 bits au-dessus du Niveau 1 post-quantique du NIST."
+      "a": "Cela ne dépend pas d’un système de preuve aujourd’hui. Les fonds sont détenus par le contrat SUI et déplacés par des signatures SUI standard, comme pour toute autre application SUI. Le prouveur STARK expérimental n’utilise que des fonctions de hachage, mais rien n’en dépend encore."
     },
     "q11": {
       "q": "Puis-je retirer à tout moment ?",
@@ -555,7 +555,7 @@
   },
   "whitepaperMeta": {
     "title": "Whitepaper",
-    "description": "La thèse complète de ZKward : alpha des marchés de prédiction, architecture à 6 agents, exécution attestée par STARK, tokenomics, roadmap."
+    "description": "La thèse complète de ZKward : signaux mesurés en public, architecture à 6 agents, comptabilité on-chain, feuille de route."
   },
   "legacyBanner": {
     "message": "<strong>zkward.xyz se retire</strong> — nous sommes maintenant sur <link>zkward.com</link>.",

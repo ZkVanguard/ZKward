@@ -37,7 +37,7 @@
     "rights": "Alle Rechte vorbehalten.",
     "stage": "Mainnet Live",
     "migrationNotice": "Formerly zkvanguard.xyz — zkward.com is our new home.",
-    "builtWith": "Entwickelt mit ZK-STARK",
+    "builtWith": "Gebaut auf SUI",
     "story": "Unsere Story",
     "multichain": "Multi-Chain",
     "mainnetTesting": "Mainnet-Tests",
@@ -465,7 +465,7 @@
       "item1": "Ein echter Pool auf SUI Mainnet. Bewusst klein. Der Vertrag deckelt Einzahlungen bei 10.000 $. Wir wollten beweisen, dass es funktioniert, bevor wir skalieren. Langsam ist der Punkt.",
       "item2": "Acht Sicherheitsschalter, die alles pausieren können, wenn etwas seltsam aussieht. Einer löste gestern nach einem harten Testtag aus (mehr dazu unten).",
       "item3": "Eine Lernschleife: Die KI benotet ihre eigenen Trades, trainiert über Nacht nach und versucht es erneut. Manchmal wird sie besser. Manchmal findet sie neue Wege zu scheitern. Wir veröffentlichen beides.",
-      "item4": "Eine kryptografische Quittung für jeden Trade. Kein Screenshot. Ein Beweis."
+      "item4": "Eine On-Chain-Aufzeichnung jeder Einzahlung, Auszahlung und Überweisung. Kein Screenshot."
     },
     "whyWeTell": {
       "heading": "Warum wir es sagen, wenn er verliert",
@@ -500,11 +500,11 @@
     },
     "q1": {
       "q": "Was ist ZKward?",
-      "a": "ZKward ist ein autonomer Krypto-Vault. Du zahlst USDC ein. Sechs KI-Agenten lesen Prediction Markets, Funding Rates und Preis-Momentum und handeln in BTC, ETH und SUI. Jede Hedge-Entscheidung schließt mit einem kryptografischen Beweis, den jeder on-chain verifizieren kann."
+      "a": "ZKward ist ein autonomer Krypto-Vault. Sie zahlen USDC ein. Sechs KI-Agenten lesen Prognosemärkte, Funding-Raten und Kursmomentum und handeln dann BTC, ETH und SUI. Guthaben, Anteile und Gebühren werden on-chain erfasst."
     },
     "q2": {
       "q": "Ist ZKward ein Hedgefonds?",
-      "a": "Nein. Ein Hedgefonds ist eine regulierte Rechtsform. ZKward ist ein On-chain-Vault — non-custodial, permissionless, keine Akkreditierung, On-chain-Gebührenbuchhaltung, Open-Source-Strategie. Ähnliche Directional-Plays, aber mit öffentlichen Beweisen statt vierteljährlicher Briefe."
+      "a": "Nein. Ein Hedgefonds ist eine regulierte Rechtsstruktur. ZKward ist ein On-Chain-Vault: nicht verwahrend, ohne Zugangsbeschränkung, ohne Akkreditierung, mit Gebührenabrechnung on-chain. Ähnliche direktionale Positionen, aber mit öffentlichen On-Chain-Aufzeichnungen statt Quartalsbriefen."
     },
     "q3": {
       "q": "Wie viel kann ich einzahlen?",
@@ -515,8 +515,8 @@
       "a": "In einem SUI-Move-Objekt, das vom Pool-Vertrag kontrolliert wird. Non-custodial: deine Schlüssel bleiben bei dir. Auszahlungen sind erlaubnisfrei und jederzeit möglich."
     },
     "q5": {
-      "q": "Was ist ein STARK-Beweis und warum sollte mich das interessieren?",
-      "a": "Ein STARK-Beweis ist eine mathematische Quittung, mit der jeder verifizieren kann, dass eine Berechnung korrekt ablief, ohne die privaten Eingaben zu sehen. Wenn ZKward einen Hedge öffnet oder schließt, schreibt es einen STARK-Beweis auf die Chain, der belegt, dass der Trade die Vault-Regeln (Asset-Caps, Leverage-Caps, Größenlimits) einhielt. Keine Blackbox. Kein „Vertrau uns“."
+      "q": "Was ist ein STARK-Beweis, und nutzt ZKward heute einen?",
+      "a": "Mit einem STARK-Beweis kann jeder eine Berechnung prüfen, ohne ihre privaten Eingaben zu sehen. ZKward hat einen experimentellen Prover, aber heute trägt kein Trade einen Beweis und nichts wird on-chain verifiziert. Unsere eigene Prüfung im Oktober 2026 ergab, dass der Prover noch nicht beweist, dass ein Trade den Vault-Regeln folgte. Bis das behoben und unabhängig geprüft ist, verlassen Sie sich auf die On-Chain-Aufzeichnungen."
     },
     "q6": {
       "q": "Auf welchen Chains läuft ZKward?",
@@ -532,11 +532,11 @@
     },
     "q9": {
       "q": "Woher weiß ich, dass die KI sich nichts ausdenkt?",
-      "a": "Jede Entscheidung, die Kapital bewegt, emittiert einen STARK-Beweis auf der SUI-Chain. Der Beweis bindet die Entscheidung an On-chain-Invarianten (Asset-Caps, Leverage-Caps, Größe). Jeder kann mit dem On-chain-Verifier prüfen. Trades unter 100 K $ passieren außerdem einen 5-Sekunden-Cooldown, ein 30-bps-Slippage-Limit und einen Max-3-gleichzeitig-Breaker. Trades über 100 K $ brauchen ein 2-von-3-Votum des Agent-Quorums."
+      "a": "Sie können prüfen, was sie getan hat, nicht warum. Jede Einzahlung, Auszahlung und Überweisung aus dem Pool ist eine On-Chain-Transaktion, und jede Signalquelle wird öffentlich am folgenden Kurs gemessen. Trades unterliegen außerdem festen Grenzen: 5 Sekunden Abklingzeit, höchstens 30 Basispunkte Slippage und eine Hebelobergrenze. Einen kryptografischen Beweis für jede Entscheidung gibt es heute nicht."
     },
     "q10": {
       "q": "Ist ZKward sicher gegen Quantencomputer?",
-      "a": "Das STARK-Beweissystem ist transparent (kein Trusted Setup) und nutzt nur SHA-256-Merkle-Bäume und das Goldilocks-Primkörper. Keine elliptischen Kurven, kein Discrete-Log, keine Pairings. Shors Algorithmus, der RSA und ECDSA bricht, ist hier keine Bedrohung. Effektive Soundness ist 180 Bit, 52 Bit über NIST Post-Quantum Level 1."
+      "a": "Das hängt heute nicht von einem Beweissystem ab. Die Mittel liegen im SUI-Vertrag und werden mit gewöhnlichen SUI-Signaturen bewegt, wie bei jeder anderen SUI-Anwendung. Der experimentelle STARK-Prover nutzt nur Hashfunktionen, aber noch hängt nichts von ihm ab."
     },
     "q11": {
       "q": "Kann ich jederzeit auszahlen?",
@@ -555,7 +555,7 @@
   },
   "whitepaperMeta": {
     "title": "Whitepaper",
-    "description": "Die vollständige ZKward-These: Prediction-Market-Alpha, 6-Agenten-Architektur, STARK-attestierte Ausführung, Tokenomics, Roadmap."
+    "description": "Die vollständige ZKward-These: öffentlich gemessene Signale, 6-Agenten-Architektur, On-Chain-Buchführung, Roadmap."
   },
   "legacyBanner": {
     "message": "<strong>zkward.xyz wird abgeschaltet</strong> — wir sind jetzt auf <link>zkward.com</link>.",

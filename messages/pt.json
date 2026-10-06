@@ -37,7 +37,7 @@
     "rights": "Todos os direitos reservados.",
     "stage": "Mainnet ao Vivo",
     "migrationNotice": "Formerly zkvanguard.xyz — zkward.com is our new home.",
-    "builtWith": "Desenvolvido com ZK-STARK",
+    "builtWith": "Construído na SUI",
     "story": "Nossa história",
     "multichain": "Multichain",
     "mainnetTesting": "Testes em mainnet",
@@ -465,7 +465,7 @@
       "item1": "Um pool real na mainnet do SUI. Pequeno de propósito. O contrato em si limita depósitos a 10 000 $. Queríamos provar que funciona antes de escalar. Devagar é o ponto.",
       "item2": "Oito interruptores de segurança que podem pausar tudo se algo parecer estranho. Um disparou ontem, depois de um dia difícil de testes (mais abaixo).",
       "item3": "Um loop de aprendizagem: a IA pontua as próprias operações, treina de novo à noite e tenta outra vez. Às vezes melhora. Às vezes descobre novas formas de falhar. Publicamos ambas.",
-      "item4": "Um recibo criptográfico por cada operação. Não uma captura. Uma prova."
+      "item4": "Um registro on-chain de cada depósito, saque e transferência. Não uma captura de tela."
     },
     "whyWeTell": {
       "heading": "Porque dizemos quando perde",
@@ -500,11 +500,11 @@
     },
     "q1": {
       "q": "O que é o ZKward?",
-      "a": "O ZKward é um cofre cripto autónomo. Deposita USDC. Seis agentes de IA leem prediction markets, funding rates e momentum de preço, depois operam em BTC, ETH e SUI. Cada decisão de cobertura fecha com uma prova criptográfica que qualquer um pode verificar on-chain."
+      "a": "A ZKward é um cofre cripto autônomo. Você deposita USDC. Seis agentes de IA leem mercados de previsão, taxas de financiamento e momentum de preços e operam BTC, ETH e SUI. Saldos, cotas e taxas são registrados on-chain."
     },
     "q2": {
       "q": "O ZKward é um hedge fund?",
-      "a": "Não. Um hedge fund é uma estrutura jurídica regulada. ZKward é um cofre on-chain — não-custodial, sem permissão, sem acreditação, contabilidade de fees on-chain, estratégia open-source. Jogadas direcionais similares, mas com provas públicas em vez de cartas trimestrais."
+      "a": "Não. Um hedge fund é uma estrutura jurídica regulada. A ZKward é um cofre on-chain: sem custódia, sem permissão, sem credenciamento, com contabilidade de taxas on-chain. Apostas direcionais parecidas, com registros públicos on-chain em vez de cartas trimestrais."
     },
     "q3": {
       "q": "Quanto posso depositar?",
@@ -515,8 +515,8 @@
       "a": "Num objeto Move de SUI controlado pelo contrato do pool. Sem custódia: as suas chaves ficam consigo. Os levantamentos não exigem permissão e estão disponíveis a qualquer momento."
     },
     "q5": {
-      "q": "O que é uma prova STARK e porque me importa?",
-      "a": "Uma prova STARK é um recibo matemático que permite a qualquer um verificar que um cálculo aconteceu corretamente, sem ver os inputs privados. Quando o ZKward abre ou fecha uma cobertura, escreve uma prova STARK na cadeia a provar que a operação seguiu as regras do cofre (caps de ativo, alavancagem, tamanho). Sem caixa negra. Sem «confiem em nós»."
+      "q": "O que é uma prova STARK, e a ZKward usa uma hoje?",
+      "a": "Uma prova STARK permite que qualquer pessoa verifique um cálculo sem ver suas entradas privadas. A ZKward tem um provador experimental, mas hoje nenhuma operação carrega uma prova e nada é verificado on-chain. Nossa própria revisão de outubro de 2026 constatou que o provador ainda não prova que uma operação seguiu as regras do cofre. Até que isso seja corrigido e revisado de forma independente, confie nos registros on-chain."
     },
     "q6": {
       "q": "Em que cadeias corre o ZKward?",
@@ -532,11 +532,11 @@
     },
     "q9": {
       "q": "Como sei que a IA não está a inventar?",
-      "a": "Cada decisão que move capital emite uma prova STARK ancorada na cadeia SUI. A prova liga a decisão a invariantes on-chain (caps de ativo, alavancagem, tamanho). Qualquer um pode verificar com o verificador on-chain. Operações abaixo de 100 K $ passam ainda um cooldown de 5 segundos, um teto de slippage de 30 bps e um breaker de máximo 3 concorrentes. Operações acima de 100 K $ precisam de voto 2-de-3 do quórum de agentes."
+      "a": "Você pode verificar o que ela fez, não por quê. Cada depósito, saque e transferência para fora do pool é uma transação on-chain, e cada fonte de sinal é pontuada em público contra o preço que veio depois. As operações também passam por limites fixos: 5 segundos de espera, no máximo 30 pontos-base de slippage e um teto de alavancagem. Hoje não há prova criptográfica de cada decisão."
     },
     "q10": {
       "q": "O ZKward é seguro contra computadores quânticos?",
-      "a": "O sistema de provas STARK é transparente (sem trusted setup) e usa apenas árvores de Merkle SHA-256 e o campo primo Goldilocks. Sem curvas elípticas, sem discrete-log, sem pairings. O algoritmo de Shor, que quebra RSA e ECDSA, não é uma ameaça aqui. A solidez efetiva é de 180 bits, 52 bits acima do Nível 1 pós-quântico do NIST."
+      "a": "Hoje isso não depende de um sistema de provas. Os fundos ficam no contrato SUI e são movidos por assinaturas SUI padrão, como em qualquer outro aplicativo SUI. O provador STARK experimental usa apenas funções de hash, mas nada depende dele ainda."
     },
     "q11": {
       "q": "Posso levantar a qualquer momento?",
@@ -555,7 +555,7 @@
   },
   "whitepaperMeta": {
     "title": "Whitepaper",
-    "description": "A tese completa do ZKward: alpha dos prediction markets, arquitetura de 6 agentes, execução atestada por STARK, tokenomics, roadmap."
+    "description": "A tese completa da ZKward: sinais medidos em público, arquitetura de 6 agentes, contabilidade on-chain, roteiro."
   },
   "legacyBanner": {
     "message": "<strong>zkward.xyz vai encerrar</strong> — estamos agora em <link>zkward.com</link>.",
