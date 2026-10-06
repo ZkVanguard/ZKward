@@ -3,7 +3,6 @@ import { logger } from '@/lib/utils/logger';
 import { cryptocomExchangeService } from '@/lib/services/CryptocomExchangeService';
 import { getMarketDataService } from '@/lib/services/market-data/RealMarketDataService';
 import { getCachedPrice, upsertPrices } from '@/lib/db/prices';
-import { recordPriceUpdate } from '@/lib/services/market-data/PriceAlertWebhook';
 import { safeErrorResponse } from '@/lib/security/safe-error';
 import { validatePrice, seedPrice } from '@/lib/security/price-circuit-breaker';
 import { batchPriceCoalescer, priceCoalescer } from '@/lib/utils/request-deduplication';
@@ -48,7 +47,6 @@ export async function GET(request: NextRequest) {
           const result = validatePrice(sym, price);
           if (result.accepted) {
             validatedPrices[sym] = price;
-            recordPriceUpdate(sym, price);
           }
         });
 
@@ -101,10 +99,7 @@ export async function GET(request: NextRequest) {
           (p): p is import('@/lib/services/market-data/RealMarketDataService').MarketPrice => {
             if ('rejected' in p) return false;
             const result = validatePrice(p.symbol, p.price);
-            if (result.accepted) {
-              recordPriceUpdate(p.symbol, p.price);
-              return true;
-            }
+            if (result.accepted) return true;
             return false;
           }
         );
@@ -212,8 +207,6 @@ export async function GET(request: NextRequest) {
         },
       ]).catch((err) => logger.warn('Price cache write failed', { error: String(err) }));
 
-      recordPriceUpdate(marketData.symbol, marketData.price);
-
       return NextResponse.json({
         success: true,
         data: {
@@ -264,9 +257,6 @@ export async function GET(request: NextRequest) {
           source: price.source,
         },
       ]).catch((err) => logger.warn('Price cache write failed', { error: String(err) }));
-
-      // ═══ WEBHOOK TRIGGER: Check for significant price moves ═══
-      recordPriceUpdate(price.symbol, price.price);
 
       return NextResponse.json(
         {

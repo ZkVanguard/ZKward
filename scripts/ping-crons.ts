@@ -50,7 +50,6 @@ const CRONS = [
   'sui-community-pool',
   'sui-hedge-reconcile',
   // Known-dormant, included so this script surfaces both categories:
-  'hedge-monitor',
   'health-monitor',
 ];
 

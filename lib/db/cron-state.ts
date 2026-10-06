@@ -174,9 +174,6 @@ export async function setNumber(key: string, value: number): Promise<void> {
 // ─── Pre-defined Key Builders ───────────────────────────────────────────────
 
 export const CronKeys = {
-  // PriceAlertWebhook
-  heartbeatLastCheck: 'heartbeat:lastCheck',
-  poolCheckLastCheck: 'poolCheck:lastCheck',
   requestCounter: 'priceAlert:requestCounter',
   priceAlertLastAlert: (asset: string) => `priceAlert:lastAlert:${asset}`,
 
