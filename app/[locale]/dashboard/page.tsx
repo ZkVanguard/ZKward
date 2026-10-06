@@ -641,7 +641,7 @@ export default function DashboardPage() {
             return (
               <Card>
                 <CardHeader title="Positions" subtitle="Your holdings and portfolios" />
-                <PositionsList address={portfolioAddress} />
+                <PositionsList />
               </Card>
             );
           case 'hedges':

@@ -1,32 +1,30 @@
 import { Wallet } from 'lucide-react';
 import { TokenIcon } from './TokenIcon';
-import type { Position } from '../positions-types';
+
+export interface Position {
+  symbol: string;
+  balance: string;
+  balanceUSD: string;
+  price: string;
+  change24h: number;
+}
 
 interface WalletBalancesListProps {
   positions: Position[];
   totalValue: number;
-  hasPortfolios: boolean;
 }
 
-export function WalletBalancesList({ positions, totalValue, hasPortfolios }: WalletBalancesListProps) {
+export function WalletBalancesList({ positions, totalValue }: WalletBalancesListProps) {
   const funded = positions.filter((p) => parseFloat(p.balanceUSD || '0') > 0);
   if (funded.length === 0) return null;
 
   return (
     <div className="space-y-3">
       {/* Wallet Section Header - Compact */}
-      <div className="flex items-center justify-between px-1">
-        <div className="flex items-center gap-2">
-          <Wallet className="w-4 h-4 text-[#FF9500]" />
-          <h3 className="text-[15px] font-semibold text-[#1d1d1f]">Wallet Balances</h3>
-          <span className="text-[12px] text-[#86868b]">({funded.length})</span>
-        </div>
-        {/* Contextual hint when no portfolios exist */}
-        {!hasPortfolios && (
-          <span className="text-[11px] text-[#86868b] bg-[#f5f5f7] px-2 py-1 rounded-full">
-            Available to fund portfolios
-          </span>
-        )}
+      <div className="flex items-center gap-2 px-1">
+        <Wallet className="w-4 h-4 text-[#FF9500]" />
+        <h3 className="text-[15px] font-semibold text-[#1d1d1f]">Wallet Balances</h3>
+        <span className="text-[12px] text-[#86868b]">({funded.length})</span>
       </div>
 
       {/* Token Cards */}

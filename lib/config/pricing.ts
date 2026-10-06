@@ -106,7 +106,7 @@ export const PREMIUM_PRODUCT_FEES = {
     description: 'Charged per private-hedge open. Lower of $5 or 25 bps of notional.',
   },
 
-  /** One-time fee to spin up a custom portfolio via the AdvancedPortfolioCreator wizard. */
+  /** One-time fee to spin up a custom portfolio. */
   privatePortfolio: {
     creationFeeUsd: 100,
     ongoingMgmtFeeBps: 50, // 0.5% annual on portfolio value
