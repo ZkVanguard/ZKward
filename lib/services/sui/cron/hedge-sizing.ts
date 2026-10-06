@@ -64,6 +64,20 @@ export function hedgeValueUsd(navUsd: number, allocationPct: number, hedgeRatio:
 }
 
 /**
+ * Perp size in base units for that notional: notional ÷ price.
+ *
+ * Leverage is not in this formula. It decides how much margin backs the
+ * position (computeTargetMargin: notional ÷ leverage), not how large the
+ * position is. Until 2026-10 the size was notional × leverage ÷ price: at 5x a
+ * bearish allocation was shorted at five times the spot it was meant to
+ * offset, leaving the pool net short four times that allocation, while the
+ * margin target and the recorded notional both assumed the unlevered size.
+ */
+export function hedgeSizeBase(navUsd: number, allocationPct: number, hedgeRatio: number, price: number): number {
+  return price > 0 ? hedgeValueUsd(navUsd, allocationPct, hedgeRatio) / price : 0;
+}
+
+/**
  * NAV-scaled reserves/caps so the same code works for $50 testnet pools and
  * $100M production pools. `suiPriceUsd` is the (already non-zero) SUI price;
  * callers pass `Math.max(0.01, pricesUSD.SUI || 1)`.

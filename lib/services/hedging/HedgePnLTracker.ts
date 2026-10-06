@@ -54,8 +54,10 @@ export class HedgePnLTracker {
       pnlMultiplier = (currentPrice - entryPrice) / entryPrice;
     }
 
-    // Apply leverage to PnL
-    const unrealizedPnL = notionalValue * pnlMultiplier * leverage;
+    // Dollars are notional x move. Leverage scales the return on margin (the
+    // percentage below), not the dollar result: the stored notional is the
+    // position's size, not its margin.
+    const unrealizedPnL = notionalValue * pnlMultiplier;
     const pnlPercentage = pnlMultiplier * leverage * 100;
 
     // Check if near liquidation (within 10% of liquidation price)

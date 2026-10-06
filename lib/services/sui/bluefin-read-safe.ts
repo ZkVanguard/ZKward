@@ -206,7 +206,7 @@ export async function safeBluefinSnapshot(opts: {
 
     const [freeRes, posRes, valueRes] = await Promise.allSettled([
       bf.getBalance(),
-      bf.getPositions(),
+      bf.getPositionsStrict(),
       bf.getAccountValue(),
     ]);
     const free = freeRes.status === 'fulfilled' ? (Number(freeRes.value) || 0) : 0;

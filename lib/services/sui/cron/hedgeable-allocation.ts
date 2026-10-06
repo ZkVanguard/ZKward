@@ -2,8 +2,8 @@
  * Per-symbol perp-hedgeability clamp.
  *
  * BlueFin enforces per-symbol minQty: BTC-PERP 0.001 (~$73 notional),
- * ETH-PERP 0.01 (~$30), SUI-PERP 1 (~$4). When NAV × allocation% can't
- * clear an asset's minQty at the tier-capped leverage, the perp leg of
+ * ETH-PERP 0.01 (~$30), SUI-PERP 1 (~$4). When NAV × allocation% × ratio
+ * can't clear an asset's minQty, the perp leg of
  * that asset is unhedgeable on the current cycle — opening only the
  * spot leg leaves the pool naked-long that asset even when the AI
  * sentiment is BEARISH and the cron tries to short.
@@ -18,6 +18,17 @@
  * Pure function — no I/O. Returns the adjusted allocations + a report of
  * which assets were dropped + why.
  */
+import { hedgeSizeBase } from '@/lib/services/sui/cron/hedge-sizing';
+import { snapToStepSize } from '@/lib/services/sui/bluefin-order-size';
+
+/**
+ * The open path refuses a position under 1.5x the minimum quantity (it would
+ * turn into unclosable dust). The clamp must refuse the same sizes, or it
+ * keeps an allocation whose spot leg is bought and whose hedge is then
+ * skipped. Same value as OPEN_MIN_QTY_BUFFER in dust-manager.ts.
+ */
+export const HEDGEABLE_MIN_QTY_BUFFER = 1.5;
+
 export interface PerpSpec {
   minQuantity: number;
   stepSize: number;
@@ -28,7 +39,6 @@ export interface ClampInput {
   allocations: Record<string, number>; // asset → pct (sums to 100)
   prices: Record<string, number>;       // asset → USD price
   hedgeRatio: number;                   // 0.5 (large) or 1.0 (tiny)
-  leverage: number;                     // tier-capped (5 for tiny, 3 for small, etc)
   perpSpecs: Record<string, PerpSpec>;  // asset → { minQuantity, stepSize }
   /**
    * Per-asset BlueFin open-interest snapshot in USD. If supplied and the
@@ -54,34 +64,30 @@ export interface ClampOutput {
 
 /**
  * Returns true iff a perp position of (NAV × alloc% × ratio) can be
- * opened on BlueFin for this asset at the given leverage.
+ * opened on BlueFin for this asset.
  *
- * The check mirrors the cron's actual sizing math:
- *   hedgeValueUSD = NAV × alloc% × ratio   ← documented notional
- *   sizeBase      = (hedgeValueUSD × leverage) / price
- *   snappedSize   = floor(sizeBase / step) × step
- *   hedgeable iff snappedSize >= minQuantity
+ * The check uses the cron's own sizing (hedgeSizeBase):
+ *   sizeBase    = NAV × alloc% × ratio / price
+ *   snappedSize = sizeBase snapped down to the step
+ *   hedgeable iff snappedSize >= 1.5 × minQuantity (the open path's own floor)
  *
- * `leverage` multiplies the notional in the sizing math (line 1690 of
- * sui-community-pool/route.ts). At tiny-tier 5x, a $14 hedgeValueUSD
- * BTC alloc produces $70 effective notional / $73k = 0.000958 BTC,
- * which floors to 0 step (step 0.001) → unhedgeable.
+ * Leverage does not make a small allocation hedgeable: it changes the margin
+ * behind a position, not its size. An asset the pool is too small to hedge
+ * is dropped, and its share goes to the assets that can be hedged (see
+ * clampAllocationsToHedgeable); when none can, the caller holds USDC.
  */
 export function isHedgeable(
   navUsd: number,
   allocationPct: number,
   hedgeRatio: number,
-  leverage: number,
   price: number,
   spec: PerpSpec,
 ): { ok: boolean; sizeBase: number; snappedSize: number; notional: number } {
   if (allocationPct <= 0 || price <= 0) return { ok: false, sizeBase: 0, snappedSize: 0, notional: 0 };
-  const hedgeValueUSD = navUsd * (allocationPct / 100) * hedgeRatio;
-  const effectiveValue = hedgeValueUSD * leverage;
-  const sizeBase = effectiveValue / price;
-  const snappedSize = Math.floor(sizeBase / spec.stepSize) * spec.stepSize;
+  const sizeBase = hedgeSizeBase(navUsd, allocationPct, hedgeRatio, price);
+  const snappedSize = snapToStepSize(sizeBase, spec.stepSize);
   const notional = snappedSize * price;
-  return { ok: snappedSize >= spec.minQuantity, sizeBase, snappedSize, notional };
+  return { ok: snappedSize >= spec.minQuantity * HEDGEABLE_MIN_QTY_BUFFER, sizeBase, snappedSize, notional };
 }
 
 /**
@@ -99,7 +105,7 @@ export function isHedgeable(
  *     authorise unhedged exposure).
  */
 export function clampAllocationsToHedgeable(input: ClampInput): ClampOutput {
-  const { navUsd, allocations, prices, hedgeRatio, leverage, perpSpecs, openInterestUsd, maxOiPct } = input;
+  const { navUsd, allocations, prices, hedgeRatio, perpSpecs, openInterestUsd, maxOiPct } = input;
   const oiPct = Math.max(0.5, maxOiPct ?? 5);
   const assets = Object.keys(allocations);
 
@@ -118,16 +124,16 @@ export function clampAllocationsToHedgeable(input: ClampInput): ClampOutput {
       survivorPctSum += pct;
       continue;
     }
-    const check = isHedgeable(navUsd, pct, hedgeRatio, leverage, price, spec);
+    const check = isHedgeable(navUsd, pct, hedgeRatio, price, spec);
     if (!check.ok) {
       dropped.push({
         asset,
         originalPct: pct,
         notionalNeeded: spec.minQuantity * price,
-        notionalAvailable: navUsd * (pct / 100) * hedgeRatio * leverage,
+        notionalAvailable: navUsd * (pct / 100) * hedgeRatio,
         reason: price <= 0
           ? `no price for ${asset}`
-          : `NAV $${navUsd.toFixed(2)} × ${pct}% × ratio ${hedgeRatio} × ${leverage}x lev = ${check.snappedSize} ${asset} < minQty ${spec.minQuantity}`,
+          : `NAV $${navUsd.toFixed(2)} × ${pct}% × ratio ${hedgeRatio} = ${check.snappedSize} ${asset} < minQty ${spec.minQuantity}`,
       });
       continue;
     }

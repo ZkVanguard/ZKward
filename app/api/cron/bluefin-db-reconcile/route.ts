@@ -112,7 +112,7 @@ export async function GET(request: NextRequest): Promise<NextResponse<ReconcileR
     const bf = BluefinService.getInstance();
     const [dbHedges, positions, balance] = await Promise.all([
       getActiveHedges(undefined, 'sui'),
-      bf.getPositions(),
+      bf.getPositionsStrict(),
       bf.getBalance().catch(() => 0),  // best-effort for cache write
     ]);
 

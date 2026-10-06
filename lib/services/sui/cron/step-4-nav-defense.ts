@@ -456,7 +456,6 @@ export async function runStep4NavDefense(input: Step4Input): Promise<Step4Result
       allocations: aiResult.allocations as Record<string, number>,
       prices: pricesUSD,
       hedgeRatio: ratio,
-      leverage: tierLev,
       perpSpecs,
       openInterestUsd,
       maxOiPct: Number(process.env.BLUEFIN_MAX_OI_PCT) || 5,
@@ -508,7 +507,7 @@ export async function runStep4NavDefense(input: Step4Input): Promise<Step4Result
     const attest: Awaited<ReturnType<typeof attestExternalNav>> = !basis
       ? { pushed: false, error: 'pool stats came from the fallback path — not attesting' }
       : !basis.adminRead
-        ? { pushed: false, error: 'admin wallet unreadable this tick — not attesting' }
+        ? { pushed: false, error: 'admin wallet holdings could not be read or priced this tick — not attesting' }
         : await attestExternalNav(network, { externalUsd: basis.externalUsdc, trusted: basis.venueSource === 'live' });
     if (attest.pushed) {
       logger.info('[SUI Cron] External NAV oracle updated', {

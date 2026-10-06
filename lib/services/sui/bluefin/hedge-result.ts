@@ -95,6 +95,20 @@ export function belowMinQtySnapped(
  * event changes it (deposit, other hedge closing to free margin, or
  * BlueFin support). TTL-bounded retries prevent hourly Discord spam.
  */
+/**
+ * The order was accepted but no read of the venue succeeded afterwards, so
+ * whether it took effect is unknown. Deliberately carries no `code`: callers
+ * suppress retries for a day and raise an alert on SILENT_REJECT, and neither
+ * is right for "we could not look".
+ */
+export function unverified(hedgeId: string, symbol: string, orderHash: string | undefined): BluefinHedgeResult {
+  return {
+    ...base(hedgeId),
+    orderId: orderHash,
+    error: `Order ${orderHash?.slice(0, 12) ?? '?'}… for ${symbol} was sent but the venue could not be read to verify it. Not confirmed either way.`,
+  };
+}
+
 export function silentReject(
   hedgeId: string,
   symbol: string,

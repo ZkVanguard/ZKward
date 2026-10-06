@@ -60,7 +60,24 @@ export interface ReconcileArgs {
 export async function reconcileActiveTrade(args: ReconcileArgs): Promise<NextResponse<EdgeResult> | null> {
   const { bf, active, safeStats, daily, haltedUntil, now, ranAt } = args;
 
-  const positions = await bf.getPositions().catch(() => [] as BluefinPosition[]);
+  // Strict: an unreadable venue is not a vanished position. Treating it as
+  // one cleared the active trade and booked the whole stake as a loss while
+  // the position was still open. Leave everything as it is and try next tick.
+  let positions: BluefinPosition[];
+  try {
+    positions = await bf.getPositionsStrict();
+  } catch (err) {
+    logger.warn('[PolymarketEdge] Venue positions unreadable — active trade left as is', {
+      asset: active.asset,
+      error: err instanceof Error ? err.message : String(err),
+    });
+    return NextResponse.json({
+      success: true,
+      ranAt,
+      attempted: false,
+      action: 'idle',
+    });
+  }
   const livePos = findActivePosition(positions, active.symbol);
 
   // ── Branch 1: Position vanished externally ────────────────────────────
