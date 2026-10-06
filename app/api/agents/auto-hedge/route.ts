@@ -10,7 +10,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { autoHedgingService, AUTO_HEDGE_CONFIG } from '@/lib/services/hedging/AutoHedgingService';
 import { logger } from '@/lib/utils/logger';
-import { requireAuth } from '@/lib/security/auth-middleware';
+import { verifyCronRequest } from '@/lib/qstash';
 import { mutationLimiter } from '@/lib/security/rate-limiter';
 import { safeErrorResponse } from '@/lib/security/safe-error';
 import {
@@ -97,12 +97,12 @@ export async function POST(request: NextRequest) {
   const limited = mutationLimiter.check(request);
   if (limited) return limited;
 
+  // The live pool's cron reads this config, so only a service credential may change it.
+  const authResult = await verifyCronRequest(request, 'agents/auto-hedge');
+  if (authResult !== true) return authResult;
+
   try {
     const body = await request.json();
-
-    // Authentication required for all auto-hedge mutations
-    const authResult = await requireAuth(request, body);
-    if (authResult instanceof NextResponse) return authResult;
 
     const { action, portfolioId, walletAddress, config } = body;
 
@@ -256,6 +256,9 @@ export async function POST(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
+  const authResult = await verifyCronRequest(request, 'agents/auto-hedge');
+  if (authResult !== true) return authResult;
+
   try {
     const searchParams = request.nextUrl.searchParams;
     const portfolioId = searchParams.get('portfolioId');

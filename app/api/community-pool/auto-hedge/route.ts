@@ -644,16 +644,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   const rlResp = await mutationLimiter.checkDistributed(request);
   if (rlResp) return rlResp as NextResponse;
 
-  // SECURITY: Require admin/internal authentication. This endpoint mutates
-  // hedging strategy configuration and triggers autoHedgingService.start().
-  // Without this gate, anyone could disable hedging or set unsafe leverage.
-  const { requireAuth } = await import('@/lib/security/auth-middleware');
-  const bodyForAuth = await request
-    .clone()
-    .json()
-    .catch(() => ({}));
-  const authResult = await requireAuth(request, bodyForAuth as Record<string, unknown>);
-  if (authResult instanceof NextResponse) return authResult;
+  // SECURITY: service credential only. This endpoint changes the pool's
+  // hedging configuration and starts the hedging service; a wallet signature
+  // proves nothing about a right to do that.
+  const { verifyCronRequest } = await import('@/lib/qstash');
+  const authResult = await verifyCronRequest(request, 'community-pool/auto-hedge');
+  if (authResult !== true) return authResult;
 
   try {
     const body = await request.json();
@@ -729,7 +725,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     logger.info('[AutoHedge API] Config updated', {
       portfolioId: COMMUNITY_POOL_PORTFOLIO_ID,
       enabled: config.enabled,
-      authMethod: authResult.method,
     });
 
     return NextResponse.json({

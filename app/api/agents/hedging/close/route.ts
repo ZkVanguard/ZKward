@@ -2,14 +2,16 @@
  * Close Hedge Position
  * API endpoint for closing active hedge positions
  * Supports proxy wallet privacy - funds always go to OWNER wallet
- * SECURITY: Requires auth. DELETE requires admin auth.
+ * SECURITY: service credential only. A row is closed by the cron that
+ * verified the close on the venue, never on a caller's word.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { closeHedge, getHedgeByOrderId, clearSimulationHedges, clearAllHedges } from '@/lib/db/hedges';
 import { logger } from '@/lib/utils/logger';
 import _crypto from 'crypto';
-import { requireAuth, requireAdminAuth } from '@/lib/security/auth-middleware';
+import { requireAdminAuth } from '@/lib/security/auth-middleware';
+import { verifyCronRequest } from '@/lib/qstash';
 import { mutationLimiter } from '@/lib/security/rate-limiter';
 import { safeErrorResponse } from '@/lib/security/safe-error';
 
@@ -31,9 +33,8 @@ export async function POST(request: NextRequest) {
   const limited = await mutationLimiter.checkDistributed(request);
   if (limited) return limited;
 
-  // Require authentication
-  const authResult = await requireAuth(request);
-  if (authResult instanceof NextResponse) return authResult;
+  const authResult = await verifyCronRequest(request, 'hedging/close');
+  if (authResult !== true) return authResult;
 
   try {
     const body = await request.json();

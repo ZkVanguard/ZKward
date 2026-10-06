@@ -7,6 +7,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { mutationLimiter } from '@/lib/security/rate-limiter';
+import { verifyCronRequest } from '@/lib/qstash';
 import { 
   PriceMonitorAgent,
   PriceAlert, 
@@ -59,6 +60,9 @@ const _eventClients = new Set<ReadableStreamDefaultController>();
 export async function POST(request: NextRequest): Promise<NextResponse<MonitorControlResponse | unknown>> {
   const rateLimited = mutationLimiter.check(request);
   if (rateLimited) return rateLimited;
+
+  const authResult = await verifyCronRequest(request, 'agents/monitor');
+  if (authResult !== true) return authResult;
 
   try {
     const body = await request.json() as MonitorControlRequest;

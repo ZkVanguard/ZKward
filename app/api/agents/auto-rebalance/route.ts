@@ -31,6 +31,36 @@ export const runtime = 'nodejs';
 export const maxDuration = 15;
 export const dynamic = 'force-dynamic';
 
+type Auth = { method: 'internal' | 'wallet' | 'system'; identity: string };
+
+/**
+ * What a wallet signature is allowed to change. It proves control of one
+ * wallet, so it covers that wallet's own portfolio and nothing else: not the
+ * service switch, not the pools' reserved (negative) ids, not a portfolio
+ * whose stored owner is someone else. A service credential is not limited.
+ */
+async function walletScopeError(
+  auth: Auth,
+  action: string | null,
+  portfolioId: unknown,
+  walletAddress: unknown,
+): Promise<NextResponse | null> {
+  if (auth.method !== 'wallet') return null;
+  const deny = (error: string) => NextResponse.json({ success: false, error }, { status: 403 });
+
+  if (action === 'start' || action === 'stop') return deny('Service control requires a service credential');
+  const id = parseInt(String(portfolioId), 10);
+  if (!Number.isInteger(id) || id <= 0) return deny('This portfolio cannot be changed with a wallet signature');
+  if (typeof walletAddress === 'string' && walletAddress.toLowerCase() !== auth.identity) {
+    return deny('walletAddress does not match the signing wallet');
+  }
+  const existing = await getAutoRebalanceConfig(id);
+  if (existing && existing.walletAddress?.toLowerCase() !== auth.identity) {
+    return deny('This portfolio belongs to another wallet');
+  }
+  return null;
+}
+
 /**
  * POST - Control auto-rebalancing service
  */
@@ -49,6 +79,9 @@ export async function POST(request: NextRequest) {
     if (authResult instanceof NextResponse) return authResult;
 
     const { portfolioId, walletAddress, config } = body;
+
+    const scopeError = await walletScopeError(authResult, action, portfolioId, walletAddress);
+    if (scopeError) return scopeError;
 
     switch (action) {
       case 'start':
@@ -231,11 +264,17 @@ export async function GET(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
   try {
     const body = await request.json().catch(() => ({}));
+    const authResult = await requireAuth(request, body as Record<string, unknown>);
+    if (authResult instanceof NextResponse) return authResult;
+
     const { portfolioId, walletAddress, lossProtection } = body;
 
     if (!portfolioId) {
       return NextResponse.json({ success: false, error: 'portfolioId required' }, { status: 400 });
     }
+
+    const scopeError = await walletScopeError(authResult, 'patch', portfolioId, walletAddress);
+    if (scopeError) return scopeError;
 
     // Get existing config or create new one
     let existingConfig = await getAutoRebalanceConfig(parseInt(portfolioId, 10));

@@ -1546,7 +1546,7 @@ export function useCommunityPool(propAddress?: string, evmActive: boolean = true
         fetch(`/api/sui/community-pool?action=withdraw&network=${suiNetwork}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ shares: sharesRaw.toString() }),
+          body: JSON.stringify({ shares: sharesRaw.toString(), walletAddress: suiAddress }),
         });
 
       let res = await fetchWithdrawParams();

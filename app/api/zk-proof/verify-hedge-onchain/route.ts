@@ -7,33 +7,24 @@
  * to the on-chain verifier. The chain independently confirms the hedge
  * invariants — no trust in the operator's ed25519 key required.
  *
- * Modes:
- *   - buildOnly (default): return serialized tx bytes so a client wallet
- *     signs and submits (user pays gas). This is the "self-custodial
- *     private hedge" path.
- *   - execute (`?mode=execute`): server signs with SUI_POOL_ADMIN_KEY
- *     and executes. Operator pays gas — the "sponsored" path. Only
- *     available if a signing key is configured.
+ * The server only builds the transaction. It returns serialized bytes so the
+ * caller's wallet signs and pays gas; the server never signs here, because an
+ * open route that spends the operator's gas can be drained by anyone.
  *
  * Request body:
  *   {
  *     proof: <Python prover JSON>,             // required
  *     commitmentHashHex: string,               // required (64 hex, no 0x)
- *     mode?: 'buildOnly' | 'execute',          // default: 'buildOnly'
  *     maxFinalDegree?: number,                 // default: 80
  *   }
  *
- * Response (buildOnly):
+ * Response:
  *   { mode: 'buildOnly', txBytesBase64: string, target: string, config: {...} }
- *
- * Response (execute):
- *   { mode: 'execute', digest: string, status: 'success'|'failure',
- *     effects: {...} }
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
 import { logger } from '@/lib/utils/logger';
+import { heavyLimiter } from '@/lib/security/rate-limiter';
 import { safeErrorResponse } from '@/lib/security/safe-error';
 import { createFailoverSuiClient } from '@/lib/services/sui/sui-failover-transport';
 import {
@@ -54,15 +45,16 @@ function envTrim(name: string): string {
 interface RequestBody {
   proof: unknown;
   commitmentHashHex: string;
-  mode?: 'buildOnly' | 'execute';
   maxFinalDegree?: number;
 }
 
 export async function POST(request: NextRequest) {
+  const limited = await heavyLimiter.checkDistributed(request);
+  if (limited) return limited;
+
   try {
     const body = (await request.json()) as RequestBody;
     const { proof, commitmentHashHex } = body;
-    const mode = body.mode ?? 'buildOnly';
 
     if (!proof || typeof proof !== 'object') {
       return NextResponse.json(
@@ -129,68 +121,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // buildOnly: serialize + return. The client wallet supplies the sender
-    // and signs.
-    if (mode === 'buildOnly') {
-      const suiClient = createFailoverSuiClient(network === 'testnet' ? 'testnet' : 'mainnet');
-      const txBytes = await tx.build({ client: suiClient, onlyTransactionKind: true });
-      return NextResponse.json({
-        success: true,
-        mode: 'buildOnly',
-        txBytesBase64: Buffer.from(txBytes).toString('base64'),
-        target,
-        config: { network, packageId, zkVerifierStateId },
-      });
-    }
-
-    // execute: sign with operator key + execute. Only allowed if a key
-    // is configured — otherwise return 403 (no silent fallback to a
-    // less-authenticated path).
-    if (mode === 'execute') {
-      const adminKeyHex = envTrim('SUI_POOL_ADMIN_KEY');
-      if (!adminKeyHex) {
-        return NextResponse.json(
-          {
-            success: false,
-            error:
-              'execute mode requires SUI_POOL_ADMIN_KEY on the server. ' +
-              'Use mode=buildOnly for wallet-signed submission.',
-          },
-          { status: 403 },
-        );
-      }
-      const clean = adminKeyHex.startsWith('0x') ? adminKeyHex.slice(2) : adminKeyHex;
-      const secretKey = Uint8Array.from(Buffer.from(clean, 'hex'));
-      const keypair = Ed25519Keypair.fromSecretKey(
-        secretKey.length === 32 ? secretKey : secretKey.slice(0, 32),
-      );
-      tx.setSender(keypair.toSuiAddress());
-
-      const suiClient = createFailoverSuiClient(network === 'testnet' ? 'testnet' : 'mainnet');
-      const result = await suiClient.signAndExecuteTransaction({
-        signer: keypair,
-        transaction: tx,
-        options: { showEffects: true, showEvents: true },
-      });
-      const status = result.effects?.status?.status ?? 'unknown';
-      logger.info('[verify-hedge-onchain] executed', {
-        digest: result.digest,
-        status,
-        packageId,
-      });
-      return NextResponse.json({
-        success: status === 'success',
-        mode: 'execute',
-        digest: result.digest,
-        status,
-        effects: result.effects,
-      });
-    }
-
-    return NextResponse.json(
-      { success: false, error: `Unknown mode: ${mode}` },
-      { status: 400 },
-    );
+    // The client wallet supplies the sender and signs.
+    const suiClient = createFailoverSuiClient(network === 'testnet' ? 'testnet' : 'mainnet');
+    const txBytes = await tx.build({ client: suiClient, onlyTransactionKind: true });
+    return NextResponse.json({
+      success: true,
+      mode: 'buildOnly',
+      txBytesBase64: Buffer.from(txBytes).toString('base64'),
+      target,
+      config: { network, packageId, zkVerifierStateId },
+    });
   } catch (error: unknown) {
     logger.error('[verify-hedge-onchain] Error:', error);
     return safeErrorResponse(error, 'ZK on-chain hedge verify');
