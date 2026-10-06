@@ -459,24 +459,22 @@ export class SuiUsdcPoolService {
           const membersTableId = fields.members?.fields?.id?.id;
           if (!membersTableId) throw new Error('members table id missing');
 
-          const response = await suiFetchWithTimeout(this.config.rpcUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              jsonrpc: '2.0',
-              id: 1,
-              method: 'suix_getDynamicFieldObject',
-              params: [membersTableId, { type: 'address', value: address }],
-            }),
+          // Through the failover client: the single configured endpoint is
+          // rate-limited often enough that members were shown zero shares.
+          const { createFailoverSuiClient } = await import('@/lib/services/sui/sui-failover-transport');
+          const res = await createFailoverSuiClient(this.network).getDynamicFieldObject({
+            parentId: membersTableId,
+            name: { type: 'address', value: address },
           });
-          const data = await response.json();
-          // A rate-limited or failed read is not "not a member". Throw so the
-          // failure is never cached as a zero position for the TTL.
-          if (data.error || data.result === undefined) {
-            throw new Error(`member read failed: ${data.error?.message ?? 'no result'}`);
+          // Only "no such entry" means not a member. Any other failure throws,
+          // so it is never shown or cached as a zero position.
+          if (res.error) {
+            if (res.error.code === 'dynamicFieldNotFound') return defaultPosition;
+            throw new Error(`member read failed: ${res.error.code}`);
           }
-          const memberFields =
-            data.result?.data?.content?.fields?.value?.fields || data.result?.data?.content?.fields;
+          const content = res.data?.content as { fields?: Record<string, any> } | null | undefined;
+          if (!content?.fields) throw new Error('member read failed: no content');
+          const memberFields = content.fields.value?.fields || content.fields;
 
           if (!memberFields?.shares) return defaultPosition;
 
@@ -502,7 +500,7 @@ export class SuiUsdcPoolService {
         }
       },
       SUI_MEMBER_TTL
-    ).catch(() => defaultPosition);
+    );
   }
 
   /** Get all members of the USDC pool.
