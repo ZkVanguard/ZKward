@@ -32,7 +32,7 @@ import { BluefinService } from '@/lib/services/sui/BluefinService';
 import { bluefinTreasury } from '@/lib/services/sui/BluefinTreasuryService';
 import { SUI_COMMUNITY_POOL_PORTFOLIO_ID, isSuiCommunityPool } from '@/lib/constants';
 import { createHedge, updateHedgeStatus } from '@/lib/db/hedges';
-import { resolveLeverage, hedgeRatioForNav, computeTargetMargin, hedgeValueUsd, scaledReserves } from '@/lib/services/sui/cron/hedge-sizing';
+import { resolveLeverage, hedgeRatioForNav, computeTargetMargin, hedgeValueUsd, hedgeSizeBase, scaledReserves } from '@/lib/services/sui/cron/hedge-sizing';
 import { wouldBecomeDust } from '@/lib/services/sui/dust-manager';
 import { routeHedge } from '@/lib/services/perps/PerpVenueRouter';
 import { HyperliquidService } from '@/lib/services/perps/HyperliquidService';
@@ -282,7 +282,10 @@ export async function runStep8AutoHedge(input: Step8Input): Promise<Step8Result>
           }
 
           // ── Dedup gate: skip assets with an active live position ─
-          const existing = await bluefin.getPositions().catch(() => []);
+          // Strict: with an unreadable venue there is no dedup information.
+          // Treating that as "no positions" closed every active row below as
+          // an orphan and let a duplicate hedge open. Skip the step instead.
+          const existing = await bluefin.getPositionsStrict();
           const liveSet = new Set(
             existing.map(p => `${p.symbol}|${(p.side || '').toUpperCase()}`),
           );
@@ -414,14 +417,14 @@ export async function runStep8AutoHedge(input: Step8Input): Promise<Step8Result>
             }
 
             const hedgeValueUSD = hedgeValueUsd(navUsd, allocation, hedgeRatio);
-            const effectiveValue = hedgeValueUSD * leverage;
-            const hedgeSizeBase = effectiveValue / price;
+            // Size is the notional over price; leverage only sets the margin behind it.
+            const sizeBase = hedgeSizeBase(navUsd, allocation, hedgeRatio, price);
             const spec = PERP_SPECS[asset];
-            const snappedSize = Math.floor(hedgeSizeBase / spec.stepSize) * spec.stepSize;
+            const snappedSize = Math.floor(sizeBase / spec.stepSize) * spec.stepSize;
 
             if (snappedSize < spec.minQty) {
               logger.info(`[SUI Cron] Skip ${asset}-PERP: size ${snappedSize} < minQty ${spec.minQty}`, {
-                allocation, hedgeValueUSD, effectiveValue, leverage, hedgeRatio,
+                allocation, hedgeValueUSD, leverage, hedgeRatio,
               });
               hedges.push({ symbol, side, size: snappedSize, status: 'SKIPPED_MIN_QTY' });
               continue;
@@ -489,7 +492,6 @@ export async function runStep8AutoHedge(input: Step8Input): Promise<Step8Result>
             try {
               logger.info(`[SUI Cron] Opening ${asset}-PERP ${side}`, {
                 allocation, hedgeValueUSD: hedgeValueUSD.toFixed(4),
-                effectiveValue: effectiveValue.toFixed(4),
                 snappedSize, leverage, sentiment,
               });
 

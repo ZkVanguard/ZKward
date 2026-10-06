@@ -139,7 +139,9 @@ export async function performCloseHedge(
       const POLL_ATTEMPTS = 10;
       for (let i = 0; i < POLL_ATTEMPTS; i++) {
         await new Promise((r) => setTimeout(r, POLL_MS));
-        const fresh = await ctx.getPositions();
+        // A failed read is not "the position is gone": keep polling.
+        const fresh = await ctx.getPositions().catch(() => null);
+        if (!fresh) continue;
         const stillThere = fresh.find((p) => p.symbol === params.symbol);
         postCloseSize = stillThere?.size ?? 0;
         const shrinkage = preCloseSize - postCloseSize;

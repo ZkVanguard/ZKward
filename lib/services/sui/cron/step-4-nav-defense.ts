@@ -456,7 +456,6 @@ export async function runStep4NavDefense(input: Step4Input): Promise<Step4Result
       allocations: aiResult.allocations as Record<string, number>,
       prices: pricesUSD,
       hedgeRatio: ratio,
-      leverage: tierLev,
       perpSpecs,
       openInterestUsd,
       maxOiPct: Number(process.env.BLUEFIN_MAX_OI_PCT) || 5,

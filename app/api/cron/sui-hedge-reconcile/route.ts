@@ -149,7 +149,7 @@ export async function GET(request: NextRequest): Promise<NextResponse<ReconcileR
     try {
       const bf = BluefinService.getInstance();
       await bf.initialize(adminKey, network === 'mainnet' ? 'mainnet' : 'testnet');
-      livePositions = await bf.getPositions();
+      livePositions = await bf.getPositionsStrict();
       for (const p of livePositions) {
         liveMarginUsdc += Number(p.margin || 0);
       }

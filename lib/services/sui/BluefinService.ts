@@ -763,20 +763,33 @@ export class BluefinService {
    * Uses Exchange API: /api/v1/account
    */
   async getPositions(): Promise<BluefinPosition[]> {
-    await this.ensureInitializedAsync();
-
     try {
-      const account = await this.apiRequest<{
-        positions?: Array<Record<string, unknown>>;
-      }>('GET', `/api/v1/account?accountAddress=${this.walletAddress}`, undefined, 'exchange');
-
-      return (account?.positions || []).map(parseAccountPosition);
+      return await this.getPositionsStrict();
     } catch (error) {
       logger.debug('Failed to get BlueFin positions', {
         error: error instanceof Error ? error.message : String(error),
       });
       return [];
     }
+  }
+
+  /**
+   * Open positions, or a thrown error when the venue could not be read.
+   *
+   * For any caller that ACTS on the answer. getPositions() answers a failed
+   * read with an empty list, and "no positions" is itself an instruction:
+   * it closed database rows as orphans, counted as a completed close, and
+   * booked a live trade as lost. Use getPositions() only for display.
+   */
+  async getPositionsStrict(): Promise<BluefinPosition[]> {
+    await this.ensureInitializedAsync();
+    const account = await this.apiRequest<{
+      positions?: Array<Record<string, unknown>>;
+    }>('GET', `/api/v1/account?accountAddress=${this.walletAddress}`, undefined, 'exchange');
+    if (!account || typeof account !== 'object' || !Array.isArray(account.positions)) {
+      throw new Error('venue account response has no positions list');
+    }
+    return account.positions.map(parseAccountPosition);
   }
 
   /**
@@ -853,7 +866,7 @@ export class BluefinService {
         walletAddress: this.walletAddress,
         network: this.network,
         apiRequest: this.apiRequest.bind(this),
-        getPositions: this.getPositions.bind(this),
+        getPositions: this.getPositionsStrict.bind(this),
         getMarketData: this.getMarketData.bind(this),
         signOrder: this.signOrderFields.bind(this),
       },
@@ -896,7 +909,7 @@ export class BluefinService {
         walletAddress: this.walletAddress,
         network: this.network,
         apiRequest: this.apiRequest.bind(this),
-        getPositions: this.getPositions.bind(this),
+        getPositions: this.getPositionsStrict.bind(this),
         getMarketData: this.getMarketData.bind(this),
         signOrder: this.signOrderFields.bind(this),
       },

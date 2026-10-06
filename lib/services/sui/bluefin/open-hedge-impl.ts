@@ -292,7 +292,10 @@ export async function performOpenHedge(
       const POLL_ATTEMPTS = 10;
       for (let i = 0; i < POLL_ATTEMPTS; i++) {
         await new Promise((r) => setTimeout(r, POLL_MS));
-        const fresh = await ctx.getPositions();
+        // The order is already sent: a failed read here must not abort the
+        // verification, so keep polling.
+        const fresh = await ctx.getPositions().catch(() => null);
+        if (!fresh) continue;
         const stillThere = fresh.find((p) => p.symbol === params.symbol);
         if (stillThere) {
           postOpenSize = stillThere.size;
