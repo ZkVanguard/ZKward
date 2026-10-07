@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback, Suspense } from 'react';
 import { SectionErrorBoundary } from '@/components/CrashScreen';
 import nextDynamic from 'next/dynamic';
-import { useAccount, useBalance } from '@/lib/evm-wallet/hooks';
 import {
   Bot,
   Briefcase,
@@ -20,8 +19,6 @@ import {
 import { MobileTabBar } from '@/components/dashboard/MobileTabBar';
 import { WalletAvatar } from '@/components/ui/WalletAvatar';
 import { useUserSession } from '@/lib/hooks/useUserSession';
-import { useContractAddresses } from '@/lib/contracts/hooks';
-import { usePositions } from '@/contexts/PositionsContext';
 import { logger } from '@/lib/utils/logger';
 import { useSui } from '@/app/sui-providers';
 import { useWalletHub, type WalletChain } from '@/contexts/WalletHubContext';
@@ -83,11 +80,6 @@ const ChainHedges = nextDynamic(
     ssr: false,
   }
 );
-
-// SUI-only mode: EVM/Cronos-bound widgets were removed with the dead-code
-// cleanup. Hedging is driven by the SUI Community Pool + BlueFin auto-hedge
-// cron instead of manual modals. Re-add here when other chains re-enable.
-
 
 const EnhancedChat = nextDynamic(
   () =>
@@ -272,19 +264,10 @@ function ViewSwitcher({
 }
 
 export default function DashboardPage() {
-  // Unified session. Privy embedded wallet first, then anything wagmi
-  // reports as a fallback. Guarantees the sidebar avatar/address/balance
-  // matches the Profile tab AND the community leaderboard (all read from
-  // useUserSession + useWalletProfile). Fixes the bug where wagmi's
-  // useAccount would return an injected MetaMask address that drifted
-  // from the Privy embedded wallet the user actually signed in with.
+  // Unified session. Guarantees the sidebar avatar/address/balance matches
+  // the Profile tab AND the community leaderboard (all read from
+  // useUserSession + useWalletProfile).
   const session = useUserSession();
-
-  // Wagmi injected fallback. Kept for downstream code that needs raw
-  // wagmi address (e.g. useWriteContract in HederaVaultActions). NOT
-  // used for the sidebar display; that's session.address.
-  const { address: evmAddress } = useAccount();
-  useBalance({ address: evmAddress }); // side-effect: keeps wagmi cache warm
 
   // SUI wallet state
   const sui = useSui();
@@ -307,19 +290,11 @@ export default function DashboardPage() {
       ? `${session.balances.hbarHuman.toFixed(4)} HBAR`
       : '';
 
-  const contractAddresses = useContractAddresses();
-  // Get portfolio count and other data from centralized context - no redundant fetches!
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { derived } = usePositions();
-  // Use centralized AI service for portfolio actions
-  // Portfolio count available via derived?.portfolioCount if needed
-
   // Pool is home: clicking "Vault" in the top nav lands on deposit/withdraw.
   const tDash = useTranslations('dashboard');
   const [activeDest, setActiveDest] = useState<DestId>('pool');
   const [activeView, setActiveView] = useState<string | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [agentMessage, setAgentMessage] = useState<string | null>(null);
   const [showChat, setShowChat] = useState(false);
 
   const displayAddress = address || '';
@@ -359,12 +334,6 @@ export default function DashboardPage() {
     window.history.replaceState(null, '', `${window.location.pathname}${query ? `?${query}` : ''}`);
   }, []);
 
-
-  useEffect(() => {
-    if (isConnected && contractAddresses) {
-      logger.debug('Contract Addresses', { addresses: contractAddresses });
-    }
-  }, [isConnected, contractAddresses]);
 
   // Close mobile menu on escape
   useEffect(() => {
@@ -556,8 +525,6 @@ export default function DashboardPage() {
         moreIcon={MoreHorizontal}
       />
 
-      {/* Create Portfolio CTA disabled in SUI-only mode (EVM/Cronos required). */}
-
       {/* Chat Panel */}
       {showChat && (
         <>
@@ -601,8 +568,8 @@ export default function DashboardPage() {
                         setShowChat(false);
                         break;
                       default:
-                        // hedge/swap actions dropped: SUI-only mode hedges
-                        // via the auto-hedge cron, not manual modals.
+                        // Hedge and swap actions have no manual surface; hedging
+                        // runs from the auto-hedge cron.
                         logger.info('Chat action triggered', {
                           component: 'DashboardPage',
                           data: { action, params },
@@ -702,7 +669,7 @@ export default function DashboardPage() {
                 <CardHeader
                   title="Live autonomy"
                   subtitle="What the trading system is doing right now"
-                  badge={<Badge color="green">ACTIVE</Badge>}
+                  badge={<LiveBadge>ACTIVE</LiveBadge>}
                 />
                 <LiveAutonomyPanel />
               </Card>
@@ -712,7 +679,6 @@ export default function DashboardPage() {
                   <AgentActivity address={portfolioAddress} />
                 </Card>
               )}
-              <AgentAlert message={agentMessage} onDismiss={() => setAgentMessage(null)} />
             </div>
           );
         }
@@ -720,7 +686,6 @@ export default function DashboardPage() {
           <div className="space-y-3 sm:space-y-6">
             <FiveMinSignalWidget />
             <MarketLeanBoard />
-            <AgentAlert message={agentMessage} onDismiss={() => setAgentMessage(null)} />
           </div>
         );
 
@@ -802,77 +767,11 @@ function CardHeader({
   );
 }
 
-// AgentAlert. Shared for Overview + AI Agents tabs. Dismissable so users
-// can clear it manually instead of waiting for the auto-timeout. Uses
-// design tokens throughout (was raw ios-blue/5, ios-blue/20 with
-// hardcoded pixel radii and mixed icon sizes).
-function AgentAlert({
-  message,
-  onDismiss,
-}: {
-  message: string | null;
-  onDismiss?: () => void;
-}) {
-  if (!message) return null;
+// Solid green pill with a pulsing dot, for a card whose subject is running now.
+function LiveBadge({ children }: { children: React.ReactNode }) {
   return (
-    <aside className="p-4 sm:p-6 bg-ios-blue/5 border border-ios-blue/15 rounded-2xl">
-      <div className="flex items-start gap-4">
-        <div className="w-10 h-10 sm:w-11 sm:h-11 bg-ios-blue rounded-ios-xl flex items-center justify-center flex-shrink-0 shadow-ios-1">
-          <Bot className="w-5 h-5 sm:w-5 sm:h-5 text-white" strokeWidth={2.2} />
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center justify-between gap-2 mb-1">
-            <h3 className="font-semibold text-label-primary text-sm sm:text-base">
-              Agent update
-            </h3>
-            {onDismiss && (
-              <button
-                onClick={onDismiss}
-                className="p-1 -m-1 text-label-quaternary hover:text-label-secondary transition-colors"
-                aria-label="Dismiss"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            )}
-          </div>
-          <p className="text-label-secondary text-sm sm:text-[15px] whitespace-pre-line leading-relaxed">
-            {message}
-          </p>
-        </div>
-      </div>
-    </aside>
-  );
-}
-
-// Badge component. Token-based colors, soft-tint variant available.
-// WCAG-safe: on colored bg, text-white; on white bg, tint + colored text.
-function Badge({
-  children,
-  color,
-  variant = 'solid',
-}: {
-  children: React.ReactNode;
-  color: 'green' | 'blue' | 'teal';
-  variant?: 'solid' | 'soft';
-}) {
-  const solid = {
-    green: 'bg-ios-green text-white',
-    blue: 'bg-ios-blue text-white',
-    teal: 'bg-hedera-teal text-white',
-  } as const;
-  const soft = {
-    green: 'bg-ios-green/10 text-green-700',
-    blue: 'bg-ios-blue/10 text-blue-700',
-    teal: 'bg-hedera-teal/10 text-teal-700',
-  } as const;
-  const cls = variant === 'soft' ? soft[color] : solid[color];
-  return (
-    <span
-      className={`inline-flex items-center gap-1.5 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide rounded-full ${cls}`}
-    >
-      {color === 'green' && variant === 'solid' && (
-        <span className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
-      )}
+    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide rounded-full bg-ios-green text-white">
+      <span className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
       {children}
     </span>
   );
@@ -932,7 +831,7 @@ function SidebarWalletCard({
       ) : (
         <div className="relative flex-shrink-0">
           <WalletAvatar address={address || null} name={displayName} size={size} />
-          {chain === 'hedera' && isConnected && (
+          {chain === 'hedera' && (
             <span className="absolute -bottom-0.5 -right-0.5 rounded-full bg-white p-[2px] shadow-sm">
               <ChainLogo chain="hedera" size={Math.round(size * 0.32)} />
             </span>
@@ -941,9 +840,9 @@ function SidebarWalletCard({
       )}
       <div className="flex-1 min-w-0">
         <p className={`${textSize} font-semibold text-label-primary truncate tracking-[-0.01em]`}>
-          {isConnected ? primary : 'Not Connected'}
+          {primary}
         </p>
-        {isConnected && chain ? (
+        {chain ? (
           <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
             <ChainBadge chain={chain} />
             <FundsTag chain={chain} />

@@ -255,7 +255,7 @@ export function ConnectButton() {
   const showConnect = !showSui;
 
   // WagmiProvider only mounts inside /dashboard (per app/wallet-providers.tsx
-  // — marketing routes don't pay the wallet SDK bundle cost). EvmConnectSection
+  // — marketing routes don't pay the wallet SDK bundle cost). The Privy section
   // reads wagmi hooks and would throw a WagmiProviderNotFoundError outside
   // that subtree, so gate it by pathname.
   const pathname = usePathname() ?? '';
