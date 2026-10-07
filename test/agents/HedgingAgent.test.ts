@@ -1,7 +1,7 @@
 /**
  * HedgingAgent Tests — NO MOCKS
  * 
- * Uses real MoonlanderClient (Crypto.com Exchange API) and real MCPClient.
+ * Uses real PerpMarketClient (Crypto.com Exchange API) and real MCPClient.
  * Trading operations may fail if exchange API is unavailable — tests handle
  * graceful failure. Market data tests use Crypto.com public endpoints.
  */
@@ -30,7 +30,7 @@ describe('HedgingAgent', () => {
       await agent.initialize();
       agentReady = true;
     } catch {
-      // Agent init may fail if Moonlander/MCP APIs unavailable
+      // Agent init may fail if market/MCP APIs unavailable
       agentReady = false;
     }
   });
@@ -536,8 +536,8 @@ describe('HedgingAgent', () => {
     });
   });
 
-  describe('Integration with Moonlander', () => {
-    it('should use real MoonlanderClient for market data', async () => {
+  describe('Integration with the perp market client', () => {
+    it('should use real PerpMarketClient for market data', async () => {
       if (!agentReady) return;
       const task: AgentTask = {
         id: 'test-integration-1',
@@ -556,7 +556,7 @@ describe('HedgingAgent', () => {
       expect(result.success).toBe(true);
     });
 
-    it('should attempt trades through MoonlanderClient', async () => {
+    it('should attempt trades through PerpMarketClient', async () => {
       if (!agentReady) return;
       const task: AgentTask = {
         id: 'test-integration-2',

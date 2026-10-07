@@ -1,6 +1,6 @@
 /**
- * Moonlander Client
- * Integration with Moonlander perpetual futures exchange on Cronos
+ * Perp market client
+ * Perpetual market data (prices, funding) from the Crypto.com Exchange public API
  */
 
 import { ethers } from 'ethers';
@@ -82,21 +82,14 @@ export interface LiquidationRisk {
   riskLevel: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
 }
 
-export class MoonlanderClient {
-  private readonly baseUrl: string;
-  private readonly defaultTimeoutMs: number = 30_000;
-  private authHeaders: Record<string, string> = {};
+export class PerpMarketClient {
   private signer: ethers.Wallet | ethers.Signer;
-  private apiKey?: string;
-  private apiSecret?: string;
   private initialized: boolean = false;
 
   constructor(
     private provider: ethers.Provider,
     signerOrPrivateKey: ethers.Wallet | ethers.Signer | string
   ) {
-    this.baseUrl = process.env.NEXT_PUBLIC_MOONLANDER_API || 'https://api.moonlander.io';
-
     // Initialize signer
     if (typeof signerOrPrivateKey === 'string') {
       this.signer = new ethers.Wallet(signerOrPrivateKey, provider);
@@ -104,86 +97,24 @@ export class MoonlanderClient {
       this.signer = signerOrPrivateKey;
     }
 
-    // API credentials (optional, for authenticated endpoints)
-    // API secrets must NEVER use NEXT_PUBLIC_ prefix (would be exposed to browser)
-    // API keys must be server-only (never NEXT_PUBLIC_ prefix)
-    this.apiKey = process.env.MOONLANDER_API_KEY || '';
-    this.apiSecret = process.env.MOONLANDER_API_SECRET || '';
-
-    logger.info('MoonlanderClient initialized', {
-      apiUrl: this.baseUrl,
-      hasApiKey: !!this.apiKey,
-    });
   }
 
-  // Fetch wrapper — carries baseURL + JSON body/response + auth headers +
-  // timeout. Replaces the axios.create() instance and mutable-defaults
-  // pattern with the two features we actually used: baseURL prefix and
-  // shared auth headers set post-authenticate().
+  // The venue's own REST API is retired. Every caller already handles a
+  // failed request (fallback data, or an order error), so this keeps those
+  // paths and makes no network call.
   private async request<T>(
     method: 'GET' | 'POST' | 'DELETE',
     path: string,
-    opts: { body?: unknown; params?: Record<string, string | number>; timeoutMs?: number } = {},
+    _opts: { body?: unknown; params?: Record<string, string | number>; timeoutMs?: number } = {},
   ): Promise<T> {
-    const url = new URL(this.baseUrl + path);
-    if (opts.params) {
-      for (const [k, v] of Object.entries(opts.params)) url.searchParams.set(k, String(v));
-    }
-    const response = await fetch(url, {
-      method,
-      headers: {
-        'Content-Type': 'application/json',
-        ...this.authHeaders,
-      },
-      body: opts.body === undefined ? undefined : JSON.stringify(opts.body),
-      signal: AbortSignal.timeout(opts.timeoutMs ?? this.defaultTimeoutMs),
-    });
-    if (!response.ok) {
-      throw new Error(`Moonlander ${method} ${path} failed: ${response.status} ${response.statusText}`);
-    }
-    // DELETE may return empty body; guard against no-content responses.
-    if (response.status === 204 || method === 'DELETE') {
-      return undefined as T;
-    }
-    return response.json() as Promise<T>;
+    throw new Error(`Perp venue REST API retired: ${method} ${path}`);
   }
 
   /**
-   * Initialize client and authenticate
+   * Initialize client
    */
   async initialize(): Promise<void> {
-    try {
-      if (this.apiKey && this.apiSecret) {
-        // Authenticate with API key
-        await this.authenticate();
-      }
-
-      this.initialized = true;
-      logger.info('MoonlanderClient initialized successfully');
-    } catch (error) {
-      logger.error('Failed to initialize MoonlanderClient', { error });
-      throw error;
-    }
-  }
-
-  /**
-   * Authenticate with Moonlander API
-   */
-  private async authenticate(): Promise<void> {
-    const timestamp = Date.now();
-    const message = `${this.apiKey}${timestamp}`;
-    
-    // Sign authentication message
-    const signature = await this.signer.signMessage(message);
-
-    // Auth headers apply to every subsequent request via this.request().
-    this.authHeaders = {
-      'X-API-KEY': this.apiKey!,
-      'X-TIMESTAMP': timestamp.toString(),
-      'X-SIGNATURE': signature,
-    };
-
-    logger.info('Authenticated with Moonlander API');
+    this.initialized = true;
   }
 
   /**
@@ -274,7 +205,7 @@ export class MoonlanderClient {
         maxLeverage,
       };
     } catch (error) {
-      // Last resort: try original Moonlander API with short timeout
+      // Last resort: try venue REST API with short timeout
       try {
         return await this.request<MarketInfo>('GET', `/v1/markets/${market}`, { timeoutMs: 3000 });
       } catch {
@@ -291,7 +222,7 @@ export class MoonlanderClient {
     try {
       return await this.request<MarketInfo[]>('GET', '/v1/markets');
     } catch (error) {
-      logger.warn('Moonlander API unavailable, returning Exchange API fallback markets', { error });
+      logger.warn('venue REST API unavailable, returning Exchange API fallback markets', { error });
       return [await this.getMarketInfo('BTC-USD-PERP')];
     }
   }
@@ -348,7 +279,7 @@ export class MoonlanderClient {
     try {
       return await this.request<PerpetualPosition[]>('GET', '/v1/positions');
     } catch (error) {
-      logger.warn('Moonlander API unavailable, no open positions available', { error });
+      logger.warn('venue REST API unavailable, no open positions available', { error });
       // Return empty array — no simulated/hardcoded positions
       return [];
     }
@@ -532,7 +463,7 @@ export class MoonlanderClient {
         }
       } catch { /* spot ticker also failed */ }
 
-      // Absolute last resort: try Moonlander API
+      // Absolute last resort: try venue REST API
       try {
         return await this.request<FundingPayment[]>('GET', `/v1/markets/${market}/funding`, {
           params: { limit },
@@ -643,7 +574,7 @@ export class MoonlanderClient {
    */
   private ensureInitialized(): void {
     if (!this.initialized) {
-      throw new Error('MoonlanderClient not initialized. Call initialize() first.');
+      throw new Error('PerpMarketClient not initialized. Call initialize() first.');
     }
   }
 
@@ -652,19 +583,19 @@ export class MoonlanderClient {
    */
   async disconnect(): Promise<void> {
     this.initialized = false;
-    logger.info('MoonlanderClient disconnected');
+    logger.info('PerpMarketClient disconnected');
   }
 }
 
 // Export singleton instance factory
-let moonlanderClient: MoonlanderClient | null = null;
+let perpMarketClient: PerpMarketClient | null = null;
 
-export function getMoonlanderClient(
+export function getPerpMarketClient(
   provider: ethers.Provider,
   signer: ethers.Wallet | ethers.Signer | string
-): MoonlanderClient {
-  if (!moonlanderClient) {
-    moonlanderClient = new MoonlanderClient(provider, signer);
+): PerpMarketClient {
+  if (!perpMarketClient) {
+    perpMarketClient = new PerpMarketClient(provider, signer);
   }
-  return moonlanderClient;
+  return perpMarketClient;
 }
