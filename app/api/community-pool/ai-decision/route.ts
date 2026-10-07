@@ -15,13 +15,13 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { logger } from '@/lib/utils/logger';
-// Cronos community pool retired 2026-09-25. Hedera flows short-circuit
-// above these callers; SUI has its own path. Stubs fail if a Cronos code
+// The server-side share ledger was retired 2026-09-25. Hedera flows short-circuit
+// above these callers; SUI has its own path. Stubs fail if a ledger code
 // path is hit.
-const cronosRetired = () => { throw new Error('Cronos pool retired'); };
-const applyAIDecision = (..._args: unknown[]) => cronosRetired() as any;
-const getPoolSummary = (_chain?: string) => cronosRetired() as any;
-const fetchExtendedMarketData = () => cronosRetired() as any;
+const ledgerRetired = () => { throw new Error('Server-side pool ledger retired'); };
+const applyAIDecision = (..._args: unknown[]) => ledgerRetired() as any;
+const getPoolSummary = (_chain?: string) => ledgerRetired() as any;
+const fetchExtendedMarketData = () => ledgerRetired() as any;
 import { SUPPORTED_ASSETS, SupportedAsset } from '@/lib/storage/community-pool-storage';
 import { requireAdminAuth } from '@/lib/security/auth-middleware';
 import { readLimiter, heavyLimiter } from '@/lib/security/rate-limiter';
@@ -213,7 +213,7 @@ ${indicators.map((i) => `- ${i.asset}: $${i.price.toLocaleString()} (${i.change2
   return { allocations, reasoning, confidence, indicators, shouldRebalance };
 }
 
-// ─── Hedera path — signal-driven allocation without the Cronos machinery ──
+// ─── Hedera path — signal-driven allocation without the retired ledger ──
 async function buildHederaRecommendation(request: NextRequest) {
   // Live prices for the three assets we project hedges across.
   const origin = request.nextUrl.origin;
@@ -364,7 +364,7 @@ export async function GET(request: NextRequest) {
     const chain = searchParams.get('chain') || undefined;
 
     // Hedera-specific short-circuit — the legacy getPoolSummary path is
-    // Cronos-bound and throws for Hedera. Compose a live signal-driven
+    // bound to the retired ledger and throws for Hedera. Compose a live signal-driven
     // recommendation from the aggregator + on-chain NAV instead.
     if (chain === 'hedera') {
       const hederaResponse = await buildHederaRecommendation(request);

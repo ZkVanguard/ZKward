@@ -32,7 +32,7 @@ export async function GET() {
 ## Key facts
 
 - Live on SUI mainnet, package \`0x107292…7b726\`, pool state \`0xe814…fb3a\`.
-- Also deployed on Hedera Testnet, Sepolia, Cronos EVM, Oasis Sapphire, Arbitrum Sepolia (reference deploys).
+- Also deployed on Hedera Testnet (vault) and Solana devnet (token pool).
 - Post-quantum STARK proofs: Goldilocks prime field, SHA-256 Merkle, 80 FRI queries + 20-bit grinding, no elliptic curves.
 - Eight-gate autonomy defense system with contract-enforced kill switches.
 - Fees: 50 bps annual management + 10% performance, routed through MSafe-held FeeManagerCap.

@@ -253,8 +253,7 @@ export default async function LocaleLayout(
   return (
     <html lang={locale} dir={localeDir(locale)} suppressHydrationWarning>
       <head>
-        {/* Resource hints for third-parties the marketing pages actually hit.
-            Cronos preconnect removed — project runs on SUI mainnet, not Cronos. */}
+        {/* Resource hints for third-parties the marketing pages actually hit. */}
         <link rel="preconnect" href="https://api.crypto.com" crossOrigin="anonymous" />
         <link rel="dns-prefetch" href="https://api.crypto.com" />
         

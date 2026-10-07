@@ -6,7 +6,7 @@
  * - zk_proxy_vault.move: ZK-protected escrow with time-locked withdrawals
  * - zk_verifier.move: ZK proof verification
  * 
- * Mirrors Cronos OnChainHedgeService but for SUI blockchain.
+ * On-chain hedge service for SUI.
  * 
  * Flow:
  * 1. User creates hedge via frontend

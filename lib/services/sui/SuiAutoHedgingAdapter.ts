@@ -2,7 +2,7 @@
  * SUI Auto-Hedging Adapter
  * 
  * Extends the AutoHedging system to route SUI-based portfolio hedges
- * via BlueFin instead of Moonlander (Cronos). This adapter:
+ * via BlueFin. This adapter:
  * 
  * 1. Monitors SUI portfolio positions (via RWA Manager Move contract)
  * 2. Fetches live SUI token prices for PnL
@@ -12,7 +12,6 @@
  * Works alongside the existing AutoHedgingService — the orchestrator
  * detects the chain context and delegates to this adapter for SUI hedges.
  * 
- * @see lib/services/AutoHedgingService.ts  (Cronos equivalent)
  * @see lib/services/BluefinService.ts       (SUI perps execution)
  */
 

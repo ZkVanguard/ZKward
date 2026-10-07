@@ -57,7 +57,7 @@ export const AGENT_INFO: Record<AgentType, { name: string; description: string }
   },
   settlement: {
     name: 'Settlement Agent',
-    description: 'x402 gasless settlement, batch processing, fee-routing.',
+    description: 'Gasless settlement, batch processing, fee-routing.',
   },
   reporting: {
     name: 'Reporting Agent',
@@ -359,16 +359,6 @@ export interface OnChainFees {
     highWaterMark: boolean;
     description: string;
   };
-  x402Gasless: {
-    feePerTransaction: string;
-    feePerTransactionUsdc: number;
-    description: string;
-  };
-  oracle: {
-    feePerCallTcro: number;
-    feeCro: number;
-    description: string;
-  };
   suiProtocol: {
     feeRateBps: number;
     description: string;
@@ -393,16 +383,6 @@ export const ON_CHAIN_FEES: OnChainFees = {
     feeRatePercent: 10, // matches POOL_ECONOMICS.performanceFeePercent
     highWaterMark: true,
     description: 'Pool performance fee on profits above the per-share high-water mark.',
-  },
-  x402Gasless: {
-    feePerTransaction: '10000', // 0.01 USDC in 6 decimals
-    feePerTransactionUsdc: 0.01,
-    description: 'Fee per gasless transaction (sponsored by platform via ZKPaymaster).',
-  },
-  oracle: {
-    feePerCallTcro: 0.06,
-    feeCro: 0.06,
-    description: 'Oracle fee for legacy Moonlander price feeds (Cronos testnet).',
   },
   suiProtocol: {
     feeRateBps: 50, // matches POOL_ECONOMICS.managementFeeBps

@@ -57,7 +57,7 @@ function getHederaRpcUrl(): string {
     : (process.env.HEDERA_TESTNET_RPC_URL || 'https://testnet.hashio.io/api');
 }
 
-// Same ABI as Cronos — identical CommunityPool.sol
+// CommunityPool.sol ABI
 const COMMUNITY_POOL_ABI = [
   'function getPoolStats() view returns (uint256 _totalShares, uint256 _totalNAV, uint256 _memberCount, uint256 _sharePrice, uint256[4] _allocations)',
   'function setTargetAllocation(uint256[4] newAllocationBps, string reasoning)',
@@ -108,7 +108,7 @@ interface HederaCronResult {
 }
 
 // ============================================
-// AI ALLOCATION (same algorithm as SUI/Cronos models)
+// AI ALLOCATION (same algorithm as the SUI model)
 // ============================================
 
 function generateAllocation(

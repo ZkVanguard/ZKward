@@ -3,7 +3,7 @@
  * 
  * On-chain data querying for SUI Network using the JSON-RPC API.
  * Provides transaction history, balance lookups, object inspection,
- * and block/checkpoint data — mirroring the Cronos Explorer proxy.
+ * and block/checkpoint data.
  * 
  * @see https://docs.sui.io/references/sui-api
  */

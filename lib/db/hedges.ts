@@ -7,13 +7,6 @@ import { HEDGES_REAL_ONLY_SQL } from './hedges-scope';
 // re-exported so callers of '@/lib/db/hedges' don't need to know.
 export { ensureHedgesTable, type Hedge, type CreateHedgeParams } from './hedges-schema';
 export {
-  type OnChainHedgeParams,
-  upsertOnChainHedge,
-  resyncOnChainHedge,
-  getOnChainHedgeByHedgeId,
-  getTxHashesFromDb,
-  cacheTxHashes,
-  getHedgeByOnchainId,
   closeHedgeByOnchainId,
   recordSuiOnchainHedge,
   listActiveSuiOnchainHedges,

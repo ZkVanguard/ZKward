@@ -8,7 +8,7 @@
  * - NAV calculations
  *
  * Uses @mysten/sui SDK for blockchain interactions.
- * This is the SUI equivalent of CommunityPoolService.ts (Cronos/EVM).
+ * The SUI community pool service.
  *
  * @see contracts/sui/sources/community_pool.move
  * @see lib/services/CommunityPoolService.ts (EVM equivalent)

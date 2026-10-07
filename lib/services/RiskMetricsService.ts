@@ -976,7 +976,7 @@ export function getRiskRating(metrics: RiskMetrics): { rating: string; color: st
  * Calculate real-time volatility from live market data
  * Uses 24h high/low range to estimate intraday volatility, annualized
  * 
- * @param chain - 'cronos' | 'sui' | 'arbitrum' | 'all'
+ * @param chain - 'sui' | 'all'
  * @returns Weighted volatility based on chain's typical portfolio allocation
  */
 export async function calculateRealTimeVolatility(chain: string): Promise<{
@@ -990,18 +990,10 @@ export async function calculateRealTimeVolatility(chain: string): Promise<{
   
   // Chain-specific assets and target allocations
   const chainAssets: Record<string, { symbols: string[]; weights: number[] }> = {
-    'cronos': { 
-      symbols: ['CRO', 'BTC', 'ETH', 'USDC'], 
-      weights: [0.40, 0.30, 0.25, 0.05] 
-    },
     'sui': { 
       // SUI pool uses native SUI - no separate USDC stablecoin
       symbols: ['SUI', 'BTC', 'ETH'], 
       weights: [0.50, 0.30, 0.20] 
-    },
-    'arbitrum': { 
-      symbols: ['ETH', 'BTC', 'ARB', 'USDC'], 
-      weights: [0.35, 0.30, 0.30, 0.05] 
     },
     'all': { 
       symbols: ['BTC', 'ETH', 'SUI', 'CRO', 'USDC'], 
