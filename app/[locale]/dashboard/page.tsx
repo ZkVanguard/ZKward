@@ -629,7 +629,6 @@ export default function DashboardPage() {
                 <Card>
                   <PortfolioOverview
                     address={portfolioAddress}
-                    onNavigateToPositions={() => handleNavChange('portfolio', 'positions')}
                     onNavigateToHedges={() => handleNavChange('portfolio', 'hedges')}
                   />
                 </Card>

@@ -448,40 +448,6 @@ export async function GET(request: NextRequest): Promise<NextResponse<UnifiedPor
       });
     }
 
-    // EVM path: hit existing portfolio list as the data source
-    try {
-      const baseUrl = request.nextUrl.origin;
-      const resp = await fetch(`${baseUrl}/api/portfolio/list?address=${wallet}`, {
-        headers: { Accept: 'application/json' },
-        signal: AbortSignal.timeout(10000),
-      });
-      if (resp.ok) {
-        const json = (await resp.json()) as {
-          portfolios?: Array<{ id: number; totalValue: string }>;
-        };
-        const portfolios = json.portfolios || [];
-        const totalValue = portfolios.reduce(
-          (s, p) => s + Number(p.totalValue || 0) / 1e18,
-          0,
-        );
-        if (portfolios.length > 0) {
-          products.push({
-            product: 'evm-portfolios',
-            productLabel: 'EVM Portfolios (Cronos)',
-            chain: 'evm',
-            valueUsd: totalValue,
-            costBasisUsd: totalValue,
-            unrealizedPnlUsd: 0,
-            count: portfolios.length,
-          });
-        }
-      } else {
-        warnings.push(`EVM portfolio fetch returned HTTP ${resp.status}`);
-      }
-    } catch (e: unknown) {
-      warnings.push(`EVM portfolio fetch failed: ${String(e)}`);
-    }
-
     const attributedHedges = await getWalletAttributedHedges(wallet);
     if (attributedHedges.position) products.push(attributedHedges.position);
 

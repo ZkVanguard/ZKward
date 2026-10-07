@@ -4,7 +4,6 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import { useWallet } from '@/lib/hooks/useWallet';
 import { dedupedFetch } from '@/lib/utils/request-deduplication';
 import { cache } from '@/lib/utils/cache';
-import { useUserPortfolios } from '@/lib/contracts/hooks';
 import { logger } from '@/lib/utils/logger';
 import { refreshCoordinator } from '@/lib/services/refresh-coordinator';
 
@@ -34,7 +33,6 @@ interface DerivedData {
   sharpeRatio: number;
   healthScore: number;
   riskScore: number;
-  portfolioCount: number;
   activeHedgesCount: number;
   /** Unrealized P&L across every product the wallet holds (from /api/portfolio/unified). */
   pnl: {
@@ -55,9 +53,7 @@ interface PositionsContextType {
 const PositionsContext = createContext<PositionsContextType | undefined>(undefined);
 
 export function PositionsProvider({ children }: { children: React.ReactNode }) {
-  const { portfolioAddress: address, evmAddress } = useWallet();
-  // For EVM contract hooks, use EVM address specifically
-  const { count: userPortfolioCount, isLoading: countLoading } = useUserPortfolios(evmAddress as `0x${string}` | undefined);
+  const { portfolioAddress: address } = useWallet();
   const [positionsData, setPositionsData] = useState<PositionsData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -316,16 +312,15 @@ export function PositionsProvider({ children }: { children: React.ReactNode }) {
       sharpeRatio,
       healthScore,
       riskScore,
-      portfolioCount: userPortfolioCount,
       activeHedgesCount,
       pnl,
     };
-  }, [positionsData, userPortfolioCount, activeHedgesCount, pnlMetrics]);
+  }, [positionsData, activeHedgesCount, pnlMetrics]);
 
   const value: PositionsContextType = {
     positionsData,
     derived,
-    loading: loading || countLoading,
+    loading,
     error,
     refetch: fetchPositions,
     isPending, // Smooth transition indicator
