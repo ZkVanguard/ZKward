@@ -4,13 +4,10 @@
  */
 import { RefreshCw, Wallet } from 'lucide-react';
 
-interface Props {
-  /** Expected token symbols to reserve skeleton rows for. Prevents layout
-   *  shift once data lands (CLS win). */
-  expectedTokens?: string[];
-}
+// Rows reserved so the list does not shift when balances land.
+const SKELETON_ROWS = [0, 1, 2];
 
-export function PositionsLoadingSkeleton({ expectedTokens = ['CRO', 'devUSDC', 'WCRO'] }: Props) {
+export function PositionsLoadingSkeleton() {
   return (
     <div className="px-4 sm:px-6 pb-4 sm:pb-6 space-y-4">
       <div className="bg-white rounded-2xl shadow-sm border border-black/5 p-4 sm:p-5">
@@ -37,10 +34,10 @@ export function PositionsLoadingSkeleton({ expectedTokens = ['CRO', 'devUSDC', '
         </div>
 
         <div className="bg-white rounded-xl shadow-sm border border-black/5 overflow-hidden">
-          {expectedTokens.map((token, index) => (
+          {SKELETON_ROWS.map((row, index) => (
             <div
-              key={token}
-              className={`px-3 sm:px-4 py-3 ${index !== expectedTokens.length - 1 ? 'border-b border-black/5' : ''}`}
+              key={row}
+              className={`px-3 sm:px-4 py-3 ${index !== SKELETON_ROWS.length - 1 ? 'border-b border-black/5' : ''}`}
             >
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-[#f5f5f7] rounded-lg animate-pulse" />
