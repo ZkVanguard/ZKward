@@ -60,9 +60,9 @@ export async function generateFallbackResponse(
   }
 
   // Market analysis
-  if (lower.match(/market|cronos|cro|ecosystem|price|sentiment|conditions/)) {
+  if (lower.match(/market|ecosystem|price|sentiment|conditions/)) {
     return {
-      content: `I'll analyze the current market conditions for you! 📊\n\n**Market Intelligence:**\n• **Cronos Ecosystem**: Layer 1 blockchain with strong DeFi presence\n• **CRO Token**: Native token with utility across CDC ecosystem\n• **Current Trends**: Institutional adoption increasing, TVL growing\n• **Risk Factors**: Market volatility, regulatory changes, macro conditions\n\n**Portfolio Recommendations:**\n✓ Consider your risk tolerance and time horizon\n✓ Diversify across multiple assets (CRO, ETH, BTC, stablecoins)\n✓ Use hedging strategies for downside protection\n✓ Monitor correlation with broader crypto markets\n\n**Data-Driven Insights:**\nI use real-time market data, on-chain analytics, and AI models to provide actionable recommendations. Would you like me to analyze your specific portfolio in the context of current market conditions?`,
+      content: `I'll analyze the current market conditions for you! 📊\n\n**Market Intelligence:**\n• **Current Trends**: Institutional adoption increasing, TVL growing\n• **Risk Factors**: Market volatility, regulatory changes, macro conditions\n\n**Portfolio Recommendations:**\n✓ Consider your risk tolerance and time horizon\n✓ Diversify across multiple assets (BTC, ETH, SUI, stablecoins)\n✓ Use hedging strategies for downside protection\n✓ Monitor correlation with broader crypto markets\n\n**Data-Driven Insights:**\nI use real-time market data, on-chain analytics, and AI models to provide actionable recommendations. Would you like me to analyze your specific portfolio in the context of current market conditions?`,
       model: 'rule-based-fallback',
       confidence: 0.85,
     };
@@ -134,7 +134,6 @@ export async function generateFallbackResponse(
     return {
       content: `✅ **HEDGE ANALYSIS** | Portfolio Protected 🛡️` +
         hedgeInfo +
-        `\n\n⛽ Gasless execution via x402` +
         actionsComment,
       model: 'rule-based-fallback',
       confidence: 0.9,
@@ -150,19 +149,10 @@ export async function generateFallbackResponse(
     };
   }
 
-  // x402 / gasless
-  if (lower.includes('x402') || lower.includes('gasless') || lower.includes('gas fee') || lower.includes('free transaction')) {
-    return {
-      content: `x402 is a game-changer for institutional users! ⚡\n\n**What is x402?**\nA gasless transaction protocol that lets you execute settlements without paying CRO gas fees.\n\n**How it Works:**\n1. You submit a transaction request\n2. x402 relay network processes it\n3. Sponsor covers the gas fees\n4. You pay $0.00 in CRO\n\n**Real Savings:**\n• Traditional settlement: ~$5.20 per tx\n• With x402: $0.00 ✓\n• Savings: 100%\n\n**Perfect for:**\n• Batch settlements\n• High-frequency operations\n• Multi-agent coordination\n• Institutional workflows\n\nWant to try a gasless settlement now?`,
-      model: 'rule-based-fallback',
-      confidence: 0.85,
-    };
-  }
-
   // Agent / platform overview
   if (lower.includes('agent') || lower.includes('how') || lower.includes('what can you')) {
     return {
-      content: `I'm your AI-powered assistant orchestrating 5 specialized agents! 🤖\n\n**What I Can Do:**\n\n🎯 **Lead Agent (me!)**: Coordinate all other agents and provide conversational assistance\n\n📊 **Risk Agent**: Analyze portfolios, calculate VaR, assess volatility\n\n🛡️ **Hedging Agent**: Generate protection strategies via Moonlander\n\n⚡ **Settlement Agent**: Execute gasless transactions with x402\n\n📈 **Reporting Agent**: Generate compliance reports with ZK proofs\n\n**Smart Features:**\n• Natural language understanding\n• Real-time market data integration\n• Multi-step workflow automation\n• Privacy-preserving computation\n• Institutional-grade security\n\nTry asking me something like:\n• "Analyze my portfolio"\n• "What's my risk level?"\n• "Hedge $5M against market crash"\n• "Execute a gasless settlement"`,
+      content: `I'm your AI-powered assistant orchestrating 5 specialized agents! 🤖\n\n**What I Can Do:**\n\n🎯 **Lead Agent (me!)**: Coordinate all other agents and provide conversational assistance\n\n📊 **Risk Agent**: Analyze portfolios, calculate VaR, assess volatility\n\n🛡️ **Hedging Agent**: Generate protection strategies on BlueFin perpetuals\n\n📈 **Reporting Agent**: Generate compliance reports with ZK proofs\n\n**Smart Features:**\n• Natural language understanding\n• Real-time market data integration\n• Multi-step workflow automation\n• Privacy-preserving computation\n• Institutional-grade security\n\nTry asking me something like:\n• "Analyze my portfolio"\n• "What's my risk level?"\n• "Hedge $5M against market crash"\n• "Execute a gasless settlement"`,
       model: 'rule-based-fallback',
       confidence: 0.75,
     };
@@ -170,7 +160,7 @@ export async function generateFallbackResponse(
 
   // Default
   return {
-    content: `I'm here to help with your DeFi portfolio management! 💼\n\nI can assist you with:\n• Portfolio analysis and risk assessment\n• Hedge strategy generation\n• Gasless transaction execution\n• Compliance reporting\n• Understanding Web3 concepts\n\nCould you rephrase your question or try one of these:\n• "Show me my portfolio risk"\n• "How does x402 gasless work?"\n• "Generate a hedge strategy"\n• "What are ZK proofs?"\n\nOr click a quick action button above to get started!`,
+    content: `I'm here to help with your DeFi portfolio management! 💼\n\nI can assist you with:\n• Portfolio analysis and risk assessment\n• Hedge strategy generation\n• Gasless transaction execution\n• Compliance reporting\n• Understanding Web3 concepts\n\nCould you rephrase your question or try one of these:\n• "Show me my portfolio risk"\n• "Generate a hedge strategy"\n• "What are ZK proofs?"\n\nOr click a quick action button above to get started!`,
     model: 'rule-based-fallback',
     confidence: 0.5,
   };

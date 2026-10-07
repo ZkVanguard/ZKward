@@ -210,7 +210,7 @@ export function getHedgeSummary(hedges: PrivateHedge[]): string {
   return `Generated ${hedges.length} ZK-protected hedge strategies:\n` +
     `• Average Effectiveness: ${(totalEffectiveness * 100).toFixed(0)}%\n` +
     `• High Priority: ${highPriority}\n` +
-    `• Total Cost: $0.00 (x402 Gasless)\n` +
+    `• Total Cost: $0.00 (gasless)\n` +
     `• Privacy: Strategy details protected by ZK-STARK proofs\n\n` +
     hedges.map((h, i) => 
       `${i + 1}. Hedge #${h.hedgeId.slice(-8)}\n` +

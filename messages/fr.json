@@ -458,7 +458,7 @@
     "whereStarted": {
       "heading": "Comment ça a commencé",
       "body1": "Un week-end de hackathon. Trop de café. Une question : <em>si des ordinateurs bougent de l'argent réel, pourquoi quelqu'un ferait confiance à leur raisonnement ?</em> On pensait répondre en deux jours. Ça a pris dix-huit mois.",
-      "body2": "En chemin, on a gagné cinq hackathons, contribué au toolkit wallet de Tether, et livré sur une poignée de blockchains. La plupart des déploiements de test ont tenu une après-midi. <strong>SUI</strong> a tenu. C'est rapide, pas cher, et ça ne casse pas quand on le regarde de travers. C'est là que vit l'argent maintenant."
+      "body2": "En chemin, on a gagné cinq hackathons et livré sur une poignée de blockchains. La plupart des déploiements de test ont tenu une après-midi. <strong>SUI</strong> a tenu. C'est rapide, pas cher, et ça ne casse pas quand on le regarde de travers. C'est là que vit l'argent maintenant."
     },
     "shipToday": {
       "heading": "Ce qu'on livre aujourd'hui",
@@ -520,7 +520,7 @@
     },
     "q6": {
       "q": "Sur quelles chaînes ZKward tourne-t-il ?",
-      "a": "SUI mainnet est la chaîne principale (pool en direct au package 0x107292…7b726). Des déploiements de référence existent sur Hedera Testnet, Sepolia, Cronos EVM, Oasis Sapphire et Arbitrum Sepolia. La portabilité est prouvée ; la production s'étend là où la demande le justifie."
+      "a": "SUI mainnet est la chaîne principale (pool en direct au package 0x107292…7b726). Des déploiements de référence existent sur Hedera Testnet et Solana devnet. La portabilité est prouvée ; la production s'étend là où la demande le justifie."
     },
     "q7": {
       "q": "Quels sont les frais ?",

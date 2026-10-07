@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
         },
         hedging: {
           available: status.agents.hedging,
-          capabilities: ['hedge_analysis', 'position_opening', 'moonlander_integration'],
+          capabilities: ['hedge_analysis', 'position_opening'],
         },
         reporting: {
           available: status.agents.reporting,
@@ -43,8 +43,6 @@ export async function GET(request: NextRequest) {
         },
       },
       integrations: {
-        x402: { enabled: true },
-        moonlander: { enabled: true },
         cryptocomAI: { enabled: true },
         mcp: { enabled: true },
       },

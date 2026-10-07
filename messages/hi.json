@@ -458,7 +458,7 @@
     "whereStarted": {
       "heading": "कहाँ शुरू हुआ",
       "body1": "एक hackathon वीकेंड। बहुत ज़्यादा कॉफ़ी। एक सवाल: <em>अगर कंप्यूटर असली पैसा हिलाते हैं, तो कोई उनकी तर्कशीलता पर क्यों भरोसा करेगा?</em> हम सोच रहे थे दो दिन में जवाब देंगे। अठारह महीने लग गए।",
-      "body2": "रास्ते में हमने पाँच hackathons जीते, Tether के wallet toolkit में योगदान दिया, और मुट्ठी भर blockchains पर deploy किया। ज़्यादातर टेस्ट deployments दोपहर भर टिके। <strong>SUI</strong> टिकी रही। तेज़, सस्ती, और तिरछा देखने पर टूटती नहीं। अभी पैसा वहीं रहता है।"
+      "body2": "रास्ते में हमने पाँच hackathons जीते और मुट्ठी भर blockchains पर deploy किया। ज़्यादातर टेस्ट deployments दोपहर भर टिके। <strong>SUI</strong> टिकी रही। तेज़, सस्ती, और तिरछा देखने पर टूटती नहीं। अभी पैसा वहीं रहता है।"
     },
     "shipToday": {
       "heading": "आज हम क्या भेजते हैं",
@@ -520,7 +520,7 @@
     },
     "q6": {
       "q": "ZKward किन चेनों पर चलता है?",
-      "a": "SUI mainnet प्रमुख चेन है (package 0x107292…7b726 पर लाइव पूल)। संदर्भ deployments Hedera Testnet, Sepolia, Cronos EVM, Oasis Sapphire और Arbitrum Sepolia पर मौजूद हैं। पोर्टेबिलिटी सिद्ध है; production वहाँ बढ़ता है जहाँ माँग उचित ठहराती है।"
+      "a": "SUI mainnet प्रमुख चेन है (package 0x107292…7b726 पर लाइव पूल)। संदर्भ deployments Hedera Testnet और Solana devnet पर मौजूद हैं। पोर्टेबिलिटी सिद्ध है; production वहाँ बढ़ता है जहाँ माँग उचित ठहराती है।"
     },
     "q7": {
       "q": "फ़ीस कितनी है?",

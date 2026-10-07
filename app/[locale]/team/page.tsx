@@ -11,7 +11,7 @@ export async function generateMetadata(
   return {
     title: 'The team behind ZKward',
     description:
-      'ZKward is built primarily by Ashish Regmi (Mrare Jimmy) — CS + cryptography + AI, prior senior engineer at Fortune 500 companies, Tether WDK contributor, five hackathon wins.',
+      'ZKward is built primarily by Ashish Regmi (Mrare Jimmy) — CS + cryptography + AI, prior senior engineer at Fortune 500 companies, five hackathon wins.',
     alternates: {
       canonical,
       languages: Object.fromEntries(
@@ -115,11 +115,6 @@ export default function TeamPage() {
               <strong>Prior senior engineer</strong> at multiple Fortune 500 companies —
               production systems that moved real money at scale, so the "not lunatics"
               rule about the $10K cap comes from experience.
-            </li>
-            <li>
-              <strong>Upstream contributor to Tether&rsquo;s Wallet Dev Kit</strong>{' '}
-              (WDK) — the SDK Tether uses for its embedded wallet flows. Merged PRs
-              live in the public repo.
             </li>
             <li>
               <strong>Five hackathon wins</strong> across the EVM, Aptos, and ICP
