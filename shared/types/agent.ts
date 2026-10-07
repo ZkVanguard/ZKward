@@ -125,7 +125,7 @@ export interface AgentContext {
 export interface StrategyInput {
   naturalLanguage: string;
   portfolioId?: number;
-  /** Target chain for the strategy: 'cronos' | 'oasis-sapphire' | 'sui' | 'hedera' etc. */
+  /** Target chain for the strategy: 'sui' | 'hedera' etc. */
   chain?: string;
   constraints?: {
     maxRisk?: number;
@@ -143,7 +143,7 @@ export interface StrategyInput {
 export interface StrategyIntent {
   action: 'hedge' | 'rebalance' | 'analyze' | 'optimize';
   targetPortfolio: number;
-  /** Target chain: 'cronos' | 'oasis-sapphire' | 'sui' | 'hedera' — determines which on-chain data + hedge adapter to use */
+  /** Target chain: 'sui' | 'hedera' — determines which on-chain data + hedge adapter to use */
   chain?: string;
   objectives: {
     yieldTarget?: number;

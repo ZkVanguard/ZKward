@@ -10,11 +10,10 @@ import { SkeletonBox } from '@/components/dashboard/community-pool/Skeletons';
 
 interface PortfolioOverviewProps {
   address?: string;
-  onNavigateToPositions?: () => void;
   onNavigateToHedges?: () => void;
 }
 
-export function PortfolioOverview({ address, onNavigateToPositions, onNavigateToHedges }: PortfolioOverviewProps) {
+export function PortfolioOverview({ address, onNavigateToHedges }: PortfolioOverviewProps) {
   // Get ALL data from centralized context - zero redundant fetching!
   // isPending provides smooth visual feedback during background data transitions
   const { positionsData, derived, loading, refetch, isPending } = usePositions();
@@ -97,12 +96,6 @@ export function PortfolioOverview({ address, onNavigateToPositions, onNavigateTo
                 <div className="flex items-center gap-2">
                   <span className="text-[10px] sm:text-[11px] font-semibold text-[#86868b] uppercase tracking-[0.06em]">Portfolio</span>
                   <WalletContextBadge />
-                  {derived && derived.portfolioCount > 0 && (
-                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-[#34C759]/10 rounded-full">
-                      <span className="w-1.5 h-1.5 bg-[#34C759] rounded-full animate-pulse" />
-                      <span className="text-[9px] font-bold text-[#34C759]">LIVE</span>
-                    </span>
-                  )}
                 </div>
                 <div className="text-[28px] sm:text-[32px] md:text-[40px] font-bold text-[#1d1d1f] leading-tight tracking-[-0.02em]">
                   {positionsData && positionsData.totalValue >= 1000000 
@@ -145,18 +138,6 @@ export function PortfolioOverview({ address, onNavigateToPositions, onNavigateTo
 
         {/* Stats Row - Responsive Grid */}
         <div className="grid grid-cols-2 sm:flex gap-2 sm:gap-3">
-          {/* Portfolios */}
-          <button
-            onClick={onNavigateToPositions}
-            className="flex-1 group flex items-center justify-between p-3 sm:p-4 bg-[#f5f5f7] active:bg-[#e8e8ed] sm:hover:bg-[#e8e8ed] rounded-[14px] sm:rounded-[16px] transition-all active:scale-[0.98]"
-          >
-            <div>
-              <div className="text-[9px] sm:text-[11px] font-semibold text-[#86868b] uppercase tracking-[0.04em] mb-1">Portfolios</div>
-              <div className="text-[22px] sm:text-[28px] font-bold text-[#1d1d1f] leading-none">{derived?.portfolioCount || 0}</div>
-            </div>
-            <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 text-[#c7c7cc] group-hover:text-[#007AFF] transition-colors" strokeWidth={2} />
-          </button>
-
           {/* Hedges */}
           <button
             onClick={onNavigateToHedges}

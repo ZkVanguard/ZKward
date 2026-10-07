@@ -15,15 +15,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { timingSafeEqual } from 'crypto';
 import { logger } from '@/lib/utils/logger';
-// Cronos community pool retired 2026-09-25. These stubs preserve the route
-// surface; any Cronos code path now fails loudly. SUI + Hedera paths in this
-// file don't hit these functions.
-const cronosRetired = () => { throw new Error('Cronos pool retired'); };
-const getPoolSummary = (_chainKey?: string) => cronosRetired() as any;
-const fetchLivePrices = () => cronosRetired() as any;
-const calculatePoolNAV = (_chainKey?: string) => cronosRetired() as any;
+// The server-side share ledger was retired 2026-09-25. These stubs keep the
+// route surface; any path that still reaches the ledger fails loudly.
+const ledgerRetired = () => { throw new Error('Server-side pool ledger retired'); };
+const getPoolSummary = (_chainKey?: string) => ledgerRetired() as any;
+const fetchLivePrices = () => ledgerRetired() as any;
+const calculatePoolNAV = (_chainKey?: string) => ledgerRetired() as any;
 import {
-  getUserShares,
   getPoolHistory,
   getUserTransactionCounts,
 } from '@/lib/storage/community-pool-storage';
@@ -38,7 +36,7 @@ import { safeErrorResponse } from '@/lib/security/safe-error';
 import { POOL_CHAIN_CONFIGS, getDepositTokenInfo } from '@/lib/contracts/community-pool-config';
 
 // Extracted modules
-import { getChainConfig } from '@/lib/community-pool/chain-config';
+import { getChainConfig, isKnownPoolChain } from '@/lib/community-pool/chain-config';
 import {
   getOnChainPoolData,
   getOnChainUserPosition,
@@ -84,6 +82,9 @@ async function handleGet(request: NextRequest) {
   // Multi-chain support: parse chain and network params
   const chainParam = searchParams.get('chain');
   const networkParam = searchParams.get('network');
+  if (chainParam && !isKnownPoolChain(chainParam)) {
+    return NextResponse.json({ success: false, error: `Unknown chain: ${chainParam}` }, { status: 400 });
+  }
   const chainConfig = getChainConfig(chainParam, networkParam);
 
   // SUI chain requires different handling (not EVM-compatible)
@@ -211,56 +212,7 @@ async function handleGet(request: NextRequest) {
         });
       }
 
-      // Fallback to local storage (only if on-chain fails AND we're on the default chain)
-      // Non-default chains (Sepolia, Hedera, etc.) should only use on-chain data
-      if (chainKey === 'cronos') {
-        try {
-          const userShares = await getUserShares(userAddress, chainKey);
-          const poolSummary = await getPoolSummary(chainKey);
-
-          if (!userShares) {
-            return NextResponse.json({
-              success: true,
-              user: {
-                walletAddress: userAddress,
-                shares: 0,
-                valueUSD: 0,
-                percentage: 0,
-                isMember: false,
-                depositCount: txCounts.depositCount,
-                withdrawalCount: txCounts.withdrawalCount,
-              },
-              pool: poolSummary,
-              source: 'local',
-            });
-          }
-
-          return NextResponse.json({
-            success: true,
-            user: {
-              walletAddress: userShares.walletAddress,
-              shares: userShares.shares,
-              valueUSD: userShares.shares * poolSummary.sharePrice,
-              percentage: userShares.percentage,
-              isMember: true,
-              joinedAt: userShares.joinedAt,
-              totalDeposited: userShares.deposits.reduce((sum, d) => sum + d.amountUSD, 0),
-              totalWithdrawn: userShares.withdrawals.reduce((sum, w) => sum + w.amountUSD, 0),
-              depositCount: txCounts.depositCount || userShares.deposits.length,
-              withdrawalCount: txCounts.withdrawalCount || userShares.withdrawals.length,
-            },
-            pool: poolSummary,
-            source: 'local',
-          });
-        } catch (dbError) {
-          // Database unavailable - return not found response
-          logger.warn('[CommunityPool API] DB fallback failed, user not found on-chain', {
-            userAddress,
-          });
-        }
-      }
-
-      // For non-default chains or when DB fails, return user not found
+      // On-chain and database both failed
       return NextResponse.json(
         {
           success: true,
@@ -324,7 +276,7 @@ async function handleGet(request: NextRequest) {
       }
 
       if (localUser) {
-        await saveUserShares(localUser);
+        await saveUserShares(localUser, chainKey);
       }
 
       // Sync pool state
@@ -542,7 +494,7 @@ async function handleGet(request: NextRequest) {
           (onChainPool.allocations.ETH?.percentage || 0) > 0;
 
         // Per-chain deposit-token metadata. Hedera pool uses USDC now
-        // (SimpleUsdcVault); Sepolia/Cronos are USDT via WDK.
+        // (SimpleUsdcVault).
         const depositTokenInfo = getDepositTokenInfo(chainConfig.chainKey, chainConfig.network);
         const depositSymbol = depositTokenInfo.symbol;
 
@@ -644,6 +596,9 @@ export async function POST(request: NextRequest) {
   // Multi-chain support: parse chain and network params
   const chainParam = searchParams.get('chain');
   const networkParam = searchParams.get('network');
+  if (chainParam && !isKnownPoolChain(chainParam)) {
+    return NextResponse.json({ success: false, error: `Unknown chain: ${chainParam}` }, { status: 400 });
+  }
   const chainConfig = getChainConfig(chainParam, networkParam);
 
   // SUI chain requires different handling (not EVM-compatible)

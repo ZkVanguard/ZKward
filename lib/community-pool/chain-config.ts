@@ -1,12 +1,9 @@
 /**
- * Chain configuration for community pool multi-chain support
+ * Chain configuration for the EVM community pool
  */
 
-import { POOL_CHAIN_CONFIGS, getCommunityPoolAddress } from '@/lib/contracts/community-pool-config';
+import { POOL_CHAIN_CONFIGS } from '@/lib/contracts/community-pool-config';
 import type { ChainConfig, ChainKey, NetworkType } from './types';
-
-// Legacy constant for default chain (Cronos testnet)
-export const CRONOS_TESTNET_RPC = 'https://evm-t3.cronos.org';
 
 // Minimal ABI for reading pool stats
 export const POOL_ABI = [
@@ -19,31 +16,24 @@ export const POOL_ABI = [
   'function members(address) view returns (uint256 shares, uint256 depositedUSD, uint256 withdrawnUSD, uint256 joinTime)',
 ];
 
+export const isKnownPoolChain = (chain: string): chain is ChainKey =>
+  chain === 'hedera' || chain === 'sui';
+
 /**
- * Get RPC URL and pool address for a given chain/network
- * Falls back to Sepolia testnet (primary live chain) if invalid
+ * RPC URL and pool address for a chain and network. A missing chain means
+ * Hedera, the one EVM pool. An unknown chain throws: answering with another
+ * chain's data would present it as fact.
  */
 export function getChainConfig(chain?: string | null, network?: string | null): ChainConfig {
-  const chainKey = (chain as ChainKey) || 'sepolia';
+  const chainKey = chain || 'hedera';
+  if (!isKnownPoolChain(chainKey)) throw new Error(`Unknown pool chain: ${chainKey}`);
   const networkType: NetworkType = network === 'mainnet' ? 'mainnet' : 'testnet';
-  
   const config = POOL_CHAIN_CONFIGS[chainKey];
-  if (!config) {
-    // Fallback to Sepolia testnet (primary live chain)
-    const fallbackConfig = POOL_CHAIN_CONFIGS['sepolia'];
-    return {
-      rpcUrl: fallbackConfig?.rpcUrls?.testnet || 'https://sepolia.drpc.org',
-      poolAddress: getCommunityPoolAddress('sepolia', 'testnet'),
-      chainKey: 'sepolia',
-      network: 'testnet',
-      assets: fallbackConfig?.assets || ['BTC', 'ETH', 'SUI', 'CRO'],
-    };
-  }
-  
-  const rpcUrl = networkType === 'mainnet' ? config.rpcUrls.mainnet : config.rpcUrls.testnet;
-  const poolAddress = networkType === 'mainnet' 
-    ? config.contracts.mainnet.communityPool 
-    : config.contracts.testnet.communityPool;
-  
-  return { rpcUrl, poolAddress, chainKey, network: networkType, assets: config.assets };
+  return {
+    rpcUrl: config.rpcUrls[networkType],
+    poolAddress: config.contracts[networkType].communityPool,
+    chainKey,
+    network: networkType,
+    assets: config.assets,
+  };
 }

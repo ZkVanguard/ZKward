@@ -8,10 +8,6 @@
 import { ethers } from 'ethers';
 import { NextResponse } from 'next/server';
 import { logger } from '@/lib/utils/logger';
-import {
-  getPoolStats as getUnifiedPoolStats,
-  getMemberPosition as getUnifiedMemberPosition,
-} from '@/lib/services/CommunityPoolStatsService';
 import { POOL_CHAIN_CONFIGS } from '@/lib/contracts/community-pool-config';
 import type { ChainConfig, PoolDataCache, UserPositionCache } from './types';
 import { getChainConfig, POOL_ABI } from './chain-config';
@@ -74,11 +70,7 @@ export function buildAllocationsForDb(poolData: PoolDataCache) {
 /**
  * Fetch on-chain pool data (SINGLE SOURCE OF TRUTH)
  * 
- * Multi-chain support:
- * - For Cronos: uses CommunityPoolStatsService (with caching)
- * - For other chains: fetches directly from that chain's RPC
- * 
- * @param chainConfig - Optional chain configuration. If not provided, uses Cronos testnet.
+ * @param chainConfig - Optional chain configuration. If not provided, uses Hedera testnet.
  */
 export async function getOnChainPoolData(chainConfig?: ChainConfig): Promise<PoolDataCache | null> {
   const config = chainConfig || getChainConfig();
@@ -130,40 +122,6 @@ export async function getOnChainPoolData(chainConfig?: ChainConfig): Promise<Poo
   }
 
   try {
-    // For Cronos testnet, use the unified stats service (has extra caching)
-    if (config.chainKey === 'cronos' && config.network === 'testnet') {
-      const stats = await getUnifiedPoolStats();
-      
-      // Use actual on-chain allocations for BTC/ETH/SUI/CRO hedging
-      // The pool accepts USDT deposits but allocates to multiple assets
-      const allocations: Record<string, { percentage: number }> = {
-        BTC: { percentage: stats.allocations.BTC.percentage },
-        ETH: { percentage: stats.allocations.ETH.percentage },
-        SUI: { percentage: stats.allocations.SUI.percentage },
-        CRO: { percentage: stats.allocations.CRO.percentage },
-      };
-      
-      // Check if hedging is active (has non-zero allocations)
-      const hasHedging = stats.allocations.BTC.percentage > 0 || stats.allocations.ETH.percentage > 0;
-      const actualHoldings = hasHedging 
-        ? allocations  // Show target allocations when hedging
-        : { USDT: { percentage: 100 } };  // Show USDT when not hedged
-      
-      const result: PoolDataCache = {
-        totalValueUSD: stats.totalNAV,
-        totalShares: stats.totalShares,
-        sharePrice: stats.sharePrice,
-        totalMembers: stats.memberCount,
-        allocations,
-        actualHoldings,
-        depositAsset: 'USDT',
-        onChain: true,
-      };
-      setCachedRpc(cacheKey, result, POOL_DATA_TTL);
-      return result;
-    }
-    
-    // For other chains, fetch directly from on-chain
     const provider = new ethers.JsonRpcProvider(config.rpcUrl);
     const pool = new ethers.Contract(config.poolAddress, POOL_ABI, provider);
     
@@ -345,31 +303,15 @@ export async function getOnChainPoolData(chainConfig?: ChainConfig): Promise<Poo
 /**
  * Fetch on-chain user position (SINGLE SOURCE OF TRUTH)
  * 
- * Now accepts chainConfig to query the correct chain's contract.
- * For default chain (cronos), uses CommunityPoolStatsService.
- * For other chains, queries the contract directly.
+ * Queries the chain's contract directly.
  */
-export async function getOnChainUserPosition(userAddress: string, chainConfig?: ChainConfig): Promise<UserPositionCache | null> {
+export async function getOnChainUserPosition(userAddress: string, chainConfig: ChainConfig = getChainConfig()): Promise<UserPositionCache | null> {
   try {
     // Non-EVM addresses (e.g. SUI 64-hex) cannot be queried against EVM contracts
     if (!/^0x[a-fA-F0-9]{40}$/.test(userAddress)) {
       return null;
     }
 
-    // For cronos (default), use the unified service for better caching
-    if (!chainConfig || chainConfig.chainKey === 'cronos') {
-      const pos = await getUnifiedMemberPosition(userAddress);
-      return {
-        walletAddress: pos.walletAddress,
-        shares: pos.shares,
-        valueUSD: pos.valueUSD,
-        percentage: pos.percentage,
-        isMember: pos.isMember,
-        onChain: true,
-      };
-    }
-    
-    // For other chains, query the contract directly
     const cacheKey = `user-pos-${chainConfig.chainKey}-${chainConfig.network}-${userAddress.toLowerCase()}`;
 
     return dedupedFetch<UserPositionCache | null>(
@@ -383,8 +325,8 @@ export async function getOnChainUserPosition(userAddress: string, chainConfig?: 
 
         // Get user's member data. Share decimals vary per chain — Hedera's
         // SimpleUsdcVault stores shares in USDC's 6-decimal space (its
-        // fold preserves asset decimals). Sepolia/Cronos CommunityPool
-        // uses 18. Bail out to per-chain scaling.
+        // fold preserves asset decimals). Other pool contracts
+        // use 18. Bail out to per-chain scaling.
         //
         // Hedera Hashio quirk: wrapper functions like `members(address)`
         // revert with CONTRACT_REVERT_EXECUTED. The auto-generated public

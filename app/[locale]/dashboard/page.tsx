@@ -226,7 +226,6 @@ const LEGACY_TABS: Record<string, { dest: DestId; view?: string }> = {
   risk: { dest: 'platform', view: 'risk' },
   custody: { dest: 'platform', view: 'custody' },
   admin: { dest: 'platform', view: 'admin' },
-  x402: { dest: 'platform' },
   profile: { dest: 'account' },
   solana: { dest: 'pool' }, // CommunityPool reads ?tab=solana and opens the Solana chain
 };
@@ -629,7 +628,6 @@ export default function DashboardPage() {
                 <Card>
                   <PortfolioOverview
                     address={portfolioAddress}
-                    onNavigateToPositions={() => handleNavChange('portfolio', 'positions')}
                     onNavigateToHedges={() => handleNavChange('portfolio', 'hedges')}
                   />
                 </Card>

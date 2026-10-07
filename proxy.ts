@@ -112,12 +112,10 @@ function isPublic(pathname: string): boolean {
 const API_CACHE_POLICIES: Array<{ prefix: string; value: string }> = [
   // Private / no-store (user-specific or mutation-adjacent)
   { prefix: '/api/gasless/', value: 'private, no-store' },
-  { prefix: '/api/x402/', value: 'private, no-store' },
   { prefix: '/api/debug/', value: 'no-store' },
   { prefix: '/api/chat/health', value: 'public, s-maxage=10, stale-while-revalidate=20' },
   // Fast-changing operational data (15s)
   { prefix: '/api/agents/hedging/list', value: 'public, s-maxage=15, stale-while-revalidate=30' },
-  { prefix: '/api/agents/hedging/onchain', value: 'public, s-maxage=15, stale-while-revalidate=30' },
   { prefix: '/api/agents/hedging/tracker', value: 'public, s-maxage=15, stale-while-revalidate=30' },
   { prefix: '/api/agents/hedging/bluefin', value: 'public, s-maxage=15, stale-while-revalidate=30' },
   { prefix: '/api/agents/hedging/pnl', value: 'public, s-maxage=30, stale-while-revalidate=60' },
@@ -130,7 +128,6 @@ const API_CACHE_POLICIES: Array<{ prefix: string; value: string }> = [
   // Medium-lived data (30s)
   { prefix: '/api/community-pool/', value: 'public, s-maxage=30, stale-while-revalidate=60' },
   { prefix: '/api/community-pool', value: 'public, s-maxage=30, stale-while-revalidate=60' },
-  { prefix: '/api/oasis/', value: 'public, s-maxage=30, stale-while-revalidate=60' },
 ];
 
 /** Get Cache-Control value for a GET API route, or null if none applies */

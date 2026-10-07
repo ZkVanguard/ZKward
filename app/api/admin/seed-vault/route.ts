@@ -1,18 +1,18 @@
 /**
  * Admin: seed a SimpleUsdcVault(V2) with test USDC to scale demo NAV.
  *
- * Works against Hedera OR Sepolia (same MockERC20 pattern, different chain).
+ * Works against the Hedera testnet vault.
  * Mints `amount` USDC to the operator, approves the vault, deposits.
  * CRON_SECRET-gated — not public.
  *
- * POST body: { chain: 'hedera' | 'sepolia', amount?: number }
+ * POST body: { chain: 'hedera', amount?: number }
  * Response : { txMint, txApprove, txDeposit, totalAssetsUsdc, explorerUrl }
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { logger } from '@/lib/utils/logger';
 import { cronSecretMatches } from '@/lib/security/cron-auth';
-import { HEDERA_CONTRACT_ADDRESSES, SEPOLIA_CONTRACT_ADDRESSES } from '@/lib/contracts/addresses';
+import { HEDERA_CONTRACT_ADDRESSES } from '@/lib/contracts/addresses';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -29,7 +29,7 @@ interface ChainConfig {
   gasFee: () => Promise<Record<string, unknown>>;
 }
 
-async function getChain(chain: 'hedera' | 'sepolia'): Promise<ChainConfig> {
+async function getChain(chain: 'hedera'): Promise<ChainConfig> {
   const { ethers } = await import('ethers');
   if (chain === 'hedera') {
     return {
@@ -47,16 +47,7 @@ async function getChain(chain: 'hedera' | 'sepolia'): Promise<ChainConfig> {
       }),
     };
   }
-  return {
-    usdc: SEPOLIA_CONTRACT_ADDRESSES.testnet.usdtToken,
-    vault: SEPOLIA_CONTRACT_ADDRESSES.testnet.communityPool,
-    // publicnode.com serves sepolia on the free tier; drpc.org does not.
-    rpc: (process.env.SEPOLIA_RPC || 'https://ethereum-sepolia-rpc.publicnode.com').trim(),
-    keyEnvVar: 'PRIVATE_KEY',
-    explorerTxUrl: (h) => `https://sepolia.etherscan.io/tx/${h}`,
-    // Sepolia — let ethers autoscale gas; just cap the limit.
-    gasFee: async () => ({ gasLimit: 500_000 }),
-  };
+  throw new Error(`Unsupported chain: ${chain}`);
 }
 
 const ABI_USDC = [
@@ -74,10 +65,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
   }
 
-  let body: { chain?: 'hedera' | 'sepolia'; amount?: number } = {};
+  let body: { chain?: 'hedera'; amount?: number } = {};
   try { body = (await request.json()) as typeof body; } catch { /* default */ }
   const chain = body.chain ?? 'hedera';
-  if (chain !== 'hedera' && chain !== 'sepolia') {
+  if (chain !== 'hedera') {
     return NextResponse.json({ error: `unsupported chain: ${chain}` }, { status: 400 });
   }
   const human = Math.max(1, Math.min(1_000_000, Number(body.amount ?? 10_000)));

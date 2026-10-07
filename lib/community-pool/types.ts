@@ -3,14 +3,14 @@
  */
 
 export type NetworkType = 'testnet' | 'mainnet';
-export type ChainKey = 'ethereum' | 'cronos' | 'hedera' | 'sepolia' | 'sui';
+export type ChainKey = 'hedera' | 'sui';
 
 export interface ChainConfig {
   rpcUrl: string;
   poolAddress: string;
   chainKey: ChainKey;
   network: NetworkType;
-  assets: string[]; // Chain-specific assets (e.g., ['BTC', 'ETH', 'USDT'] for Sepolia)
+  assets: string[]; // Chain-specific assets
 }
 
 export interface PoolDataCache {

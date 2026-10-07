@@ -309,7 +309,7 @@ function formatAgentResponse(report: AgentReport): { content: string } {
   
   // Settlement info (brief)
   if (report.settlement?.gasless) {
-    lines.push(`⛽ Gasless ready via x402`);
+    lines.push(`⛽ Gasless settlement ready`);
   }
   
   // ACTION BUTTONS - Machine-readable actions for on-chain execution

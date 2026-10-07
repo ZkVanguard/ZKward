@@ -89,16 +89,6 @@ export async function GET() {
           userKeeps: 1000 * (1 - ON_CHAIN_FEES.performanceFee.feeRatePercent / 100),
         },
       },
-      gasless: {
-        feePerTransaction: ON_CHAIN_FEES.x402Gasless.feePerTransactionUsdc,
-        description: ON_CHAIN_FEES.x402Gasless.description,
-        note: 'Fee is paid by platform, not user',
-      },
-      oracle: {
-        feePerCall: ON_CHAIN_FEES.oracle.feeCro,
-        currency: 'CRO',
-        description: ON_CHAIN_FEES.oracle.description,
-      },
       sui: {
         rateBps: ON_CHAIN_FEES.suiProtocol.feeRateBps,
         ratePercent: ON_CHAIN_FEES.suiProtocol.feeRateBps / 100,

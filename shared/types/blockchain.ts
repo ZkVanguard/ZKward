@@ -21,7 +21,6 @@ export interface ContractAddresses {
   zkVerifier: string;
   proofRegistry: string;
   vvsRouter?: string;
-  moonlanderAdapter?: string;
   delphiContract?: string;
 }
 
