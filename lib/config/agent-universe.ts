@@ -30,7 +30,7 @@ import { SUPPORTED_ASSETS as TRADER_ASSETS } from './trader-assets';
 /**
  * Pool asset symbols the agents actively signal on. Was 4 (BTC/ETH/SUI/CRO)
  * matching the Move struct field names `btc_bps / eth_bps / sui_bps /
- * cro_bps`; CRO was dropped from the signalling universe when Cronos got
+ * cro_bps`; CRO was dropped from the signalling universe when its chain got
  * nuked (task #13) — the on-chain `cro_bps` field is a dead slot pending a
  * Move upgrade and always reads 0, so producing signals for it just added
  * noise to the dashboard "Live signals" table.

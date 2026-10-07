@@ -105,14 +105,6 @@ export function ComparisonPanel({
               <div className="flex items-center gap-2 text-[#007AFF]">
                 <Zap className="w-4 h-4" />
                 <span className="font-semibold text-[14px] sm:text-[15px]">On-Chain Hedge Executed</span>
-                <a
-                  href={`https://cronos.org/explorer/testnet3/tx/${onChainTx}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="underline text-[#5856D6] ml-2 text-[13px]"
-                >
-                  View on Cronos Explorer
-                </a>
               </div>
               <div className="text-[11px] sm:text-[12px] text-[#86868b] mt-1">
                 Tx Hash: <span className="font-mono text-[#007AFF]">{onChainTx}</span>

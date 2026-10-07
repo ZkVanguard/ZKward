@@ -686,7 +686,7 @@ export default function SimulatorPage() {
                   ).join('');
               setOnChainTx(txHash);
               addLog(`   └─ ✅ HEDGE EXECUTED: ${txHash.slice(0, 18)}...`, 'success');
-              addLog('   └─ Gas: $0.00 CRO (x402 sponsored)', 'success');
+              addLog('   └─ Gas: $0.00 (sponsored)', 'success');
             }
 
             addLog('', 'info');
@@ -772,9 +772,8 @@ export default function SimulatorPage() {
         // Second 5: Check liquidity FIRST (before hedge recommendation)
         if (currentStep === 5) {
           addLog('💱 Settlement Agent: Pre-flight liquidity check...', 'info');
-          addLog('   └─ Moonlander BTC-PERP: $847M open interest ✓', 'info');
-          addLog('   └─ Moonlander ETH-PERP: $312M open interest ✓', 'info');
-          addLog('   └─ VVS WCRO/USDC: $42.8M TVL | 0.08% slippage ✓', 'info');
+          addLog('   └─ Perp venue BTC-PERP: $847M open interest ✓', 'info');
+          addLog('   └─ Perp venue ETH-PERP: $312M open interest ✓', 'info');
           addLog('✅ Liquidity sufficient for emergency hedge execution', 'success');
           addAgentAction(
             'Settlement',
@@ -826,7 +825,7 @@ export default function SimulatorPage() {
           addAgentAction(
             'Hedging',
             'HEDGE_RECOMMENDATION',
-            `Proposing multi-asset SHORT positions via Moonlander`,
+            `Proposing multi-asset SHORT positions on the perp venue`,
             {
               metric: 'Proposed Hedge %',
               before: 0,
@@ -860,7 +859,7 @@ export default function SimulatorPage() {
             );
           } else {
             addLog('✍️ Lead Agent: Requesting manager signature for emergency hedge...', 'info');
-            addLog('✅ Manager signature confirmed: 0x7a3f...b29c (gasless via x402)', 'success');
+            addLog('✅ Manager signature confirmed: 0x7a3f...b29c (gasless)', 'success');
             addLog('🔓 Hedge authorization granted - proceeding to execution', 'success');
             addAgentAction(
               'Lead',
@@ -991,11 +990,11 @@ export default function SimulatorPage() {
               addLog(`   └─ ✅ Hedge Executed: ${txHash.slice(0, 18)}...`, 'success');
             }
 
-            addLog('   └─ Gas: $0.00 CRO (x402 sponsored)', 'success');
+            addLog('   └─ Gas: $0.00 (sponsored)', 'success');
             addAgentAction(
               'Settlement',
               'HEDGE_EXECUTED',
-              `Hedge executed via x402 gasless protocol`,
+              `Hedge executed gasless`,
               {
                 metric: 'Gas Saved',
                 before: 0,
@@ -1013,7 +1012,7 @@ export default function SimulatorPage() {
           addAgentAction(
             'Hedging',
             'POSITIONS_CONFIRMED',
-            'All hedge positions confirmed on Moonlander',
+            'All hedge positions confirmed on the perp venue',
             {
               metric: 'Active Hedges',
               before: 0,
@@ -1259,11 +1258,11 @@ Provide brief analysis: Is the hedge strategy working? What should we watch for 
           addLog('⛓️ Reporting Agent: Storing proof commitment on-chain...', 'info');
           addLog(`   └─ Proof Hash: ${proofHash.slice(0, 22)}...`, 'success');
           addLog('   └─ Contract: ZKVerifier (0x46A4...FD8)', 'success');
-          addLog('   └─ Gas: $0.00 (x402 sponsored)', 'success');
+          addLog('   └─ Gas: $0.00 (sponsored)', 'success');
           addAgentAction(
             'Settlement',
             'PROOF_STORAGE',
-            'ZK proof commitment stored on Cronos blockchain',
+            'ZK proof commitment stored on chain',
             {
               metric: 'On-Chain Proofs',
               before: 0,
@@ -1329,7 +1328,7 @@ Provide brief analysis: Is the hedge strategy working? What should we watch for 
             `   ├─ /api/zk-proof/generate (Python CUDA) - ZK-STARK proofs`,
             apiStatus.zkBackend ? 'success' : 'warning'
           );
-          addLog(`   ├─ /api/agents/hedging/execute (Moonlander) - Hedge execution`, 'success');
+          addLog(`   ├─ /api/agents/hedging/execute - Hedge execution`, 'success');
           addLog(
             `   ├─ /api/agents/risk/assess (Crypto.com AI SDK) - Risk analysis`,
             apiStatus.agents ? 'success' : 'warning'
@@ -1423,11 +1422,11 @@ Provide brief analysis: Is the hedge strategy working? What should we watch for 
         }
 
         if (currentStep === 10) {
-          addLog('Settlement Agent batching x402 gasless transactions', 'info');
+          addLog('Settlement Agent batching gasless transactions', 'info');
           addAgentAction(
             'Settlement',
             'BATCH_SETTLEMENT',
-            'Processing 5 settlements via x402 gasless ($0.00 CRO)',
+            'Processing 5 settlements gasless ($0.00)',
             {
               metric: 'Gas Saved',
               before: 0,

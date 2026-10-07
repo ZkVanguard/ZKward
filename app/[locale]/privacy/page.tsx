@@ -82,7 +82,6 @@ export default function PrivacyPage() {
               <li><strong>WalletConnect/Reown:</strong> For secure wallet connections</li>
               <li><strong>Hedera Network:</strong> For primary vault + Hedera Consensus Service audit trail</li>
               <li><strong>SUI Network:</strong> For multi-chain functionality</li>
-              <li><strong>The Graph (Studio):</strong> Sepolia subgraph indexer for cross-chain schema demonstration</li>
               <li><strong>Crypto.com AI SDK:</strong> For portfolio analysis (optional)</li>
               <li><strong>Aiven PostgreSQL:</strong> For anonymized analytics storage</li>
             </ul>
