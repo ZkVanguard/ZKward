@@ -1,7 +1,7 @@
 /**
  * EVM wallet hooks — wagmi bindings.
  *
- * Previously a disconnected shim (WDK removal groundwork). Now backed
+ * Previously a disconnected shim. Now backed
  * by wagmi 3 with Hedera-primary chain config from ./wagmi-config.
  * All 12 dashboard files that imported from here keep working —
  * wagmi's hook API matches the shim shape we defined.

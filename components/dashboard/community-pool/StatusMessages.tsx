@@ -8,8 +8,8 @@ interface StatusMessagesProps {
   successMessage: string | null;
   error: string | null;
   lastTxHash: string | null;
-  /** Chain key for explorer URL (defaults to cronos) */
-  selectedChain?: string;
+  /** Chain key for explorer URL */
+  selectedChain: string;
   /** Network for explorer URL (defaults to testnet) */
   network?: 'testnet' | 'mainnet';
 }
@@ -18,7 +18,7 @@ export const StatusMessages = memo(function StatusMessages({
   successMessage,
   error,
   lastTxHash,
-  selectedChain = 'cronos',
+  selectedChain,
   network = 'testnet',
 }: StatusMessagesProps) {
   const explorerUrl = lastTxHash

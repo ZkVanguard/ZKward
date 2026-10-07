@@ -10,13 +10,11 @@
  * - startTransition for non-urgent state updates
  * - Optimistic UI updates for better perceived performance
  * - Debounced input handlers
- *
- * NOTE: Now uses Tether WDK natively
  */
 
 'use client';
 
-import { useReducer, useCallback, useRef, useEffect, useMemo, startTransition } from 'react'; // WDK hooks
+import { useReducer, useCallback, useRef, useEffect, useMemo, startTransition } from 'react';
 import {
   useAccount,
   useChainId,
@@ -32,7 +30,6 @@ import { ethers } from 'ethers';
 import { logger } from '@/lib/utils/logger';
 import { usePolling } from '@/lib/hooks';
 import { useSuiSafe } from '@/app/sui-providers';
-import { useWdkSafe } from '@/lib/evm-wallet/context';
 import {
   POOL_CHAIN_CONFIGS,
   getCommunityPoolAddress,
@@ -80,12 +77,12 @@ export function useCommunityPool(propAddress?: string, evmActive: boolean = true
     action: 'deposit' | 'withdraw';
     targetChainId: number;
   } | null>(null);
-  // Skip chain check after successful wallet switch (WDK may not sync immediately)
+  // Skip chain check after successful wallet switch (the wallet hook may not sync immediately)
   const skipChainCheckRef = useRef(false);
   // Preserve deposit amount during chain switch (UI state may be lost)
   const pendingDepositAmountRef = useRef<string>('');
 
-  // WDK hooks
+  // EVM wallet hooks
   const { address: connectedAddress, isConnected, chain } = useAccount();
   // propAddress may be an EVM address supplied by the parent (e.g. Privy's
   // embedded-wallet address when the user signed in with email/Google).
@@ -94,8 +91,8 @@ export function useCommunityPool(propAddress?: string, evmActive: boolean = true
   // One network at a time: without Hedera active there is no EVM identity,
   // even if an injected EVM wallet auto-connected in the background.
   const address = (evmActive ? propAddress || connectedAddress : undefined) as `0x${string}` | undefined;
-  const wdkChainId = useChainId();
-  const chainId = chain?.id ?? wdkChainId;
+  const hookChainId = useChainId();
+  const chainId = chain?.id ?? hookChainId;
   const { signMessageAsync } = useSignMessage();
   const {
     writeContract,
@@ -134,10 +131,6 @@ export function useCommunityPool(propAddress?: string, evmActive: boolean = true
   const suiIsWrongNetwork = suiContext?.isWrongNetwork ?? false;
   const _suiSetNetwork = suiContext?.setNetwork;
 
-  // WDK chain support check (treasury wallet is server-side)
-  const wdkContext = useWdkSafe();
-  const _isWdkChainSupported = wdkContext?.isChainSupported;
-
   // Derived values
   const { selectedChain } = poolState;
   const chainConfig = POOL_CHAIN_CONFIGS[selectedChain];
@@ -159,7 +152,6 @@ export function useCommunityPool(propAddress?: string, evmActive: boolean = true
   const poolDeployed = isPoolDeployed(selectedChain, network);
 
   // Determine active wallet type: 'evm' | 'sui' | null
-  // Note: WDK treasury is server-side, users connect via WDK self-custodial wallet
   const activeWalletType = useMemo((): 'evm' | 'sui' | null => {
     if (selectedChain === 'sui' && suiIsConnected) return 'sui';
     if (isConnected && address) return 'evm';
@@ -808,7 +800,7 @@ export function useCommunityPool(propAddress?: string, evmActive: boolean = true
 
     const validChainIds = getValidChainIds(selectedChain);
 
-    // Skip chain check if we just did a successful wallet switch (WDK lags behind native API)
+    // Skip chain check if we just did a successful wallet switch (the wallet hook lags behind the native API)
     if (skipChainCheckRef.current) {
       logger.info('[CommunityPool] Chain check skipped (recent switch)', { chainId });
       skipChainCheckRef.current = false;
@@ -826,7 +818,7 @@ export function useCommunityPool(propAddress?: string, evmActive: boolean = true
       dispatchPool({ type: 'SET_ERROR', payload: `Switching to ${chainConfig?.name}...` });
       pendingChainSwitchRef.current = { action: 'deposit', targetChainId };
 
-      logger.info('[CommunityPool] Switching chain (WDK)', { targetChainId });
+      logger.info('[CommunityPool] Switching chain', { targetChainId });
 
       const timeoutId = setTimeout(() => {
         if (pendingChainSwitchRef.current?.action === 'deposit') {
@@ -846,7 +838,7 @@ export function useCommunityPool(propAddress?: string, evmActive: boolean = true
           setTimeout(() => handleDeposit(), 100);
         })
         .catch(async (switchError: any) => {
-          logger.warn('[CommunityPool] WDK switch failed, trying native', {
+          logger.warn('[CommunityPool] Hook switch failed, trying native', {
             error: switchError?.message,
           });
           try {
@@ -855,7 +847,7 @@ export function useCommunityPool(propAddress?: string, evmActive: boolean = true
             skipChainCheckRef.current = true;
             pendingChainSwitchRef.current = null;
             dispatchPool({ type: 'SET_ERROR', payload: null });
-            // WDK syncs via chainChanged event — give it a beat before retry
+            // The hook syncs via the chainChanged event — give it a beat before retry
             setTimeout(() => handleDeposit(), 1000);
           } catch (nativeError: any) {
             clearTimeout(timeoutId);
@@ -880,12 +872,12 @@ export function useCommunityPool(propAddress?: string, evmActive: boolean = true
       return;
     }
 
-    // Get the target chain ID for this deposit (use selected chain, not WDK's stale value)
+    // Get the target chain ID for this deposit (use the selected chain, not the hook's stale value)
     const targetChainId = validChainIds[0];
     console.error('🔴🔴🔴 DEPOSIT - Proceeding with deposit', {
       amount,
       targetChainId,
-      wdkChainId: chainId,
+      walletChainId: chainId,
       USDT_ADDRESS,
       COMMUNITY_POOL_ADDRESS,
       poolDeployed,
@@ -897,9 +889,9 @@ export function useCommunityPool(propAddress?: string, evmActive: boolean = true
     // TRY GASLESS (AA) FLOW
     // =========================================
     // =========================================
-    // CHECK & FUND GAS FOR WDK EOA WALLETS
+    // CHECK & FUND GAS FOR EOA WALLETS
     // =========================================
-    // WDK wallets may have USDT but no ETH for gas. Request server-side gas funding if needed.
+    // A wallet may hold the deposit token but no native gas. Request server-side gas funding if needed.
     try {
       const rpcUrl = chainConfig.rpcUrls[network];
       const gasCheckProvider = new ethers.JsonRpcProvider(rpcUrl);
@@ -1801,8 +1793,7 @@ export function useCommunityPool(propAddress?: string, evmActive: boolean = true
 
     // Determine active address based on wallet type
     // Priority: SUI (for sui chain) > EVM
-    // Note: WDK treasury is server-side, users connect via WDK self-custodial wallet
-    let activeAddress: string | null = null;
+      let activeAddress: string | null = null;
     let isActiveWalletConnected = false;
 
     if (isSui) {

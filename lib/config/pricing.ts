@@ -344,7 +344,7 @@ export const PRICING_TIERS: Record<SubscriptionTier, TierPricing> = {
 };
 
 // ============================================================================
-// On-chain fee configuration (consumed by lib/utils/fees.ts and FeeDisplay)
+// On-chain fee configuration 
 // ============================================================================
 
 export interface OnChainFees {

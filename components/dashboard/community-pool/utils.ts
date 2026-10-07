@@ -47,53 +47,21 @@ export function truncateAddress(address: string, startChars = 6, endChars = 4): 
  * Get chain key from chainId
  */
 export function getChainKeyFromId(chainId: number): string | null {
-  switch (chainId) {
-    case 1:
-      return 'ethereum';
-    case 338:
-    case 25:
-      return 'cronos';
-    case 296:
-    case 295:
-      return 'hedera';
-    case 11155111:
-      return 'sepolia';
-    default:
-      return null;
-  }
+  return chainId === 296 || chainId === 295 ? 'hedera' : null;
 }
 
 /**
  * Get valid chain IDs for a chain key
  */
 export function getValidChainIds(chainKey: string): number[] {
-  switch (chainKey) {
-    case 'ethereum':
-      return [1];
-    case 'cronos':
-      return [338, 25];
-    case 'hedera':
-      return [296, 295];
-    case 'sepolia':
-      return [11155111];
-    default:
-      return [];
-  }
+  return chainKey === 'hedera' ? [296, 295] : [];
 }
 
 /**
  * Get network from chainId
  */
 export function getNetworkFromChainId(chainId: number): 'testnet' | 'mainnet' {
-  switch (chainId) {
-    case 1: // Ethereum Mainnet
-    case 25: // Cronos Mainnet
-    case 295: // Hedera Mainnet
-      return 'mainnet';
-    case 11155111: // Sepolia is always testnet
-    default:
-      return 'testnet';
-  }
+  return chainId === 295 ? 'mainnet' : 'testnet';
 }
 
 // ============================================================================

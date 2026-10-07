@@ -88,14 +88,6 @@ interface LeaderboardProps {
 
 // Treasury addresses for EVM chains
 const POOL_PROXY_WALLETS: Record<string, { address: string; name: string }> = {
-  sepolia: {
-    address: '0x07d68C2828F35327d12a7Ba796cCF3f12F8A1086',
-    name: 'Pool Contract (USDT)',
-  },
-  cronos: {
-    address: '0x7F75Ca65D32752607fF481F453E4fbD45E61FdFd',
-    name: 'Pool Contract',
-  },
   hedera: {
     address: '0x18a8d89E3674EBCeC678f97A8a8b1D144b330b88',
     name: 'SimpleUsdcVaultV2 (Hedera Testnet)',
@@ -103,9 +95,8 @@ const POOL_PROXY_WALLETS: Record<string, { address: string; name: string }> = {
 };
 
 const EXPLORER_URLS: Record<number, string> = {
-  11155111: 'https://sepolia.etherscan.io',
-  338: 'https://explorer.cronos.org/testnet',
   296: 'https://hashscan.io/testnet',
+  295: 'https://hashscan.io/mainnet',
 };
 
 // Deterministic treasury proxy. Kept as an exported utility but no
@@ -118,7 +109,7 @@ export const Leaderboard = memo(function Leaderboard({
   totalMembers,
   proxyWallet,
   poolTVL,
-  chainId = 11155111,
+  chainId = 296,
   selectedChain,
   chainConfig,
 }: LeaderboardProps) {
@@ -133,7 +124,7 @@ export const Leaderboard = memo(function Leaderboard({
   const suiNetwork = (process.env.NEXT_PUBLIC_SUI_NETWORK || 'mainnet') as 'mainnet' | 'testnet';
   const explorerUrl = isSui
     ? chainConfig?.blockExplorer?.[suiNetwork] || `https://suiscan.xyz/${suiNetwork}`
-    : EXPLORER_URLS[chainId] || EXPLORER_URLS[11155111];
+    : EXPLORER_URLS[chainId] || EXPLORER_URLS[296];
 
   // Treasury info varies by chain. For EVM chains we show the ACTUAL
   // vault contract address from POOL_PROXY_WALLETS (canonical config),
@@ -145,8 +136,8 @@ export const Leaderboard = memo(function Leaderboard({
         name: 'Pool Contract (USDC)',
       }
     : proxyWallet
-      ? { address: proxyWallet, name: POOL_PROXY_WALLETS[selectedChain || 'sepolia']?.name || 'Pool Treasury' }
-      : POOL_PROXY_WALLETS[selectedChain || 'sepolia'] || POOL_PROXY_WALLETS.sepolia;
+      ? { address: proxyWallet, name: POOL_PROXY_WALLETS[selectedChain || 'hedera']?.name || 'Pool Treasury' }
+      : POOL_PROXY_WALLETS[selectedChain || 'hedera'] || POOL_PROXY_WALLETS.hedera;
 
   // Build explorer link based on chain type
   const contractUrl = isSui
