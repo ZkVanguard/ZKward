@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { SUPPORTED_CHAINS } from '@/lib/chains';
+import { POOL_CHAIN_CONFIGS } from '@/lib/contracts/community-pool-config';
 import { ALL_AGENTS } from '@/lib/config/pricing';
 import { readLimiter } from '@/lib/security/rate-limiter';
 
@@ -16,8 +16,8 @@ export async function GET(request: NextRequest) {
     // updates the landing stat.
     const agentCount = ALL_AGENTS.length;
 
-    // Real chain count from config
-    const chainCount = SUPPORTED_CHAINS.length;
+    // Real chain count from config; the simulated book is not a chain
+    const chainCount = Object.keys(POOL_CHAIN_CONFIGS).filter((key) => key !== 'paper').length;
 
     // ZK proof count — sum across every DB-backed proof source rather than
     // just hedges. Custody attestations + zk_hedge_commitment.move + hedge

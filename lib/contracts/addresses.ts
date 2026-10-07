@@ -1,14 +1,6 @@
 /**
  * Smart Contract Addresses
- * Multi-chain deployment addresses for Cronos (EVM), Oasis ParaTimes (Emerald/Sapphire), and SUI (Move)
- * 
- * OASIS PARATIMES:
- *   - Consensus: Base layer (staking/governance, not smart-contract capable)
- *   - Emerald: Public EVM ParaTime
- *   - Sapphire: Confidential EVM ParaTime
- *   - Cipher: Confidential WASM ParaTime (non-EVM)
- * 
- * MAINNET READY: Set NEXT_PUBLIC_CHAIN_ID and configure mainnet addresses via env vars
+ * Contract addresses per chain.
  */
 
 
@@ -98,76 +90,6 @@ export const SUI_CONTRACT_ADDRESSES = {
 } as const;
 
 // ============================================
-// OASIS EMERALD (PUBLIC EVM) CONTRACT ADDRESSES
-// ============================================
-
-export const OASIS_EMERALD_CONTRACT_ADDRESSES = {
-  testnet: {
-    zkVerifier: ((process.env.NEXT_PUBLIC_EMERALD_ZKVERIFIER_ADDRESS || '0x0000000000000000000000000000000000000000').trim()) as `0x${string}`,
-    rwaManager: ((process.env.NEXT_PUBLIC_EMERALD_RWAMANAGER_ADDRESS || '0x0000000000000000000000000000000000000000').trim()) as `0x${string}`,
-    paymentRouter: ((process.env.NEXT_PUBLIC_EMERALD_PAYMENT_ROUTER_ADDRESS || '0x0000000000000000000000000000000000000000').trim()) as `0x${string}`,
-    gaslessZKCommitmentVerifier: ((process.env.NEXT_PUBLIC_EMERALD_GASLESS_COMMITMENT_VERIFIER || '0x0000000000000000000000000000000000000000').trim()) as `0x${string}`,
-    hedgeExecutor: ((process.env.NEXT_PUBLIC_EMERALD_HEDGE_EXECUTOR_ADDRESS || '0x0000000000000000000000000000000000000000').trim()) as `0x${string}`,
-    usdtToken: '0x0000000000000000000000000000000000000000' as `0x${string}`,
-  },
-  mainnet: {
-    zkVerifier: ((process.env.NEXT_PUBLIC_EMERALD_MAINNET_ZKVERIFIER_ADDRESS || '0x0000000000000000000000000000000000000000').trim()) as `0x${string}`,
-    rwaManager: ((process.env.NEXT_PUBLIC_EMERALD_MAINNET_RWAMANAGER_ADDRESS || '0x0000000000000000000000000000000000000000').trim()) as `0x${string}`,
-    paymentRouter: ((process.env.NEXT_PUBLIC_EMERALD_MAINNET_PAYMENT_ROUTER_ADDRESS || '0x0000000000000000000000000000000000000000').trim()) as `0x${string}`,
-    gaslessZKCommitmentVerifier: ((process.env.NEXT_PUBLIC_EMERALD_MAINNET_GASLESS_COMMITMENT_VERIFIER || '0x0000000000000000000000000000000000000000').trim()) as `0x${string}`,
-    hedgeExecutor: ((process.env.NEXT_PUBLIC_EMERALD_MAINNET_HEDGE_EXECUTOR_ADDRESS || '0x0000000000000000000000000000000000000000').trim()) as `0x${string}`,
-    usdtToken: '0x0000000000000000000000000000000000000000' as `0x${string}`,
-  },
-} as const;
-
-// ============================================
-// OASIS SAPPHIRE (CONFIDENTIAL EVM) CONTRACT ADDRESSES
-// ============================================
-
-export const OASIS_CONTRACT_ADDRESSES = {
-  testnet: {
-    // All Oasis Sapphire testnet addresses - deploy and update these
-    zkVerifier: ((process.env.NEXT_PUBLIC_OASIS_ZKVERIFIER_ADDRESS || '0x0000000000000000000000000000000000000000').trim()) as `0x${string}`,
-    rwaManager: ((process.env.NEXT_PUBLIC_OASIS_RWAMANAGER_ADDRESS || '0x0000000000000000000000000000000000000000').trim()) as `0x${string}`,
-    paymentRouter: ((process.env.NEXT_PUBLIC_OASIS_PAYMENT_ROUTER_ADDRESS || '0x0000000000000000000000000000000000000000').trim()) as `0x${string}`,
-    // Confidential ZK contracts (leveraging Sapphire's native confidentiality)
-    confidentialZKVerifier: ((process.env.NEXT_PUBLIC_OASIS_CONFIDENTIAL_ZK_VERIFIER || '0x0000000000000000000000000000000000000000').trim()) as `0x${string}`,
-    // Gasless commitment verifier
-    gaslessZKCommitmentVerifier: ((process.env.NEXT_PUBLIC_OASIS_GASLESS_COMMITMENT_VERIFIER || '0x0000000000000000000000000000000000000000').trim()) as `0x${string}`,
-    // Hedge executor
-    hedgeExecutor: ((process.env.NEXT_PUBLIC_OASIS_HEDGE_EXECUTOR_ADDRESS || '0x0000000000000000000000000000000000000000').trim()) as `0x${string}`,
-    // USDT/stablecoin token on Oasis Sapphire Testnet
-    usdtToken: '0x0000000000000000000000000000000000000000' as `0x${string}`,
-  },
-  mainnet: {
-    zkVerifier: ((process.env.NEXT_PUBLIC_OASIS_MAINNET_ZKVERIFIER_ADDRESS || '0x0000000000000000000000000000000000000000').trim()) as `0x${string}`,
-    rwaManager: ((process.env.NEXT_PUBLIC_OASIS_MAINNET_RWAMANAGER_ADDRESS || '0x0000000000000000000000000000000000000000').trim()) as `0x${string}`,
-    paymentRouter: ((process.env.NEXT_PUBLIC_OASIS_MAINNET_PAYMENT_ROUTER_ADDRESS || '0x0000000000000000000000000000000000000000').trim()) as `0x${string}`,
-    confidentialZKVerifier: ((process.env.NEXT_PUBLIC_OASIS_MAINNET_CONFIDENTIAL_ZK_VERIFIER || '0x0000000000000000000000000000000000000000').trim()) as `0x${string}`,
-    gaslessZKCommitmentVerifier: ((process.env.NEXT_PUBLIC_OASIS_MAINNET_GASLESS_COMMITMENT_VERIFIER || '0x0000000000000000000000000000000000000000').trim()) as `0x${string}`,
-    hedgeExecutor: ((process.env.NEXT_PUBLIC_OASIS_MAINNET_HEDGE_EXECUTOR_ADDRESS || '0x0000000000000000000000000000000000000000').trim()) as `0x${string}`,
-    usdtToken: '0x0000000000000000000000000000000000000000' as `0x${string}`,
-  },
-} as const;
-
-// ============================================
-// SEPOLIA (ETH TESTNET) CONTRACT ADDRESSES
-// ============================================
-
-export const SEPOLIA_CONTRACT_ADDRESSES = {
-  testnet: {
-    // Sepolia (Chain ID: 11155111)
-    communityPool: '0x07d68C2828F35327d12a7Ba796cCF3f12F8A1086' as `0x${string}`,
-    usdtToken: '0xd077a400968890eacc75cdc901f0356c943e4fdb' as `0x${string}`,
-    zkVerifier: '0x0000000000000000000000000000000000000000' as `0x${string}`,
-    rwaManager: '0x0000000000000000000000000000000000000000' as `0x${string}`,
-    paymentRouter: '0x0000000000000000000000000000000000000000' as `0x${string}`,
-    hedgeExecutor: '0x0000000000000000000000000000000000000000' as `0x${string}`,
-    gaslessZKCommitmentVerifier: '0x0000000000000000000000000000000000000000' as `0x${string}`,
-  },
-} as const;
-
-// ============================================
 // HEDERA CONTRACT ADDRESSES
 // ============================================
 
@@ -201,82 +123,25 @@ export const HEDERA_CONTRACT_ADDRESSES = {
 } as const;
 
 // ============================================
-// CHAIN TYPE DETECTION
+// LOOKUPS
 // ============================================
 
-export type ChainType = 'evm' | 'sui' | 'hedera' | 'solana' | 'oasis-emerald' | 'oasis-sapphire' | 'oasis-consensus' | 'oasis-cipher';
+export type ChainType = 'evm' | 'sui' | 'hedera' | 'solana';
 export type NetworkType = 'mainnet' | 'testnet' | 'devnet';
 
-export interface ChainInfo {
-  type: ChainType;
-  network: NetworkType;
-  chainId: number | string;
-}
-
 /**
- * Get chain info from chainId
- */
-export function getChainInfo(chainId: number | string): ChainInfo {
-  if (typeof chainId === 'string' && chainId.startsWith('sui:')) {
-    const network = chainId.split(':')[1] as NetworkType;
-    return { type: 'sui', network, chainId };
-  }
-  if (typeof chainId === 'string' && chainId.startsWith('oasis:consensus')) {
-    const network = chainId.split(':')[2] as NetworkType;
-    return { type: 'oasis-consensus', network: network || 'mainnet', chainId };
-  }
-  if (typeof chainId === 'string' && chainId.startsWith('oasis:cipher')) {
-    const network = chainId.split(':')[2] as NetworkType;
-    return { type: 'oasis-cipher', network: network || 'mainnet', chainId };
-  }
-  
-  switch (chainId) {
-    case 338:
-      return { type: 'evm', network: 'testnet', chainId };
-    case 25:
-      return { type: 'evm', network: 'mainnet', chainId };
-    case 296:
-      return { type: 'hedera', network: 'testnet', chainId };
-    case 295:
-      return { type: 'hedera', network: 'mainnet', chainId };
-    case 42261:
-      return { type: 'oasis-emerald', network: 'testnet', chainId };
-    case 42262:
-      return { type: 'oasis-emerald', network: 'mainnet', chainId };
-    case 23295:
-      return { type: 'oasis-sapphire', network: 'testnet', chainId };
-    case 23294:
-      return { type: 'oasis-sapphire', network: 'mainnet', chainId };
-    default:
-      return { type: 'evm', network: 'testnet', chainId };
-  }
-}
-
-/**
- * Get EVM contract addresses for the current chain
+ * Get EVM contract addresses for a chain id
  */
 export function getContractAddresses(chainId: number) {
   switch (chainId) {
-    case 338: // Cronos Testnet
-      return CRONOS_CONTRACT_ADDRESSES.testnet;
-    case 25: // Cronos Mainnet
+    case 25:
       return CRONOS_CONTRACT_ADDRESSES.mainnet;
-    case 11155111: // Sepolia
-      return SEPOLIA_CONTRACT_ADDRESSES.testnet;
-    case 296: // Hedera Testnet
+    case 296:
       return HEDERA_CONTRACT_ADDRESSES.testnet;
-    case 295: // Hedera Mainnet
+    case 295:
       return HEDERA_CONTRACT_ADDRESSES.mainnet;
-    case 42261: // Oasis Emerald Testnet
-      return OASIS_EMERALD_CONTRACT_ADDRESSES.testnet;
-    case 42262: // Oasis Emerald Mainnet
-      return OASIS_EMERALD_CONTRACT_ADDRESSES.mainnet;
-    case 23295: // Oasis Sapphire Testnet
-      return OASIS_CONTRACT_ADDRESSES.testnet;
-    case 23294: // Oasis Sapphire Mainnet
-      return OASIS_CONTRACT_ADDRESSES.mainnet;
     default:
-      return CRONOS_CONTRACT_ADDRESSES.testnet; // Default to testnet
+      return CRONOS_CONTRACT_ADDRESSES.testnet;
   }
 }
 
@@ -285,106 +150,4 @@ export function getContractAddresses(chainId: number) {
  */
 export function getSuiContractAddresses(network: 'mainnet' | 'testnet' | 'devnet' = 'testnet') {
   return SUI_CONTRACT_ADDRESSES[network];
-}
-
-/**
- * Get contract addresses based on chain type and network
- */
-export function getMultiChainAddresses(chainType: ChainType, network: NetworkType) {
-  if (chainType === 'sui') {
-    return SUI_CONTRACT_ADDRESSES[network === 'mainnet' ? 'mainnet' : network === 'devnet' ? 'devnet' : 'testnet'];
-  }
-  if (chainType === 'hedera') {
-    return HEDERA_CONTRACT_ADDRESSES[network === 'mainnet' ? 'mainnet' : 'testnet'];
-  }
-  if (chainType === 'oasis-sapphire') {
-    return OASIS_CONTRACT_ADDRESSES[network === 'mainnet' ? 'mainnet' : 'testnet'];
-  }
-  if (chainType === 'oasis-emerald') {
-    return OASIS_EMERALD_CONTRACT_ADDRESSES[network === 'mainnet' ? 'mainnet' : 'testnet'];
-  }
-  return CRONOS_CONTRACT_ADDRESSES[network === 'mainnet' ? 'mainnet' : 'testnet'];
-}
-
-/**
- * Get Oasis Emerald contract addresses for the current network
- */
-export function getOasisEmeraldContractAddresses(network: 'mainnet' | 'testnet' = 'testnet') {
-  return OASIS_EMERALD_CONTRACT_ADDRESSES[network];
-}
-
-/**
- * Get Oasis Sapphire contract addresses for the current network
- */
-export function getOasisContractAddresses(network: 'mainnet' | 'testnet' = 'testnet') {
-  return OASIS_CONTRACT_ADDRESSES[network];
-}
-
-/**
- * Zero address constant for checking if contract is deployed
- */
-export const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
-
-/**
- * Check if a contract address is configured (not zero address)
- */
-export function isAddressConfigured(address: string): boolean {
-  return address !== ZERO_ADDRESS && address !== '' && address !== undefined;
-}
-
-/**
- * Check if mainnet contracts are properly configured
- * Returns list of missing contract names
- */
-export function checkMainnetConfiguration(): { configured: boolean; missing: string[] } {
-  const addresses = CRONOS_CONTRACT_ADDRESSES.mainnet;
-  const missing: string[] = [];
-  
-  if (!isAddressConfigured(addresses.zkVerifier)) missing.push('cronos:zkVerifier');
-  if (!isAddressConfigured(addresses.rwaManager)) missing.push('cronos:rwaManager');
-  if (!isAddressConfigured(addresses.hedgeExecutor)) missing.push('cronos:hedgeExecutor');
-  if (!isAddressConfigured(addresses.paymentRouter)) missing.push('cronos:paymentRouter');
-  
-  return {
-    configured: missing.length === 0,
-    missing,
-  };
-}
-
-/**
- * Check if Oasis Sapphire mainnet contracts are properly configured
- */
-export function checkOasisMainnetConfiguration(): { configured: boolean; missing: string[] } {
-  const addresses = OASIS_CONTRACT_ADDRESSES.mainnet;
-  const missing: string[] = [];
-  
-  if (!isAddressConfigured(addresses.zkVerifier)) missing.push('oasis:zkVerifier');
-  if (!isAddressConfigured(addresses.rwaManager)) missing.push('oasis:rwaManager');
-  if (!isAddressConfigured(addresses.hedgeExecutor)) missing.push('oasis:hedgeExecutor');
-  if (!isAddressConfigured(addresses.paymentRouter)) missing.push('oasis:paymentRouter');
-  if (!isAddressConfigured(addresses.confidentialZKVerifier)) missing.push('oasis:confidentialZKVerifier');
-  
-  return {
-    configured: missing.length === 0,
-    missing,
-  };
-}
-
-/**
- * Check if SUI mainnet contracts are properly configured
- */
-export function checkSuiMainnetConfiguration(): { configured: boolean; missing: string[] } {
-  const addresses = SUI_CONTRACT_ADDRESSES.mainnet;
-  const missing: string[] = [];
-  
-  if (!addresses.packageId) missing.push('sui:packageId');
-  if (!addresses.rwaManagerState) missing.push('sui:rwaManagerState');
-  if (!addresses.zkVerifierState) missing.push('sui:zkVerifierState');
-  if (!addresses.paymentRouterState) missing.push('sui:paymentRouterState');
-  if (!addresses.adminCap) missing.push('sui:adminCap');
-  
-  return {
-    configured: missing.length === 0,
-    missing,
-  };
 }
