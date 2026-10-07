@@ -3,7 +3,7 @@
  * 
  * Provides professional hedge fund-style risk analytics
  * 
- * GET /api/community-pool/risk-metrics?chain=cronos|sui|hedera
+ * GET /api/community-pool/risk-metrics?chain=sui|hedera
  *   Returns comprehensive risk metrics including:
  *   - Real-time volatility (from market data)
  *   - Sharpe/Sortino ratios (from NAV history)
@@ -15,7 +15,6 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { calculateRiskMetrics, getRiskRating, calculateRealTimeVolatility } from '@/lib/services/RiskMetricsService';
-import { recordNavSnapshot, getNavHistory } from '@/lib/db/community-pool';
 import { logger } from '@/lib/utils/logger';
 import { safeErrorResponse } from '@/lib/security/safe-error';
 import { readLimiter } from '@/lib/security/rate-limiter';
@@ -140,66 +139,5 @@ export async function GET(request: NextRequest) {
     logger.error('[RiskMetrics API] Failed to calculate metrics', error);
     
     return safeErrorResponse(error, 'Risk metrics calculation');
-  }
-}
-
-/**
- * POST /api/community-pool/risk-metrics?action=backfill
- * Seeds historical NAV snapshots so risk metrics can compute immediately.
- * Only backfills if existing history is sparse (< 5 snapshots).
- */
-export async function POST(request: NextRequest) {
-  try {
-    const action = request.nextUrl.searchParams.get('action');
-    if (action !== 'backfill') {
-      return NextResponse.json({ success: false, error: 'Unknown action' }, { status: 400 });
-    }
-
-    const navHistory = await getNavHistory(30);
-    if (navHistory.length >= 10) {
-      return NextResponse.json({
-        success: true,
-        message: 'Sufficient snapshots already exist',
-        existingSnapshots: navHistory.length,
-        backfilled: 0,
-      });
-    }
-
-    // No synthetic data — only record a single snapshot from the current on-chain state
-    // Future snapshots are recorded by the cron job from real pool data
-    let count = 0;
-    if (navHistory.length === 0) {
-      // Seed one initial snapshot from current pool state via the stats service
-      const { getPoolStats } = await import('@/lib/services/CommunityPoolStatsService');
-      try {
-        const stats = await getPoolStats();
-        await recordNavSnapshot({
-          sharePrice: stats.sharePrice,
-          totalNav: stats.totalNAV,
-          totalShares: stats.totalShares,
-          memberCount: stats.memberCount,
-          allocations: {
-            BTC: stats.allocations?.BTC?.percentage ?? 0,
-            ETH: stats.allocations?.ETH?.percentage ?? 0,
-            SUI: stats.allocations?.SUI?.percentage ?? 0,
-            CRO: stats.allocations?.CRO?.percentage ?? 0,
-          },
-          source: 'backfill-onchain',
-          timestamp: new Date(),
-        });
-        count = 1;
-      } catch (e) {
-        logger.warn('[RiskMetrics API] Could not read on-chain pool stats for initial snapshot', { error: String(e) });
-      }
-    }
-
-    // Clear cache so next GET returns fresh metrics
-    cachedMetricsByChain.clear();
-
-    logger.info('[RiskMetrics API] Backfilled NAV snapshots', { count });
-    return NextResponse.json({ success: true, backfilled: count, existingSnapshots: navHistory.length });
-  } catch (error: unknown) {
-    logger.error('[RiskMetrics API] Backfill failed', error);
-    return safeErrorResponse(error, 'Risk metrics backfill');
   }
 }

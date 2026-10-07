@@ -144,11 +144,11 @@ function dbToPoolState(db: DbPoolState): PoolState {
 /**
  * Get pool state from Neon PostgreSQL
  */
-export async function getPoolState(chain?: string): Promise<PoolState> {
+export async function getPoolState(chain: string): Promise<PoolState> {
   await ensureTablesInitialized();
 
   try {
-    const dbState = await getPoolStateFromDb(chain || 'cronos');
+    const dbState = await getPoolStateFromDb(chain);
     if (dbState) {
       return dbToPoolState(dbState);
     }
@@ -162,7 +162,7 @@ export async function getPoolState(chain?: string): Promise<PoolState> {
 /**
  * Save pool state to Neon PostgreSQL
  */
-export async function savePoolState(state: PoolState, chain?: string): Promise<void> {
+export async function savePoolState(state: PoolState, chain: string): Promise<void> {
   await ensureTablesInitialized();
   state.updatedAt = Date.now();
 
@@ -174,7 +174,7 @@ export async function savePoolState(state: PoolState, chain?: string): Promise<v
       allocations: state.allocations,
       lastRebalance: state.lastRebalance,
       lastAIDecision: state.lastAIDecision,
-      chain: chain || 'cronos',
+      chain: chain,
     });
   } catch (error) {
     logger.error('[CommunityPool] Failed to save pool state to DB', error);
@@ -185,7 +185,7 @@ export async function savePoolState(state: PoolState, chain?: string): Promise<v
 /**
  * Get all user shares from Neon PostgreSQL
  */
-export async function getAllUserShares(chain?: string): Promise<UserShares[]> {
+export async function getAllUserShares(chain: string): Promise<UserShares[]> {
   await ensureTablesInitialized();
 
   try {
@@ -213,12 +213,12 @@ export async function getAllUserShares(chain?: string): Promise<UserShares[]> {
  */
 export async function getUserShares(
   walletAddress: string,
-  chain?: string
+  chain: string
 ): Promise<UserShares | null> {
   await ensureTablesInitialized();
 
   try {
-    const dbShares = await getUserSharesFromDb(walletAddress);
+    const dbShares = await getUserSharesFromDb(walletAddress, chain);
     if (!dbShares) return null;
 
     const poolState = await getPoolState(chain);
@@ -242,7 +242,7 @@ export async function getUserShares(
 /**
  * Save user shares to Neon PostgreSQL
  */
-export async function saveUserShares(userShares: UserShares): Promise<void> {
+export async function saveUserShares(userShares: UserShares, chain: string): Promise<void> {
   await ensureTablesInitialized();
 
   try {
@@ -253,12 +253,13 @@ export async function saveUserShares(userShares: UserShares): Promise<void> {
 
     if (userShares.shares <= 0) {
       // Delete user if no shares remaining
-      await deleteUserSharesFromDb(userShares.walletAddress);
+      await deleteUserSharesFromDb(userShares.walletAddress, chain);
     } else {
       await saveUserSharesToDb({
         walletAddress: userShares.walletAddress,
         shares: userShares.shares,
         costBasisUSD: Math.max(0, costBasis),
+        chain,
       });
     }
   } catch (error) {
@@ -300,7 +301,7 @@ export async function getPoolHistory(
  */
 export async function addPoolTransaction(
   tx: Omit<PoolTransaction, 'id'>,
-  chain?: string
+  chain: string
 ): Promise<PoolTransaction> {
   await ensureTablesInitialized();
 
@@ -341,7 +342,7 @@ export function calculateOwnership(userShares: number, totalShares: number): num
  */
 export async function getTopShareholders(
   limit: number = 10,
-  chain?: string
+  chain: string
 ): Promise<{ walletAddress: string; shares: number; percentage: number }[]> {
   const allShares = await getAllUserShares(chain);
   const poolState = await getPoolState(chain);

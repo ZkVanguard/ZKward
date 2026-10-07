@@ -14,13 +14,11 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { timingSafeEqual } from 'crypto';
 import { logger } from '@/lib/utils/logger';
-// Cronos community pool retired 2026-09-25. Deposit/withdraw for the SUI
-// pool go through /api/community-pool/deposit-usdt + the Move contract via
-// useCommunityPool; these stubs fail if any legacy Cronos path is hit.
-const cronosRetired = () => { throw new Error('Cronos pool retired'); };
-const deposit = (..._args: unknown[]) => cronosRetired() as any;
-const withdraw = (..._args: unknown[]) => cronosRetired() as any;
-import { clearCaches as clearStatsCaches } from '@/lib/services/CommunityPoolStatsService';
+// The server-side share ledger was retired 2026-09-25: deposits and
+// withdrawals settle on chain. These stubs fail if a ledger path is hit.
+const ledgerRetired = () => { throw new Error('Server-side pool ledger retired'); };
+const deposit = (..._args: unknown[]) => ledgerRetired() as any;
+const withdraw = (..._args: unknown[]) => ledgerRetired() as any;
 import {
   resetNavHistory,
   savePoolStateToDb,
@@ -363,7 +361,6 @@ export async function handleFullReset(ctx: HandlerContext): Promise<NextResponse
     resetAllocPct,
   );
 
-  clearStatsCaches();
   clearRpcCaches();
   logger.info('[CommunityPool API] Full reset completed successfully');
 

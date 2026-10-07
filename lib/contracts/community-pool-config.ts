@@ -1,16 +1,12 @@
 /**
  * Multi-Chain Community Pool Configuration
  *
- * Manages CommunityPool contract addresses and configurations across:
- * - Ethereum Mainnet - Production with USDT (via Tether WDK)
- * - Sepolia Testnet - WDK USDT integration testing
- * - Cronos - Live on testnet, mainnet ready
- * - Hedera - Live on testnet
- * - SUI - Testing
+ * Pool addresses and settings per chain: Hedera, SUI, Solana and the
+ * simulated book.
  */
 
 import { ChainType, NetworkType } from './addresses';
-import { getRpcUrl } from '../rpc-urls'; // ============================================
+// ============================================
 // TYPES
 // ============================================
 
@@ -61,84 +57,6 @@ export interface MultiChainPoolConfig {
 // ============================================
 
 export const POOL_CHAIN_CONFIGS: Record<string, PoolChainConfig> = {
-  // Ethereum Mainnet - PRODUCTION deployment with official Tether USDT
-  ethereum: {
-    chainId: 1,
-    chainType: 'evm',
-    name: 'Ethereum',
-    shortName: 'ETH',
-    icon: '⟠',
-    color: 'bg-indigo-600',
-    nativeCurrency: {
-      name: 'Ether',
-      symbol: 'ETH',
-      decimals: 18,
-    },
-    rpcUrls: {
-      testnet: getRpcUrl('sepolia'), // Sepolia for testnet
-      mainnet: getRpcUrl('ethereum'),
-    },
-    blockExplorer: {
-      testnet: 'https://sepolia.etherscan.io',
-      mainnet: 'https://etherscan.io',
-    },
-    contracts: {
-      testnet: {
-        // Use Sepolia deployment for testnet
-        communityPool: '0x07d68C2828F35327d12a7Ba796cCF3f12F8A1086',
-        usdt: '0xd077a400968890eacc75cdc901f0356c943e4fdb', // WDK USDT Sepolia
-        pythOracle: '0xDd24F84d36BF92C65F92307595335bdFab5Bbd21',
-      },
-      mainnet: {
-        communityPool: '0x0000000000000000000000000000000000000000', // Deploy pending
-        usdt: '0xdAC17F958D2ee523a2206206994597C13D831ec7', // Official Tether USDT on Ethereum
-        pythOracle: '0x4305FB66699C3B2702D4d05CF36551390A4c69C6',
-      },
-    },
-    assets: ['BTC', 'ETH', 'USDT'],
-    status: 'planned', // Mainnet planned, testnet uses sepolia config
-  },
-
-  cronos: {
-    chainId: 338,
-    chainType: 'evm',
-    name: 'Cronos',
-    shortName: 'CRO',
-    icon: '🔷',
-    color: 'bg-blue-600',
-    nativeCurrency: {
-      name: 'Cronos',
-      symbol: 'CRO',
-      decimals: 18,
-    },
-    rpcUrls: {
-      testnet: 'https://evm-t3.cronos.org/',
-      mainnet: 'https://evm.cronos.org/',
-    },
-    blockExplorer: {
-      testnet: 'https://explorer.cronos.org/testnet',
-      mainnet: 'https://explorer.cronos.org',
-    },
-    contracts: {
-      testnet: {
-        // CommunityPool V3 Proxy (upgraded 2026-03-12)
-        // WARNING: Pool data corrupted by mock token rebalance - use Sepolia instead!
-        communityPool: '0xC25A8D76DDf946C376c9004F5192C7b2c27D5d30',
-        usdt: '0x28217DAddC55e3C4831b4A48A00Ce04880786967', // Testnet USDT
-        pythOracle: '0x36825bf3Fbdf5a29E2d5148bfe7Dcf7B5639e320',
-      },
-      mainnet: {
-        communityPool: '0x0000000000000000000000000000000000000000', // Not deployed yet
-        usdt: '0x66e428c3f67a68878562e79A0234c1F83c208770', // Official Tether USDT on Cronos
-        pythOracle: '0xE0d0e68297772Dd5a1f1D99897c581E2082dbA5B',
-      },
-    },
-    // Pool accepts USDT deposits, hedges into BTC/ETH/SUI/CRO
-    // DEPRECATED: Pool data corrupted - use Sepolia with WDK USDT instead
-    assets: ['BTC', 'ETH', 'SUI', 'CRO'],
-    status: 'deprecated',
-  },
-
   hedera: {
     chainId: 296,
     chainType: 'evm',
@@ -179,51 +97,6 @@ export const POOL_CHAIN_CONFIGS: Record<string, PoolChainConfig> = {
     // Vault accepts test USDC deposits (SimpleUsdcVault contract) — no
     // asset allocation on-chain; keeps USDC 1:1.
     assets: ['USDC'],
-    status: 'live',
-  },
-
-  // ============================================
-  // SEPOLIA - PRIMARY CHAIN FOR TETHER WDK HACKATHON
-  // Has OFFICIAL WDK USDT token
-  // ============================================
-  sepolia: {
-    chainId: 11155111,
-    chainType: 'evm',
-    name: 'Sepolia (WDK)',
-    shortName: 'WDK',
-    icon: '💎',
-    color: 'bg-emerald-500',
-    nativeCurrency: {
-      name: 'Ethereum',
-      symbol: 'ETH',
-      decimals: 18,
-    },
-    rpcUrls: {
-      testnet: getRpcUrl('sepolia'),
-      mainnet: getRpcUrl('sepolia'), // Sepolia is testnet-only
-    },
-    blockExplorer: {
-      testnet: 'https://sepolia.etherscan.io',
-      mainnet: 'https://sepolia.etherscan.io',
-    },
-    contracts: {
-      testnet: {
-        // CommunityPool deployed via hardhat (2026-03-18)
-        // OFFICIAL WDK USDT - use this for USDT support.
-        communityPool: '0x07d68C2828F35327d12a7Ba796cCF3f12F8A1086',
-        usdt: '0xd077a400968890eacc75cdc901f0356c943e4fdb', // OFFICIAL Tether WDK USDT
-        pythOracle: '0xDd24F84d36BF92C65F92307595335bdFab5Bbd21',
-      },
-      mainnet: {
-        communityPool: '0x0000000000000000000000000000000000000000',
-        usdt: '0xd077a400968890eacc75cdc901f0356c943e4fdb', // OFFICIAL WDK USDT
-        pythOracle: '0x0000000000000000000000000000000000000000',
-      },
-    },
-    // Pool accepts USDT deposits, manages diversified portfolio of 4 assets
-    // On-chain allocations: 25% BTC, 25% ETH, 25% SUI, 25% CRO
-    // PRIMARY for Tether WDK - has official USDT
-    assets: ['BTC', 'ETH', 'SUI', 'CRO'],
     status: 'live',
   },
 
@@ -314,7 +187,7 @@ export const POOL_CHAIN_CONFIGS: Record<string, PoolChainConfig> = {
 
 export const MULTI_CHAIN_POOL_CONFIG: MultiChainPoolConfig = {
   chains: POOL_CHAIN_CONFIGS,
-  defaultChain: 'sepolia',
+  defaultChain: 'hedera',
   defaultNetwork: 'testnet',
 };
 
@@ -356,42 +229,18 @@ export function getUsdtAddress(chainKey: string, network: NetworkType = 'testnet
 }
 
 /**
- * Get deposit token symbol based on chain and network
- * - EVM chains: USDT (via Tether WDK)
- * - SUI: USDC
- */
-export function getDepositTokenSymbol(chainKey: string, _network: NetworkType = 'testnet'): string {
-  // SUI uses USDC across all networks
-  if (chainKey === 'sui') return 'USDC';
-  // EVM chains: USDT on both mainnet and testnet (WDK integration)
-  return 'USDT';
-}
-
-/**
- * Get full deposit token info
- * Uses Tether WDK USDT for EVM chains, USDC for SUI
+ * Deposit token info. Every pool takes USDC (Hedera through
+ * SimpleUsdcVault, see contracts/core/SimpleUsdcVault.sol).
  */
 export function getDepositTokenInfo(
-  chainKey: string,
+  _chainKey: string,
   _network: NetworkType = 'testnet'
 ): { symbol: string; name: string; decimals: number; logo?: string } {
-  // SUI and Hedera both use USDC (Hedera via SimpleUsdcVault deployed
-  // 2026-09-06 — see contracts/core/SimpleUsdcVault.sol).
-  if (chainKey === 'sui' || chainKey === 'hedera') {
-    return {
-      symbol: 'USDC',
-      name: 'USD Coin',
-      decimals: 6,
-      logo: 'https://cryptologos.cc/logos/usd-coin-usdc-logo.svg',
-    };
-  }
-
-  // Other EVM chains (Sepolia, Cronos) use USDT via Tether WDK.
   return {
-    symbol: 'USDT',
-    name: 'Tether USD',
+    symbol: 'USDC',
+    name: 'USD Coin',
     decimals: 6,
-    logo: 'https://cryptologos.cc/logos/tether-usdt-logo.svg',
+    logo: 'https://cryptologos.cc/logos/usd-coin-usdc-logo.svg',
   };
 }
 

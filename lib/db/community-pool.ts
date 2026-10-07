@@ -146,7 +146,7 @@ export interface DbPoolTransaction {
  * Get current pool state for a specific chain
  * Each chain has its own independent pool state row
  */
-export async function getPoolStateFromDb(chain: string = 'cronos'): Promise<DbPoolState | null> {
+export async function getPoolStateFromDb(chain: string): Promise<DbPoolState | null> {
   try {
     const row = await queryOne<DbPoolState>(
       `SELECT * FROM community_pool_state WHERE chain = $1 LIMIT 1`,
@@ -170,9 +170,9 @@ export async function savePoolStateToDb(state: {
   allocations: Record<string, { percentage: number; valueUSD: number; amount: number; price: number }>;
   lastRebalance: number;
   lastAIDecision: { timestamp: number; reasoning: string; allocations: Record<string, number> } | null;
-  chain?: string;
+  chain: string;
 }): Promise<void> {
-  const chain = state.chain || 'cronos';
+  const chain = state.chain;
 
   // Security: Validate all numeric inputs
   if (!isValidAmount(state.totalValueUSD)) {
@@ -252,7 +252,7 @@ export async function getAllUserSharesFromDb(): Promise<DbUserShares[]> {
  * Get user shares by wallet address and chain
  * Security: Validates wallet address format based on chain
  */
-export async function getUserSharesFromDb(walletAddress: string, chain: string = 'cronos'): Promise<DbUserShares | null> {
+export async function getUserSharesFromDb(walletAddress: string, chain: string): Promise<DbUserShares | null> {
   // Security: Validate wallet address format based on chain
   if (!isValidChainAddress(walletAddress, chain)) {
     logger.warn('[CommunityPool DB] Invalid wallet address format', { wallet: walletAddress?.slice(0, 10), chain });
@@ -287,9 +287,9 @@ export async function saveUserSharesToDb(userShares: {
   walletAddress: string;
   shares: number;
   costBasisUSD: number;
-  chain?: string;
+  chain: string;
 }): Promise<void> {
-  const chain = userShares.chain || 'cronos';
+  const chain = userShares.chain;
   
   // Security: Validate wallet address based on chain
   if (!isValidChainAddress(userShares.walletAddress, chain)) {
@@ -353,7 +353,7 @@ export async function saveUserSharesToDb(userShares: {
  * Delete user shares for a specific chain (when fully withdrawn)
  * Security: Validates wallet address format based on chain
  */
-export async function deleteUserSharesFromDb(walletAddress: string, chain: string = 'cronos'): Promise<void> {
+export async function deleteUserSharesFromDb(walletAddress: string, chain: string): Promise<void> {
   // Security: Validate wallet address based on chain
   if (!isValidChainAddress(walletAddress, chain)) {
     throw new Error(`Invalid wallet address format for ${chain}`);
@@ -469,7 +469,7 @@ export async function addPoolTransactionToDb(transaction: {
   sharePrice?: number;
   details?: Record<string, unknown>;
   txHash?: string;
-  chain?: string;
+  chain: string;
 }): Promise<void> {
   // Security: Validate transaction type
   if (!isValidTransactionType(transaction.type)) {
@@ -492,7 +492,7 @@ export async function addPoolTransactionToDb(transaction: {
     throw new Error('Invalid share price: must be a positive number');
   }
   
-  const chain = transaction.chain || 'cronos';
+  const chain = transaction.chain;
 
   // Security: Generate audit hash for integrity
   const auditHash = generateAuditHash({
@@ -568,7 +568,7 @@ export async function recordNavSnapshot(snapshot: {
   allocations?: Record<string, number>;
   source?: string;
   timestamp?: Date;
-  chain?: string;
+  chain: string;
 }): Promise<void> {
   // Validate inputs
   if (!isValidAmount(snapshot.sharePrice, 1e9)) {
@@ -578,7 +578,7 @@ export async function recordNavSnapshot(snapshot: {
     throw new Error('Invalid total NAV');
   }
 
-  const chain = snapshot.chain || 'cronos';
+  const chain = snapshot.chain;
 
   try {
     await query(
@@ -905,10 +905,10 @@ export async function initCommunityPoolTables(): Promise<void> {
     }
 
     // Seed initial pool state for each active chain (if not exists)
-    const activeChains = ['cronos', 'sepolia', 'hedera', 'sui'];
+    const activeChains = ['hedera', 'sui'];
     for (const chainKey of activeChains) {
       // Per-chain asset configuration
-      const chainAssets = chainKey === 'sui' || chainKey === 'cronos'
+      const chainAssets = chainKey === 'sui'
         ? ['BTC', 'ETH', 'SUI', 'CRO']
         : ['BTC', 'ETH', 'USDT'];
       const allocs: Record<string, { percentage: number; valueUSD: number; amount: number; price: number }> = {};
