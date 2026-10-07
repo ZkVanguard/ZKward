@@ -145,7 +145,7 @@ export async function POST(request: NextRequest) {
     const provider = getCronosProvider().provider;
     
     // Trim private key to remove any trailing whitespace from env vars
-    const rawPrivateKey = process.env.MOONLANDER_PRIVATE_KEY || process.env.PRIVATE_KEY;
+    const rawPrivateKey = process.env.PRIVATE_KEY;
     const privateKey = rawPrivateKey?.trim();
     const signer = privateKey ? new ethers.Wallet(privateKey, provider) : undefined;
 
@@ -164,7 +164,7 @@ export async function POST(request: NextRequest) {
                 await hedgingAgent.initialize();
                 registry.register(hedgingAgent);
               } catch (hedgeErr) {
-                // HedgingAgent is optional — MoonlanderClient may not have API keys
+                // HedgingAgent is optional — PerpMarketClient may not have API keys
                 logger.warn('HedgingAgent init failed (non-critical, continuing without)', { 
                   error: hedgeErr instanceof Error ? hedgeErr.message : String(hedgeErr) 
                 });
@@ -327,7 +327,7 @@ export async function POST(request: NextRequest) {
             asset: dominantAsset.symbol,
             size: dominantAsset.balance * 0.2,
             leverage: 3,
-            protocol: 'Moonlander',
+            protocol: 'BlueFin',
             reason: 'Basic hedge for dominant position',
           }] : [],
         }],
@@ -402,7 +402,7 @@ export async function POST(request: NextRequest) {
             asset: dominantAsset.symbol,
             size: (dominantAsset.balance || 0) * 0.25, // Hedge 25% of position
             leverage: Math.min(5, Math.ceil(volatility * 10)),
-            protocol: 'Moonlander',
+            protocol: 'BlueFin',
             reason: `AI-recommended hedge based on ${totalRisk.toFixed(0)}% risk score`,
           }],
         });
@@ -426,7 +426,7 @@ export async function POST(request: NextRequest) {
             asset: inst.asset,
             size: inst.size,
             leverage: inst.leverage || 5,
-            protocol: 'Moonlander',
+            protocol: 'BlueFin',
             reason: `Entry at $${inst.entryPrice}`,
           })) || [],
         });
@@ -467,7 +467,7 @@ export async function POST(request: NextRequest) {
               asset: action.asset,
               size: action.amount,
               leverage: 5,
-              protocol: 'Moonlander',
+              protocol: 'BlueFin',
               reason: rec.description,
             })),
           });

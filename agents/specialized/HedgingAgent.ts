@@ -13,13 +13,13 @@
 import { BaseAgent } from '../core/BaseAgent';
 import { AgentCapability, AgentTask, TaskResult, AgentMessage } from '@shared/types/agent';
 import {
-  MoonlanderClient,
+  PerpMarketClient,
   OrderResult,
   PerpetualPosition,
   LiquidationRisk,
-} from '@integrations/moonlander/MoonlanderClient';
+} from '@integrations/perp-market/PerpMarketClient';
 import { MCPClient } from '@integrations/mcp/MCPClient';
-// HedgeExecutor (Cronos on-chain execution) retired 2026-09-25. Types kept
+// HedgeExecutor (EVM on-chain execution) retired 2026-09-25. Types kept
 // as any placeholders so the dead code paths below still compile — they
 // never execute at runtime (useOnChainExecution stays false).
 type HedgeExecutorClient = any;
@@ -52,7 +52,7 @@ export { type HedgeStrategy, type HedgeAnalysis } from '@/lib/types/hedge-strate
 import type { HedgeStrategy, HedgeAnalysis } from '@/lib/types/hedge-strategy-types';
 
 /** Extended client interface for duck-typing compatibility with varying implementations */
-interface MoonlanderClientExt {
+interface PerpMarketClientExt {
   openHedge?: (params: {
     market: string;
     side: 'LONG' | 'SHORT';
@@ -68,7 +68,7 @@ interface MoonlanderClientExt {
 }
 
 export class HedgingAgent extends BaseAgent {
-  private moonlanderClient: MoonlanderClient;
+  private perpMarketClient: PerpMarketClient;
   private mcpClient: MCPClient;
   private hedgeExecutorClient?: HedgeExecutorClient;
   private useOnChainExecution: boolean = false;
@@ -93,10 +93,10 @@ export class HedgingAgent extends BaseAgent {
       AgentCapability.MARKET_INTEGRATION,
     ]);
 
-    this.moonlanderClient = new MoonlanderClient(provider, signer);
+    this.perpMarketClient = new PerpMarketClient(provider, signer);
     this.mcpClient = new MCPClient();
 
-    // On-chain execution retired 2026-09-25 with Cronos nuke; constructor
+    // On-chain execution retired 2026-09-25; constructor
     // still accepts the config for backwards compat but ignores it.
     void hedgeExecutorConfig;
   }
@@ -118,7 +118,7 @@ export class HedgingAgent extends BaseAgent {
   protected async onInitialize(): Promise<void> {
     try {
       // Initialize integrations
-      await this.moonlanderClient.initialize();
+      await this.perpMarketClient.initialize();
       await this.mcpClient.connect();
 
       // Subscribe to the proactive 5-min signal ticker — never late
@@ -363,7 +363,7 @@ export class HedgingAgent extends BaseAgent {
       const hedgeMarket = `${assetSymbol}-USD-PERP`;
       let marketInfo;
       try {
-        marketInfo = await this.moonlanderClient.getMarketInfo(hedgeMarket);
+        marketInfo = await this.perpMarketClient.getMarketInfo(hedgeMarket);
       } catch (e) {
         logger.warn('Market info unavailable, continuing with analysis', { hedgeMarket, error: e });
       }
@@ -441,7 +441,7 @@ export class HedgingAgent extends BaseAgent {
       // Get funding rate (cost of holding perpetual) — may fail for assets without perps
       let avgFundingRate = 0;
       try {
-        const fundingHistory = await this.moonlanderClient.getFundingHistory(hedgeMarket, 24);
+        const fundingHistory = await this.perpMarketClient.getFundingHistory(hedgeMarket, 24);
         avgFundingRate =
           fundingHistory.reduce((sum, f) => {
             const v = parseFloat(f.rate);
@@ -800,12 +800,12 @@ Be concise and actionable.`;
       }
 
       // ═══════════════════════════════════════════════════════════
-      // OFF-CHAIN EXECUTION (legacy MoonlanderClient REST API)
+      // OFF-CHAIN EXECUTION (PerpMarketClient)
       // ═══════════════════════════════════════════════════════════
       logger.info('Opening hedge position (off-chain)', { market, side, notionalValue });
 
-      // Support multiple MoonlanderClient interfaces used in tests/mocks
-      const extClient = this.moonlanderClient as unknown as MoonlanderClientExt;
+      // Support multiple PerpMarketClient interfaces used in tests/mocks
+      const extClient = this.perpMarketClient as unknown as PerpMarketClientExt;
       let order: OrderResult;
       if (typeof extClient.openHedge === 'function') {
         order = await extClient.openHedge({
@@ -817,7 +817,7 @@ Be concise and actionable.`;
           takeProfit,
         });
       } else {
-        const marketInfo = await this.moonlanderClient.getMarketInfo(market);
+        const marketInfo = await this.perpMarketClient.getMarketInfo(market);
         const markPrice = parseFloat(marketInfo.markPrice || '0');
         if (!Number.isFinite(markPrice) || markPrice <= 0) {
           throw new Error(
@@ -838,7 +838,7 @@ Be concise and actionable.`;
             quantity: size,
           });
         } else {
-          order = await this.moonlanderClient.placeOrder({
+          order = await this.perpMarketClient.placeOrder({
             market,
             side: side === 'LONG' ? 'BUY' : 'SELL',
             type: 'MARKET',
@@ -860,7 +860,7 @@ Be concise and actionable.`;
               clientOrderId: `${order.orderId}-sl`,
             });
           } else {
-            await this.moonlanderClient.placeOrder({
+            await this.perpMarketClient.placeOrder({
               market,
               side: stopSide,
               type: 'STOP_MARKET',
@@ -887,7 +887,7 @@ Be concise and actionable.`;
               clientOrderId: `${order.orderId}-tp`,
             });
           } else {
-            await this.moonlanderClient.placeOrder({
+            await this.perpMarketClient.placeOrder({
               market,
               side: tpSide,
               type: 'LIMIT',
@@ -968,7 +968,7 @@ Be concise and actionable.`;
       // ═══════════════════════════════════════════════════════════
       logger.info('Closing hedge position (off-chain)', { market });
 
-      const order = await this.moonlanderClient.closePosition({ market, size });
+      const order = await this.perpMarketClient.closePosition({ market, size });
 
       return {
         success: true,
@@ -1003,7 +1003,7 @@ Be concise and actionable.`;
       }
 
       // Get current position. Support clients that expose getPosition or only getPositions
-      const extClient = this.moonlanderClient as unknown as MoonlanderClientExt;
+      const extClient = this.perpMarketClient as unknown as PerpMarketClientExt;
       let position: PerpetualPosition | null = null;
       if (typeof extClient.getPosition === 'function') {
         position = await extClient.getPosition(strategy.targetMarket);
@@ -1062,7 +1062,7 @@ Be concise and actionable.`;
               : 'BUY';
 
         let order: OrderResult;
-        const rebalExtClient = this.moonlanderClient as unknown as MoonlanderClientExt;
+        const rebalExtClient = this.perpMarketClient as unknown as PerpMarketClientExt;
         if (typeof rebalExtClient.createOrder === 'function') {
           order = await rebalExtClient.createOrder({
             market: strategy.targetMarket,
@@ -1071,7 +1071,7 @@ Be concise and actionable.`;
             quantity: adjustmentSize,
           });
         } else {
-          order = await this.moonlanderClient.placeOrder({
+          order = await this.perpMarketClient.placeOrder({
             market: strategy.targetMarket,
             side: adjustmentSide,
             type: 'MARKET',
@@ -1112,7 +1112,8 @@ Be concise and actionable.`;
   private async createHedgeStrategy(task: AgentTask): Promise<TaskResult> {
     const startTime = Date.now();
     const params = task.parameters as Record<string, unknown>;
-    const chain = (params.chain as string) || task.chain || 'cronos';
+    // No chain named: the generic strategy below, as before.
+    const chain = (params.chain as string) || task.chain;
 
     if (chain === 'sui') {
       try {
@@ -1172,7 +1173,7 @@ Be concise and actionable.`;
 
     try {
       // Get all positions (guard if client only exposes getPositions)
-      const monExtClient = this.moonlanderClient as unknown as MoonlanderClientExt;
+      const monExtClient = this.perpMarketClient as unknown as PerpMarketClientExt;
       const positions: PerpetualPosition[] =
         typeof monExtClient.getPositions === 'function' ? await monExtClient.getPositions() : [];
 
@@ -1199,7 +1200,7 @@ Be concise and actionable.`;
           // Auto-add margin if critical
           if (risk.riskLevel === 'CRITICAL') {
             const marginToAdd = (parseFloat(position.margin) * 0.5).toFixed(6);
-            await this.moonlanderClient.addMargin(position.market, marginToAdd);
+            await this.perpMarketClient.addMargin(position.market, marginToAdd);
             logger.warn('Emergency margin added', { market: position.market, amount: marginToAdd });
           }
         }
@@ -1603,7 +1604,7 @@ Be concise and actionable.`;
    */
   async shutdown(): Promise<void> {
     this.stopMonitoring();
-    await this.moonlanderClient.disconnect();
+    await this.perpMarketClient.disconnect();
     await this.mcpClient.disconnect();
     await super.shutdown();
   }
