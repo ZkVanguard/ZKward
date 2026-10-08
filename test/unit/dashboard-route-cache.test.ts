@@ -45,11 +45,11 @@ describe('dashboard route caching', () => {
     },
   );
 
-  it('the minutely paper tick keeps the public signal read warm at the CDN', () => {
-    const tick = src('app/api/cron/paper-fast-tick/route.ts');
-    expect(tick).toMatch(/fetch\(`\$\{PUBLIC_URL\}\/api\/predictions\/per-asset`/);
-    // inside after(): the jobs service gets its 202 without waiting for the warm-up
-    expect(tick.indexOf('after(')).toBeLessThan(tick.indexOf('/api/predictions/per-asset'));
+  // A cold CDN is answered from the shared origin cache, so nothing needs to
+  // keep the read warm; a per-minute warm-up only recomputed the scan all day.
+  it('the public signal read is answered from the shared cache, not kept warm by the tick', () => {
+    expect(src('app/api/predictions/per-asset/route.ts')).toMatch(/withOriginCache\(/);
+    expect(src('app/api/cron/paper-fast-tick/route.ts')).not.toMatch(/\/api\/predictions\/per-asset/);
   });
 
   it('every browser signal read shares one query over the bare per-asset URL', () => {

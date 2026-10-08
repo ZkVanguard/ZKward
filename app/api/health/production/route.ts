@@ -655,47 +655,50 @@ export async function GET(req: NextRequest) {
     withCheckTimeout(checkBluefin(), 'bluefin'),
   ]);
 
-  // DB-touching checks run sequentially. Aiven's plan-wide connection_limit=20
-  // is shared across every Vercel instance, so a single Promise.all of 6 DB
-  // queries can saturate the pool and tip the endpoint into the same
-  // `remaining connection slots are reserved...` error it's meant to diagnose.
-  // Six fast queries serialized cost ~600ms total — acceptable for a health probe.
-  // Each is race-wrapped so a stuck query fails fast instead of eating the
-  // whole 30s budget.
+  // DB-touching checks run together: the self-hosted database allows 200
+  // connections (the old 20-connection plan that forced them into a queue is
+  // retired), and run one after another they cost a round trip each on a
+  // read the landing page waits for. Each is race-wrapped so a stuck query
+  // fails fast instead of eating the whole 30s budget.
   //
   // Heartbeat keys written by each cron's tryClaimCronRun or explicit
   // setCronState, NOT the bare route names. The trader writes
   // polymarket-edge:* only on trade state changes; an idle WAIT tick writes
   // nothing, so we fall back to its daily stats key which updates on every
   // realized trade.
-  const db = await withCheckTimeout(checkDb(), 'db');
-  const navFreshness = await withCheckTimeout(checkNavFreshness(), 'navFreshness');
-  const suiPoolCron = await withCheckTimeout(checkCronAge('cron:lastRun:sui-community-pool', 45, 90), 'suiPoolCron');
+  const [
+    db, navFreshness, suiPoolCron, traderCron, hedgeReconcileCron, bluefinHealthCron, bluefinDbReconcileCron,
+    poolNavMonitorCron, phantomRate, orphanRate, autohedgeHalt, traderActivity, tvlHeadroom, signalSupply, feedbackLoop,
+  ] = await Promise.all([
+    withCheckTimeout(checkDb(), 'db'),
+    withCheckTimeout(checkNavFreshness(), 'navFreshness'),
+    withCheckTimeout(checkCronAge('cron:lastRun:sui-community-pool', 45, 90), 'suiPoolCron'),
   // FIX 2026-06-22: was reading 'polymarket-edge:daily' (a stats key only
   // written on actual trade execution), so cron 'no entry yet' even though
   // the trader was firing every 5 min. Use the real heartbeat key the
   // trader route writes at the top of every invocation.
-  const traderCron = await withCheckTimeout(checkCronAge('cron:lastRun:polymarket-edge-trader', 15, 30), 'traderCron');
-  const hedgeReconcileCron = await withCheckTimeout(checkCronAge('cron:lastRun:sui-hedge-reconcile', 120, 240), 'hedgeReconcileCron');
-  const bluefinHealthCron = await withCheckTimeout(checkCronAge('bluefin-health:consecutiveDegraded', 15, 30), 'bluefinHealthCron');
-  const bluefinDbReconcileCron = await withCheckTimeout(checkCronAge('cron:lastRun:bluefin-db-reconcile', 30, 60), 'bluefinDbReconcileCron');
+    withCheckTimeout(checkCronAge('cron:lastRun:polymarket-edge-trader', 15, 30), 'traderCron'),
+    withCheckTimeout(checkCronAge('cron:lastRun:sui-hedge-reconcile', 120, 240), 'hedgeReconcileCron'),
+    withCheckTimeout(checkCronAge('bluefin-health:consecutiveDegraded', 15, 30), 'bluefinHealthCron'),
+    withCheckTimeout(checkCronAge('cron:lastRun:bluefin-db-reconcile', 30, 60), 'bluefinDbReconcileCron'),
   // pool-nav-monitor runs every 15 min and owns the `poolNav:peak` rolling-window
   // computation (PR #55). If this cron stops, peak stops updating → rolling
   // window silently degrades to "stuck at last value" → the peak-NAV deadlock
   // class of bug can re-establish. Detect the cron death, not just the deadlock.
-  const poolNavMonitorCron = await withCheckTimeout(checkCronAge('cron:lastRun:pool-nav-monitor', 25, 60), 'poolNavMonitorCron');
+    withCheckTimeout(checkCronAge('cron:lastRun:pool-nav-monitor', 25, 60), 'poolNavMonitorCron'),
 
   // v0.3.0 defense: phantom hedge rate over last hour. Proxies via closed
   // hedges with $0 realized_pnl and notional ≥ $1 — the same query the
   // bulletproof drawdown test uses as its meta-invariant. > 1% warns;
   // > 5% is down (exchange fills unreliable → auto-halt trader gate).
-  const phantomRate = await withCheckTimeout(checkPhantomRate(), 'phantomRate');
-  const orphanRate = await withCheckTimeout(checkOrphanAdoptionRate(), 'orphanRate');
-  const autohedgeHalt = await withCheckTimeout(checkAutohedgeHaltDuration(), 'autohedgeHalt');
-  const traderActivity = await withCheckTimeout(checkTraderActivity(), 'traderActivity');
-  const tvlHeadroom = await withCheckTimeout(checkTvlHeadroom(), 'tvlHeadroom');
-  const signalSupply = await withCheckTimeout(checkSignalSupply(), 'signalSupply');
-  const feedbackLoop = await withCheckTimeout(checkFeedbackLoop(), 'feedbackLoop');
+    withCheckTimeout(checkPhantomRate(), 'phantomRate'),
+    withCheckTimeout(checkOrphanAdoptionRate(), 'orphanRate'),
+    withCheckTimeout(checkAutohedgeHaltDuration(), 'autohedgeHalt'),
+    withCheckTimeout(checkTraderActivity(), 'traderActivity'),
+    withCheckTimeout(checkTvlHeadroom(), 'tvlHeadroom'),
+    withCheckTimeout(checkSignalSupply(), 'signalSupply'),
+    withCheckTimeout(checkFeedbackLoop(), 'feedbackLoop'),
+  ]);
 
   const components = { db, polymarket, suiRpc, bluefin, navFreshness, suiPoolCron, traderCron, hedgeReconcileCron, bluefinHealthCron, bluefinDbReconcileCron, poolNavMonitorCron, phantomRate, orphanRate, autohedgeHalt, traderActivity, tvlHeadroom, signalSupply, feedbackLoop };
   const overall = worstStatus(Object.values(components));

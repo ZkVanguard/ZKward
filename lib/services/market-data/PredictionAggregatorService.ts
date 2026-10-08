@@ -292,7 +292,9 @@ export class PredictionAggregatorService {
     const out: Record<string, AggregatedPrediction> = {};
     const rawSources: Record<string, PredictionSource[]> = {};
 
-    for (const asset of upperAssets) {
+    // The assets share only read-only inputs, so they run together: the scan
+    // waits for the slowest asset, not the sum of every asset's state reads.
+    const perAsset = await Promise.all(upperAssets.map(async (asset) => {
       const sources: PredictionSource[] = [];
       const spot = cryptoComData.perAsset[asset]?.price;
 
@@ -781,7 +783,7 @@ export class PredictionAggregatorService {
       // Kept as they stand before any is weighted or removed: the ledger
       // records these, so a removed source keeps being measured and can
       // earn its way back.
-      rawSources[asset] = sources.map((s) => ({ ...s }));
+      const assetRawSources = sources.map((s) => ({ ...s }));
 
       // Apply learned per-source weight multipliers BEFORE the final
       // normalization step. When a source has no calibration history the
@@ -807,7 +809,11 @@ export class PredictionAggregatorService {
         });
       }
 
-      out[asset] = calculateAggregation(sources);
+      return { asset, assetRawSources, aggregated: calculateAggregation(sources) };
+    }));
+    for (const r of perAsset) {
+      rawSources[r.asset] = r.assetRawSources;
+      out[r.asset] = r.aggregated;
     }
 
     // Stored first and for the same time, so a cached scan always has its votes.
