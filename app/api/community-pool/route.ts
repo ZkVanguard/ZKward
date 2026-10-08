@@ -52,6 +52,7 @@ import {
   type HandlerContext,
 } from './post-handlers';
 import { withOriginCache } from '@/lib/utils/origin-cache';
+import { CACHE, cacheFor } from '@/lib/utils/http-cache';
 
 /** Timing-safe cron-secret check — GET admin endpoints. */
 function verifyCronSecret(request: NextRequest): boolean {
@@ -691,9 +692,16 @@ export async function POST(request: NextRequest) {
   }
 }
 
+// Pool-wide answers (no wallet in the query) cache long; a wallet's own read
+// stays short; a failure is never cached.
+async function handleGetCached(request: NextRequest) {
+  const q = request.nextUrl.searchParams;
+  return cacheFor(await handleGet(request), q.get('user') || q.get('action') === 'sync' ? CACHE.perWallet : CACHE.poolWide);
+}
+
 export const GET = withOriginCache({
   name: 'community-pool',
   freshSec: 30,
   params: ['chain', 'network', 'action', 'limit'],
   eligible: (q) => [null, 'leaderboard'].includes(q.get('action')),
-}, handleGet);
+}, handleGetCached);

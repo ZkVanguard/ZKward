@@ -15,6 +15,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { logger } from '@/lib/utils/logger';
+import { CACHE, cacheFor } from '@/lib/utils/http-cache';
 // The server-side share ledger was retired 2026-09-25. Hedera flows short-circuit
 // above these callers; SUI has its own path. Stubs fail if a ledger code
 // path is hit.
@@ -354,6 +355,10 @@ async function buildSuiRecommendation(request: NextRequest) {
  * GET - Get current AI recommendation without applying
  */
 export async function GET(request: NextRequest) {
+  return cacheFor(await handleGet(request), CACHE.poolWide);
+}
+
+async function handleGet(request: NextRequest) {
   // Rate limiting
   const rateLimitResponse = readLimiter.check(request);
   if (rateLimitResponse) return rateLimitResponse;

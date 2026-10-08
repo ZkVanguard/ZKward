@@ -36,7 +36,7 @@ export async function GET() {
       }, {
         // Backend health rarely flips minute-to-minute; 30s cache
         // is safe and saves the external fetch per request.
-        headers: { 'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=60' },
+        headers: { 'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=600' },
       });
     }
     
@@ -51,7 +51,7 @@ export async function GET() {
       error: `Backend returned ${res.status}`,
       timestamp: Date.now(),
     }, {
-      headers: { 'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=60' },
+      headers: { 'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=600' },
     });
 
   } catch (error) {
@@ -61,7 +61,7 @@ export async function GET() {
       error: error instanceof Error ? error.message : 'Connection failed',
       timestamp: Date.now(),
     }, {
-      headers: { 'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=60' },
+      headers: { 'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=600' },
     });
   }
 }
