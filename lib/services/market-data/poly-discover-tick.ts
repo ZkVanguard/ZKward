@@ -270,19 +270,27 @@ export async function runPolyDiscoverTick(): Promise<PolyDiscoverTickResult> {
 
     const allMomenta: MarketMomentum[] = [];
     const now = Date.now();
-    for (const m of momentumTargets) {
-      const histKey = `poly-momentum:history:${m.slug}`;
-      const prev = await getCronStateOr<MarketSnapshot[]>(histKey, []);
-      const snap: MarketSnapshot = {
-        ts: now,
-        probability: m.probability,
-        volume24hr: m.volume24hr,
-        liquidity: m.liquidity,
-      };
-      const next = appendSnapshot(prev, snap);
-      await setCronState(histKey, next).catch(() => {});
-      const mom = computeMomentum(m, next);
-      if (mom) allMomenta.push(mom);
+    // Each slug's history is its own key, so they update ten at a time: one
+    // after another this was 400 sequential round trips per run.
+    const MOMENTUM_CONCURRENCY = 10;
+    for (let i = 0; i < momentumTargets.length; i += MOMENTUM_CONCURRENCY) {
+      const batch = momentumTargets.slice(i, i + MOMENTUM_CONCURRENCY);
+      const momenta = await Promise.all(
+        batch.map(async (m) => {
+          const histKey = `poly-momentum:history:${m.slug}`;
+          const prev = await getCronStateOr<MarketSnapshot[]>(histKey, []);
+          const snap: MarketSnapshot = {
+            ts: now,
+            probability: m.probability,
+            volume24hr: m.volume24hr,
+            liquidity: m.liquidity,
+          };
+          const next = appendSnapshot(prev, snap);
+          await setCronState(histKey, next).catch(() => {});
+          return computeMomentum(m, next);
+        }),
+      );
+      for (const mom of momenta) if (mom) allMomenta.push(mom);
     }
 
     const HOT_THRESHOLD = Number(process.env.POLY_HOT_THRESHOLD || 60);

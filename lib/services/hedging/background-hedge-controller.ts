@@ -479,7 +479,7 @@ class BackgroundHedgeController extends EventEmitter {
       pendingIntents: this.pendingIntents.size,
       executedToday,
       lastExecution,
-      priceProviderConnected: status.wsConnected || status.priceCount > 0,
+      priceProviderConnected: status.priceCount > 0,
       aiManagerConnected: true, // Will be connected via AIDecisionsContext
     };
   }
