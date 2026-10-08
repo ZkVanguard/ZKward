@@ -128,6 +128,27 @@ export async function deleteCronState(key: string): Promise<void> {
 }
 
 /**
+ * Several keys in one round trip. A missing key is absent from the map; a
+ * failed read returns an empty map, the same as each key failing alone.
+ */
+export async function getCronStates<T = unknown>(keys: readonly string[]): Promise<Map<string, T>> {
+  if (shouldReadFromRedis()) return redisImpl.getCronStates<T>(keys);
+  const result = new Map<string, T>();
+  if (keys.length === 0) return result;
+  try {
+    await ensureTable();
+    const rows = await query<{ key: string; value: T }>(
+      'SELECT key, value FROM cron_state WHERE key = ANY($1)',
+      [[...new Set(keys)]],
+    );
+    for (const row of rows) result.set(row.key, row.value);
+  } catch (error: any) {
+    logger.warn('[CronState] Failed to get keys', { count: keys.length, error: error?.message });
+  }
+  return result;
+}
+
+/**
  * Get multiple keys matching a prefix (e.g. "poolNav:peak:*").
  * Returns a Map of key → value.
  */

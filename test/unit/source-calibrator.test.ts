@@ -21,6 +21,7 @@ const mockSet = jest.fn<any>(((k: string, v: any) => {
 jest.mock('@/lib/db/cron-state', () => ({
   getCronState: (...args: any[]) => mockGet(...args),
   getCronStateOr: (...args: any[]) => mockGetOr(...args),
+  getCronStates: (keys: string[]) => Promise.resolve(new Map(keys.filter((k) => k in store).map((k) => [k, store[k]]))),
   setCronState: (...args: any[]) => mockSet(...args),
 }));
 
