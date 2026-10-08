@@ -1,16 +1,9 @@
 'use client';
 
-import { memo, useEffect, useState } from 'react';
+import { memo } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { suiPoolVolatilityQuery } from './queries';
 import { Activity, TrendingUp, TrendingDown } from 'lucide-react';
-
-interface VolatilityResponse {
-  success: boolean;
-  data?: {
-    range24h: { minSharePrice: number; maxSharePrice: number; minNav: number; maxNav: number } | null;
-    since30d: { sharePrice: number; nav: number; at: string } | null;
-    latest: { sharePrice: number; nav: number; at: string } | null;
-  };
-}
 
 interface PoolVolatilityContextProps {
   selectedChain: string;
@@ -32,27 +25,10 @@ export const PoolVolatilityContext = memo(function PoolVolatilityContext({
   network,
   currentSharePrice,
 }: PoolVolatilityContextProps) {
-  const [data, setData] = useState<VolatilityResponse['data'] | null>(null);
-  const [failed, setFailed] = useState(false);
+  // Shared with the pool card's verified-ATH patch: one request for both.
+  const { data, isError } = useQuery({ ...suiPoolVolatilityQuery(network), enabled: selectedChain === 'sui' });
 
-  useEffect(() => {
-    if (selectedChain !== 'sui') return;
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await fetch(`/api/sui/community-pool?action=volatility&network=${network}`);
-        const json: VolatilityResponse = await res.json();
-        if (cancelled) return;
-        if (json?.success && json.data) setData(json.data);
-        else setFailed(true);
-      } catch {
-        if (!cancelled) setFailed(true);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [selectedChain, network]);
-
-  if (selectedChain !== 'sui' || failed || !data) return null;
+  if (selectedChain !== 'sui' || isError || !data) return null;
 
   const range = data.range24h;
   const since30d = data.since30d;

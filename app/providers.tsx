@@ -7,27 +7,29 @@ import { ReactNode, useEffect } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider as CustomThemeProvider } from '../contexts/ThemeContext';
 import { installClientErrorReporter } from '../lib/utils/client-error-reporter';
+import { persistQueryClient } from '../lib/utils/query-persist';
 
 // Light-weight providers used across every route (marketing + app).
 // Wallet-heavy providers (SuiWalletProviders — ~800 KB of @mysten SDKs)
 // live in app/wallet-providers.tsx and only wrap /dashboard/**.
 // See dashboard/layout.tsx.
 
+// The one data cache for the whole app, the wallet libraries' queries
+// included. A query that is still fresh is served from the cache on mount;
+// a stale one (or one restored from the browser after a reload) is shown at
+// once and refetched behind it. Polling queries pause while the tab is
+// hidden (TanStack's default).
 function makeQueryClient() {
   return new QueryClient({
     defaultOptions: {
       queries: {
+        staleTime: 60_000,
+        gcTime: 600_000,
+        retry: 1,
         refetchOnWindowFocus: false,
-        retry: 1,                      // Reduced from 2: fail fast for faster UX
-        staleTime: 120_000,            // 2 minutes
-        gcTime: 600_000,               // 10 minutes
-        refetchOnMount: false,
-        refetchOnReconnect: false,
-        networkMode: 'offlineFirst',   // Use cache while offline, reduces refetches
       },
       mutations: {
-        retry: 1,
-        networkMode: 'offlineFirst',
+        retry: 0,
       },
     },
   });
@@ -51,6 +53,8 @@ function getQueryClient(): QueryClient {
 export function Providers({ children }: { children: ReactNode }) {
   const queryClient = getQueryClient();
   useEffect(() => installClientErrorReporter(), []);
+  // After hydration, so the first client render matches the server's.
+  useEffect(() => persistQueryClient(queryClient), [queryClient]);
 
   return (
     <CustomThemeProvider>

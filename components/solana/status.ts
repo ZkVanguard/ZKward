@@ -4,7 +4,7 @@
  * Shape of /api/solana-pool/status plus the one cached query every Solana
  * pool component reads (react-query dedupes, so the cards share a fetch).
  */
-import { useQuery } from '@tanstack/react-query';
+import { queryOptions, useQuery } from '@tanstack/react-query';
 
 export interface SolanaDepositRow {
   signature: string;
@@ -63,24 +63,25 @@ export interface SolanaPoolStatus {
   error?: string;
 }
 
-export function useSolanaPoolStatus() {
-  return useQuery({
-    queryKey: ['solana-pool-status'],
-    queryFn: async (): Promise<SolanaPoolStatus> => {
+export const solanaPoolStatusQuery = queryOptions({
+  queryKey: ['solana-pool-status'],
+  queryFn: async (): Promise<SolanaPoolStatus> => {
       const r = await fetch('/api/solana-pool/status', { cache: 'no-store' });
       const body = (await r.json().catch(() => null)) as SolanaPoolStatus | null;
       // A failed read is an error, never an empty pool: the route answers 500
       // with `{ enabled, error }`, which used to render as "No members yet".
       if (!r.ok || !body || body.error) throw new Error(body?.error || `Pool status failed (${r.status})`);
       return body;
-    },
-    // The route waits out the database's own timeout before failing, so the
-    // default three retries kept the cards "loading" for over a minute. The
-    // 30 s refetch below is the retry.
-    retry: false,
-    refetchInterval: 30_000,
-    staleTime: 15_000,
-  });
+  },
+  // The route waits out the database's own timeout before failing, so the
+  // default three retries kept the cards "loading" for over a minute. The
+  // 30 s refetch below is the retry.
+  retry: false,
+  staleTime: 15_000,
+});
+
+export function useSolanaPoolStatus() {
+  return useQuery({ ...solanaPoolStatusQuery, refetchInterval: 30_000 });
 }
 
 export const shortAddr = (s: string, head = 4, tail = 4) =>

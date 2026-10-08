@@ -11,6 +11,7 @@
  */
 
 import { useQuery } from '@tanstack/react-query';
+import { unifiedPortfolioQuery } from '@/lib/hooks/portfolio-queries';
 import { Shield, TrendingDown, TrendingUp } from 'lucide-react';
 import { useWallet } from '@/lib/hooks/useWallet';
 import { CHAIN_INFO, useWalletHub, type WalletChain } from '@/contexts/WalletHubContext';
@@ -45,17 +46,9 @@ export function ChainHedges({ compact = false, onGoToPool }: { compact?: boolean
   const { portfolioAddress } = useWallet();
   const chain = hub.isConnected ? hub.activeChain : null;
 
-  const { data, isLoading, error } = useQuery({
-    queryKey: ['unified-portfolio', portfolioAddress],
-    queryFn: async () => {
-      const r = await fetch(`/api/portfolio/unified?wallet=${encodeURIComponent(portfolioAddress ?? '')}`);
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      return (await r.json()) as { hedgeExposure?: HedgeExposure[] };
-    },
-    enabled: !!portfolioAddress,
-    staleTime: 30_000,
-    refetchInterval: 60_000,
-  });
+  // Shared with the positions context: one request for both.
+  const { data: unified, isLoading, error } = useQuery(unifiedPortfolioQuery(portfolioAddress));
+  const data = unified as { hedgeExposure?: HedgeExposure[] } | undefined;
 
   const pad = compact ? 'px-4 sm:px-6 pb-5' : 'px-4 sm:px-6 pb-6';
 

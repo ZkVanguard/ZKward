@@ -1,29 +1,11 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, useCallback, useRef, useMemo, useTransition } from 'react';
+import React, { createContext, useContext, useCallback, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { useWallet } from '@/lib/hooks/useWallet';
-import { dedupedFetch } from '@/lib/utils/request-deduplication';
-import { cache } from '@/lib/utils/cache';
-import { logger } from '@/lib/utils/logger';
-import { refreshCoordinator } from '@/lib/services/refresh-coordinator';
+import { positionsQuery, unifiedPortfolioQuery, type WalletPositions } from '@/lib/hooks/portfolio-queries';
 
-interface Position {
-  symbol: string;
-  balance: string;
-  balanceUSD: string;
-  price: string;
-  change24h: number;
-  high24h?: number;
-  low24h?: number;
-  volatility?: number; // Real volatility from market data
-}
-
-interface PositionsData {
-  address: string;
-  totalValue: number;
-  positions: Position[];
-  lastUpdated: number;
-}
+type PositionsData = WalletPositions;
 
 // Derived/computed data to avoid recalculation
 interface DerivedData {
@@ -54,170 +36,23 @@ const PositionsContext = createContext<PositionsContextType | undefined>(undefin
 
 export function PositionsProvider({ children }: { children: React.ReactNode }) {
   const { portfolioAddress: address } = useWallet();
-  const [positionsData, setPositionsData] = useState<PositionsData | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [activeHedgesCount, setActiveHedgesCount] = useState<number>(0);
-  const [pnlMetrics, setPnlMetrics] = useState<{ total: number; totalPercentage: number } | null>(null);
-  const lastFetchRef = useRef<number>(0);
-  const _fetchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  
-  // useTransition for smooth UI updates during data refresh
-  const [isPending, startTransition] = useTransition();
+  // Both reads start together; the P&L read shares its cache entry with the
+  // hedges panel, so a view showing both makes one request.
+  const positions = useQuery(positionsQuery(address));
+  const unified = useQuery(unifiedPortfolioQuery(address));
 
-  // Debug: Log when address changes
-  useEffect(() => {
-    logger.debug('Address changed', { component: 'PositionsContext', data: address || 'NOT CONNECTED' });
-  }, [address]);
-
-  const fetchPositions = useCallback(async (isBackgroundRefresh = false) => {
-    if (!address) {
-      logger.debug('No address, skipping fetch', { component: 'PositionsContext' });
-      setPositionsData(null);
-      return;
-    }
-
-    // Check cache first (45s TTL for more aggressive caching) - show immediately, refresh in background
-    const cacheKey = `positions-${address}`;
-    const cached = cache.get<PositionsData>(cacheKey);
-    
-    // OPTIMIZATION: Show cached data immediately if available (stale-while-revalidate)
-    if (cached) {
-      logger.debug('Using cached positions (will refresh in background)', { component: 'PositionsContext' });
-      setPositionsData(cached);
-      setLoading(false);
-      
-      // Check if cache is fresh enough (< 45s), skip refresh if so
-      const now = Date.now();
-      if (now - lastFetchRef.current < 45000 && !isBackgroundRefresh) {
-        logger.debug('Cache is fresh, skipping background refresh', { component: 'PositionsContext' });
-        return;
-      }
-      
-      // Continue to fetch fresh data in background
-      isBackgroundRefresh = true;
-    }
-
-    // Debounce: prevent fetching more than once per 2 seconds
-    const now = Date.now();
-    if (now - lastFetchRef.current < 2000 && !isBackgroundRefresh) {
-      logger.debug('Skipping fetch - too soon after last request', { component: 'PositionsContext' });
-      return;
-    }
-
-    // Only show loading state for initial fetch without cache
-    if (!isBackgroundRefresh && !cached) {
-      setLoading(true);
-    }
-    setError(null);
-
-    try {
-      logger.info('Fetching positions (deduped)', { component: 'PositionsContext', data: address });
-      logger.debug('Loading: CRO, devUSDC, WCRO balances', { component: 'PositionsContext' });
-      lastFetchRef.current = now;
-      
-      // Use deduped fetch to prevent duplicate requests
-      const res = await dedupedFetch(`/api/positions?address=${address}`);
-      
-      if (!res.ok) {
-        throw new Error(`Failed to fetch positions: ${res.status}`);
-      }
-
-      const data = await res.json();
-      
-      if (data.error) {
-        throw new Error(data.error);
-      }
-
-      logger.info(`Loaded ${data.positions?.length || 0} positions, total: $${data.totalValue?.toFixed(2)}`, { component: 'PositionsContext' });
-      logger.debug('Positions detail', { component: 'PositionsContext', data: data.positions?.map((p: Position) => `${p.symbol}: $${p.balanceUSD}`).join(', ') });
-      
-      // Use startTransition for smooth UI updates
-      startTransition(() => {
-        setPositionsData(data);
-      });
-      
-      // Unrealized P&L across every product the wallet holds. Not awaited:
-      // positions render first, the P&L line fills in when the aggregate
-      // (pool share + hedges + EVM portfolios) comes back.
-      if (data.totalValue > 0 && address) {
-        const pnlController = new AbortController();
-        const pnlTimeout = setTimeout(() => pnlController.abort(), 10_000);
-        fetch(`/api/portfolio/unified?wallet=${encodeURIComponent(address)}`, { signal: pnlController.signal })
-          .then((res) => (res.ok ? res.json() : null))
-          .then((unified) => {
-            const totals = unified?.totals;
-            if (totals && typeof totals.unrealizedPnl === 'number') {
-              setPnlMetrics({ total: totals.unrealizedPnl, totalPercentage: Number(totals.unrealizedPnlPct) || 0 });
-            }
-            if (totals) setActiveHedgesCount(Number(totals.activeHedgeCount) || 0);
-          })
-          .catch((e) => {
-            if (e?.name !== 'AbortError') {
-              logger.warn('Failed to load portfolio P&L', { error: String(e) });
-            }
-          })
-          .finally(() => clearTimeout(pnlTimeout));
-      }
-
-      // Cache for 45 seconds (increased from 30s)
-      cache.set(cacheKey, data, 45000);
-    } catch (err) {
-      logger.error('Error fetching positions', err instanceof Error ? err : undefined, { component: 'PositionsContext' });
-      setError(err instanceof Error ? err.message : 'Failed to fetch positions');
-      // Only clear data on initial load errors, keep stale data on refresh errors
-      if (!isBackgroundRefresh) {
-        setPositionsData(null);
-      }
-    } finally {
-      if (!isBackgroundRefresh) {
-        setLoading(false);
-      }
-    }
-  }, [address]);
-
-  // Fetch on mount and when address changes
-  useEffect(() => {
-    fetchPositions();
-  }, [fetchPositions]);
-
-  // Coordinates refresh timing with other components via centralized RefreshCoordinator
-  // This prevents render storms from multiple components refreshing simultaneously
-  useEffect(() => {
-    if (!address) return;
-
-    // Listen to centralized refresh coordinator
-    const handleRefresh = () => {
-      if (document.visibilityState === 'visible') {
-        logger.debug('Coordinator triggered positions refresh', { component: 'PositionsContext' });
-        fetchPositions(true);
-      }
-    };
-
-    refreshCoordinator.on('refresh:positions', handleRefresh);
-
-    // Also handle visibility changes for immediate refresh on tab focus
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        logger.debug('Page visible - refreshing positions', { component: 'PositionsContext' });
-        fetchPositions(true);
-      }
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-
-    return () => {
-      refreshCoordinator.off('refresh:positions', handleRefresh);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-    };
-  }, [address, fetchPositions]);
-
-  // The hedge count comes from the unified portfolio read above (the
-  // wallet's real exposure on its network). The retired testnet contract
-  // this used to poll returned zero for everyone.
-  useEffect(() => {
-    if (!address) setActiveHedgesCount(0);
-  }, [address]);
+  const positionsData = address ? positions.data ?? null : null;
+  const totals = address ? unified.data?.totals : undefined;
+  const activeHedgesCount = Number(totals?.activeHedgeCount) || 0;
+  const pnlMetrics = useMemo(
+    () => (typeof totals?.unrealizedPnl === 'number' ? { total: totals.unrealizedPnl, totalPercentage: Number(totals.unrealizedPnlPct) || 0 } : null),
+    [totals?.unrealizedPnl, totals?.unrealizedPnlPct],
+  );
+  const refetchPositions = positions.refetch;
+  const refetchUnified = unified.refetch;
+  const refetch = useCallback(async () => {
+    await Promise.all([refetchPositions(), refetchUnified()]);
+  }, [refetchPositions, refetchUnified]);
 
   // Memoized derived data - calculated once when positions change
   const derived = useMemo<DerivedData | null>(() => {
@@ -320,10 +155,11 @@ export function PositionsProvider({ children }: { children: React.ReactNode }) {
   const value: PositionsContextType = {
     positionsData,
     derived,
-    loading,
-    error,
-    refetch: fetchPositions,
-    isPending, // Smooth transition indicator
+    loading: positions.isLoading,
+    error: positions.error ? positions.error.message : null,
+    refetch,
+    // A refresh behind data already on screen.
+    isPending: positions.isFetching && !!positions.data,
   };
 
   return (

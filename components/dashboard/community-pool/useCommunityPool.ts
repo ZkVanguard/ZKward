@@ -39,10 +39,12 @@ import {
 } from '@/lib/contracts/community-pool-config';
 import { getNetworkFromChainId, getValidChainIds } from './utils';
 import { switchChainNative } from './chain-params';
-import type { ChainKey, TxStatus } from './types';
+import type { ChainKey, PoolSummary, TxStatus } from './types';
 import { poolReducer, txReducer, initialPoolState, initialTxState } from './reducers';
 import { mapApiToPoolSummary, mapSolanaStatusToPoolSummary, mapApiToUserPosition } from './mappers';
-import type { SolanaPoolStatus } from '@/components/solana/status'; // ============================================================================
+import { solanaPoolStatusQuery } from '@/components/solana/status';
+import { suiPoolVolatilityQuery } from './queries';
+import { useQueryClient } from '@tanstack/react-query'; // ============================================================================
 // HOOK
 // ============================================================================
 
@@ -59,9 +61,15 @@ async function postPoolRecord(url: string, body: { walletAddress: string; txDige
   await send();
 }
 
-export function useCommunityPool(propAddress?: string, evmActive: boolean = true) {
-  const [poolState, dispatchPool] = useReducer(poolReducer, initialPoolState);
+export function useCommunityPool(propAddress?: string, evmActive: boolean = true, initialChain?: ChainKey) {
+  const [poolState, dispatchPool] = useReducer(poolReducer, initialPoolState, (s) =>
+    initialChain ? { ...s, selectedChain: initialChain } : s,
+  );
   const [txState, dispatchTx] = useReducer(txReducer, initialTxState);
+  // Pool-wide reads go through the shared query cache: concurrent readers
+  // share one request, and the last answer (restored from the browser after
+  // a reload) is drawn at once while the fresh one is fetched.
+  const queryClient = useQueryClient();
 
   const mountedRef = useRef(true);
   // Each fetch gets a number; a response from an earlier fetch (another
@@ -364,9 +372,13 @@ export function useCommunityPool(propAddress?: string, evmActive: boolean = true
       // Solana token pool — its own vertical and API, mapped into the same
       // PoolSummary the other chains render.
       if (selectedChain === 'solana') {
+        const cached = queryClient.getQueryData(solanaPoolStatusQuery.queryKey);
+        if (cached?.enabled) {
+          dispatchPool({ type: 'SET_POOL_DATA', payload: mapSolanaStatusToPoolSummary(cached) });
+          dispatchPool({ type: 'SET_LOADING', payload: false });
+        }
         try {
-          const res = await fetch('/api/solana-pool/status', { cache: 'no-store' });
-          const status = (await res.json()) as SolanaPoolStatus;
+          const status = await queryClient.fetchQuery({ ...solanaPoolStatusQuery, staleTime: force ? 0 : 10_000 });
           if (!live(seq)) return;
           if (status.enabled && !status.error) {
             dispatchPool({ type: 'SET_POOL_DATA', payload: mapSolanaStatusToPoolSummary(status) });
@@ -394,7 +406,17 @@ export function useCommunityPool(propAddress?: string, evmActive: boolean = true
                 .then((res) => res.json())
                 .catch((err) => { logger.warn('[CommunityPool] SUI position fetch warning:', err); return null; })
             : null;
-          const poolJson = await fetch(`/api/sui/community-pool?network=${suiNetwork}`).then((res) => res.json());
+          const poolKey = ['sui-pool', suiNetwork] as const;
+          const cached = queryClient.getQueryData<{ success?: boolean; data?: Parameters<typeof mapApiToPoolSummary>[0] }>(poolKey);
+          if (cached?.success && cached.data) {
+            dispatchPool({ type: 'SET_POOL_DATA', payload: mapApiToPoolSummary(cached.data) });
+            dispatchPool({ type: 'SET_LOADING', payload: false });
+          }
+          const poolJson = await queryClient.fetchQuery({
+            queryKey: poolKey,
+            queryFn: () => fetch(`/api/sui/community-pool?network=${suiNetwork}`).then((res) => res.json()),
+            staleTime: force ? 0 : 10_000,
+          });
 
           if (!live(seq)) return;
 
@@ -433,11 +455,11 @@ export function useCommunityPool(propAddress?: string, evmActive: boolean = true
           // reality. Volatility endpoint returns the true verified peak
           // computed from non-clamped DB snapshots. Non-blocking so a
           // slow lookup can't stall the rest of the UI.
-          fetch(`/api/sui/community-pool?action=volatility&network=${suiNetwork}`)
-            .then((res) => res.json())
-            .then((volJson) => {
+          queryClient
+            .fetchQuery(suiPoolVolatilityQuery(suiNetwork))
+            .then((vol) => {
               if (!live(seq)) return;
-              const verifiedAthSp = Number(volJson?.data?.verifiedAth?.sharePrice) || 0;
+              const verifiedAthSp = Number(vol?.verifiedAth?.sharePrice) || 0;
               if (verifiedAthSp > 0) {
                 dispatchPool({
                   type: 'PATCH_POOL_DATA',
@@ -504,7 +526,17 @@ export function useCommunityPool(propAddress?: string, evmActive: boolean = true
               .then((res) => res.json())
               .catch((err) => { logger.warn('[CommunityPool] Position fetch warning:', err); return null; })
           : null;
-        const poolJson = await fetch(`/api/community-pool?${chainParam.substring(1)}`).then((res) => res.json());
+        const poolKey = ['community-pool', selectedChain, network] as const;
+        const cached = queryClient.getQueryData<{ success?: boolean; pool?: unknown }>(poolKey);
+        if (cached?.success && cached.pool) {
+          dispatchPool({ type: 'SET_POOL_DATA', payload: cached.pool as PoolSummary });
+          dispatchPool({ type: 'SET_LOADING', payload: false });
+        }
+        const poolJson = await queryClient.fetchQuery({
+          queryKey: poolKey,
+          queryFn: () => fetch(`/api/community-pool?${chainParam.substring(1)}`).then((res) => res.json()),
+          staleTime: force ? 0 : 10_000,
+        });
 
         if (!live(seq)) return;
 
@@ -542,7 +574,7 @@ export function useCommunityPool(propAddress?: string, evmActive: boolean = true
         }
       }
     },
-    [address, suiAddress, selectedChain, network, suiNetwork]
+    [address, suiAddress, selectedChain, network, suiNetwork, queryClient]
   );
 
   const fetchAIRecommendation = useCallback(async () => {

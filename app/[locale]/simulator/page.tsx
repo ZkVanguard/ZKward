@@ -1,27 +1,9 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import { logger } from '@/lib/utils/logger';
-import {
-  Play,
-  Pause,
-  RotateCcw,
-  TrendingDown,
-  TrendingUp,
-  Activity,
-  Shield,
-  Zap,
-  AlertTriangle,
-  CheckCircle,
-  Brain,
-  Terminal,
-  Eye,
-  EyeOff,
-  Wifi,
-  WifiOff,
-} from 'lucide-react';
-import { ZKBadgeInline, type ZKProofData } from '../../../components/ZKVerificationBadge';
+import { usePolling } from '@/lib/hooks/usePolling';
+import type { ZKProofData } from '../../../components/ZKVerificationBadge';
 import { SimulatorHeader } from '@/components/simulator/SimulatorHeader';
 import { RiskPolicyPanel } from '@/components/simulator/RiskPolicyPanel';
 import { ScenarioSelector } from '@/components/simulator/ScenarioSelector';
@@ -83,9 +65,8 @@ export default function SimulatorPage() {
   const [unhedgedLoss, setUnhedgedLoss] = useState<number>(0);
   const [marketVarianceApplied, setMarketVarianceApplied] = useState<number>(0);
 
-  // Check real API status on mount
-  useEffect(() => {
-    const checkAPIs = async () => {
+  // Check real API status on mount, then every minute while the tab is visible.
+  const checkAPIs = useCallback(async () => {
       logger.debug('Starting API status checks', { component: 'Simulator' });
 
       // Check prices API
@@ -184,15 +165,8 @@ export default function SimulatorPage() {
       }
 
       logger.debug('API status checks complete', { component: 'Simulator' });
-    };
-
-    // Run immediately
-    checkAPIs();
-
-    // Also set up a periodic refresh every 10 seconds
-    const interval = setInterval(checkAPIs, 10000);
-    return () => clearInterval(interval);
   }, []);
+  usePolling(checkAPIs, 60_000);
 
   // Calculate initial unhedgedLoss when scenario changes
   useEffect(() => {
