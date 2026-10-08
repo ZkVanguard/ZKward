@@ -16,35 +16,8 @@ import {
   createTransferInstruction,
   getAssociatedTokenAddressSync,
 } from '@/lib/services/solana/spl';
+import { getProvider } from './injected';
 
-export interface InjectedProvider {
-  isPhantom?: boolean;
-  publicKey: { toBase58(): string } | null;
-  connect(opts?: { onlyIfTrusted?: boolean }): Promise<{ publicKey: { toBase58(): string } }>;
-  disconnect(): Promise<void>;
-  signAndSendTransaction(tx: Transaction): Promise<{ signature: string }>;
-  signTransaction?(tx: Transaction): Promise<Transaction>;
-  signMessage(msg: Uint8Array, display?: 'utf8'): Promise<{ signature: Uint8Array }>;
-}
-
-export function getProvider(): InjectedProvider | null {
-  if (typeof window === 'undefined') return null;
-  const w = window as unknown as {
-    phantom?: { solana?: InjectedProvider };
-    solflare?: InjectedProvider & { isSolflare?: boolean };
-    solana?: InjectedProvider;
-  };
-  // Phantom, then Solflare (its in-app browser injects window.solflare), then
-  // any other wallet that exposes the standard window.solana provider.
-  return w.phantom?.solana ?? (w.solflare?.isSolflare ? w.solflare : null) ?? w.solana ?? null;
-}
-
-export async function connectWallet(): Promise<string> {
-  const p = getProvider();
-  if (!p) throw new Error('No Solana wallet found. Install Phantom or Solflare and set it to devnet.');
-  const { publicKey } = await p.connect();
-  return publicKey.toBase58();
-}
 
 /** Below this the wallet cannot pay a transaction fee (5,000 lamports). */
 const MIN_FEE_LAMPORTS = 10_000;

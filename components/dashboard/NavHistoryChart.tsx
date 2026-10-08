@@ -10,22 +10,17 @@
  */
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Tooltip,
-  Filler,
-  type ChartOptions,
-} from 'chart.js';
-import { Line } from 'react-chartjs-2';
+import nextDynamic from 'next/dynamic';
+import type { ChartOptions } from 'chart.js';
 import { TrendingUp } from 'lucide-react';
 import { logger } from '@/lib/utils/logger';
 import { SkeletonBox } from '@/components/dashboard/community-pool/Skeletons';
 
-ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Filler);
+// chart.js loads in its own chunk; the skeleton below covers the box until it does.
+const Line = nextDynamic(() => import('./NavLineCanvas'), {
+  ssr: false,
+  loading: () => <SkeletonBox className="absolute inset-0 rounded-xl" />,
+});
 
 interface Point {
   t: string;
