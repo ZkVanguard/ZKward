@@ -10,11 +10,12 @@ import type { VercelConfig } from '@vercel/config/v1';
 export const config: VercelConfig = {
   framework: 'nextjs',
 
-  // sin1 keeps the pool's serverless functions co-located with the
-  // Aiven PG-17 primary in Bangalore (~50ms same-region vs ~250ms
-  // cross-region). All capital-touching crons + reads benefit; the
-  // 20-conn plan-wide DB limit makes locality especially important.
-  regions: ['sin1'],
+  // The database runs in eastern Canada; functions sit in the nearest
+  // region because a page read makes dozens of sequential queries, each a
+  // full round trip (about 5 ms from US-east, an estimated 250 ms from
+  // Asia). The SUI RPCs, the venue and the market APIs answer in 30-35 ms
+  // from there too.
+  regions: ['iad1'],
 
   // Only auto-deploy production (main). Every other branch skips
   // Vercel's preview build via ignoreCommand.

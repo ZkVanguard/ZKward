@@ -33,7 +33,7 @@ import { logger } from '@/lib/utils/logger';
 import { notifyDiscord } from '@/lib/utils/discord-notify';
 
 // Live providers verified 2026-07-29. Keep BlockVision first (best latency
-// from Vercel `sin1`); PublicNode and NodeInfra are backups that also
+// from the functions' region); PublicNode and NodeInfra are backups that also
 // answer JSON-RPC for `sui_getObject`.
 const DEFAULT_MAINNET_URLS = [
   'https://sui-mainnet-endpoint.blockvision.org',

@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation';
-import { getTranslations } from 'next-intl/server';
+import { getTranslations, setRequestLocale } from 'next-intl/server';
 import type { Metadata, Viewport } from 'next';
 import '../../styles/globals.css';
 import { Providers } from '../providers';
@@ -155,6 +155,9 @@ export default async function LocaleLayout(
   if (!locales.includes(locale as typeof locales[number])) {
     notFound();
   }
+  // Without this, next-intl reads the locale from request headers, which
+  // makes every page under [locale] render per request and skip the CDN.
+  setRequestLocale(locale);
 
   // JSON-LD structured data. Organization + WebSite. Emitted on every
   // page so Google can build a knowledge-panel + sitelinks searchbox.
