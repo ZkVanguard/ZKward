@@ -293,6 +293,10 @@ export default function DashboardPage() {
   const tDash = useTranslations('dashboard');
   const [activeDest, setActiveDest] = useState<DestId>('pool');
   const [activeView, setActiveView] = useState<string | null>(null);
+  // The page is prerendered without the query string, so the view is known
+  // only after mount; until then render no view, or a deep link would first
+  // mount the Pool view and start its downloads and reads.
+  const [urlRead, setUrlRead] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showChat, setShowChat] = useState(false);
 
@@ -306,13 +310,14 @@ export default function DashboardPage() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const tab = params.get('tab');
-    if (!tab) return;
-    const legacy = LEGACY_TABS[tab];
-    const dest = legacy?.dest ?? (destinations.some((d) => d.id === tab) ? (tab as DestId) : null);
-    if (!dest) return;
-    const view = params.get('view') ?? legacy?.view ?? null;
-    setActiveDest(dest);
-    setActiveView(view && viewsOf(dest).some((v) => v.id === view) ? view : defaultView(dest));
+    const legacy = tab ? LEGACY_TABS[tab] : undefined;
+    const dest = tab ? legacy?.dest ?? (destinations.some((d) => d.id === tab) ? (tab as DestId) : null) : null;
+    if (dest) {
+      const view = params.get('view') ?? legacy?.view ?? null;
+      setActiveDest(dest);
+      setActiveView(view && viewsOf(dest).some((v) => v.id === view) ? view : defaultView(dest));
+    }
+    setUrlRead(true);
   }, []);
 
   const handleNavChange = useCallback((dest: DestId, view?: string) => {
@@ -504,7 +509,7 @@ export default function DashboardPage() {
             <Suspense fallback={<LoadingSkeleton height="h-96" />}>
               <div key={`${activeDest}:${activeView ?? ''}`} className="animate-fade-in">
                 {/* A view that throws shows a message and a retry; the navigation around it keeps working. */}
-                <SectionErrorBoundary resetKey={`${activeDest}:${activeView ?? ''}`}>{renderContent()}</SectionErrorBoundary>
+                <SectionErrorBoundary resetKey={`${activeDest}:${activeView ?? ''}`}>{urlRead ? renderContent() : <LoadingSkeleton height="h-96" />}</SectionErrorBoundary>
               </div>
             </Suspense>
           </div>

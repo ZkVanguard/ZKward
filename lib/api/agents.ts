@@ -1,7 +1,5 @@
 /**
  * Frontend fetch wrappers for the agent API routes.
- * For risk/hedge analysis, call fetchRiskAnalysis / fetchHedgeRecommendations
- * from lib/services/ai-decisions directly (cached).
  */
 
 import { AgentTask as SharedAgentTask } from '../../shared/types/agent';

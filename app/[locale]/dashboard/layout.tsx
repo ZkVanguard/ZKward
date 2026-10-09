@@ -7,7 +7,6 @@
 
 import type { ReactNode } from 'react';
 import { PositionsProvider } from '@/contexts/PositionsContext';
-import { AIDecisionsProvider } from '@/contexts/AIDecisionsContext';
 import { WalletProviders } from '@/app/wallet-providers';
 import { WalletHubProvider } from '@/contexts/WalletHubContext';
 import { Navbar } from '@/components/Navbar';
@@ -21,9 +20,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       <WalletHubProvider>
         <Navbar />
         <PositionsProvider>
-          <AIDecisionsProvider>
-            {children}
-          </AIDecisionsProvider>
+          {children}
         </PositionsProvider>
       </WalletHubProvider>
     </WalletProviders>

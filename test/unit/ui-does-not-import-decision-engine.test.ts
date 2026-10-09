@@ -24,9 +24,8 @@ const ENGINE = [
   '@/agents/',
 ];
 
-/** UI trees, plus the browser-side service files the UI imports. */
+/** UI trees. */
 const UI_DIRS = ['components', 'contexts', 'lib/hooks', 'lib/api', 'app'];
-const UI_FILES = ['lib/services/ai-decisions.ts', 'lib/services/ai-manager.ts', 'lib/services/ai-price-integration.ts'];
 
 function walk(dir: string): string[] {
   const out: string[] = [];
@@ -41,7 +40,7 @@ function walk(dir: string): string[] {
 }
 
 describe('UI code does not import the decision engine', () => {
-  const files = [...UI_DIRS.flatMap((d) => walk(join(ROOT, d))), ...UI_FILES];
+  const files = UI_DIRS.flatMap((d) => walk(join(ROOT, d)));
 
   it('scans the UI', () => {
     expect(files.length).toBeGreaterThan(100);

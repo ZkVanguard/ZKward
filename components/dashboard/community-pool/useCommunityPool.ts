@@ -386,17 +386,15 @@ export function useCommunityPool(propAddress?: string, evmActive: boolean = true
       if (selectedChain === 'sui') {
         const userAddress = suiAddress; // Only use SUI address for SUI chain
         try {
-          const [poolRes, userRes] = await Promise.all([
-            fetch(`/api/sui/community-pool?network=${suiNetwork}`),
-            userAddress
-              ? fetch(`/api/sui/community-pool?user=${userAddress}&network=${suiNetwork}`)
-              : null,
-          ]);
-
-          const [poolJson, userJson] = await Promise.all([
-            poolRes.json(),
-            userRes ? userRes.json() : null,
-          ]);
+          // Both reads start together, but the pool's numbers are drawn as
+          // soon as they land; the wallet's own position follows when its
+          // read does (it bypasses the shared cache and is the slower one).
+          const userRead = userAddress
+            ? fetch(`/api/sui/community-pool?user=${userAddress}&network=${suiNetwork}`)
+                .then((res) => res.json())
+                .catch((err) => { logger.warn('[CommunityPool] SUI position fetch warning:', err); return null; })
+            : null;
+          const poolJson = await fetch(`/api/sui/community-pool?network=${suiNetwork}`).then((res) => res.json());
 
           if (!live(seq)) return;
 
@@ -412,16 +410,18 @@ export function useCommunityPool(propAddress?: string, evmActive: boolean = true
           }
           dispatchPool({ type: 'SET_POOL_DATA', payload: mapApiToPoolSummary(poolJson.data) });
 
-          if (userJson?.success) {
-            dispatchPool({
-              type: 'SET_USER_POSITION',
-              payload: mapApiToUserPosition(userJson.data, userAddress),
-            });
-          }
-
-          // Stop the spinner as soon as pool+user data land — leaderboard
-          // is enrichment, not critical path.
           dispatchPool({ type: 'SET_LOADING', payload: false });
+
+          // A failed position read keeps whatever is shown; it never reads
+          // as an empty position.
+          void userRead?.then((userJson) => {
+            if (live(seq) && userJson?.success && userAddress) {
+              dispatchPool({
+                type: 'SET_USER_POSITION',
+                payload: mapApiToUserPosition(userJson.data, userAddress),
+              });
+            }
+          });
 
           // Override the on-chain ATH with the DB-verified peak.
           // Why: Move's all_time_high_nav_per_share is a monotonic
@@ -497,16 +497,14 @@ export function useCommunityPool(propAddress?: string, evmActive: boolean = true
       const chainParam = `&chain=${selectedChain}&network=${network}`;
 
       try {
-        // Fetch pool and user data first (critical for UI)
-        const [poolRes, userRes] = await Promise.all([
-          fetch(`/api/community-pool?${chainParam.substring(1)}`),
-          address ? fetch(`/api/community-pool?user=${address}${chainParam}`) : null,
-        ]);
-
-        const [poolJson, userJson] = await Promise.all([
-          poolRes.json(),
-          userRes ? userRes.json() : null,
-        ]);
+        // Pool numbers are drawn as soon as they land; the wallet's own
+        // position follows when its (uncached, slower) read does.
+        const userRead = address
+          ? fetch(`/api/community-pool?user=${address}${chainParam}`)
+              .then((res) => res.json())
+              .catch((err) => { logger.warn('[CommunityPool] Position fetch warning:', err); return null; })
+          : null;
+        const poolJson = await fetch(`/api/community-pool?${chainParam.substring(1)}`).then((res) => res.json());
 
         if (!live(seq)) return;
 
@@ -516,12 +514,15 @@ export function useCommunityPool(propAddress?: string, evmActive: boolean = true
           return;
         }
         dispatchPool({ type: 'SET_POOL_DATA', payload: poolJson.pool });
-        if (userJson?.success) {
-          dispatchPool({ type: 'SET_USER_POSITION', payload: userJson.user });
-        }
-
-        // Stop loading spinner as soon as critical data is ready
         dispatchPool({ type: 'SET_LOADING', payload: false });
+
+        // A failed position read keeps whatever is shown; it never reads
+        // as an empty position.
+        void userRead?.then((userJson) => {
+          if (live(seq) && userJson?.success) {
+            dispatchPool({ type: 'SET_USER_POSITION', payload: userJson.user });
+          }
+        });
 
         // Fetch leaderboard separately (non-blocking)
         // This heavy operation iterates all members on-chain

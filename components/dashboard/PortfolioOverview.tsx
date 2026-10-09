@@ -19,10 +19,6 @@ export function PortfolioOverview({ address, onNavigateToHedges }: PortfolioOver
   const { positionsData, derived, loading, refetch, isPending } = usePositions();
 
   useEffect(() => {
-    // OPTIMIZATION: Removed redundant AI analysis fetch
-    // AI recommendations are already available via AIDecisionsContext
-    // This prevents duplicate API calls to /api/agents/hedging/recommend
-
     // Listen for hedge updates to refresh
     const handleHedgeUpdate = () => {
       logger.debug('[PortfolioOverview] Hedge updated, refreshing');
