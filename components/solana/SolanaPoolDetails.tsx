@@ -97,7 +97,7 @@ export function SolanaSleevePanel() {
       <p className="text-[11px] text-label-tertiary leading-relaxed">
         Opens a trade on BTC, ETH or SOL only after the platform&apos;s signal for that coin has been proven against
         real price moves{provenCoins.length ? '' : '; none is proven yet, so it is not trading'}. Sized to the pool&apos;s
-        value, with real trading fees counted. {data?.testnet !== false && 'It is simulated; '}profits would reach the
+        value, with real trading fees counted. {sleeve.live?.enabled ? (sleeve.live.network === 'mainnet' ? 'Orders are real; ' : 'Orders go to a test exchange; ') : 'It is simulated; '}profits would reach the
         vault as token buybacks.
       </p>
     </div>

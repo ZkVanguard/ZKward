@@ -38,6 +38,17 @@ import {
   recordCloseLearning,
   settleHedgeRow,
 } from '@/lib/services/paper-trader/close-pipeline';
+import {
+  closeLive,
+  flattenUntracked,
+  liveEntryBlock,
+  liveHasPosition,
+  liveStatus,
+  openLive,
+  recordLiveOutcome,
+  settledResult,
+  sleeveLiveEnabled,
+} from './sleeve-live';
 
 const KEY_POSITION = 'solana-pool:sleeve-position';
 const KEY_STATS = 'solana-pool:sleeve-stats';
@@ -60,6 +71,16 @@ export interface SleevePositionState {
   orderId: string;
   position: SimulatedPosition;
   stopLossPrice: number;
+  /** Set when the position is real: the venue account's equity just before it was opened. */
+  live?: { equityBeforeUsd: number };
+}
+
+/** Every live event is said out loud. `chain` keeps it out of the SUI pool's alert counts. */
+async function alertLive(message: string, level: 'TRADE' | 'WARN' | 'ERROR', context: Record<string, unknown> = {}): Promise<void> {
+  try {
+    const { notifyDiscord } = await import('@/lib/utils/discord-notify');
+    await notifyDiscord(`[SolanaSleeve live · ${liveStatus().network}] ${message}`, level, { chain: 'solana', ...context });
+  } catch { /* the log line at the call site stands */ }
 }
 
 export interface SleeveStats {
@@ -126,7 +147,19 @@ export async function runSolanaSleeveTick(
       pos.side === 'LONG' ? mark <= state.stopLossPrice : mark >= state.stopLossPrice;
 
     let closeReason: string | null = null;
-    if (stopHit) closeReason = `stop-loss hit at ${mark.toFixed(2)}`;
+    // A live position that is gone from the venue was closed there (a
+    // liquidation, or by hand). There is nothing left to send; it is settled.
+    let venueClosed = false;
+    if (state.live) {
+      try {
+        venueClosed = !(await liveHasPosition(pos.asset));
+      } catch (e) {
+        return { action: 'held', detail: `venue unreadable; retry next tick (${errMsg(e).slice(0, 80)})` };
+      }
+      if (venueClosed) closeReason = 'closed on the venue';
+    }
+    if (closeReason) { /* decided above */ }
+    else if (stopHit) closeReason = `stop-loss hit at ${mark.toFixed(2)}`;
     else if (holdMin >= MAX_HOLD_MIN()) closeReason = `max-hold ${MAX_HOLD_MIN()}min ceiling`;
 
     if (!closeReason) {
@@ -134,7 +167,24 @@ export async function runSolanaSleeveTick(
       return { action: 'held', detail: `${pos.asset} ${pos.side} uPnL $${mtm.unrealizedPnlUsd.toFixed(2)}` };
     }
 
-    const result = simulateClose(pos, mark, now);
+    let result = simulateClose(pos, mark, now);
+    if (state.live) {
+      // The venue decides the result: its fill, its fees, its funding.
+      let live: Awaited<ReturnType<typeof closeLive>>;
+      try {
+        live = venueClosed
+          ? { ok: true, ...(await settledResult(pos.asset, state.live.equityBeforeUsd)) }
+          : await closeLive({ asset: pos.asset, side: pos.side, orderId: state.orderId, equityBeforeUsd: state.live.equityBeforeUsd, now });
+      } catch (e) {
+        live = { ok: false, reason: errMsg(e).slice(0, 120) };
+      }
+      if (!live.ok) {
+        logger.error('[SolanaSleeve] live close did not complete', { orderId: state.orderId, reason: live.reason });
+        await alertLive(`close of ${pos.asset} ${pos.side} did not complete: ${live.reason}. Retrying every minute.`, 'ERROR');
+        return { action: 'held', detail: `live close pending: ${live.reason}` };
+      }
+      result = { ...simulateClose(pos, live.exitPrice, now), realizedPnlUsd: live.realizedUsd };
+    }
     // Settle first: it decides which of two overlapping ticks closed the
     // position. The loser counts nothing.
     const settled = await settleHedgeRow({
@@ -164,6 +214,13 @@ export async function runSolanaSleeveTick(
     stats.lastRealizedUsd = result.realizedPnlUsd;
     await setCronState(KEY_STATS, stats);
     await setCronState(KEY_POSITION, null);
+    if (state.live) {
+      const { halted } = await recordLiveOutcome(result.realizedPnlUsd, now);
+      await alertLive(
+        `closed ${pos.asset} ${pos.side}: ${result.realizedPnlUsd >= 0 ? '+' : '−'}$${Math.abs(result.realizedPnlUsd).toFixed(2)} (${closeReason})${halted ? ' · new entries halted for 24 h after a run of losses' : ''}`,
+        halted ? 'WARN' : 'TRADE',
+      );
+    }
 
     logger.info('[SolanaSleeve] closed', {
       orderId: state.orderId,
@@ -182,6 +239,21 @@ export async function runSolanaSleeveTick(
     Math.max(poolNavUsd * MARGIN_RATIO(), MIN_NOTIONAL()),
     MAX_NOTIONAL(),
   );
+
+  // A venue position the sleeve has no record of has no stop: close it
+  // before anything else, and open nothing this tick.
+  const live = sleeveLiveEnabled();
+  if (live) {
+    try {
+      const untracked = await flattenUntracked(ASSETS, now);
+      if (untracked.length) {
+        await alertLive(`found a venue position with no record and sent its close: ${untracked.join(', ')}`, 'ERROR');
+        return { action: 'idle', detail: `closing untracked venue position (${untracked.join(', ')})` };
+      }
+    } catch (e) {
+      return { action: 'idle', detail: `venue unreadable; no live entry (${errMsg(e).slice(0, 80)})` };
+    }
+  }
 
   // Proof first: with nothing proven there is nothing to scan for.
   const evidence = await sleeveEvidence();
@@ -253,16 +325,35 @@ export async function runSolanaSleeveTick(
     const entry = await markPrice(best.asset);
     if (!entry) return { action: 'idle', detail: 'no validated entry price' };
 
+    const orderId = `solsleeve_${best.asset}_${Math.floor(now / 1000)}`;
+
+    // Live: the venue's fill replaces the simulated one. No fill, no position.
+    let entryPrice = entry;
+    let notional = target;
+    let liveState: SleevePositionState['live'];
+    if (live) {
+      const block = await liveEntryBlock(now);
+      if (block) return { action: 'idle', detail: block, navUsd: poolNavUsd, targetNotionalUsd: target };
+      const opened = await openLive({ asset: best.asset, side: best.side, notionalUsd: target, orderId });
+      if (!opened.ok) {
+        logger.warn('[SolanaSleeve] live open refused', { asset: best.asset, reason: opened.reason, sent: opened.sent });
+        if (opened.sent) await alertLive(`${opened.reason}. If it fills late it is closed on the next tick.`, 'ERROR');
+        return { action: 'idle', detail: `live open: ${opened.reason}`, navUsd: poolNavUsd, targetNotionalUsd: target };
+      }
+      entryPrice = opened.entryPrice;
+      notional = opened.size * opened.entryPrice;
+      liveState = { equityBeforeUsd: opened.equityBeforeUsd };
+    }
+
     const pos = simulateOpen(
-      { asset: best.asset, side: best.side, notionalUsd: target, leverage: 1, entryPrice: entry },
+      { asset: best.asset, side: best.side, notionalUsd: notional, leverage: 1, entryPrice },
       now,
     );
     pos.sourceSnapshot = best.snapshot;
     pos.entryConfidence = best.conf;
     const stopLossPrice =
-      best.side === 'LONG' ? entry * (1 - STOP_PCT() / 100) : entry * (1 + STOP_PCT() / 100);
+      best.side === 'LONG' ? entryPrice * (1 - STOP_PCT() / 100) : entryPrice * (1 + STOP_PCT() / 100);
 
-    const orderId = `solsleeve_${best.asset}_${Math.floor(now / 1000)}`;
     try {
       const { createHedge } = await import('@/lib/db/hedges');
       await createHedge({
@@ -272,12 +363,12 @@ export async function runSolanaSleeveTick(
         market: `${best.asset}-PERP`,
         side: best.side,
         size: pos.size,
-        notionalValue: target,
+        notionalValue: notional,
         leverage: 1,
-        entryPrice: entry,
+        entryPrice,
         stopLoss: stopLossPrice,
-        simulationMode: true,
-        chain: 'solana-devnet',
+        simulationMode: !liveState,
+        chain: liveState ? `solana-perps-${liveStatus().network}` : 'solana-devnet',
         reason: `sleeve entry conf=${best.conf}${best.horizonMin ? ` | ledger ${best.horizonMin}m@${Math.round((best.hitRate ?? 0) * 100)}%` : ''}`,
         metadata: { holdPlan: { horizonMin: best.horizonMin, hitRate: best.hitRate } },
       });
@@ -287,17 +378,19 @@ export async function runSolanaSleeveTick(
       });
     }
 
-    await setCronState(KEY_POSITION, { orderId, position: pos, stopLossPrice } satisfies SleevePositionState);
+    await setCronState(KEY_POSITION, { orderId, position: pos, stopLossPrice, ...(liveState ? { live: liveState } : {}) } satisfies SleevePositionState);
+    if (liveState) await alertLive(`opened ${best.asset} ${best.side} $${notional.toFixed(2)} at ${entryPrice.toFixed(2)}`, 'TRADE');
     logger.info('[SolanaSleeve] opened', {
       orderId,
       asset: best.asset,
       side: best.side,
-      notionalUsd: target.toFixed(2),
+      notionalUsd: notional.toFixed(2),
       conf: best.conf,
+      live: !!liveState,
     });
     return {
       action: 'opened',
-      detail: `${best.asset} ${best.side} $${target.toFixed(2)} @ ${entry.toFixed(2)} (conf ${best.conf})`,
+      detail: `${best.asset} ${best.side} $${notional.toFixed(2)} @ ${entryPrice.toFixed(2)} (conf ${best.conf})${liveState ? ' LIVE' : ''}`,
       navUsd: poolNavUsd,
       targetNotionalUsd: target,
     };
@@ -314,6 +407,8 @@ export async function getSleeveStatus(): Promise<{
     | (SleevePositionState & { markPrice: number | null; unrealizedPnlUsd: number | null })
     | null;
   evidence: SleeveEvidence;
+  /** Whether entries go to a real venue, and on which of its networks. */
+  live: { enabled: boolean; network: string };
 }> {
   const stats = (await getCronState<SleeveStats>(KEY_STATS)) ?? {
     trades: 0,
@@ -322,8 +417,9 @@ export async function getSleeveStatus(): Promise<{
   };
   const state = await getCronState<SleevePositionState>(KEY_POSITION);
   const evidence = await sleeveEvidence();
-  if (!state?.position) return { stats, position: null, evidence };
+  const live = liveStatus();
+  if (!state?.position) return { stats, position: null, evidence, live };
   const mark = await markPrice(state.position.asset);
   const u = mark ? markToMarket(state.position, mark, Date.now()).unrealizedPnlUsd : null;
-  return { stats, position: { ...state, markPrice: mark, unrealizedPnlUsd: u }, evidence };
+  return { stats, position: { ...state, markPrice: mark, unrealizedPnlUsd: u }, evidence, live };
 }
