@@ -191,8 +191,13 @@ describe('scoreboard', () => {
 
   it('the title leads with the profit and the market lean; the colour follows the profit', () => {
     const e = scoreboardEmbed(board(), NOW);
-    expect(e.title).toBe('📊 Paper books +$12.50 in 24 h · market leaning down');
+    expect(e.title).toBe('📊 Paper books +$12.50 in 24 h · open +$2.23 · market leaning down');
     expect(e.color).toBe(GREEN);
+    // Booked profit with a larger open loss is a red board.
+    const under = board();
+    under.open = under.open.map((p) => ({ ...p, markPrice: p.entryPrice * (p.side === 'LONG' ? 0.9 : 1.1) }));
+    expect(scoreboardEmbed(under, NOW).color).toBe(RED);
+    expect(scoreboardEmbed(board(), NOW).description).toContain('break-even 91% wins before costs');
     expect(scoreboardEmbed(board({ books: [{ label: 'PaperTrader', day: stats(), long: null, resting: null, lastSkip: null }] }), NOW).color).toBe(RED);
   });
 

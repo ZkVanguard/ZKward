@@ -155,7 +155,12 @@ function policyLine(): string {
   const exits = PAPER_EXIT_MODE === 'target'
     ? `target +${PAPER_TARGET_TP_BP} bp / stop −${PAPER_TARGET_STOP_BP} bp / ${Math.round(PAPER_TARGET_MAX_HOLD_MIN / 60)} h limit`
     : 'adaptive exits';
-  return `${exits} · ${PAPER_EXECUTION} orders`;
+  // The win rate these exits produce with no skill at all, which is also
+  // the rate they need before costs. A win rate is read against it.
+  const bar = PAPER_EXIT_MODE === 'target' && PAPER_TARGET_TP_BP + PAPER_TARGET_STOP_BP > 0
+    ? ` · break-even ${Math.round((100 * PAPER_TARGET_STOP_BP) / (PAPER_TARGET_TP_BP + PAPER_TARGET_STOP_BP))}% wins before costs`
+    : '';
+  return `${exits} · ${PAPER_EXECUTION} orders${bar}`;
 }
 
 export interface MarketRow {
@@ -226,6 +231,12 @@ export function scoreboardEmbed(s: Scoreboard, now: number): DiscordEmbed {
   const downs = s.market?.filter((m) => m.direction === 'DOWN').length ?? 0;
   const lean = !s.market ? '' : ups > downs ? ' · market leaning up' : downs > ups ? ' · market leaning down' : ' · market mixed';
 
+  // Booked profit alone hid a position far past its stop: the headline
+  // carries what is still open at its running mark.
+  const marked = s.open.filter((p) => p.markPrice);
+  const openNet = marked.reduce((sum, p) => sum + (p.notionalUsd * favourBp(p.side, p.entryPrice, p.markPrice as number)) / 10_000, 0);
+  const total = dayNet + openNet;
+
   const openLines = s.open.map(openLine);
   for (const b of s.books) {
     if (b.resting) openLines.push(`⏳ ${b.resting.side} **${b.resting.asset}** resting at ${price(b.resting.limitPrice)} · ${b.label}`);
@@ -247,8 +258,8 @@ export function scoreboardEmbed(s: Scoreboard, now: number): DiscordEmbed {
   if (s.evidence) fields.push({ name: EVIDENCE_FIELD, value: s.evidence, inline: false });
 
   return {
-    title: `📊 Paper books ${usd(dayNet)} in 24 h${lean}`,
-    color: dayNet > 0 ? GREEN : dayNet < 0 ? RED : GREY,
+    title: `📊 Paper books ${usd(dayNet)} in 24 h${marked.length ? ` · open ${usd(openNet)}` : ''}${lean}`,
+    color: total > 0 ? GREEN : total < 0 ? RED : GREY,
     description: policyLine(),
     fields,
     footer: { text: 'simulated · all trading costs included' },

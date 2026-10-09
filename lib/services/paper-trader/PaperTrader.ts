@@ -734,7 +734,7 @@ export class PaperTrader {
     const sized = await sizeCandidate(picked, nav, now);
     const { notionalUsd, signalScalar, volMult, calibrationBoost } = sized;
     if (notionalUsd < 1) {
-      return { action: 'skipped', reason: `notional too small ($${notionalUsd.toFixed(2)})`, nav };
+      return { action: 'skipped', reason: `notional too small ($${notionalUsd.toFixed(2)}, signal ${sized.evidence})`, nav };
     }
     const conf = picked.prediction.confidence ?? 0;
     const cons = (picked.prediction as { consensus?: number }).consensus ?? 0;

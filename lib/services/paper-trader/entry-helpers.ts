@@ -41,6 +41,7 @@ import {
   PAPER_LEDGER_GATE,
 } from './config';
 import { assetHoldPlan, getLedgerCells, getRecentLedgerCells, type LedgerCell } from '@/lib/services/market-data/ledger-cells';
+import { getLoopState, resolveVerdict } from '@/lib/services/market-data/feedback-loop';
 import type { Side } from './simulated-executor';
 import { getMultiSourceValidatedPrice } from '@/lib/services/market-data/unified-price-provider';
 import { computeSignalScalar, computeCalibrationBoost } from './sizing';
@@ -82,6 +83,22 @@ export interface SizeResult {
   calibrationBoost: number;
   regimeStakeMult: number;
   probeStakeMult: number;
+  /** The ledger's verdict on the combined signal for this coin; it sets the size tier. */
+  evidence: SignalEvidence;
+}
+
+export type SignalEvidence = 'proven' | 'unproven' | 'wrong-way';
+
+/**
+ * Size follows what the ledger has shown, not what the signal claims: full
+ * size only for a coin whose combined signal is proven, probe size while it
+ * is unproven, nothing while it is measured to point the wrong way. The
+ * ledger records every call whether or not a book trades it, so a verdict
+ * can change without the book having to trade its way out.
+ */
+export function evidenceStakeMult(evidence: SignalEvidence, probe: boolean): number {
+  if (evidence === 'wrong-way') return 0;
+  return evidence === 'proven' && !probe ? 1 : PAPER_PROBE_STAKE_MULT;
 }
 
 export interface ConcurrencyFilter {
@@ -408,7 +425,10 @@ export async function sizeCandidate(
     })),
   );
   const regimeStakeMult = picked.regime === 'CHOP' ? PAPER_CHOP_STAKE_MULT : 1;
-  const probeStakeMult = picked.probe ? PAPER_PROBE_STAKE_MULT : 1;
+  // An unreadable verdict store reads as unproven: the smaller size.
+  const loop = await getLoopState().catch(() => null);
+  const evidence: SignalEvidence = resolveVerdict(loop, 'aggregate', picked.asset).verdict;
+  const probeStakeMult = evidenceStakeMult(evidence, !!picked.probe);
   const rawStake =
     nav * PAPER_STAKE_PCT * signalScalar * volMult * calibrationBoost * regimeStakeMult * probeStakeMult;
   // Hard cap on stake (was missing — paper had unbounded stake vs live's
@@ -418,5 +438,5 @@ export async function sizeCandidate(
   const maxStake = nav * PAPER_MAX_STAKE_PCT;
   const stakeUsd = Math.min(rawStake, maxStake);
   const notionalUsd = stakeUsd * PAPER_LEVERAGE;
-  return { notionalUsd, stakeUsd, signalScalar, volMult, calibrationBoost, regimeStakeMult, probeStakeMult };
+  return { notionalUsd, stakeUsd, signalScalar, volMult, calibrationBoost, regimeStakeMult, probeStakeMult, evidence };
 }
