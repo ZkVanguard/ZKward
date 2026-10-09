@@ -1,4 +1,5 @@
 import { ImageResponse } from 'next/og';
+import { locales } from '@/i18n/routing';
 
 // Route segment config. next/og defaults to Edge Runtime, but the 1 MB
 // Edge Function size cap is exceeded (1.08 MB) once Privy + wagmi ship
@@ -9,6 +10,12 @@ export const runtime = 'nodejs';
 export const alt = 'ZKward. 20 signal sources. Ranked by track record.';
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
+
+// A route handler does not inherit the layout's params, so without this
+// the image is drawn on every request under [locale].
+export function generateStaticParams() {
+  return locales.map((locale) => ({ locale }));
+}
 
 // Root-level OG image, applies to every marketing route via metadata
 // cascade unless a specific route provides its own opengraph-image.tsx.
