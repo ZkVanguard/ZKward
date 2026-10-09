@@ -42,6 +42,8 @@ export interface EdgeResult {
     | 'skip-asset-too-small-nav'
     | 'regret-halt'
     | 'treasury-halt'
+    | 'trading-paused'
+    | 'venue-read-failed'
     | 'funding-headwind'
     | 'exposure-cap';
   trade?: {

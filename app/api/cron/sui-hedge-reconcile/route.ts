@@ -87,15 +87,14 @@ export async function GET(request: NextRequest): Promise<NextResponse<ReconcileR
     (process.env.SUI_NETWORK as 'mainnet' | 'testnet') === 'testnet' ? 'testnet' : 'mainnet';
 
   const auth = await verifyCronRequest(request, 'SuiHedgeReconcile');
-  // Heartbeat for /api/health/production cron-freshness check. Fire-and-forget
-  // so a DB hiccup never blocks reconcile work.
-  void setCronState('cron:lastRun:sui-hedge-reconcile', Date.now()).catch(() => {});
   if (auth !== true) {
     return NextResponse.json(
       { success: false, ranAt, network, attempted: false, reason: 'Unauthorized' },
       { status: 401 },
     );
   }
+  // Heartbeat for the production health check: an authenticated run started.
+  void setCronState('cron:lastRun:sui-hedge-reconcile', Date.now()).catch(() => {});
 
   // Piggyback silent-drift watchdog on this hourly cron — the pool is at
   // its 10-slot QStash schedule cap and this pair (deploy-drift + state-

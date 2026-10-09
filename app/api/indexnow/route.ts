@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
+import { cronSecretMatches } from '@/lib/security/cron-auth';
 
 // IndexNow endpoint — ping Bing, Yandex, Seznam, Naver et al. to instantly
 // re-index a URL. Free, open protocol (indexnow.org). Bing + Yandex share
@@ -20,7 +21,7 @@ const HOST = new URL(BASE).host;
 export async function POST(request: NextRequest) {
   const secret = process.env.CRON_SECRET?.trim();
   const provided = request.headers.get('x-refresh-secret')?.trim();
-  if (!secret || provided !== secret) {
+  if (!cronSecretMatches(provided ? `Bearer ${provided}` : null, secret)) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
   }
 

@@ -56,9 +56,9 @@ interface WindowEntry {
 }
 
 const DEFAULT_KEY_FN = (request: NextRequest): string => {
-  // Prefer wallet address for user-level limiting, fallback to IP
-  const wallet = request.headers.get('x-wallet-address');
-  if (wallet) return `w:${wallet.toLowerCase()}`;
+  // The client address, as set by the platform edge. Never a header the
+  // caller chooses: keying on `x-wallet-address` gave a fresh bucket to
+  // anyone who changed it on each request.
   return (
     request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
     request.headers.get('x-real-ip') ||

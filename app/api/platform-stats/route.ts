@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
     // ZK proof count — sum across every DB-backed proof source rather than
     // just hedges. Custody attestations + zk_hedge_commitment.move + hedge
     // ZK-proof hashes all count. Anything that's only on-chain (no DB row)
-    // is not included; those numbers are surfaced by /api/zk-proof/lookup.
+    // is not included.
     let zkProofCount = 0;
     try {
       const { getHedgeStats } = await import('@/lib/db/hedges');

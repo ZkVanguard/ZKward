@@ -413,12 +413,19 @@ export async function closeHedge(
 ): Promise<void> {
   // Mirror realized_pnl into current_pnl so closed-hedge analytics that sum
   // current_pnl don't carry over stale price-watch snapshots.
+  // Settle once: a row another path already closed keeps its figure, and
+  // nothing below runs for it.
   const sql = `
     UPDATE hedges
     SET status = $1, realized_pnl = $2, current_pnl = $2, closed_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
-    WHERE order_id = $3
+    WHERE order_id = $3 AND status NOT IN ('closed', 'liquidated')
+    RETURNING id
   `;
-  await query(sql, [status, realizedPnl, orderId]);
+  const settled = await query(sql, [status, realizedPnl, orderId]);
+  if (settled.length === 0) {
+    logger.warn('[Hedges] closeHedge: row already closed or missing — nothing settled', { orderId });
+    return;
+  }
 
   // Treasury credit — idempotent per orderId. Fire-and-forget: a treasury
   // outage never blocks the hedge state transition.

@@ -65,18 +65,28 @@ async function ensureTable(): Promise<void> {
  * Returns null if key doesn't exist or DB is unavailable.
  */
 export async function getCronState<T = unknown>(key: string): Promise<T | null> {
-  if (shouldReadFromRedis()) return redisImpl.getCronState<T>(key);
   try {
-    await ensureTable();
-    const row = await queryOne<{ value: T }>(
-      'SELECT value FROM cron_state WHERE key = $1',
-      [key],
-    );
-    return row?.value ?? null;
+    return await getCronStateStrict<T>(key);
   } catch (error: any) {
     logger.warn(`[CronState] Failed to get "${key}":`, { error: error?.message });
     return null;
   }
+}
+
+/**
+ * The same read, but a failed read throws. For a caller where "the store did
+ * not answer" must not look like "the key is not set" (a halt, a claim).
+ */
+export async function getCronStateStrict<T = unknown>(key: string): Promise<T | null> {
+  // ponytail: the Redis layer still answers null on its own errors; its read
+  // flag is unset in production. Make it throw before turning that flag on.
+  if (shouldReadFromRedis()) return redisImpl.getCronState<T>(key);
+  await ensureTable();
+  const row = await queryOne<{ value: T }>(
+    'SELECT value FROM cron_state WHERE key = $1',
+    [key],
+  );
+  return row?.value ?? null;
 }
 
 /**
@@ -308,10 +318,13 @@ export async function getCronHalt(
   now: number = Date.now(),
 ): Promise<{ untilMs: number; reason: string } | null> {
   try {
-    const [until, reason] = await Promise.all([
-      getNumber(CronKeys.cronHaltUntil(cronId), 0),
+    // Strict: the lenient read turned a store error into "no halt", so the
+    // synthetic halt below could never fire.
+    const [untilRaw, reason] = await Promise.all([
+      getCronStateStrict<number>(CronKeys.cronHaltUntil(cronId)),
       getCronStateOr<string>(CronKeys.cronHaltReason(cronId), 'unspecified'),
     ]);
+    const until = Number(untilRaw ?? 0);
     if (until <= now) return null;
     return { untilMs: until, reason };
   } catch (error: any) {

@@ -41,13 +41,11 @@ import { verifyCronRequest } from '@/lib/qstash';
 import { errMsg } from '@/lib/utils/error-handler';
 import { computeEdgeStake } from '@/lib/services/trading/edge-sizing';
 import { notifyDiscord } from '@/lib/utils/discord-notify';
-import { envFlag } from '@/lib/utils/env-flag';
 import { BluefinService, type BluefinPosition } from '@/lib/services/sui/BluefinService';
 import { safeBluefinSnapshot, refreshBluefinCache } from '@/lib/services/sui/bluefin-read-safe';
 import { PredictionAggregatorService } from '@/lib/services/market-data/PredictionAggregatorService';
-import { getCronStateOr, setCronState } from '@/lib/db/cron-state';
-import { query } from '@/lib/db/postgres';
-import { HEDGES_REAL_ONLY_SQL } from '@/lib/db/hedges-scope';
+import { getCronStateOr, setCronState, tryClaimCronRun } from '@/lib/db/cron-state';
+import { isPoolTradingEnabled } from '@/lib/services/sui/pool-trading-pause';
 import { fundingEdge, exposureCap, riskGate } from '@/lib/services/trading/trade-quality-gates';
 import { completeTrade, getPriceAlertedSymbols } from '@/lib/services/agents/agent-trade-guard';
 import {
@@ -110,6 +108,11 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 30;
 
+// Master fires every 300 s; a claim window just under that lets each firing
+// through and refuses a retry or a second instance inside the same one.
+const CLAIM_ID = 'polymarket-edge-trader';
+const CLAIM_MS = 240_000;
+
 export async function GET(request: NextRequest): Promise<NextResponse<EdgeResult>> {
   const ranAt = new Date().toISOString();
   const auth = await verifyCronRequest(request, 'PolymarketEdgeTrader');
@@ -119,15 +122,11 @@ export async function GET(request: NextRequest): Promise<NextResponse<EdgeResult
       { status: 401 },
     );
   }
-  // After auth: an unauthenticated hit must not make the job look alive.
-  // AWAIT the heartbeat — fire-and-forget gets dropped by Vercel's
-  // serverless suspension after response (observed 2026-06-22: trader
-  // ran successfully via manual trigger, returned full payload, but
-  // health endpoint still showed 'traderCron: no entry yet' because
-  // the void setCronState write didn't complete before the lambda
-  // suspended). Awaiting adds ~50ms but guarantees the heartbeat
-  // lands.
-  await setCronState('cron:lastRun:polymarket-edge-trader', Date.now()).catch(() => {});
+  // One run per window across every instance. The claim writes this job's
+  // heartbeat (same key), and it fails closed: on a state-store error the
+  // tick is skipped, because every read below would come back as its default
+  // ("no active trade, no halt") and the trader would open on top of itself.
+  const claim = await tryClaimCronRun(CLAIM_ID, CLAIM_MS, Date.now());
 
   // Paper traders tick via their dedicated 60s `paper-fast-tick` cron
   // (jobs.zkward.com schedule). The QStash-era piggyback that ran them
@@ -154,6 +153,15 @@ export async function GET(request: NextRequest): Promise<NextResponse<EdgeResult
   } catch (e) {
     logger.warn('[ResolveOutcomes] piggyback import failed (non-fatal)', {
       error: e instanceof Error ? e.message : String(e),
+    });
+  }
+
+  if (!claim.claimed) {
+    return NextResponse.json({
+      success: true,
+      ranAt,
+      attempted: false,
+      reason: `run not claimed (${claim.reason ?? 'another run holds this window'})`,
     });
   }
 
@@ -231,6 +239,22 @@ export async function GET(request: NextRequest): Promise<NextResponse<EdgeResult
         stats: safeStats, daily,
         error: 'reconcile returned no exit for active trade — investigate',
       }, { status: 500 });
+    }
+
+    // This trader spends the pool's venue collateral, so the pool-trading
+    // pause covers its new opens. An open trade is still managed above.
+    if (!isPoolTradingEnabled()) {
+      const pausedReason = 'pool trading is paused (SUI_POOL_TRADING_ENABLED unset) — no new opens';
+      await recordSkip('trading-paused', pausedReason);
+      return NextResponse.json({
+        success: true,
+        ranAt,
+        attempted: true,
+        action: 'trading-paused',
+        stats: safeStats,
+        daily,
+        reason: pausedReason,
+      });
     }
 
     // ── 2) No active trade — check halt & daily cap ──────────────────────
@@ -814,7 +838,24 @@ export async function GET(request: NextRequest): Promise<NextResponse<EdgeResult
     // Previously blocked ANY supported perp — meaning an open ETH trade
     // blocked SUI trades even though they're independent bets. Per-asset
     // check unblocks concurrent multi-market opportunities.
-    const positionsPre = await bf.getPositions().catch(() => [] as BluefinPosition[]);
+    // A failed read is not "no position": opening on it could stack a second
+    // position on one the venue already holds.
+    let positionsPre: BluefinPosition[];
+    try {
+      positionsPre = await bf.getPositions();
+    } catch (e) {
+      const readFailedReason = `venue position read failed before open: ${errMsg(e).slice(0, 160)}`;
+      await recordSkip('venue-read-failed', readFailedReason);
+      return NextResponse.json({
+        success: false,
+        ranAt,
+        attempted: true,
+        action: 'venue-read-failed',
+        stats: safeStats,
+        daily,
+        reason: readFailedReason,
+      });
+    }
     const conflict = !!findActivePosition(positionsPre, symbol);
     if (conflict) {
       logger.warn(`[PolymarketEdge] ${symbol} position already exists — skipping new entry`);
