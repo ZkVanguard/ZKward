@@ -27,6 +27,8 @@ export const PERSISTED_KEYS: readonly string[] = [
   'leaderboard',
   'health-gates',
   'spot-prices',
+  'sui-pool',
+  'community-pool',
 ];
 
 const isPersisted = (queryKey: readonly unknown[]): boolean => typeof queryKey[0] === 'string' && PERSISTED_KEYS.includes(queryKey[0]);

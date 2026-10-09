@@ -1,10 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { unifiedPortfolioQuery } from '@/lib/hooks/portfolio-queries';
 import { useWallet } from '@/lib/hooks/useWallet';
 import { WalletContextBadge, ChainSupportNote } from '@/components/wallet/ChainBadge';
 import { Briefcase, TrendingUp, TrendingDown, Layers, Shield, Activity } from 'lucide-react';
-import { logger } from '@/lib/utils/logger';
 import { ConnectPromptButton } from '@/components/ui/ConnectPromptButton';
 
 interface ProductPosition {
@@ -187,38 +187,17 @@ function HedgeRow({ h }: { h: HedgeExposure }) {
 
 export function PortfolioTab() {
   const connected = useWallet();
-  const [data, setData] = useState<UnifiedPortfolio | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   // Prefer SUI wallet (live product); fall back to EVM
   const suiWallet = connected.suiAddress;
   const evmWallet = connected.evmAddress;
   const wallet = suiWallet || evmWallet;
 
-  useEffect(() => {
-    if (!wallet) return;
-    let cancelled = false;
-    setLoading(true);
-    setError(null);
-    fetch(`/api/portfolio/unified?wallet=${wallet}`)
-      .then(async (r) => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        const json = await r.json();
-        if (!cancelled) setData(json as UnifiedPortfolio);
-      })
-      .catch((e: unknown) => {
-        const msg = e instanceof Error ? e.message : String(e);
-        logger.error('[OverviewPage] fetch failed', { error: msg });
-        if (!cancelled) setError(msg);
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [wallet]);
+  // Same cache entry as the positions context and the hedges panel.
+  const unified = useQuery(unifiedPortfolioQuery(wallet));
+  const data = (unified.data as UnifiedPortfolio | undefined) ?? null;
+  const loading = unified.isLoading;
+  const error = unified.error ? unified.error.message : null;
 
   if (!wallet) {
     return (

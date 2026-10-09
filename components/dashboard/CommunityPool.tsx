@@ -113,7 +113,23 @@ export const CommunityPool = memo(function CommunityPool({
   const privyEmbeddedAddress = usePrivyEmbeddedAddress();
 
   const hub = useWalletHub();
-  const pool = useCommunityPool(propAddress ?? privyEmbeddedAddress ?? undefined, hub.activeChain === 'hedera');
+  // This card renders only in the browser, so the pool to open is known
+  // before the first read: a `?chain=` link, else the network the visitor
+  // last used. Starting on the default and switching cost a wasted read and
+  // a skeleton flash.
+  const [initialChain] = useState<ChainKey | undefined>(() => {
+    const params = new URLSearchParams(window.location.search);
+    const fromUrl = params.get('chain') ?? (params.get('tab') === 'solana' ? 'solana' : null);
+    if (fromUrl && isPoolChainKey(fromUrl)) return fromUrl;
+    try {
+      const saved = localStorage.getItem('zkward.activeChain');
+      if (saved && isPoolChainKey(saved)) return saved;
+    } catch {
+      /* storage blocked: default pool */
+    }
+    return undefined;
+  });
+  const pool = useCommunityPool(propAddress ?? privyEmbeddedAddress ?? undefined, hub.activeChain === 'hedera', initialChain);
 
   // `?chain=<key>` opens a specific pool (old `?tab=solana` links land on
   // Solana); every pick keeps the URL in step so a pool can be shared.
@@ -121,9 +137,9 @@ export const CommunityPool = memo(function CommunityPool({
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const chain = params.get('chain') ?? (params.get('tab') === 'solana' ? 'solana' : null);
-    if (chain && chain !== pool.selectedChain && isPoolChainKey(chain)) {
+    if (chain && isPoolChainKey(chain)) {
       urlPinned.current = true;
-      pool.handleChainSelect(chain);
+      if (chain !== pool.selectedChain) pool.handleChainSelect(chain);
     }
     // Read the URL once on mount; later picks go through selectChain.
   }, []);

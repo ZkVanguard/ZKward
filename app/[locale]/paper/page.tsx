@@ -12,7 +12,9 @@
  * Data source: /api/paper-trader/status (public, no auth).
  * Piggybacked on the polymarket-edge-trader 5-min tick.
  */
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { paperStatusQuery } from '@/lib/hooks/paper-status-query';
 import { usePerAssetSignals } from '@/lib/hooks/useLiveSignals';
 import {
   Chart as ChartJS,
@@ -102,30 +104,12 @@ function fmtDur(seconds: number): string {
 }
 
 export default function PaperTraderPage() {
-  const [status, setStatus] = useState<Status | null>(null);
+  // Same cache entry as the dashboard's paper panel; pauses while hidden.
+  const statusQuery = useQuery(paperStatusQuery<Status>());
+  const status = statusQuery.data ?? null;
+  const loading = statusQuery.isLoading;
+  const error = statusQuery.error ? statusQuery.error.message : null;
   const { data: signals = {} } = usePerAssetSignals();
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  async function load() {
-    try {
-      const r = await fetch('/api/paper-trader/status');
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      const j = (await r.json()) as Status;
-      setStatus(j);
-      setError(null);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'failed to load');
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => {
-    load();
-    const iv = setInterval(load, 30_000);
-    return () => clearInterval(iv);
-  }, []);
 
   const chartData = useMemo(() => {
     if (!status) return null;

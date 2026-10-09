@@ -10,6 +10,7 @@
  */
 
 import { useQuery } from '@tanstack/react-query';
+import { paperStatusQuery } from '@/lib/hooks/paper-status-query';
 import { Beaker, TrendingUp, TrendingDown, Target, Zap, Ban } from 'lucide-react';
 import { SkeletonBox } from '@/components/dashboard/community-pool/Skeletons';
 
@@ -61,16 +62,7 @@ const fmtPct = (n: number) => `${n >= 0 ? '+' : ''}${n.toFixed(2)}%`;
 const fmtHold = (s: number) => (s < 60 ? `${s}s` : s < 3600 ? `${Math.round(s / 60)}m` : `${(s / 3600).toFixed(1)}h`);
 
 export function PaperPoolPanel() {
-  const { data, isLoading, error } = useQuery<StatusResp>({
-    queryKey: ['paper-trader-status'],
-    queryFn: async () => {
-      const r = await fetch('/api/paper-trader/status');
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      return r.json();
-    },
-    refetchInterval: 30_000,
-    staleTime: 15_000,
-  });
+  const { data, isLoading, error } = useQuery(paperStatusQuery<StatusResp>());
 
   if (isLoading) {
     return (
