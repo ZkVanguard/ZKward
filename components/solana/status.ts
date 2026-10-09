@@ -40,6 +40,8 @@ export interface SolanaSleeve {
   position: SolanaSleevePosition | null;
   /** The ledger's verdict on the signal per coin; the sleeve trades only a proven one. */
   evidence?: Record<string, 'proven' | 'unproven' | 'wrong-way'>;
+  /** Whether entries go to a real perp venue, and on which of its networks. */
+  live?: { enabled: boolean; network: string };
 }
 
 export interface SolanaPoolStatus {

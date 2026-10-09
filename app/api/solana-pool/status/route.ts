@@ -82,6 +82,7 @@ async function handleGet(): Promise<NextResponse> {
         ? {
             // Per coin: the sleeve opens only where this says "proven".
             evidence: sleeve.evidence,
+            live: sleeve.live,
             trades: sleeve.stats.trades,
             wins: sleeve.stats.wins,
             winRatePct:
