@@ -15,6 +15,12 @@
  *
  * One position at a time, by design — this book exists to prove the loop
  * on a small honest pool, not to farm samples.
+ *
+ * Armed, not trading: an entry needs the signal ledger to have PROVEN the
+ * combined signal on that coin. Until then the sleeve opens nothing. The
+ * ledger scores every call whether or not anything trades, so the proof
+ * does not depend on the sleeve, and the day a coin is proven the sleeve
+ * starts on it without a deploy. This is the gate a live executor inherits.
  */
 import { getCronState, setCronState } from '@/lib/db/cron-state';
 import { logger } from '@/lib/utils/logger';
@@ -84,6 +90,15 @@ async function markPrice(asset: string): Promise<number | null> {
   } catch {
     return null;
   }
+}
+
+export type SleeveEvidence = Record<string, 'proven' | 'unproven' | 'wrong-way'>;
+
+/** The ledger's verdict on the combined signal for each coin the sleeve trades. An unreadable store reads as unproven. */
+export async function sleeveEvidence(): Promise<SleeveEvidence> {
+  const { getLoopState, resolveVerdict } = await import('@/lib/services/market-data/feedback-loop');
+  const loop = await getLoopState().catch(() => null);
+  return Object.fromEntries(ASSETS.map((a) => [a, resolveVerdict(loop, 'aggregate', a).verdict]));
 }
 
 export async function runSolanaSleeveTick(
@@ -168,6 +183,18 @@ export async function runSolanaSleeveTick(
     MAX_NOTIONAL(),
   );
 
+  // Proof first: with nothing proven there is nothing to scan for.
+  const evidence = await sleeveEvidence();
+  const proven = ASSETS.filter((a) => evidence[a] === 'proven');
+  if (proven.length === 0) {
+    return {
+      action: 'idle',
+      detail: `waiting for a proven signal (${ASSETS.map((a) => `${a} ${evidence[a]}`).join(' · ')})`,
+      navUsd: poolNavUsd,
+      targetNotionalUsd: target,
+    };
+  }
+
   try {
     const { PredictionAggregatorService } = await import(
       '@/lib/services/market-data/PredictionAggregatorService'
@@ -180,7 +207,7 @@ export async function runSolanaSleeveTick(
     let preds: Awaited<ReturnType<typeof PredictionAggregatorService.getPerAssetPredictions>>;
     try {
       preds = await Promise.race([
-        PredictionAggregatorService.getPerAssetPredictions(ASSETS),
+        PredictionAggregatorService.getPerAssetPredictions(proven),
         new Promise<never>((_, rej) => {
           scanTimer = setTimeout(() => rej(new Error('aggregator scan timeout (25s)')), 25_000);
         }),
@@ -198,7 +225,7 @@ export async function runSolanaSleeveTick(
       asset: string; side: Side; conf: number; rank: number; snapshot: SourceSnapshot[];
       horizonMin: number | null; hitRate: number | null;
     } | null = null;
-    for (const asset of ASSETS) {
+    for (const asset of proven) {
       const p = preds[asset];
       if (!p || p.direction === 'NEUTRAL' || p.confidence < MIN_CONF()) continue;
       const { plan, measured } = assetHoldPlan(cells, asset, undefined, recent);
@@ -286,6 +313,7 @@ export async function getSleeveStatus(): Promise<{
   position:
     | (SleevePositionState & { markPrice: number | null; unrealizedPnlUsd: number | null })
     | null;
+  evidence: SleeveEvidence;
 }> {
   const stats = (await getCronState<SleeveStats>(KEY_STATS)) ?? {
     trades: 0,
@@ -293,8 +321,9 @@ export async function getSleeveStatus(): Promise<{
     cumRealizedUsd: 0,
   };
   const state = await getCronState<SleevePositionState>(KEY_POSITION);
-  if (!state?.position) return { stats, position: null };
+  const evidence = await sleeveEvidence();
+  if (!state?.position) return { stats, position: null, evidence };
   const mark = await markPrice(state.position.asset);
   const u = mark ? markToMarket(state.position, mark, Date.now()).unrealizedPnlUsd : null;
-  return { stats, position: { ...state, markPrice: mark, unrealizedPnlUsd: u } };
+  return { stats, position: { ...state, markPrice: mark, unrealizedPnlUsd: u }, evidence };
 }

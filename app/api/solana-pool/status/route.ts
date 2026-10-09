@@ -80,6 +80,8 @@ async function handleGet(): Promise<NextResponse> {
         : 'devnet mirror priced at the real token’s mainnet Jupiter quote',
       sleeve: sleeve
         ? {
+            // Per coin: the sleeve opens only where this says "proven".
+            evidence: sleeve.evidence,
             trades: sleeve.stats.trades,
             wins: sleeve.stats.wins,
             winRatePct:
