@@ -94,6 +94,20 @@ async function main() {
     process.exit(0);
   }
 
+  // Quiet this long is an outage, not a missed tick. This box is the one
+  // place still running when production stops answering: on 2026-10-07 every
+  // scheduled job failed for 57 hours and nothing said so. The alert layer
+  // holds repeats of the same message, so this posts once per cool-down.
+  const quietMin = Math.round((Date.now() - lastFastTick) / 60_000);
+  if (lastFastTick > 0 && quietMin >= (Number(process.env.PAPER_WORKER_OUTAGE_ALERT_MIN) || 15)) {
+    const { notifyDiscord } = await import('@/lib/utils/discord-notify');
+    await notifyDiscord(
+      'Scheduled jobs are not reaching production: the fast tick has been quiet and the box worker is driving the paper books. Check the hosting account and the jobs service.',
+      'WARN',
+      { chain: 'paper', quietMin, lastFastTick: new Date(lastFastTick).toISOString() },
+    ).catch(() => {});
+  }
+
   let ok = true;
 
   logger.info('[worker] tick start', { pid: process.pid, node: process.version });

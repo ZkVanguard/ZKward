@@ -274,6 +274,8 @@ async function handleGet(_req: NextRequest): Promise<NextResponse> {
         wins: record.wins,
         losses: record.losses,
         winRatePct: record.trades > 0 ? (record.wins / record.trades) * 100 : 0,
+        // Average trade after costs, from the rows. Null when only the counter is available.
+        avgBp: rowRecord && rowRecord.trades > 0 ? rowRecord.avgBp : null,
         cumRealizedUsd: record.realizedUsd,
         lastRealizedUsd: s.lastRealizedUsd,
       },
