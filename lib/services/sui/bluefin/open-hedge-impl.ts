@@ -117,13 +117,26 @@ export async function performOpenHedge(
           logger.warn('🛡️  BlueFin idempotency hit — returning existing order instead of resubmitting', {
             hedgeId, orderHash: match.orderHash, status: match.status,
           });
+          // An order that exists is not a fill. Only what the venue reports
+          // as filled counts; the requested size is never assumed. Either way
+          // the order is not sent again.
+          const matchedFill = Number(match.filledQty);
+          if (!(matchedFill > 0)) {
+            return {
+              success: false,
+              hedgeId,
+              orderId: match.orderHash || match.orderId,
+              error: `Order ${hedgeId} already exists on the venue (status ${match.status ?? 'unknown'}) with no reported fill — not resubmitted`,
+              timestamp: Date.now(),
+            };
+          }
           return {
             success: true,
             hedgeId,
             orderId: match.orderHash || match.orderId,
             txDigest: match.txDigest,
             executionPrice: parseFloat(match.avgFillPrice || '0'),
-            filledSize: parseFloat(match.filledQty || String(params.size)),
+            filledSize: matchedFill,
             fees: 0,
             timestamp: Date.now(),
           };

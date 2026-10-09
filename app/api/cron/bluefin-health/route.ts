@@ -80,14 +80,14 @@ export async function GET(request: NextRequest): Promise<NextResponse<HealthResu
     (process.env.SUI_NETWORK as 'mainnet' | 'testnet') === 'testnet' ? 'testnet' : 'mainnet';
 
   const auth = await verifyCronRequest(request, 'BluefinHealth');
-  // Heartbeat for /api/health/production cron-freshness check.
-  void setCronState(CRON_KEY_LAST_RUN, Date.now()).catch(() => {});
   if (auth !== true) {
     return NextResponse.json(
       { success: false, ranAt, network, attempted: false, reason: 'Unauthorized' },
       { status: 401 },
     );
   }
+  // Heartbeat for the production health check: an authenticated run started.
+  void setCronState(CRON_KEY_LAST_RUN, Date.now()).catch(() => {});
 
   const adminKey = (process.env.BLUEFIN_PRIVATE_KEY || process.env.SUI_POOL_ADMIN_KEY || '').trim();
   if (!adminKey) {

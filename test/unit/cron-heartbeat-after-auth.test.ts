@@ -23,7 +23,11 @@ describe('cron heartbeats are written after authentication', () => {
       const auth = lines.findIndex((l) => l.includes('verifyCronRequest(request'));
       const heartbeat = lines.findIndex((l) => l.includes('setCronState') && (l.includes('cron:lastRun:') || l.includes('KEY_LAST_RUN')));
       if (auth === -1 || heartbeat === -1) return; // helper-delegated routes are covered where the helper lives
-      expect(heartbeat).toBeGreaterThan(auth);
+      // The rejection, not the call: a write between the two runs for every
+      // unauthenticated request.
+      const rejected = lines.findIndex((l, i) => i >= auth && /!==\s*true|instanceof NextResponse|status:\s*401/.test(l));
+      expect(rejected).toBeGreaterThan(-1);
+      expect(heartbeat).toBeGreaterThan(rejected);
     });
   }
 });

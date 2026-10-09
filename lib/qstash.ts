@@ -46,22 +46,12 @@ export async function verifyCronRequest(
       });
       return true;
     }
-    // TEMP diagnostic — will be tightened once secret is confirmed correct.
-    const ts = request.headers.get('x-job-timestamp');
-    const jid = request.headers.get('x-job-id');
-    const expected = jobsSecret
-      ? require('crypto').createHmac('sha256', jobsSecret).update(`${ts}.${jid}.${rawBody}`).digest('hex')
-      : '(no secret)';
+    // Never log the expected signature: it is valid for the request the
+    // caller just described, so anyone who can read logs could replay it.
     logger.warn(`[Jobs] HMAC verify failed for ${routeName}`, {
-      jobId: jid,
+      jobId: request.headers.get('x-job-id'),
       attempt: request.headers.get('x-job-attempt'),
       hasSecret: !!jobsSecret,
-      secretLen: jobsSecret?.length,
-      tsHeader: ts,
-      receivedSig: jobsSig,
-      expectedSig: 'sha256=' + expected,
-      bodyLen: rawBody.length,
-      bodyStart: rawBody.slice(0, 80),
     });
     // Fall through to CRON_SECRET check.
   }

@@ -39,13 +39,13 @@ export async function GET(request: NextRequest): Promise<NextResponse<CronRespon
   const ranAt = new Date().toISOString();
 
   const auth = await verifyCronRequest(request, 'PolyDiscover');
-  void setCronState(CRON_KEY_LAST_RUN, Date.now()).catch(() => {});
   if (auth !== true) {
     return NextResponse.json(
       { success: false, ranAt, attempted: false, reason: 'Unauthorized' },
       { status: 401 },
     );
   }
+  void setCronState(CRON_KEY_LAST_RUN, Date.now()).catch(() => {});
 
   const result = await runPolyDiscoverTick();
   return NextResponse.json(result);

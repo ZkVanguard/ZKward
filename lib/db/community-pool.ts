@@ -613,27 +613,24 @@ export async function recordNavSnapshot(snapshot: {
  */
 export async function getNavHistory(daysBack = 365, chain?: string): Promise<DbNavSnapshot[]> {
   const safeDays = Math.min(Math.max(1, daysBack), 730); // Max 2 years
-  
-  try {
-    if (chain) {
-      return await query<DbNavSnapshot>(
-        `SELECT * FROM community_pool_nav_history 
-         WHERE timestamp >= NOW() - make_interval(days => $1)
-           AND chain = $2
-         ORDER BY timestamp ASC`,
-        [safeDays, chain]
-      );
-    }
-    return await query<DbNavSnapshot>(
-      `SELECT * FROM community_pool_nav_history 
+
+  // A failed read throws: an empty list here was read as "no history", and
+  // the NAV monitor then replaced the stored peak with the current NAV.
+  if (chain) {
+    return query<DbNavSnapshot>(
+      `SELECT * FROM community_pool_nav_history
        WHERE timestamp >= NOW() - make_interval(days => $1)
+         AND chain = $2
        ORDER BY timestamp ASC`,
-      [safeDays]
+      [safeDays, chain]
     );
-  } catch (error) {
-    logger.error('[CommunityPool DB] Failed to get NAV history', error);
-    return [];
   }
+  return query<DbNavSnapshot>(
+    `SELECT * FROM community_pool_nav_history
+     WHERE timestamp >= NOW() - make_interval(days => $1)
+     ORDER BY timestamp ASC`,
+    [safeDays]
+  );
 }
 
 /**
