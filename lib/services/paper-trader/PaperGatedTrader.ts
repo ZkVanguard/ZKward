@@ -323,7 +323,7 @@ export class PaperGatedTrader {
     const sized = await sizeCandidate(picked, nav, now);
     const { notionalUsd, signalScalar } = sized;
     if (notionalUsd < 1) {
-      return { action: 'skipped', reason: `notional too small ($${notionalUsd.toFixed(2)})`, nav };
+      return { action: 'skipped', reason: `notional too small ($${notionalUsd.toFixed(2)}, signal ${sized.evidence})`, nav };
     }
 
     // ═══════════════════════════════════════════════════════════════════
