@@ -23,7 +23,7 @@ import { useConnectWallet, useWallets } from '@mysten/dapp-kit';
 import type { WalletWithRequiredFeatures } from '@mysten/wallet-standard';
 import { useUserSession } from '@/lib/hooks/useUserSession';
 import { useSuiSafe } from '@/app/sui-providers';
-import { connectWallet as connectPhantom, getProvider as getPhantom } from '@/components/solana/wallet';
+import { connectWallet as connectPhantom, getProvider as getPhantom } from '@/components/solana/injected';
 import { ChainChooser } from '@/components/wallet/ChainChooser';
 import { CONSENT_EVENT, CONSENT_KEY } from '@/components/CookieConsent';
 import { installedSuiWallets, suggestChain, type SuggestReason } from '@/lib/wallet/suggest-chain';

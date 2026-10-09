@@ -26,7 +26,6 @@ import {
   useSignTypedData,
 } from '@/lib/evm-wallet/hooks';
 import { parseUnits, formatUnits } from 'viem';
-import { ethers } from 'ethers';
 import { logger } from '@/lib/utils/logger';
 import { usePolling } from '@/lib/hooks';
 import { useSuiSafe } from '@/app/sui-providers';
@@ -810,6 +809,8 @@ export function useCommunityPool(propAddress?: string, evmActive: boolean = true
   );
 
   const handleDeposit = useCallback(async () => {
+    // Loaded on use: ethers only serves the EVM deposit path, not the view.
+    const { ethers } = await import('ethers');
     dispatchPool({ type: 'SET_ERROR', payload: null });
 
     if (!isConnected || !address) {
