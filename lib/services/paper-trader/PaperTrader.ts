@@ -241,21 +241,18 @@ export class PaperTrader {
       // Bypassed when PAPER_TRADER_DISABLE_HALTS=1 — pure data-gathering
       // mode wants to see the whole return distribution, not just the
       // segments where safeties allowed trading.
+      //
+      // A halt stops new entries only. It used to return here, before the
+      // open positions were looked at, so a halted book ran no stop and no
+      // time limit: on 2026-10-09 a long sat at -500 bp behind a -200 bp stop.
+      let entryHalt: string | null = null;
       if (!PAPER_DISABLE_HALTS) {
-        const rollingHalt = await PaperTrader.rollingDrawdownCheck(now);
-        if (rollingHalt) {
-          result = { action: 'skipped', reason: rollingHalt };
-          return result;
-        }
         // Fix G — short-window loss halt (loss count OR magnitude in a
         // rolling 90-min window). Catches the "8/8 losses in 3h" pattern
         // that the interspersed-win-resistant consecutive-loss counter
         // silently walks around.
-        const shortWindowHalt = await PaperTrader.shortWindowLossCheck(now);
-        if (shortWindowHalt) {
-          result = { action: 'skipped', reason: shortWindowHalt };
-          return result;
-        }
+        entryHalt = (await PaperTrader.rollingDrawdownCheck(now))
+          ?? (await PaperTrader.shortWindowLossCheck(now));
       }
 
       // L4 — signal-source decay check. Runs at most hourly (gated inside),
@@ -275,7 +272,7 @@ export class PaperTrader {
       // single-position path stays untouched otherwise.
       const { PAPER_MAX_CONCURRENT } = await import('./config');
       if (PAPER_MAX_CONCURRENT > 1) {
-        result = await PaperTrader.runTickConcurrent(nav, now);
+        result = await PaperTrader.runTickConcurrent(nav, now, entryHalt);
         await pushNavSample(now, result.nav ?? nav);
         return result;
       }
@@ -284,7 +281,9 @@ export class PaperTrader {
       const activeOrderId = await getCronState<string>(KEY_ORDER_ID);
       result = activePos
         ? await PaperTrader.handleActive(activePos, nav, now, activeOrderId ?? undefined)
-        : await PaperTrader.handleEntry(nav, now);
+        : entryHalt
+          ? { action: 'skipped', reason: entryHalt, nav }
+          : await PaperTrader.handleEntry(nav, now);
       await pushNavSample(now, result.nav ?? nav);
       return result;
     } catch (e) {
@@ -309,7 +308,7 @@ export class PaperTrader {
    * Returns a synthetic TickResult summarizing the tick (last close's nav
    * is used for the caller-facing NAV bar).
    */
-  private static async runTickConcurrent(nav: number, now: number): Promise<TickResult> {
+  private static async runTickConcurrent(nav: number, now: number, entryHalt: string | null = null): Promise<TickResult> {
     const {
       loadActivePositions,
       removeActivePosition,
@@ -334,6 +333,10 @@ export class PaperTrader {
         closesThisTick++;
         lastActionResult = r;
       }
+    }
+
+    if (entryHalt) {
+      return closesThisTick > 0 ? lastActionResult : { action: 'skipped', reason: entryHalt, nav: currentNav };
     }
 
     // 2) Reload after any closes. Try to open new positions until cap.
