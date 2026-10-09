@@ -47,6 +47,10 @@ export interface SolanaPoolStatus {
   vaultAta?: string | null;
   tokenMint?: string | null;
   rpcUrl?: string;
+  withdrawalsPaused?: boolean;
+  /** Pool size above which deposits are not offered; null = no cap. */
+  depositCapTokens?: number | null;
+  depositsOpen?: boolean;
   vaultTokens?: number | null;
   accountedTokens?: number;
   pendingTokens?: number;

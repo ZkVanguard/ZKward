@@ -32,7 +32,7 @@ export function getProvider(): InjectedProvider | null {
 
 export async function connectWallet(): Promise<string> {
   const p = getProvider();
-  if (!p) throw new Error('No Solana wallet found. Install Phantom or Solflare and set it to devnet.');
+  if (!p) throw new Error('No Solana wallet found. Install Phantom or Solflare.');
   const { publicKey } = await p.connect();
   return publicKey.toBase58();
 }

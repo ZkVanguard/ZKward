@@ -11,6 +11,7 @@ import { logger } from '@/lib/utils/logger';
 import { errMsg } from '@/lib/utils/error-handler';
 import { envFlag } from '@/lib/utils/env-flag';
 import { getCronState, setCronState } from '@/lib/db/cron-state';
+import { mutationLimiter } from '@/lib/security/rate-limiter';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -20,11 +21,21 @@ const AMOUNT_UI = 100_000;
 const COOLDOWN_MS = 60 * 60 * 1000;
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
+  const limited = mutationLimiter.check(request);
+  if (limited) return limited;
   if (!envFlag('SOLANA_POOL_ENABLED')) {
     return NextResponse.json({ error: 'pool disabled' }, { status: 404 });
   }
-  const cluster = (process.env.SOLANA_CLUSTER || 'devnet').trim();
-  if (cluster === 'mainnet-beta' || cluster === 'mainnet') {
+  // Allowed by name. Refusing mainnet by name left the faucet open to any
+  // other spelling of the cluster; an unknown value throws inside.
+  const { solanaCluster } = await import('@/lib/services/solana/cluster');
+  let cluster: string;
+  try {
+    cluster = solanaCluster();
+  } catch {
+    return NextResponse.json({ error: 'faucet is testnet-only' }, { status: 403 });
+  }
+  if (cluster !== 'devnet' && cluster !== 'testnet') {
     return NextResponse.json({ error: 'faucet is testnet-only' }, { status: 403 });
   }
   try {
@@ -49,6 +60,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ txSignature, amountUi: AMOUNT_UI });
   } catch (e) {
     logger.warn('[SolanaPool] faucet failed', { error: errMsg(e) });
-    return NextResponse.json({ error: errMsg(e) }, { status: 500 });
+    return NextResponse.json({ error: 'the faucet could not send test tokens right now — try again in a minute' }, { status: 500 });
   }
 }

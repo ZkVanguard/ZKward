@@ -75,7 +75,7 @@ export function SolanaVaultActions() {
       const res = await hub.connect('solana');
       if (!res.ok) {
         // No Phantom, or the user dismissed it: the chooser explains and links the install.
-        hub.openChooser({ chain: 'solana', reason: 'This test pool runs on Solana devnet and needs Phantom.' });
+        hub.openChooser({ chain: 'solana', reason: testnet ? 'This test pool runs on Solana devnet and needs Phantom.' : 'This pool runs on Solana and needs a Solana wallet.' });
         throw new Error(res.error);
       }
       return { kind: 'ok', text: 'Solana wallet connected' };
@@ -103,6 +103,7 @@ export function SolanaVaultActions() {
         tokenMint: status.tokenMint,
         vaultAta: status.vaultAta,
         amountUi: Number(amount),
+        testnet,
       });
       setAmount('');
       if (wallet) await refreshBalance(wallet);
@@ -126,6 +127,9 @@ export function SolanaVaultActions() {
       if (!r.ok) throw new Error(j.error || 'Withdrawal failed');
       setAmount('');
       await refreshBalance(wallet);
+      // 202: the payout was sent and the network has not confirmed it yet.
+      // The shares are already set aside; the pool settles it within a minute.
+      if (j.pending) return { kind: 'ok', text: 'Withdrawal sent — the network is still confirming it. It will show in your wallet shortly.', tx: String(j.txSignature) };
       return { kind: 'ok', text: `Paid ${Number(j.amountUi).toLocaleString()} JIMP to your wallet`, tx: String(j.txSignature) };
     });
 
@@ -148,7 +152,8 @@ export function SolanaVaultActions() {
     : !entered ? (mode === 'deposit' ? 'Enter how much JIMP to deposit' : 'Enter how many shares to withdraw')
     : mode === 'deposit' && walletTokens !== null && parsed > walletTokens ? `Your wallet holds ${walletTokens.toLocaleString(undefined, { maximumFractionDigits: 2 })} JIMP`
     : mode === 'withdraw' && parsed > shares ? `You have ${shares.toLocaleString(undefined, { maximumFractionDigits: 4 })} shares`
-    : mode === 'withdraw' && status?.solvent === false ? 'Withdrawals are paused while the vault re-balances'
+    : mode === 'withdraw' && (status?.solvent === false || status?.withdrawalsPaused) ? 'Withdrawals are paused right now'
+    : mode === 'deposit' && status?.depositsOpen === false ? 'The pool is at its deposit limit for now'
     : busy ? 'Working…'
     : null;
 
