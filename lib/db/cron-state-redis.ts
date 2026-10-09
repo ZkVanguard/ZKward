@@ -114,6 +114,27 @@ export async function deleteCronState(key: string): Promise<void> {
   }
 }
 
+/** Several keys in one round trip (MGET). */
+export async function getCronStates<T = unknown>(keys: readonly string[]): Promise<Map<string, T>> {
+  const result = new Map<string, T>();
+  const redis = getRedis();
+  if (!redis || keys.length === 0) return result;
+  try {
+    const unique = [...new Set(keys)];
+    const values = await redis.mget<T[]>(...unique.map(nk));
+    unique.forEach((key, i) => {
+      const v = values[i];
+      if (v !== null && v !== undefined) result.set(key, v as T);
+    });
+  } catch (error) {
+    logger.warn('[CronStateRedis] mget failed', {
+      count: keys.length,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+  return result;
+}
+
 /**
  * Get multiple keys matching a prefix.
  * Uses SCAN (safe for prod) rather than KEYS (blocks the server).

@@ -14,6 +14,7 @@ const state = new Map<string, unknown>();
 jest.mock('../../lib/db/cron-state', () => ({
   getCronState: jest.fn(async <T,>(key: string): Promise<T | null> => (state.get(key) as T | null) ?? null),
   getCronStateOr: jest.fn(async <T,>(key: string, def: T): Promise<T> => (state.get(key) as T | undefined) ?? def),
+  getCronStates: jest.fn(async (keys: string[]) => new Map(keys.filter((k) => state.has(k)).map((k) => [k, state.get(k)]))),
   setCronState: jest.fn(async (key: string, value: unknown) => { state.set(key, value); }),
 }));
 

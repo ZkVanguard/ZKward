@@ -9,6 +9,7 @@ import { describe, it, expect, jest } from '@jest/globals';
 jest.mock('@/lib/db/cron-state', () => ({
   getCronState: jest.fn(async () => null),
   getCronStateOr: jest.fn(async (_k: string, def: unknown) => def),
+  getCronStates: jest.fn(async () => new Map()),
   setCronState: jest.fn(async () => undefined),
 }));
 jest.mock('@/lib/services/market-data/ledger-cells', () => {
