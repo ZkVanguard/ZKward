@@ -18,8 +18,11 @@ export interface ChainMeta {
   installUrl: string;
 }
 
+// Build-time: NEXT_PUBLIC_SOLANA_CLUSTER=mainnet-beta turns the Solana badge to "mainnet · real funds".
+const SOLANA_MAINNET = (process.env.NEXT_PUBLIC_SOLANA_CLUSTER || '').trim().startsWith('mainnet');
+
 export const CHAIN_META: Record<WalletChain, ChainMeta> = {
   hedera: { name: 'Hedera', net: 'testnet', logo: '/logos/chains/hedera.svg', realFunds: false, color: '#1d1d1f', installUrl: '' },
   sui: { name: 'SUI', net: 'mainnet', logo: '/logos/chains/sui.svg', realFunds: true, color: '#4DA2FF', installUrl: 'https://slush.app/' },
-  solana: { name: 'Solana', net: 'devnet', logo: '/logos/chains/solana.svg', realFunds: false, color: '#9945FF', installUrl: 'https://phantom.app/download' },
+  solana: { name: 'Solana', net: SOLANA_MAINNET ? 'mainnet' : 'devnet', logo: '/logos/chains/solana.svg', realFunds: SOLANA_MAINNET, color: '#9945FF', installUrl: 'https://phantom.app/download' },
 };

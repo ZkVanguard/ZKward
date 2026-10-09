@@ -2,6 +2,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { errMsg } from '@/lib/utils/error-handler';
 import { envFlag } from '@/lib/utils/env-flag';
+import { logger } from '@/lib/utils/logger';
+import { readLimiter } from '@/lib/security/rate-limiter';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -26,6 +28,8 @@ async function walletTokenBalanceUi(wallet: string): Promise<number | null> {
 }
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
+  const limited = readLimiter.check(request);
+  if (limited) return limited;
   if (!envFlag('SOLANA_POOL_ENABLED')) return NextResponse.json({ enabled: false });
   const wallet = (request.nextUrl.searchParams.get('wallet') || '').trim();
   if (!/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(wallet)) {
@@ -51,6 +55,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       walletTokenUi: await walletTokenBalanceUi(wallet),
     });
   } catch (e) {
-    return NextResponse.json({ error: errMsg(e) }, { status: 500 });
+    logger.warn('[SolanaPool] balance read failed', { error: errMsg(e) });
+    return NextResponse.json({ error: 'your pool position could not be read right now' }, { status: 500 });
   }
 }

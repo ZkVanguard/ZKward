@@ -89,8 +89,8 @@ describe('runSolanaPoolIndexTick', () => {
     expect(s.totalSharesRaw).toBe('3000000'); // 1:1 on flat pool
     expect(s.vaultTokensRaw).toBe('3000000');
     // watermark = newest signature, written exactly once
-    expect(state.get('solana-pool:last-sig')).toBe('sigC_newest');
-    expect(jest.mocked(setCronState).mock.calls.filter(([k]) => k === 'solana-pool:last-sig')).toHaveLength(1);
+    expect(state.get('solana-pool:last-sig:devnet')).toBe('sigC_newest');
+    expect(jest.mocked(setCronState).mock.calls.filter(([k]) => k === 'solana-pool:last-sig:devnet')).toHaveLength(1);
   });
 
   it('replay of the same signatures credits nothing (PK idempotency)', async () => {

@@ -26,6 +26,8 @@ export const maxDuration = 60;
 const CLAIM_KEY = 'solana-pool:tick-claim';
 const CLAIM_MS = 55_000;
 const NAV_SNAPSHOT_MS = 15 * 60_000;
+/** About 4,000 payouts' worth of base fees; a new recipient's token account costs about 0.002 SOL more. */
+const LOW_FEE_LAMPORTS = 20_000_000;
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
   return handle(request);
@@ -51,17 +53,56 @@ async function handle(request: NextRequest): Promise<NextResponse> {
 
   after(async () => {
     try {
-      const { runSolanaPoolIndexTick } = await import(
+      const { runSolanaPoolIndexTick, reconcilePendingWithdrawals, solanaCluster } = await import(
         '@/lib/services/solana/SolanaPoolService'
       );
+      const { notifyDiscord } = await import('@/lib/utils/discord-notify');
+      const cluster = solanaCluster();
+
+      // Payouts whose request ended before the chain answered: settle the
+      // ones that landed, give the shares back for the ones that cannot.
+      // Before the index tick, so the valuation below sees the result.
+      const payouts = await reconcilePendingWithdrawals().catch((e) => {
+        logger.warn('[SolanaPool] pending-withdrawal pass failed', { error: errMsg(e) });
+        return null;
+      });
+
       const summary = await runSolanaPoolIndexTick();
       await setCronState('cron:lastRun:solana-pool', Date.now());
       if (summary.credited > 0) {
-        const { notifyDiscord } = await import('@/lib/utils/discord-notify');
         void notifyDiscord(
-          `[SolanaPool] ${summary.credited} deposit(s) credited · shares ${summary.totalSharesRaw} · vault ${summary.vaultTokensRaw} (${(process.env.SOLANA_CLUSTER || 'devnet').trim()})`,
+          `[SolanaPool] ${summary.credited} deposit(s) credited · shares ${summary.totalSharesRaw} · vault ${summary.vaultTokensRaw} (${cluster})`,
           'INFO',
+          { chain: 'solana' },
         );
+      }
+
+      // Two conditions that stop payouts, said out loud: the vault holding
+      // less than the ledger owes, and the vault running out of fee money.
+      try {
+        const db = await import('@/lib/db/solana-pool');
+        const accounted = await db.getAccountedTokensRaw();
+        if (summary.vaultTokensRaw !== 'unavailable' && BigInt(summary.vaultTokensRaw) < accounted) {
+          void notifyDiscord(
+            `[SolanaPool] vault holds less than the ledger owes on ${cluster}: withdrawals are refused until this is resolved`,
+            'ERROR',
+            { chain: 'solana', vaultTokensRaw: summary.vaultTokensRaw, accountedTokensRaw: accounted.toString() },
+          );
+        }
+        const vaultOwner = (process.env.SOLANA_POOL_VAULT || '').trim();
+        if (vaultOwner) {
+          const { getLamports } = await import('@/lib/services/solana/rpc');
+          const lamports = await getLamports(vaultOwner);
+          if (lamports < LOW_FEE_LAMPORTS) {
+            void notifyDiscord(
+              `[SolanaPool] vault fee balance is low on ${cluster}: top it up or payouts will fail`,
+              'WARN',
+              { chain: 'solana', sol: lamports / 1e9 },
+            );
+          }
+        }
+      } catch (e) {
+        logger.warn('[SolanaPool] solvency and fee check failed (indexer unaffected)', { error: errMsg(e) });
       }
 
       // Sleeve trader — the pool's win-rate engine (plan §1b portfolio
@@ -101,16 +142,20 @@ async function handle(request: NextRequest): Promise<NextResponse> {
             ...ledgerValuation(accountedTokensRaw, totalSharesRaw, price?.usd ?? null),
             accountedTokensRaw,
             totalSharesRaw,
-            cluster: (process.env.SOLANA_CLUSTER || 'devnet').trim(),
           });
         }
       } catch (e) {
         logger.warn('[SolanaPool] NAV snapshot failed (indexer unaffected)', { error: errMsg(e) });
       }
 
-      logger.info('[SolanaPool] tick complete', { ...summary, sleeve });
+      logger.info('[SolanaPool] tick complete', { ...summary, sleeve, payouts });
     } catch (e) {
       logger.error('[SolanaPool] tick failed', { error: errMsg(e) });
+      // A tick that cannot run credits no deposits. The alert layer holds repeats.
+      try {
+        const { notifyDiscord } = await import('@/lib/utils/discord-notify');
+        void notifyDiscord('[SolanaPool] index tick failed: deposits are not being credited', 'ERROR', { chain: 'solana', error: errMsg(e).slice(0, 200) });
+      } catch { /* the log line above stands */ }
     }
   });
 

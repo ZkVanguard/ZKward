@@ -6,6 +6,7 @@
 
 import { NextResponse } from 'next/server';
 import { errMsg } from '@/lib/utils/error-handler';
+import { logger } from '@/lib/utils/logger';
 import { envFlag } from '@/lib/utils/env-flag';
 import { withOriginCache } from '@/lib/utils/origin-cache';
 
@@ -17,7 +18,7 @@ async function handleGet(): Promise<NextResponse> {
     return NextResponse.json({ enabled: false });
   }
   try {
-    const [{ vaultAta }, rpc, poolState, db, price] = await Promise.all([
+    const [svc, rpc, poolState, db, price] = await Promise.all([
       import('@/lib/services/solana/SolanaPoolService'),
       import('@/lib/services/solana/rpc'),
       import('@/lib/services/solana/pool-state'),
@@ -26,7 +27,9 @@ async function handleGet(): Promise<NextResponse> {
     ]);
 
     const { getSleeveStatus } = await import('@/lib/services/solana/SolanaSleeveTrader');
-    const ata = vaultAta();
+    const ata = svc.vaultAta();
+    const cluster = svc.solanaCluster();
+    const capRaw = svc.depositCapRaw();
     const [balance, totalSharesRaw, accountedRaw, recent, tokenPrice, sleeve, members] = await Promise.all([
       ata ? rpc.getTokenAccountBalance(ata).catch(() => null) : Promise.resolve(null),
       db.getTotalSharesRaw(),
@@ -48,11 +51,15 @@ async function handleGet(): Promise<NextResponse> {
 
     return NextResponse.json({
       enabled: true,
-      testnet: (process.env.SOLANA_CLUSTER || 'devnet').trim() !== 'mainnet-beta',
-      cluster: (process.env.SOLANA_CLUSTER || 'devnet').trim(),
+      testnet: cluster !== 'mainnet-beta',
+      cluster,
       vaultAta: ata || null,
       tokenMint: (process.env.SOLANA_POOL_TOKEN_MINT || '').trim() || null,
-      rpcUrl: (process.env.SOLANA_RPC_URL || 'https://api.devnet.solana.com').trim(),
+      // The browser's endpoint. The server's own URL carries a provider key on mainnet.
+      rpcUrl: rpc.solanaPublicRpcUrl(),
+      withdrawalsPaused: svc.withdrawalsPaused(),
+      depositCapTokens: capRaw === null ? null : poolState.toUi(capRaw),
+      depositsOpen: capRaw === null || accountedRaw < capRaw,
       vaultTokens: vaultUi,
       accountedTokens: accountedUi,
       pendingTokens: pendingUi,
@@ -68,7 +75,9 @@ async function handleGet(): Promise<NextResponse> {
       sharePrice: valuation.sharePrice,
       tokenUsd: tokenPrice?.usd ?? null,
       navUsd: valuation.navUsd,
-      priceNote: 'devnet mirror priced at the real token’s mainnet Jupiter quote',
+      priceNote: cluster === 'mainnet-beta'
+        ? 'priced at the token’s mainnet Jupiter quote'
+        : 'devnet mirror priced at the real token’s mainnet Jupiter quote',
       sleeve: sleeve
         ? {
             trades: sleeve.stats.trades,
@@ -109,7 +118,9 @@ async function handleGet(): Promise<NextResponse> {
       headers: { 'Cache-Control': 'public, s-maxage=15, stale-while-revalidate=86400' },
     });
   } catch (e) {
-    return NextResponse.json({ enabled: true, error: errMsg(e) }, { status: 500 });
+    // The detail stays in the log: an RPC error can carry the endpoint's URL.
+    logger.warn('[SolanaPool] status failed', { error: errMsg(e) });
+    return NextResponse.json({ enabled: true, error: 'pool status is unavailable right now' }, { status: 500 });
   }
 }
 

@@ -29,6 +29,7 @@ const args = {
   tokenMint: Keypair.generate().publicKey.toBase58(),
   vaultAta: Keypair.generate().publicKey.toBase58(),
   amountUi: 25,
+  testnet: true,
 };
 
 const signTransaction = jest.fn(async () => ({ serialize: () => new Uint8Array([1, 2, 3]) }));

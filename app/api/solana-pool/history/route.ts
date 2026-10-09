@@ -7,6 +7,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { errMsg } from '@/lib/utils/error-handler';
 import { envFlag } from '@/lib/utils/env-flag';
+import { logger } from '@/lib/utils/logger';
 import { withOriginCache } from '@/lib/utils/origin-cache';
 
 export const runtime = 'nodejs';
@@ -46,7 +47,8 @@ async function handleGet(request: NextRequest): Promise<NextResponse> {
       { headers: { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=86400' } },
     );
   } catch (e) {
-    return NextResponse.json({ asOf, window, count: 0, points: [], error: errMsg(e) }, { status: 500 });
+    logger.warn('[SolanaPool] history read failed', { error: errMsg(e) });
+    return NextResponse.json({ asOf, window, count: 0, points: [], error: 'pool history is unavailable right now' }, { status: 500 });
   }
 }
 

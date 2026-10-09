@@ -25,7 +25,7 @@ const MIN_FEE_LAMPORTS = 10_000;
 /**
  * Build + send a JIMP deposit: SPL transfer from the user's token account
  * to the vault ATA. Creates the user's ATA idempotently first (covers
- * fresh faucet wallets), fee paid by the user in devnet SOL.
+ * fresh faucet wallets), fee paid by the user in SOL.
  *
  * Resolves only once the pool's cluster confirmed the transfer. It used to
  * return the wallet's signature whatever happened next, so a transaction
@@ -38,6 +38,8 @@ export async function depositTokens(args: {
   tokenMint: string;
   vaultAta: string;
   amountUi: number;
+  /** True on a test cluster: decides the wording, and where fee money comes from. */
+  testnet: boolean;
 }): Promise<string> {
   const p = getProvider();
   if (!p?.publicKey) throw new Error('wallet not connected');
@@ -54,8 +56,11 @@ export async function depositTokens(args: {
   );
   tx.feePayer = owner;
 
+  const net = args.testnet ? 'Solana devnet' : 'Solana';
   if ((await conn.getBalance(owner)) < MIN_FEE_LAMPORTS) {
-    throw new Error('Your wallet has no devnet SOL to pay the network fee. Press "Get test JIMP" to receive some, then deposit again.');
+    throw new Error(args.testnet
+      ? 'Your wallet has no devnet SOL to pay the network fee. Press "Get test JIMP" to receive some, then deposit again.'
+      : 'Your wallet has no SOL to pay the network fee. Add a little SOL, then deposit again.');
   }
   const { blockhash, lastValidBlockHeight } = await conn.getLatestBlockhash('confirmed');
   tx.recentBlockhash = blockhash;
@@ -68,13 +73,15 @@ export async function depositTokens(args: {
     const signed = await p.signTransaction(tx);
     signature = await conn.sendRawTransaction(signed.serialize()).catch((e: unknown) => {
       const why = (e instanceof Error ? e.message : String(e)).split('\n')[0].slice(0, 140);
-      throw new Error(`Solana devnet rejected the deposit, so nothing was moved (${why}).`);
+      throw new Error(`${net} rejected the deposit, so nothing was moved (${why}).`);
     });
   } else {
     ({ signature } = await p.signAndSendTransaction(tx));
   }
 
-  const notConfirmed = 'The deposit was not confirmed on Solana devnet, so nothing was moved. Check that your wallet is set to devnet and try again.';
+  const notConfirmed = args.testnet
+    ? 'The deposit was not confirmed on Solana devnet, so nothing was moved. Check that your wallet is set to devnet and try again.'
+    : 'The deposit was not confirmed in time. Check the activity in your wallet before trying again: if the transfer shows there, your shares will appear within a minute.';
   const res = await conn
     .confirmTransaction({ signature, blockhash, lastValidBlockHeight }, 'confirmed')
     .catch(() => {
