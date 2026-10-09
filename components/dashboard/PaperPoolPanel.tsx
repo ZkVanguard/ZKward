@@ -27,6 +27,7 @@ interface StatusResp {
     wins: number;
     losses: number;
     winRatePct: number;
+    avgBp?: number | null;
     cumRealizedUsd: number;
   };
   activePositions: Array<{
@@ -79,7 +80,9 @@ export function PaperPoolPanel() {
 
   const returnColor = data.nav.cumReturnPct >= 0 ? 'text-green-700' : 'text-red-700';
   const hasTrades = data.stats.trades > 0;
-  const winRateGood = data.stats.winRatePct >= 50;
+  // The exits set the win rate; the average trade after costs is the result.
+  const avgBp = typeof data.stats.avgBp === 'number' ? data.stats.avgBp : null;
+  const record = `${data.stats.wins}W / ${data.stats.losses}L · ${data.stats.winRatePct.toFixed(0)}% wins`;
 
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -94,10 +97,10 @@ export function PaperPoolPanel() {
         </div>
       </div>
 
-      {/* NAV + win-rate top strip */}
+      {/* NAV + result top strip */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
         <Stat icon={<TrendingUp className="w-4 h-4" />} label="Live NAV" value={fmtUsd(data.nav.currentUsd)} sub={<span className={returnColor}>{fmtPct(data.nav.cumReturnPct)}</span>} />
-        <Stat icon={<Target className="w-4 h-4" />} label="Win rate" value={hasTrades ? `${data.stats.winRatePct.toFixed(1)}%` : '—'} sub={<span className={!hasTrades ? 'text-label-secondary' : winRateGood ? 'text-green-700' : 'text-red-700'}>{data.stats.wins}W / {data.stats.losses}L</span>} sub2={`${data.stats.trades} trades`} />
+        <Stat icon={<Target className="w-4 h-4" />} label="Average trade" value={hasTrades && avgBp !== null ? `${avgBp >= 0 ? '+' : ''}${avgBp.toFixed(1)} bp` : '—'} sub={<span className={!hasTrades || avgBp === null ? 'text-label-secondary' : avgBp > 0 ? 'text-green-700' : 'text-red-700'}>{fmtUsd(data.stats.cumRealizedUsd, 2)} booked</span>} sub2={hasTrades ? `${record} · ${data.stats.trades} trades` : 'no closed trades'} />
         <Stat icon={<TrendingDown className="w-4 h-4" />} label="Drawdown" value={`${data.nav.drawdownFromPeakPct.toFixed(2)}%`} sub={`Peak ${fmtUsd(data.nav.peakUsd)}`} />
         <Stat icon={<Zap className="w-4 h-4" />} label="Active" value={String(data.activePositions.length)} sub={data.activePositions.length ? data.activePositions.map((p) => `${p.asset} ${p.side}`).join(', ') : 'flat'} />
       </div>
