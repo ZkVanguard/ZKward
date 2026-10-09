@@ -24,11 +24,12 @@ export const PERSISTED_KEYS: readonly string[] = [
   'paper-trader-status',
   'dashboard-autonomy-status',
   'nav-history',
-  'leaderboard',
   'health-gates',
   'spot-prices',
   'sui-pool',
   'community-pool',
+  'sui-pool-volatility',
+  'hedera-recent-activity',
 ];
 
 const isPersisted = (queryKey: readonly unknown[]): boolean => typeof queryKey[0] === 'string' && PERSISTED_KEYS.includes(queryKey[0]);

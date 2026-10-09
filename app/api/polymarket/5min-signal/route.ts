@@ -41,7 +41,7 @@ export async function GET(req: NextRequest) {
             avgConfidence: history.avgConfidence,
           },
         },
-        { headers: { 'Cache-Control': 'public, s-maxage=10, stale-while-revalidate=20' } },
+        { headers: { 'Cache-Control': 'public, s-maxage=10, stale-while-revalidate=120' } },
       );
     }
 
@@ -74,7 +74,7 @@ export async function GET(req: NextRequest) {
           avgConfidence: history.avgConfidence,
         },
       },
-      { headers: { 'Cache-Control': 'public, s-maxage=10, stale-while-revalidate=20' } },
+      { headers: { 'Cache-Control': 'public, s-maxage=10, stale-while-revalidate=120' } },
     );
   } catch (error) {
     logger.error('5min-signal endpoint error', error);

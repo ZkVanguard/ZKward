@@ -49,7 +49,7 @@ export async function GET(request: NextRequest) {
       timestamp: new Date().toISOString(),
     }, {
       headers: {
-        'Cache-Control': 'public, s-maxage=15, stale-while-revalidate=30',
+        'Cache-Control': 'public, s-maxage=15, stale-while-revalidate=300',
       },
     });
   } catch (error) {

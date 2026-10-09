@@ -7,19 +7,13 @@
  * so it costs no extra request. Hidden if the read fails; never a made-up lean.
  */
 
-import { useQuery } from '@tanstack/react-query';
 import { useTranslations } from 'next-intl';
 import { ArrowDownRight, ArrowUpRight, Minus } from 'lucide-react';
-import { fetchPerAssetSignals } from '@/lib/api/market-signals';
+import { usePerAssetSignals } from '@/lib/hooks/useLiveSignals';
 
 export function MarketPulse({ onOpen, compact = false }: { onOpen: () => void; compact?: boolean }) {
   const t = useTranslations('dashboard');
-  const { data, isPending, isError } = useQuery({
-    queryKey: ['per-asset-signals'],
-    queryFn: () => fetchPerAssetSignals(),
-    staleTime: 30_000,
-    refetchInterval: 60_000,
-  });
+  const { data, isPending, isError } = usePerAssetSignals();
   // A failed refresh keeps the last good read; hide only when nothing ever loaded.
   if (isError && !data) return null;
   if (isPending || !data) {

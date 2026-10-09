@@ -759,8 +759,10 @@ export async function GET(req: NextRequest) {
   await maybeAlertRpcDown(suiRpc);
 
   const httpStatus = overall === 'down' ? 503 : 200;
+  // A "down" answer is never cached; a healthy one is served from the CDN
+  // for up to 10 minutes past its 20 s while it refreshes.
   return NextResponse.json(body, {
     status: httpStatus,
-    headers: { 'Cache-Control': 'public, s-maxage=20, stale-while-revalidate=40' },
+    headers: { 'Cache-Control': httpStatus === 200 ? 'public, s-maxage=20, stale-while-revalidate=600' : 'no-store' },
   });
 }

@@ -67,7 +67,7 @@ export async function GET(request: NextRequest) {
             timestamp: new Date().toISOString(),
           },
           {
-            headers: { 'Cache-Control': 'public, s-maxage=15, stale-while-revalidate=30' },
+            headers: { 'Cache-Control': 'public, s-maxage=15, stale-while-revalidate=300' },
           }
         );
       } else {
@@ -121,7 +121,7 @@ export async function GET(request: NextRequest) {
             timestamp: new Date().toISOString(),
           },
           {
-            headers: { 'Cache-Control': 'public, s-maxage=15, stale-while-revalidate=30' },
+            headers: { 'Cache-Control': 'public, s-maxage=15, stale-while-revalidate=300' },
           }
         );
       }
@@ -161,7 +161,7 @@ export async function GET(request: NextRequest) {
               timestamp: new Date().toISOString(),
             },
             {
-              headers: { 'Cache-Control': 'public, s-maxage=15, stale-while-revalidate=30' },
+              headers: { 'Cache-Control': 'public, s-maxage=15, stale-while-revalidate=300' },
             }
           );
         }
@@ -219,7 +219,7 @@ export async function GET(request: NextRequest) {
         source: 'cryptocom-exchange',
         timestamp: new Date().toISOString(),
       }, {
-        headers: { 'Cache-Control': 'public, s-maxage=15, stale-while-revalidate=30' },
+        headers: { 'Cache-Control': 'public, s-maxage=15, stale-while-revalidate=300' },
       });
     } else {
       // Use fallback system (auto) with timeout
@@ -272,7 +272,7 @@ export async function GET(request: NextRequest) {
           timestamp: new Date().toISOString(),
         },
         {
-          headers: { 'Cache-Control': 'public, s-maxage=15, stale-while-revalidate=30' },
+          headers: { 'Cache-Control': 'public, s-maxage=15, stale-while-revalidate=300' },
         }
       );
     }

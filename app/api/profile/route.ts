@@ -27,7 +27,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   const raw = (url.searchParams.get('addresses') || '').trim();
   if (!raw) {
     return NextResponse.json({ profiles: {} }, {
-      headers: { 'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=60' },
+      headers: { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=3600' },
     });
   }
   const addrs = raw.split(',').map((s) => s.trim()).filter(Boolean).slice(0, 100);
@@ -36,7 +36,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   // /api/community-pool?action=leaderboard hits this every 60s per
   // client. Cache lets one origin fetch fan out to N viewers.
   return NextResponse.json({ profiles }, {
-    headers: { 'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=60' },
+    headers: { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=3600' },
   });
 }
 

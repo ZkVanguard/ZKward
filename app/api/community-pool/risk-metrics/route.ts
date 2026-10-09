@@ -16,6 +16,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { calculateRiskMetrics, getRiskRating, calculateRealTimeVolatility } from '@/lib/services/RiskMetricsService';
 import { logger } from '@/lib/utils/logger';
+import { CACHE, cacheFor } from '@/lib/utils/http-cache';
 import { safeErrorResponse } from '@/lib/security/safe-error';
 import { readLimiter } from '@/lib/security/rate-limiter';
 
@@ -32,6 +33,10 @@ const CACHE_DURATION_MS = 5 * 60 * 1000;
 const cachedMetricsByChain = new Map<string, { data: Record<string, unknown>; timestamp: number }>();
 
 export async function GET(request: NextRequest) {
+  return cacheFor(await handleGet(request), CACHE.poolWide);
+}
+
+async function handleGet(request: NextRequest) {
   const limited = readLimiter.check(request);
   if (limited) return limited;
 
