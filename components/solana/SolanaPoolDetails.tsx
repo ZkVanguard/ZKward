@@ -44,6 +44,7 @@ export function SolanaSleevePanel() {
     );
   }
   const pos = sleeve.position;
+  const provenCoins = Object.entries(sleeve.evidence ?? {}).filter(([, v]) => v === 'proven').map(([coin]) => coin);
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-2 flex-wrap pool-inner-heading">
@@ -90,12 +91,14 @@ export function SolanaSleevePanel() {
             )}
           </span>
         ) : (
-          <span className="text-label-secondary">None — waiting for a strong signal</span>
+          <span className="text-label-secondary">{provenCoins.length ? `None — watching ${provenCoins.join(', ')}` : 'None — waiting for a proven signal'}</span>
         )}
       </div>
       <p className="text-[11px] text-label-tertiary leading-relaxed">
-        Trades BTC, ETH and SOL on the platform&apos;s signals, sized to the pool&apos;s value, with real trading fees
-        counted. {data?.testnet !== false && 'On testnet it is simulated; '}profits reach the vault as token buybacks.
+        Opens a trade on BTC, ETH or SOL only after the platform&apos;s signal for that coin has been proven against
+        real price moves{provenCoins.length ? '' : '; none is proven yet, so it is not trading'}. Sized to the pool&apos;s
+        value, with real trading fees counted. {data?.testnet !== false && 'It is simulated; '}profits would reach the
+        vault as token buybacks.
       </p>
     </div>
   );

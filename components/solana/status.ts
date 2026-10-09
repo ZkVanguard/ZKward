@@ -38,6 +38,8 @@ export interface SolanaSleeve {
   winRatePct: number | null;
   pendingBuybackUsd: number;
   position: SolanaSleevePosition | null;
+  /** The ledger's verdict on the signal per coin; the sleeve trades only a proven one. */
+  evidence?: Record<string, 'proven' | 'unproven' | 'wrong-way'>;
 }
 
 export interface SolanaPoolStatus {

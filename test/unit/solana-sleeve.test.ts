@@ -38,6 +38,15 @@ jest.mock('@/lib/services/paper-trader/close-pipeline', () => ({
 }));
 
 import { runSolanaSleeveTick } from '@/lib/services/solana/SolanaSleeveTrader';
+import { PredictionAggregatorService } from '@/lib/services/market-data/PredictionAggregatorService';
+
+/** The stored ledger judgment with these coins' combined signal proven. */
+const proven = (...coins: string[]) =>
+  state.set('feedback-loop:verdicts', {
+    version: 1,
+    cells: Object.fromEntries(coins.map((c) => [`aggregate|${c}`, { verdict: 'proven' }])),
+    families: {},
+  });
 
 const pred = (direction: string, confidence: number) => ({
   direction,
@@ -52,6 +61,26 @@ describe('runSolanaSleeveTick', () => {
     mockMark = 100;
     delete process.env.SOLANA_SLEEVE_DISABLE;
     jest.clearAllMocks();
+    proven('BTC', 'ETH', 'SOL');
+  });
+
+  it('opens nothing while no coin is proven, and does not even scan the signals', async () => {
+    proven();
+    mockPreds = { BTC: pred('UP', 95), ETH: pred('DOWN', 95), SOL: pred('UP', 95) };
+    const s = await runSolanaSleeveTick(10_000, 1_000_000);
+    expect(s.action).toBe('idle');
+    expect(s.detail).toContain('waiting for a proven signal');
+    expect(PredictionAggregatorService.getPerAssetPredictions).not.toHaveBeenCalled();
+    expect(createHedge).not.toHaveBeenCalled();
+  });
+
+  it('trades only the proven coin, even when another has the stronger signal', async () => {
+    proven('SOL');
+    mockPreds = { BTC: pred('UP', 99), SOL: pred('DOWN', 71) };
+    const s = await runSolanaSleeveTick(10_000, 1_000_000);
+    expect(s.action).toBe('opened');
+    expect(s.detail).toContain('SOL SHORT');
+    expect(PredictionAggregatorService.getPerAssetPredictions).toHaveBeenCalledWith(['SOL']);
   });
 
   it('opens the highest-confidence directional signal, sized by portfolio margin with the $50 floor', async () => {
