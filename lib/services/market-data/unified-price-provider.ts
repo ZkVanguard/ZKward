@@ -1,13 +1,8 @@
 /**
  * Unified Price Provider
  * 
- * Single source of truth for all real-time prices across the application.
- * Consolidates WebSocket streaming, REST polling, and caching into one service.
- * 
- * Priority Chain:
- * 1. WebSocket stream (real-time, <100ms latency)
- * 2. RealMarketDataService cache (5s refresh)
- * 3. Direct Crypto.com API (fallback)
+ * Single source of truth for server-side prices: one REST read of the
+ * exchange's tickers, cached in the instance and refreshed on demand.
  * 
  * Used by:
  * - AutoHedgingService (background hedging)
@@ -34,7 +29,7 @@ export interface LivePrice {
   low24h: number;
   volume24h: number;
   timestamp: number;
-  source: 'websocket' | 'rest' | 'cache' | 'fallback';
+  source: 'rest' | 'cache' | 'fallback';
   latency: number; // ms since last update
 }
 
@@ -62,12 +57,6 @@ export interface HedgePriceContext {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 const CONFIG = {
-  // WebSocket configuration
-  WS_URL: 'wss://stream.crypto.com/exchange/v1/market',
-  WS_RECONNECT_DELAY: 2000,
-  WS_MAX_RECONNECTS: 10,
-  WS_HEARTBEAT_INTERVAL: 30000,
-
   // Cache configuration
   FRESH_THRESHOLD_MS: 1000,   // Price is "fresh" if <1s old
   STALE_THRESHOLD_MS: 5000,   // Price is "stale" if 1-5s old
@@ -95,9 +84,6 @@ const CONFIG = {
   // asset MUST be in this list or its positions become un-closeable. Keep
   // in sync with resolveAgentUniverse() output.
   DEFAULT_SYMBOLS: ['BTC', 'ETH', 'CRO', 'SUI', 'SOL', 'XRP', 'DOGE', 'ATOM'],
-  
-  // Polling fallback interval (only if WebSocket fails)
-  FALLBACK_POLL_INTERVAL: 3000,
 };
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -106,12 +92,6 @@ const CONFIG = {
 
 class UnifiedPriceProvider extends EventEmitter {
   private prices: Map<string, LivePrice> = new Map();
-  private ws: WebSocket | null = null;
-  private wsConnected = false;
-  private reconnectAttempts = 0;
-  private reconnectTimer: NodeJS.Timeout | null = null;
-  private heartbeatTimer: NodeJS.Timeout | null = null;
-  private pollTimer: NodeJS.Timeout | null = null;
   private trackedSymbols: Set<string> = new Set(CONFIG.DEFAULT_SYMBOLS);
   private lastApiCall = 0;
   private restInflight: Promise<void> | null = null;
@@ -141,13 +121,10 @@ class UnifiedPriceProvider extends EventEmitter {
     // Start with REST fetch to populate cache immediately
     await this.fetchPricesFromREST();
     
-    // Connect WebSocket for real-time updates
-    if (typeof WebSocket !== 'undefined') {
-      this.connectWebSocket();
-    } else {
-      // Server-side: use polling fallback
-      this.startPolling();
-    }
+    // No live stream and no background poll: this provider runs inside
+    // server instances (Node 24 has a global WebSocket, so the stream used to
+    // open there), and either one kept every instance busy between requests.
+    // getLivePrice refreshes a price older than 60 s before it is used.
     
     this.initialized = true;
     logger.info('[UnifiedPrice] Initialized', {
@@ -157,164 +134,8 @@ class UnifiedPriceProvider extends EventEmitter {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // WEBSOCKET MANAGEMENT
+  // REST
   // ═══════════════════════════════════════════════════════════════════════════
-
-  private connectWebSocket(): void {
-    try {
-      this.ws = new WebSocket(CONFIG.WS_URL);
-      
-      this.ws.onopen = () => {
-        this.wsConnected = true;
-        this.reconnectAttempts = 0;
-        logger.info('[UnifiedPrice] WebSocket connected');
-        
-        // Subscribe to ticker updates
-        this.subscribeToTickers();
-        
-        // Start heartbeat
-        this.startHeartbeat();
-        
-        // Stop polling if running
-        this.stopPolling();
-        
-        this.emit('connected');
-      };
-
-      this.ws.onmessage = (event) => {
-        this.handleWebSocketMessage(event.data);
-      };
-
-      this.ws.onerror = (error) => {
-        logger.error('[UnifiedPrice] WebSocket error', { error });
-        this.emit('error', error);
-      };
-
-      this.ws.onclose = () => {
-        this.wsConnected = false;
-        this.stopHeartbeat();
-        logger.warn('[UnifiedPrice] WebSocket disconnected');
-        
-        // Fallback to polling
-        this.startPolling();
-        
-        // Attempt reconnect
-        this.scheduleReconnect();
-        
-        this.emit('disconnected');
-      };
-    } catch (error) {
-      logger.error('[UnifiedPrice] Failed to create WebSocket', { error });
-      this.startPolling();
-    }
-  }
-
-  private subscribeToTickers(): void {
-    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
-
-    const symbols = Array.from(this.trackedSymbols);
-    const subscriptions = symbols.map(s => `ticker.${s}_USDT`);
-
-    this.ws.send(JSON.stringify({
-      id: Date.now(),
-      method: 'subscribe',
-      params: { channels: subscriptions },
-    }));
-
-    logger.debug('[UnifiedPrice] Subscribed to tickers', { symbols });
-  }
-
-  private handleWebSocketMessage(data: string): void {
-    try {
-      const msg = JSON.parse(data);
-      
-      if (msg.method === 'subscribe' && msg.result?.channel?.startsWith('ticker.')) {
-        const tickerData = msg.result.data;
-        if (tickerData) {
-          this.updatePrice({
-            symbol: this.extractSymbol(msg.result.channel),
-            price: parseFloat(tickerData.a || tickerData.k),
-            bid: parseFloat(tickerData.b || tickerData.k),
-            ask: parseFloat(tickerData.a || tickerData.k),
-            change24h: parseFloat(tickerData.c || 0),
-            high24h: parseFloat(tickerData.h || tickerData.k),
-            low24h: parseFloat(tickerData.l || tickerData.k),
-            volume24h: parseFloat(tickerData.v || 0),
-            timestamp: Date.now(),
-            source: 'websocket',
-            latency: 0,
-          });
-        }
-      }
-    } catch (error) {
-      // Ignore parse errors for heartbeat messages
-    }
-  }
-
-  private extractSymbol(channel: string): string {
-    // ticker.BTC_USDT -> BTC
-    const match = channel.match(/ticker\.([A-Z]+)_USDT/);
-    return match ? match[1] : channel;
-  }
-
-  private startHeartbeat(): void {
-    this.stopHeartbeat();
-    this.heartbeatTimer = setInterval(() => {
-      if (this.ws?.readyState === WebSocket.OPEN) {
-        this.ws.send(JSON.stringify({ id: Date.now(), method: 'public/heartbeat' }));
-      }
-    }, CONFIG.WS_HEARTBEAT_INTERVAL);
-  }
-
-  private stopHeartbeat(): void {
-    if (this.heartbeatTimer) {
-      clearInterval(this.heartbeatTimer);
-      this.heartbeatTimer = null;
-    }
-  }
-
-  private scheduleReconnect(): void {
-    if (this.reconnectAttempts >= CONFIG.WS_MAX_RECONNECTS) {
-      logger.error('[UnifiedPrice] Max reconnect attempts reached');
-      return;
-    }
-
-    const delay = CONFIG.WS_RECONNECT_DELAY * Math.pow(2, this.reconnectAttempts);
-    this.reconnectAttempts++;
-
-    this.reconnectTimer = setTimeout(() => {
-      if (!this.wsConnected) {
-        logger.info('[UnifiedPrice] Attempting WebSocket reconnect', {
-          attempt: this.reconnectAttempts,
-        });
-        this.connectWebSocket();
-      }
-    }, delay);
-  }
-
-  // ═══════════════════════════════════════════════════════════════════════════
-  // REST POLLING (FALLBACK)
-  // ═══════════════════════════════════════════════════════════════════════════
-
-  private startPolling(): void {
-    if (this.pollTimer) return;
-
-    logger.info('[UnifiedPrice] Starting REST polling fallback');
-    
-    this.pollTimer = setInterval(async () => {
-      if (!this.wsConnected) {
-        await this.fetchPricesFromREST();
-      }
-    }, CONFIG.FALLBACK_POLL_INTERVAL);
-  }
-
-  private stopPolling(): void {
-    if (this.pollTimer) {
-      clearInterval(this.pollTimer);
-      this.pollTimer = null;
-      logger.debug('[UnifiedPrice] Stopped REST polling');
-    }
-  }
 
   async fetchPricesFromREST(opts: { force?: boolean } = {}): Promise<void> {
     if (this.restInflight) return this.restInflight;
@@ -509,11 +330,6 @@ class UnifiedPriceProvider extends EventEmitter {
       warnings.push(`High spread: ${spreadPercent.toFixed(2)}%`);
     }
     
-    // Check source
-    if (price.source !== 'websocket') {
-      warnings.push(`Using ${price.source} price (not real-time)`);
-    }
-    
     return {
       isValid: price.price > 0 && staleness < CONFIG.EXPIRED_THRESHOLD_MS,
       isFresh,
@@ -539,14 +355,6 @@ class UnifiedPriceProvider extends EventEmitter {
     if (!this.trackedSymbols.has(normalized)) {
       this.trackedSymbols.add(normalized);
       
-      // Subscribe via WebSocket if connected
-      if (this.ws?.readyState === WebSocket.OPEN) {
-        this.ws.send(JSON.stringify({
-          id: Date.now(),
-          method: 'subscribe',
-          params: { channels: [`ticker.${normalized}_USDT`] },
-        }));
-      }
     }
   }
 
@@ -572,7 +380,6 @@ class UnifiedPriceProvider extends EventEmitter {
    */
   getStatus(): {
     initialized: boolean;
-    wsConnected: boolean;
     priceCount: number;
     trackedSymbols: string[];
     oldestPrice: number;
@@ -588,7 +395,6 @@ class UnifiedPriceProvider extends EventEmitter {
     
     return {
       initialized: this.initialized,
-      wsConnected: this.wsConnected,
       priceCount: this.prices.size,
       trackedSymbols: Array.from(this.trackedSymbols),
       oldestPrice: oldest,
@@ -600,20 +406,6 @@ class UnifiedPriceProvider extends EventEmitter {
    * Shutdown the provider
    */
   shutdown(): void {
-    this.stopHeartbeat();
-    this.stopPolling();
-    
-    if (this.reconnectTimer) {
-      clearTimeout(this.reconnectTimer);
-      this.reconnectTimer = null;
-    }
-    
-    if (this.ws) {
-      this.ws.close();
-      this.ws = null;
-    }
-    
-    this.wsConnected = false;
     this.initialized = false;
     this.initPromise = null;
     
@@ -714,7 +506,6 @@ export async function getStrictHedgePrice(
   side: 'LONG' | 'SHORT',
   options?: {
     maxStalenessMs?: number;    // Default: 10000 (10s)
-    requireWebSocket?: boolean; // Default: false (allows REST/cache)
     maxSpreadPercent?: number;  // Default: 2.0%
   }
 ): Promise<HedgePriceContext & { source: string }> {
@@ -724,7 +515,7 @@ export async function getStrictHedgePrice(
   const provider = getUnifiedPriceProvider();
   await provider.initialize();
   
-  // Try unified provider first (WebSocket → REST → Cache)
+  // Try the unified provider first (REST, cached in the instance)
   let priceContext = await provider.getHedgePrice(symbol, side);
   
   // If no price or invalid, try MCP as fallback
@@ -781,13 +572,6 @@ export async function getStrictHedgePrice(
     throw new Error(
       `SPREAD_TOO_HIGH: ${symbol} spread is ${priceContext.validation.spreadPercent.toFixed(2)}% ` +
       `(max: ${maxSpread}%). Hedge creation blocked.`
-    );
-  }
-  
-  if (options?.requireWebSocket && priceContext.validation.priceSource !== 'websocket') {
-    throw new Error(
-      `WEBSOCKET_REQUIRED: ${symbol} price from ${priceContext.validation.priceSource}, ` +
-      `but WebSocket real-time price required. Hedge creation blocked.`
     );
   }
   
@@ -856,7 +640,7 @@ export async function getMultiSourceValidatedPrice(
   const sources: Array<{ name: string; price: number; timestamp: number }> = [];
   const promises: Promise<void>[] = [];
   
-  // Source 1: Unified Price Provider (Crypto.com WebSocket/REST)
+  // Source 1: Unified Price Provider (Crypto.com REST)
   promises.push((async () => {
     try {
       const provider = getUnifiedPriceProvider();

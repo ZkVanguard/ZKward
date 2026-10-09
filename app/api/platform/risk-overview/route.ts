@@ -696,7 +696,7 @@ async function handleGet(request: NextRequest): Promise<NextResponse<RiskOvervie
   if (limited) return limited as NextResponse<RiskOverviewResponse | { error: string }>;
 
   try {
-    const [pool, hedges, venueLocked, cronHealth, zkAttestations, defense, incidents, composition, hedgeHistory, paperTrader] = await Promise.all([
+    const [pool, hedges, venueLocked, cronHealth, zkAttestations, defense, incidents, composition, hedgeHistory, paperTrader, agents] = await Promise.all([
       getPoolMetrics(),
       getActiveHedges(),
       getVenueLockedHedges(),
@@ -707,6 +707,7 @@ async function handleGet(request: NextRequest): Promise<NextResponse<RiskOvervie
       getCompositionSection(),
       getHedgeHistorySection(),
       getPaperTraderSection(),
+      getAgentSection(),
     ]);
     const netCapital = pool.netCapital;
 
@@ -745,7 +746,7 @@ async function handleGet(request: NextRequest): Promise<NextResponse<RiskOvervie
         staleCount: cronHealth.filter((c) => c.status === 'stale').length,
       },
       zkAttestations,
-      agents: await getAgentSection(),
+      agents,
       defense,
       incidents,
       composition,
