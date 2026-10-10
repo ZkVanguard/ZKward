@@ -6,7 +6,8 @@
  *   { statement: { kind, bounds, product? }, witness: { values, payload? } }
  *   { hedge: { asset, side, leverageX, ... }, caps: { leverage_cap, notional_cap_cents } }
  *
- * A witness outside its statement gets 422 and no proof.
+ * A witness outside its statement gets 422 and no proof. `opening: false`
+ * leaves the opening (the caller's secret, about 750 KB) out of the answer.
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { logger } from '@/lib/utils/logger';
@@ -44,7 +45,7 @@ export async function POST(request: NextRequest) {
       success: true,
       proof: proven.proof,
       commitment: proven.commitment,
-      opening: proven.opening,
+      ...(body.opening === false ? {} : { opening: proven.opening }),
       verified: proven.verified,
       protocol: proven.protocol,
       duration_ms: proven.generationTime,
