@@ -7,15 +7,13 @@
  * `zk_hedge_commitment::store_commitment`.
  *
  * What this gives the pool:
- *   - On-chain proof that an auto-hedge was opened with specific (hidden)
- *     parameters, without revealing asset / side / size / leverage / price.
+ *   - An on-chain record, made when an auto-hedge opened, that commits to its
+ *     asset / side / size / leverage / price without revealing them.
  *   - Nullifier serves as a double-emit guard at the contract layer.
  *
  * What it does NOT do (intentionally):
- *   - Doesn't call the Python STARK prover. `store_commitment` is just a
- *     write; no ZK proof is required. The STARK + ed25519 attestation path
- *     is used by SuiPrivateHedgeService.getAttestedSolvencyProof when a
- *     stronger guarantee is needed (e.g., proxy vault withdrawals).
+ *   - Doesn't prove anything about the hedge. `store_commitment` is just a
+ *     write; a commitment says what was recorded, not that it kept a rule.
  *   - Doesn't hide the BlueFin position. The perp itself is visible via the
  *     BlueFin API. Venue-level privacy is a separate, larger problem.
  *

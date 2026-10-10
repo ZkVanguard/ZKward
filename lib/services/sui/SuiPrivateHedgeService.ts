@@ -1,29 +1,26 @@
 /**
  * SUI Private Hedge Service
  *
- * Privacy-preserving hedging on SUI using deployed ZK contracts.
- * Wraps:
+ * Hash commitments for hedges on SUI, and the transaction builders for the
+ * published commitment contracts:
  *   - zk_hedge_commitment.move  (commitment storage + nullifier replay-protection)
- *   - zk_verifier.move          (ed25519-attested on-chain proof verification)
- *   - zk_proxy_vault.move       (proxy vault — deposit / time-locked withdraw with ZK proof)
+ *   - zk_verifier.move          (records a commitment signed by the configured key)
+ *   - zk_proxy_vault.move       (proxy vault: deposit / time-locked withdraw)
  *
- * Privacy architecture:
- *   1. COMMITMENT   — SHA-256 over canonical hedge JSON; stored as 32 bytes on chain
- *   2. NULLIFIER    — SHA-256(commitment || secret) — prevents double-settle
- *   3. STARK PROOF  — real NIST P-521 ZK-STARK from the Python prover at $ZK_PYTHON_API_URL
- *   4. ATTESTATION  — Python prover signs the commitment_hash with the configured
- *                     ed25519 prover key; on-chain `verify_proof` checks the sig.
- *                     Bundle: proof_data = sig(64) || stark_json (off-chain re-verifiable)
- *   5. ENCRYPTION   — local AES-256-GCM of the hedge details for the operator's own
- *                     records; never sent on-chain.
+ *   1. COMMITMENT   SHA-256 over the hedge; stored as 32 bytes on chain
+ *   2. NULLIFIER    SHA-256(commitment || secret); prevents double-settle
+ *   3. ENCRYPTION   local AES-256-GCM of the hedge details for the operator's
+ *                   own records; never sent on-chain.
+ *
+ * These contracts check a signature, not a proof. The hedge policy proof is a
+ * separate thing: `proveHedgePolicy` in `zk/prover/ProofGenerator.ts`, whose
+ * commitment is the proof's own and is checked by `zk/verifier/boundsStark.ts`.
  *
  * @see contracts/sui/sources/zk_hedge_commitment.move
  * @see contracts/sui/sources/zk_verifier.move
  * @see contracts/sui/sources/zk_proxy_vault.move
- * @see zkp/api/server.py — /api/zk/generate, /api/zk/verify, /api/zk/attest
  */
 
-import { zkApiHeaders } from '@/lib/utils/zk-api-auth';
 import { logger } from '@/lib/utils/logger';
 import crypto from 'crypto';
 import {
@@ -95,16 +92,6 @@ export interface SuiPrivateHedge {
   iv: string;                   // 12 bytes hex
 }
 
-/** Bundle returned by the Python prover for on-chain `zk_verifier::verify_proof`. */
-export interface AttestedProofBundle {
-  commitmentHashHex: string;
-  signatureHex: string;          // 64 bytes — ed25519(commitment_hash)
-  proverPubkeyHex: string;       // 32 bytes — what admin_set_prover_pubkey expects
-  proofDataHex: string;          // sig(64) || stark JSON bytes — the `proof_data` Move arg
-  starkProof: Record<string, unknown>;   // for off-chain re-verification
-  starkProofSizeBytes: number;
-}
-
 // ============================================
 // SUI PRIVATE HEDGE SERVICE
 // ============================================
@@ -115,7 +102,6 @@ export class SuiPrivateHedgeService {
   private network: Network;
   private config: ZkDeployment;
   private encryptionKeyHex: string;
-  private proverApiUrl: string;
 
   constructor(network: Network = 'mainnet') {
     this.network = network;
@@ -136,8 +122,7 @@ export class SuiPrivateHedgeService {
       'a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2',
     );
 
-    this.proverApiUrl = readEnv('ZK_PYTHON_API_URL', 'http://127.0.0.1:8000');
-    logger.info('[SuiZKHedge] Initialized', { network, prover: this.proverApiUrl });
+    logger.info('[SuiZKHedge] Initialized', { network });
   }
 
   isMainnetReady(): boolean {
@@ -195,9 +180,10 @@ export class SuiPrivateHedgeService {
   }
 
   /**
-   * Build on-chain ZK proof verification call.
-   * `proofDataHex` MUST be produced by `getAttestedProofBundle()` — first 64
-   * bytes are ed25519 sig over commitment_hash; chain rejects anything else.
+   * Build the call that records a signed commitment on chain. The contract
+   * checks that the first 64 bytes of `proofDataHex` are an ed25519
+   * signature over the commitment by the key the admin configured; it does
+   * not verify a proof.
    */
   buildVerifyProofTransaction(
     proofDataHex: string,
@@ -242,9 +228,9 @@ export class SuiPrivateHedgeService {
   }
 
   /**
-   * Withdraw from a proxy vault. Requires a real attested ZK proof — Move
-   * verifier rejects any payload whose first 64 bytes aren't a valid ed25519
-   * signature over the proxy's zk_binding_hash.
+   * Withdraw from a proxy vault. The contract rejects any payload whose
+   * first 64 bytes are not a valid ed25519 signature over the proxy's
+   * zk_binding_hash by the configured key.
    *
    * NOTE: For amounts ≥ time_lock_threshold the Move contract returns a
    * `PendingWithdrawal` object; the caller must wait the time-lock then
@@ -312,90 +298,6 @@ export class SuiPrivateHedgeService {
   }
 
   // ============================================
-  // REAL PROVER INTEGRATION (Python ZK-STARK + ed25519 attestation)
-  // ============================================
-
-  /**
-   * Health check the Python prover. Returns false if unreachable; callers
-   * should fall back to keeping the commitment off-chain.
-   */
-  async proverReachable(timeoutMs = 5000): Promise<boolean> {
-    try {
-      const r = await fetch(`${this.proverApiUrl}/health`, {
-        signal: AbortSignal.timeout(timeoutMs),
-      });
-      return r.ok;
-    } catch { return false; }
-  }
-
-  /**
-   * Generate a real ZK-STARK solvency proof via the Python prover and bind
-   * it to `commitmentHash` with an ed25519 signature. The returned
-   * `proofDataHex` is exactly the format `zk_verifier::verify_proof` expects.
-   *
-   * Caller invariant: the operator MUST have set ZKV_PROVER_PRIV_KEY_HEX on
-   * the Python server AND called `zk_verifier::admin_set_prover_pubkey` with
-   * the matching pubkey, or on-chain verification rejects (insecure-mode
-   * fallback is for testnet drills only).
-   */
-  async getAttestedSolvencyProof(
-    commitment: SuiHedgeCommitment,
-    commitmentHash: string,
-    collateral: number,
-    requiredMargin: number,
-  ): Promise<AttestedProofBundle> {
-    if (collateral < requiredMargin) {
-      throw new Error('Cannot prove solvency: collateral < requiredMargin');
-    }
-    // Statement is what the verifier sees. Critical: public_inputs is now
-    // folded into statement_hash by the prover (G1 fix), so a proof for
-    // `requiredMargin = 200` won't pass verification when verifier asks
-    // for `requiredMargin = 1_000_000`.
-    const statement = {
-      claim: `Hedge solvency: collateral >= required margin for commitment ${commitmentHash.slice(0, 16)}`,
-      threshold: requiredMargin,
-      public_inputs: [requiredMargin],
-    };
-    const witness = {
-      secret_value: collateral,        // private — the actual collateral
-      portfolio_value: commitment.notionalValue,
-      volatility: 0,
-    };
-
-    const r = await fetch(`${this.proverApiUrl}/api/zk/attest`, {
-      method: 'POST',
-      headers: zkApiHeaders(),
-      body: JSON.stringify({
-        proof_type: 'risk',
-        statement,
-        witness,
-        commitment_hash_hex: commitmentHash,
-      }),
-      signal: AbortSignal.timeout(60_000),
-    });
-    if (!r.ok) {
-      const detail = await r.text().catch(() => '');
-      throw new Error(`Prover /api/zk/attest failed ${r.status}: ${detail.slice(0, 300)}`);
-    }
-    const body = await r.json() as {
-      commitment_hash_hex: string;
-      signature_hex: string;
-      prover_pubkey_hex: string;
-      proof_data_hex: string;
-      stark_proof: Record<string, unknown>;
-      stark_proof_size_bytes: number;
-    };
-    return {
-      commitmentHashHex: body.commitment_hash_hex,
-      signatureHex: body.signature_hex,
-      proverPubkeyHex: body.prover_pubkey_hex,
-      proofDataHex: body.proof_data_hex,
-      starkProof: body.stark_proof,
-      starkProofSizeBytes: body.stark_proof_size_bytes,
-    };
-  }
-
-  // ============================================
   // CANONICAL HEDGE BINDING  (zkv-hedge-v1)
   // ============================================
 
@@ -453,7 +355,7 @@ export class SuiPrivateHedgeService {
    * Canonical replacement for `generateCommitment`. Uses the fixed
    * binary layout in `zk/prover/hedgeCanonical` so the commitment is
    * byte-identical across TS and Python. Prefer this over the legacy
-   * JSON-based `generateCommitment` for anything that will be attested.
+   * JSON-based `generateCommitment`.
    */
   generateCanonicalCommitment(
     hedge: SuiHedgeCommitment,
@@ -481,136 +383,6 @@ export class SuiPrivateHedgeService {
       inputsHash: binding.inputsHash,
       canonical: binding.canonical,
     };
-  }
-
-  /**
-   * Full attested-hedge-commitment flow.
-   *
-   * Depositor supplies the trade + vault caps → server verifies the
-   * canonical binding (asset in allow-list, leverage ≤ cap, notional ≤
-   * cap, commitment_hash reproduces from inputs) → returns proof bundle
-   * ready for `zk_verifier::verify_proof` on-chain.
-   *
-   * The `public_inputs` pin the caps the proof was made against, so any
-   * observer can see the safety envelope even without the trade details.
-   *
-   * NOTE: today's `/api/zk/attest` still generates the proof server-side,
-   * which means the prover sees the private inputs. This is "server-
-   * attested privacy" — chain / MEV bots / other depositors see nothing.
-   * A future WASM-in-browser prover closes the last gap.
-   */
-  async getAttestedHedgeCommitmentProof(
-    hedge: SuiHedgeCommitment,
-    opts: {
-      portfolioId: number;
-      chain: string;
-      leverageCap: number;
-      notionalCapUsdcCents: bigint | number;
-      timestampMs?: number;
-    },
-  ): Promise<AttestedProofBundle & { commitmentHash: string; canonical: CanonicalHedgeInputs }> {
-    const canonical = this.buildCanonicalHedgeInputs(hedge, opts);
-    const binding = prepareHedgeBinding(canonical);
-
-    const statement = {
-      claim: `zkv-hedge-v${HEDGE_CANONICAL_VERSION}`,
-      public_inputs: [
-        binding.commitmentHash,
-        binding.inputsHash,
-        canonical.notionalCapUsdcCents.toString(),
-        canonical.leverageCap,
-      ],
-    };
-    // Serializer path can't cross the wire with bigint, so cents fields
-    // ship as strings; server-side `assert_hedge_binding` casts back.
-    const witness = {
-      canonical: {
-        ...canonical,
-        sizeUnits: canonical.sizeUnits.toString(),
-        entryPriceUsdcCents: canonical.entryPriceUsdcCents.toString(),
-        notionalValueUsdcCents: canonical.notionalValueUsdcCents.toString(),
-        notionalCapUsdcCents: canonical.notionalCapUsdcCents.toString(),
-      },
-    };
-
-    const r = await fetch(`${this.proverApiUrl}/api/zk/attest`, {
-      method: 'POST',
-      headers: zkApiHeaders(),
-      body: JSON.stringify({
-        proof_type: 'private-hedge',
-        statement,
-        witness,
-        commitment_hash_hex: binding.commitmentHash,
-      }),
-      signal: AbortSignal.timeout(60_000),
-    });
-    if (!r.ok) {
-      const detail = await r.text().catch(() => '');
-      throw new Error(
-        `Prover /api/zk/attest failed ${r.status}: ${detail.slice(0, 300)}`,
-      );
-    }
-    const body = (await r.json()) as {
-      commitment_hash_hex: string;
-      signature_hex: string;
-      prover_pubkey_hex: string;
-      proof_data_hex: string;
-      stark_proof: Record<string, unknown>;
-      stark_proof_size_bytes: number;
-    };
-    return {
-      commitmentHashHex: body.commitment_hash_hex,
-      signatureHex: body.signature_hex,
-      proverPubkeyHex: body.prover_pubkey_hex,
-      proofDataHex: body.proof_data_hex,
-      starkProof: body.stark_proof,
-      starkProofSizeBytes: body.stark_proof_size_bytes,
-      commitmentHash: binding.commitmentHash,
-      canonical: binding.canonical,
-    };
-  }
-
-  /**
-   * Off-chain proof verification — re-runs the STARK math on the Python prover
-   * for independent confirmation. The on-chain Move check only validates the
-   * ed25519 signature, so for end-to-end soundness any auditor needs to be
-   * able to re-verify the STARK separately. That's what this method exposes.
-   */
-  async verifyAttestedProofOffChain(
-    bundle: AttestedProofBundle,
-    publicInputs: number[],
-    claim: string,
-  ): Promise<boolean> {
-    const r = await fetch(`${this.proverApiUrl}/api/zk/verify`, {
-      method: 'POST',
-      headers: zkApiHeaders(),
-      body: JSON.stringify({
-        proof: bundle.starkProof,
-        public_inputs: publicInputs,
-        claim,
-      }),
-      signal: AbortSignal.timeout(30_000),
-    });
-    if (!r.ok) return false;
-    const body = await r.json() as { valid?: boolean };
-    if (body.valid !== true) return false;
-
-    // Defense in depth: Python core-crypto verifier doesn't bind metadata
-    // (security_level, field_prime, blowup, query count) to the proof.
-    // Guard those explicitly so a downgraded proof can't slip through as
-    // an "attested" record. See fa728adc for the exhaustive tamper suite.
-    const { checkProofMetadata } = await import('@/zk/verifier/proof-metadata-guard');
-    const proofRecord = bundle.starkProof as unknown as { proof?: Record<string, unknown> };
-    const inner = proofRecord.proof ?? (bundle.starkProof as unknown as Record<string, unknown>);
-    const guard = checkProofMetadata(inner);
-    if (!guard.ok) {
-      const { logger } = await import('@/lib/utils/logger');
-      logger.warn('[SuiPrivateHedge] Attested proof metadata guard rejected', {
-        violations: guard.violations,
-      });
-      return false;
-    }
-    return true;
   }
 
   // ============================================

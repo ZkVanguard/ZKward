@@ -257,10 +257,6 @@ export const config = {
   agentMaxRetries: parseInt(process.env.AGENT_MAX_RETRIES || '3', 10),
   agentTimeout: parseInt(process.env.AGENT_TIMEOUT || '30000', 10),
 
-  // ZK Configuration
-  zkTrustedSetupPath: process.env.ZK_TRUSTED_SETUP_PATH || './zk/trusted-setup',
-  zkCircuitPath: process.env.ZK_CIRCUIT_PATH || './zk/circuits',
-
   // Frontend
   apiUrl: process.env.VITE_API_URL || 'http://localhost:3000',
   wsUrl: process.env.VITE_WS_URL || 'ws://localhost:3000',

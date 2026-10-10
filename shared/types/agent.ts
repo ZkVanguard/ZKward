@@ -178,23 +178,16 @@ export interface RiskAnalysis {
   marketSentiment: 'bullish' | 'bearish' | 'neutral';
   zkProofHash?: string;
   /**
-   * Cryptographic binding between the risk inputs and the reported
-   * `totalRisk`. Produced by zk/prover/riskCanonical.ts and asserted by
-   * the Python STARK prover before proof generation. If present, the
-   * proof is guaranteed to have been generated over these exact hashes.
-   *
-   * - `inputsHash`     SHA256 of the canonical serialization of every
-   *                    numeric risk input (see `CanonicalRiskInputs`).
-   * - `outputHash`     SHA256 of `totalRisk` as u32-BE. Useful for
-   *                    on-chain score-keyed lookups.
-   * - `commitmentHash` 32-byte SHA256 the ed25519 attestation signs.
-   *                    Feed to `zk_verifier::verify_proof` as `msg`.
-   * - `canonicalVersion` Schema version — mismatch = binding invalid.
+   * The risk-score proof for this analysis, when the prover produced one.
+   * `commitment` commits to `totalRisk` and to `inputsHash` (the digest of
+   * the canonical inputs, see zk/prover/riskCanonical.ts). `verified` is the
+   * local verifier's verdict for "the committed score is in [0, threshold]".
    */
   zkBinding?: {
     inputsHash: string;
-    outputHash: string;
-    commitmentHash: string;
+    commitment: string;
+    threshold: number;
+    verified: boolean;
     canonicalVersion: 1;
   };
 }

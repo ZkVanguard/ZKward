@@ -122,7 +122,6 @@ Once the tunnel is running, update your environment:
 ```env
 # .env
 ZK_API_URL=https://zk-api.yourdomain.com
-NEXT_PUBLIC_ZK_API_URL=https://zk-api.yourdomain.com
 ```
 
 ## Verify
@@ -133,12 +132,10 @@ Test the connection:
 curl https://zk-api.yourdomain.com/health
 ```
 
-Generate a proof:
+Prove that a private number is inside public bounds:
 
 ```bash
-curl -X POST https://zk-api.yourdomain.com/api/zk/generate \
-  -H "Content-Type: application/json" \
-  -d '{"proof_type":"risk-calculation","data":{"statement":{"claim":"test"},"witness":{"value":42}}}'
+curl -X POST https://zk-api.yourdomain.com/api/zk/bounds/prove   -H "Content-Type: application/json"   -d '{"statement":{"kind":"example","bounds":[[0,70]]},"witness":{"values":[55]}}'
 ```
 
 ## Monitoring

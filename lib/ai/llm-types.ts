@@ -18,7 +18,6 @@ export interface LLMResponse {
   sources?: string[];
   actionExecuted?: boolean;
   actionResult?: unknown;
-  zkProof?: unknown;
 }
 
 export interface StreamChunk {

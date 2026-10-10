@@ -3,11 +3,10 @@
  * 
  * POST /api/agents/portfolio/rebalance
  * 
- * Executes portfolio rebalancing with ZK proof generation
+ * Returns a rebalance recommendation for the caller's wallet to execute
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { generateRebalanceProof } from '@/lib/api/zk';
 import { logger } from '@/lib/utils/logger';
 import { requireAuth } from '@/lib/security/auth-middleware';
 import { mutationLimiter } from '@/lib/security/rate-limiter';
@@ -35,7 +34,6 @@ export async function POST(request: NextRequest) {
       portfolioId, 
       walletAddress, 
       newAllocations, 
-      oldAllocations,
       autoApproved,
       actions 
     } = body;
@@ -70,29 +68,7 @@ export async function POST(request: NextRequest) {
       actionCount: actions?.length || 0,
     });
 
-    // Generate ZK proof for rebalancing
-    let zkProofResult;
-    try {
-      zkProofResult = await generateRebalanceProof(
-        {
-          old_allocations: oldAllocations || newAllocations.map(() => 0),
-          new_allocations: newAllocations,
-        },
-        portfolioId
-      );
-
-      if (zkProofResult.status !== 'completed' || !zkProofResult.proof) {
-        throw new Error('ZK proof generation failed');
-      }
-
-      logger.info('[Rebalance] ZK proof generated', {
-        proofHash: zkProofResult.proof.proof_hash,
-      });
-    } catch (error) {
-      return safeErrorResponse(error, 'ZK proof generation for rebalance');
-    }
-
-    // PRODUCTION SAFETY: This API only generates recommendations and ZK proofs
+    // PRODUCTION SAFETY: This API only generates recommendations
     // Actual transactions MUST be executed by the user signing in their wallet
     // Backend NEVER executes transactions affecting user funds
 
@@ -109,16 +85,11 @@ export async function POST(request: NextRequest) {
       // NO txHash - user must sign transaction themselves
       status: 'pending_user_signature',
       portfolioId,
-      zkProof: {
-        proofHash: zkProofResult.proof.proof_hash || zkProofResult.proof.merkle_root,
-        verified: true,
-      },
       recommendedActions: actions || [],
       // User must call contract directly from frontend
       contractCall: {
         method: 'rebalancePortfolio',
         args: [portfolioId, newAllocations.map(a => a.asset), newAllocations.map(a => a.percentage)],
-        zkProofHash: zkProofResult.proof.proof_hash,
       },
       timestamp: Date.now(),
     });

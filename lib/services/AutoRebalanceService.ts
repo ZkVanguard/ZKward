@@ -7,7 +7,6 @@
  * - Periodic monitoring of portfolio allocations
  * - Drift detection and threshold-based triggering
  * - Agent-driven rebalancing execution
- * - Integration with ZK proof generation
  * - Risk-aware rebalancing logic
  *
  * Usage:
@@ -334,9 +333,7 @@ class AutoRebalanceService {
         return;
       }
 
-      // Generate ZK proof for rebalancing
       const newAllocations = assessment.drifts.map((d) => Math.round(d.target));
-      const oldAllocations = assessment.drifts.map((d) => Math.round(d.current));
 
       // Call rebalancing API
       const response = await fetch('/api/agents/portfolio/rebalance', {
@@ -346,7 +343,6 @@ class AutoRebalanceService {
           portfolioId,
           walletAddress: config.walletAddress,
           newAllocations,
-          oldAllocations,
           autoApproved: true,
           actions: assessment.proposedActions,
         }),

@@ -25,9 +25,9 @@
            │                                        │
            ▼                                        ▼
 ┌────────────────────────────────┐  ┌───────────────────────────────┐
-│ PORTFOLIODRIVER (v0.3.0)       │  │  ZK-STARK ATTESTATION         │
-│ + 8 autonomy gates             │  │  (Python, NIST P-521)         │
-│ lib/services/sui/              │  │  Trades > $1M (post-cap-lift) │
+│ PORTFOLIODRIVER (v0.3.0)       │  │  BOUNDS ZK-STARK (off chain)  │
+│ + 8 autonomy gates             │  │  (Python prover, TS verifier) │
+│ lib/services/sui/              │  │  Not wired into execution     │
 │ PortfolioDriver.ts             │  │  zk/ + zkp/                   │
 └──────────┬─────────────────────┘  └───────────────────────────────┘
            │
@@ -66,7 +66,7 @@
 - Crons: Upstash QStash → `app/api/cron/*` (13 active crons with heartbeats)
 - Cache/locks: Upstash Redis
 - LLM providers: Crypto.com AI SDK → ASI → OpenAI → Claude → Ollama (unified router in `lib/ai/llm-provider.ts`)
-- ZK prover: Python FastAPI (`zkp/api/server.py`) — NIST P-521, no trusted setup, CUDA-optional
+- Proof server: Python FastAPI (`zkp/api/server.py`), a bounds ZK-STARK over the Goldilocks field, hash-based, no trusted setup, CPU only
 
 **Live status (snapshot 2026-07-15):** 46+ days uptime, 2,200+ NAV snapshots, 214 lifetime hedges, 3 members / ~$38 deposited (bounded by $10K TVL cap). Rerun `scripts/analyze-pool-pnl.ts` for current.
 
@@ -188,21 +188,18 @@ ZKward/
 │       ├── ContractManager.ts     # Smart contract interactions
 │       └── TransactionManager.ts  # Transaction handling
 │
-├── zk/                            # ZK-STARK TypeScript integration layer
+├── zk/                            # TypeScript side of the proof system
 │   ├── prover/
-│   │   └── ProofGenerator.ts      # TypeScript wrapper for Python prover
+│   │   └── ProofGenerator.ts      # Client of the proof server; verifies what it receives
 │   ├── verifier/
-│   │   └── ProofValidator.ts      # TypeScript wrapper for Python verifier
-│   └── README.md                  # Integration documentation
+│   │   └── boundsStark.ts         # Second implementation of the verifier
+│   └── README.md
 │
 ├── zkp/                           # Python ZK-STARK implementation
 │   ├── core/
-│   │   ├── true_stark.py          # Core STARK protocol (AIR + FRI)
-│   │   ├── zk_system.py           # Enhanced STARK with privacy
-│   │   └── stark_compat.py        # Backward compatibility
-│   ├── cli/
-│   │   ├── generate_proof.py      # CLI proof generation
-│   │   └── verify_proof.py        # CLI proof verification
+│   │   ├── stark_core.py          # Field, Merkle trees, transcript, FRI
+│   │   ├── bounds_stark.py        # The proof: private integers within public bounds
+│   │   └── hedge_stark.py         # The hedge policy statement
 │   ├── api/
 │   │   └── server.py              # API server for proof generation
 │   └── tests/                     # Python test suite
@@ -365,19 +362,16 @@ ZKward/
 - Moonlander: Perpetual futures hedging
 - Delphi: Prediction market data
 
-### 4. ZK Proof System
+### 4. Proof System
 
-**Proof Generation (ZK-STARK)**
-- Python implementation with AIR (Algebraic Intermediate Representation)
-- FRI (Fast Reed-Solomon Interactive Oracle Proofs) protocol
-- Witness generation from agent decisions
-- 521-bit security (NIST P-521 prime)
+A transparent ZK-STARK (hash-based, no trusted setup) proving that private
+integers lie within public bounds, with the hedge policy as one statement:
+leverage and notional within caps, and the notional covering size times price.
 
-**Proof Verification**
-- Off-chain validation via Python verifier
-- On-chain commitment storage (GaslessZKCommitmentVerifier)
-- Proof registry with Merkle roots for audit trail
-- 97%+ gasless transactions via self-refunding contract
+- Prover and verifier in Python (`zkp/core/`), a second verifier in TypeScript (`zk/verifier/boundsStark.ts`)
+- Verified off chain; nothing is verified on chain
+- Not wired into hedge execution: no hedge carries a proof
+- Not reviewed outside the project
 
 ### 5. Dev Simulator Dashboard
 
@@ -454,10 +448,9 @@ ZKward/
 - **Patterns**: Event-driven, microservices-style agents
 
 ### ZK Proofs
-- **Proof System**: ZK-STARK (AIR + FRI)
+- **Proof System**: ZK-STARK (AIR + FRI over the Goldilocks field, SHA-256 commitments)
 - **Implementation**: Python (zkp/ directory)
-- **Integration**: TypeScript wrappers (zk/ directory)
-- **Security**: 521-bit (NIST P-521 quantum-resistant prime)
+- **Second verifier**: TypeScript (zk/ directory)
 - **Protocol**: Transparent (no trusted setup required)
 
 ### Frontend
@@ -530,7 +523,7 @@ ZKward/
 1. **Performance**: Strategy execution < 30 seconds
 2. **Reliability**: 99.9% uptime for agent swarm
 3. **Cost Efficiency**: Average gas < $0.10 per strategy (via x402)
-4. **Verifiability**: 100% of critical decisions have ZK proofs
+4. **Verifiability**: every pool movement is an on-chain transaction; proofs of hedge policy are not yet attached to hedges
 5. **Developer Experience**: < 5 minutes to set up simulator
 
 ---

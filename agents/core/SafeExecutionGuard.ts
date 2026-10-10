@@ -4,7 +4,7 @@
  * 
  * CRITICAL: This module handles millions/billions in assets. Every function must be:
  * - Fail-safe (errors must NOT cause fund loss)
- * - Auditable (every action logged with ZK proof)
+ * - Auditable (every action logged; a proof hash is recorded when the cycle produced one)
  * - Reversible (rollback mechanisms for failures)
  * - Rate-limited (prevent runaway executions)
  */

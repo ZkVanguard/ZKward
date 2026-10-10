@@ -3,7 +3,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { logger } from '@/lib/utils/logger';
 import { usePolling } from '@/lib/hooks/usePolling';
-import type { ZKProofData } from '../../../components/ZKVerificationBadge';
 import { SimulatorHeader } from '@/components/simulator/SimulatorHeader';
 import { RiskPolicyPanel } from '@/components/simulator/RiskPolicyPanel';
 import { ScenarioSelector } from '@/components/simulator/ScenarioSelector';
@@ -22,7 +21,7 @@ import type {
 import { RISK_POLICY, HISTORICAL_SNAPSHOTS, scenarios, initialPortfolio } from './constants';
 import {
   fetchRealPrices,
-  generateRealZKProof,
+  generateHedgePolicyProof,
   assessRealRisk,
   executeSimulatedHedge,
   fetchPredictionData,
@@ -43,7 +42,7 @@ export default function SimulatorPage() {
   const [elapsedTime, setElapsedTime] = useState(0);
   const [showComparison, setShowComparison] = useState(false);
   const [onChainTx, setOnChainTx] = useState<string | null>(null);
-  const [zkProofData, setZkProofData] = useState<ZKProofData | null>(null);
+  const [zkProofData, setZkProofData] = useState<RealZKProof | null>(null);
 
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const logsEndRef = useRef<HTMLDivElement>(null);
@@ -102,7 +101,7 @@ export default function SimulatorPage() {
           const isHealthy = data.status === 'healthy';
           logger.debug('ZK Backend response', {
             component: 'Simulator',
-            data: { isHealthy, cuda: data.cuda_available },
+            data: { isHealthy },
           });
           setApiStatus((prev) => ({ ...prev, zkBackend: isHealthy }));
         } else {
@@ -220,19 +219,9 @@ export default function SimulatorPage() {
         );
       }, 500);
 
-      // Generate ZK proof and complete
       setTimeout(() => {
-        const zkProof: ZKProofData = {
-          proofHash: `0x${Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join('')}`,
-          merkleRoot: `0x${Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join('')}`,
-          timestamp: Date.now(),
-          verified: true,
-          protocol: 'ZK-STARK',
-          securityLevel: 521,
-          generationTime: Math.floor(Math.random() * 500) + 100,
-        };
         setAgentActions((prev) =>
-          prev.map((a) => (a.id === newAction.id ? { ...a, status: 'completed', zkProof } : a))
+          prev.map((a) => (a.id === newAction.id ? { ...a, status: 'completed' } : a))
         );
       }, 1500);
 
@@ -328,8 +317,6 @@ export default function SimulatorPage() {
     let currentPortfolio = { ...initialPortfolio };
     let hedgeActivated = false;
     let hedgePnL = 0;
-    // ZK proof generation result (used for demo display)
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     let realZkProofGenerated: RealZKProof | null = null;
 
     // Track position values at hedge activation for correct P&L calculation
@@ -838,77 +825,39 @@ export default function SimulatorPage() {
             addAgentAction(
               'Lead',
               'MANAGER_APPROVAL',
-              'Portfolio manager approved emergency hedge - generating ZK proof'
+              'Portfolio manager approved emergency hedge'
             );
           }
         }
 
-        // Second 9: ZK proof for hedge authorization - REAL ZK PROOF GENERATION
+        // Second 9: a real hedge policy proof for the simulated hedge
         if (currentStep === 9) {
-          addLog('🔐 ZK Engine: Generating STARK proof for hedge authorization...', 'info');
-          addLog('   └─ Calling /api/zk-proof/generate (Python CUDA backend)...', 'info');
+          addLog('🔐 Proof: asking the prover for a hedge policy ZK-STARK...', 'info');
+          addLog('   └─ Statement: leverage and notional within the caps, notional covers size × price', 'info');
 
-          // REAL API CALL: Generate ZK Proof
-          const zkProof = await generateRealZKProof(
-            'hedge_authorization',
-            {
-              policy_compliant: true,
-              max_drawdown_ok: true,
-              var_threshold_ok: true,
-              allowed_instruments: ['BTC-PERP', 'ETH-PERP'],
-            },
-            {
-              hedge_size:
-                currentPortfolio.positions.find((p) => p.symbol === 'BTC')?.value || 0 * 0.65,
-              entry_price: 84050,
-              leverage: 10,
-              portfolio_value: currentPortfolio.totalValue,
-            }
+          const btcValue = currentPortfolio.positions.find((p) => p.symbol === 'BTC')?.value || 0;
+          const zkProof = await generateHedgePolicyProof(
+            { asset: 'BTC', side: 'SHORT', leverageX: 10, notionalUsd: btcValue * 0.65, entryPriceUsd: 84050 },
+            { leverageCap: 10, notionalCapUsd: currentPortfolio.totalValue },
           );
 
-          if (zkProof && !zkProof.fallback_mode) {
+          if (zkProof) {
             realZkProofGenerated = zkProof;
-            addLog(`   └─ ✅ REAL ZK Proof Generated!`, 'success');
-            addLog(`   └─ Proof Hash: ${zkProof.proof_hash.slice(0, 22)}...`, 'success');
+            addLog(`   └─ Commitment: ${zkProof.commitment.slice(0, 22)}...`, 'success');
+            addLog(`   └─ Protocol: ${zkProof.protocol} | ${zkProof.durationMs} ms`, 'success');
             addLog(
-              `   └─ Protocol: ${zkProof.protocol} | Security: ${zkProof.security_level}-bit`,
-              'success'
+              `   └─ Verifier: ${zkProof.verified ? 'accepted' : 'REJECTED'}`,
+              zkProof.verified ? 'success' : 'error'
             );
-            addLog(
-              `   └─ CUDA Accelerated: ${zkProof.cuda_acceleration ? 'Yes ⚡' : 'No'}`,
-              'success'
+            setZkProofData(zkProof);
+            addAgentAction(
+              'Reporting',
+              'ZK_PROOF_GEN',
+              'Hedge shown to be within its caps without revealing size, price or leverage'
             );
-
-            // Update the ZK proof data state for display
-            setZkProofData({
-              proofHash: zkProof.proof_hash,
-              merkleRoot: zkProof.merkle_root,
-              timestamp: zkProof.timestamp,
-              verified: zkProof.verified,
-              protocol: zkProof.protocol,
-              securityLevel: zkProof.security_level,
-              generationTime: 1800, // Approximate
-            });
           } else {
-            addLog('   └─ Statement: "Hedge within policy limits"', 'info');
-            addLog('   └─ Private: Position sizes, entry prices, leverage', 'info');
-            addLog('   └─ Public: Policy compliance verified', 'info');
-            addLog(
-              `   └─ ⚠️ ZK Backend: ${zkProof?.fallback_mode ? 'Fallback Mode' : 'Unavailable'}`,
-              'warning'
-            );
+            addLog('   └─ ⚠️ Prover unavailable: no proof for this run', 'warning');
           }
-
-          addAgentAction(
-            'Reporting',
-            'ZK_PROOF_GEN',
-            'Hedge authorization proven without revealing position sizes',
-            {
-              metric: 'Proof Security',
-              before: 0,
-              after: zkProof?.security_level || 521,
-            }
-          );
         }
 
         // Second 10: Hedge confirmation (already executed at Step 3 via predictive hedging)
@@ -1208,10 +1157,10 @@ Provide brief analysis: Is the hedge strategy working? What should we watch for 
 
         // Second 40: ZK Report generation
         if (currentStep === 40) {
-          addLog('📝 Reporting Agent: Generating ZK-verified compliance report', 'info');
+          addLog('📝 Reporting Agent: Generating compliance report', 'info');
           addLog('   └─ Claim: "All hedges within policy limits"', 'info');
           addLog('   └─ Private: Position sizes, entry prices, leverage', 'info');
-          addLog('   └─ Public: Compliance status, timestamp, proof hash', 'info');
+          addLog('   └─ Public: Compliance status, timestamp', 'info');
           addAgentAction(
             'Reporting',
             'ZK_REPORT',
@@ -1224,24 +1173,15 @@ Provide brief analysis: Is the hedge strategy working? What should we watch for 
           );
         }
 
-        // Second 42: On-chain proof storage
-        if (currentStep === 42) {
-          const proofHash =
-            '0x' +
-            Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join('');
-          addLog('⛓️ Reporting Agent: Storing proof commitment on-chain...', 'info');
-          addLog(`   └─ Proof Hash: ${proofHash.slice(0, 22)}...`, 'success');
-          addLog('   └─ Contract: ZKVerifier (0x46A4...FD8)', 'success');
-          addLog('   └─ Gas: $0.00 (sponsored)', 'success');
+        // Second 42: where the proof's commitment goes
+        if (currentStep === 42 && realZkProofGenerated) {
+          addLog('🗂️ Reporting Agent: Keeping the proof commitment with the hedge record', 'info');
+          addLog(`   └─ Commitment: ${realZkProofGenerated.commitment.slice(0, 22)}...`, 'success');
+          addLog('   └─ Not on chain: the proof is checked by the verifier, off chain', 'info');
           addAgentAction(
             'Settlement',
             'PROOF_STORAGE',
-            'ZK proof commitment stored on chain',
-            {
-              metric: 'On-Chain Proofs',
-              before: 0,
-              after: 1,
-            }
+            'Proof commitment kept with the hedge record'
           );
         }
 
@@ -1299,7 +1239,7 @@ Provide brief analysis: Is the hedge strategy working? What should we watch for 
             apiStatus.prices ? 'success' : 'warning'
           );
           addLog(
-            `   ├─ /api/zk-proof/generate (Python CUDA) - ZK-STARK proofs`,
+            `   ├─ /api/zk-proof/generate - hedge policy ZK-STARK`,
             apiStatus.zkBackend ? 'success' : 'warning'
           );
           addLog(`   ├─ /api/agents/hedging/execute - Hedge execution`, 'success');
@@ -1327,11 +1267,11 @@ Provide brief analysis: Is the hedge strategy working? What should we watch for 
           addLog(`   └─ Status: ENABLED - AI executes hedges instantly below threshold`, 'success');
           addLog(`   └─ Benefit: 0ms approval delay for maximum efficiency`, 'success');
 
-          if (realZkProofGenerated && !realZkProofGenerated.fallback_mode) {
+          if (realZkProofGenerated?.verified) {
             addLog(``, 'success');
-            addLog(`🔐 REAL ZK-STARK PROOF GENERATED:`, 'success');
-            addLog(`   └─ Hash: ${realZkProofGenerated.proof_hash.slice(0, 40)}...`, 'success');
-            addLog(`   └─ This proves policy compliance WITHOUT revealing positions`, 'success');
+            addLog(`🔐 HEDGE POLICY PROOF VERIFIED:`, 'success');
+            addLog(`   └─ Commitment: ${realZkProofGenerated.commitment.slice(0, 40)}...`, 'success');
+            addLog(`   └─ Shows the hedge was within its caps WITHOUT revealing it`, 'success');
           }
 
           addLog(``, 'info');

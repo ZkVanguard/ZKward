@@ -1,6 +1,5 @@
 /**
- * ZK Proof Backend Health Check
- * Checks the Python CUDA-accelerated ZK-STARK backend
+ * Proof server health: forwards the server's own /health answer.
  */
 
 import { NextResponse } from 'next/server';
@@ -11,7 +10,7 @@ export const dynamic = 'force-dynamic';
 
 // The prover address is ZK_API_URL, the same variable the other proof routes read.
 // No default host: an unset address must fail closed (.invalid never resolves).
-const ZK_BACKEND_URL = (process.env.ZK_API_URL || process.env.ZK_BACKEND_URL || '').trim() || 'http://prover.invalid';
+const ZK_BACKEND_URL = (process.env.ZK_API_URL || '').trim() || 'http://prover.invalid';
 
 export async function GET() {
   try {
@@ -29,8 +28,6 @@ export async function GET() {
       return NextResponse.json({
         status: 'healthy',
         backend: ZK_BACKEND_URL,
-        cuda_available: data.cuda_available || false,
-        cuda_enabled: data.cuda_enabled || false,
         system_info: data.system_info || {},
         timestamp: Date.now(),
       }, {

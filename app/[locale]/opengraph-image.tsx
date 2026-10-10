@@ -88,7 +88,7 @@ export default async function OpengraphImage() {
               letterSpacing: '-0.01em',
             }}
           >
-            Prediction markets + funding + orderbook + AI-graded titles. Autonomous execution, STARK-attested.
+            Prediction markets + funding + orderbook + AI-graded titles. Autonomous execution, on-chain accounting.
           </div>
         </div>
 

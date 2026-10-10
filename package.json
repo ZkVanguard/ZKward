@@ -33,7 +33,7 @@
     "clean": "rimraf dist coverage .hardhat cache",
     "compile": "hardhat compile",
     "compile:circuits": "bun run scripts/utils/generate-circuits.ts",
-    "test": "cross-env ZK_PYTHON_ENABLED=true ZK_PYTHON_API_URL=http://127.0.0.1:8000 bun test .test.ts --timeout 30000 --verbose",
+    "test": "cross-env ZK_API_URL=http://127.0.0.1:8000 bun test .test.ts --timeout 30000 --verbose",
     "test:agents": "bun test test/agents",
     "test:integration": "bun test test/integration",
     "test:contracts": "hardhat test",

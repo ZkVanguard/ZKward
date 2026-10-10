@@ -1,8 +1,8 @@
 /**
  * Risk-report generator — extracted from ReportingAgent for isolation
  * and testability. Aggregates portfolio positions into per-asset VaR /
- * CVaR / Sharpe metrics and (optionally) attaches a STARK proof bound
- * to the aggregate volatility + exposure vector.
+ * CVaR / Sharpe metrics and (optionally) attaches the commitment of a
+ * risk-score proof that the local verifier accepted.
  */
 import { AgentTask, TaskResult } from '@shared/types/agent';
 import { logger } from '@shared/utils/logger';
@@ -82,12 +82,13 @@ export async function generateRiskReport(
   else if (totalRisk >= 60) riskLevel = 'HIGH';
   else if (totalRisk >= 40) riskLevel = 'MEDIUM';
 
-  // Optional ZK proof — period-aggregated canonical (portfolioValueUsdc=0)
-  // signals "period-report" so the Python assertion stays honest.
+  // Optional proof that the report's risk score is within 0..100, with the
+  // digest of its inputs committed next to it. Only a proof the local
+  // verifier accepted is listed.
   let zkProofs: string[] = [];
   if (includeZKProofs) {
     try {
-      const [{ proofGenerator }, { computeBaseRiskScore, SENTIMENT_CODE }] = await Promise.all([
+      const [{ proveRiskScore }, { computeBaseRiskScore, computeInputsHash, SENTIMENT_CODE }] = await Promise.all([
         import('../../../zk/prover/ProofGenerator'),
         import('../../../zk/prover/riskCanonical'),
       ]);
@@ -116,25 +117,14 @@ export async function generateRiskReport(
       };
       const PROOF_TIMEOUT_MS = Number(process.env.REPORTING_ZK_TIMEOUT_MS) || 5000;
       const proof = await Promise.race([
-        proofGenerator.generateRiskProof(
-          {
-            portfolioId: periodPortfolioId,
-            timestamp: new Date(nowMs),
-            totalRisk,
-            volatility: avgVolatility,
-            exposures: assetRisks.map((r) => ({ asset: r.asset, exposure: r.allocation, contribution: r.contribution })),
-            recommendations: [],
-            marketSentiment: 'neutral',
-          },
-          canonical,
-        ),
+        proveRiskScore(canonical.totalRisk, canonical.threshold, computeInputsHash(canonical)),
         new Promise<never>((_, reject) =>
           setTimeout(() => reject(new Error(`ZK prover timeout after ${PROOF_TIMEOUT_MS}ms`)), PROOF_TIMEOUT_MS),
         ),
       ]);
-      zkProofs = [proof.proofHash];
+      if (proof.verified) zkProofs = [proof.commitment];
     } catch (error) {
-      logger.warn('Failed to generate ZK proof for risk report', { error });
+      logger.warn('No risk-score proof for the risk report', { error: error instanceof Error ? error.message : String(error) });
     }
   }
 

@@ -15,16 +15,33 @@ export async function fetchRealPrices(): Promise<Record<string, number>> {
   return {};
 }
 
-export async function generateRealZKProof(scenario: string, statement: Record<string, unknown>, witness: Record<string, unknown>): Promise<RealZKProof | null> {
+/**
+ * Ask for a proof that a hedge is inside its caps: leverage and notional within
+ * the limits, and the notional covering size times price. Null when the prover
+ * is unreachable or refuses.
+ */
+export async function generateHedgePolicyProof(
+  hedge: { asset: string; side: 'LONG' | 'SHORT'; leverageX: number; notionalUsd: number; entryPriceUsd: number },
+  caps: { leverageCap: number; notionalCapUsd: number },
+): Promise<RealZKProof | null> {
   try {
+    const entryPriceCents = Math.round(hedge.entryPriceUsd * 100);
+    const sizeMilli = Math.floor((hedge.notionalUsd / hedge.entryPriceUsd) * 1000);
+    // The declared notional must cover size times price, so round it up from them.
+    const notionalValueUsdcCents = Math.ceil((sizeMilli * entryPriceCents) / 1000);
     const res = await fetch('/api/zk-proof/generate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ scenario, statement, witness }),
+      body: JSON.stringify({
+        hedge: { asset: hedge.asset, side: hedge.side, leverageX: hedge.leverageX, notionalValueUsdcCents, sizeMilli, entryPriceCents, timestampMs: Date.now() },
+        caps: { leverage_cap: caps.leverageCap, notional_cap_cents: Math.round(caps.notionalCapUsd * 100) },
+      }),
     });
     if (res.ok) {
       const data = await res.json();
-      return data.proof || null;
+      if (data.success && typeof data.commitment === 'string') {
+        return { commitment: data.commitment, verified: data.verified === true, protocol: String(data.protocol ?? ''), durationMs: Number(data.duration_ms ?? 0) };
+      }
     }
   } catch (e) { logger.warn('Failed to generate ZK proof', { component: 'Simulator', error: String(e) }); }
   return null;

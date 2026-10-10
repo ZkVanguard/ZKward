@@ -34,7 +34,7 @@ export function WhitepaperClient({ frontmatter, body }: Props) {
     headline: frontmatter.title || 'ZKward Whitepaper',
     description:
       frontmatter.subtitle ||
-      'AI-managed USDC vault on SUI with STARK-attested hedge decisions.',
+      'AI-managed USDC vault on SUI with signals measured in public.',
     inLanguage: 'en',
     url: `${baseUrl}/whitepaper`,
     isPartOf: { '@id': `${baseUrl}/#website` },

@@ -10,10 +10,7 @@
  * Only intent branches ("hedge", "risk", "market", …) live here; the
  * router lives in llm-provider.ts.
  */
-import { logger } from '../utils/logger';
-import { getPortfolioData } from '../services/portfolio-actions';
-import { generatePrivateHedges, type PrivateHedge } from '../services/hedging/zk-hedge-service';
-import type { LLMResponse, HedgeAction } from './llm-types';
+import type { LLMResponse } from './llm-types';
 
 export async function generateFallbackResponse(
   userMessage: string,
@@ -77,64 +74,10 @@ export async function generateFallbackResponse(
     };
   }
 
-  // Hedging — with live ZK-hedge generation
+  // Hedging
   if (lower.includes('hedge') || lower.includes('protect') || lower.includes('insurance')) {
-    let hedgeInfo = '';
-    let hedgeActions: HedgeAction[] = [];
-    try {
-      const callerAddress = typeof context?.address === 'string' ? context.address : undefined;
-      const portfolioData = await getPortfolioData(callerAddress);
-      const portfolio = portfolioData?.portfolio as Record<string, unknown> | undefined;
-      const portfolioValue = Number(portfolio?.totalValue || portfolio?.currentValue || 10000);
-      const riskScore = 0.65;
-
-      const privateHedges = await generatePrivateHedges(portfolioValue, riskScore);
-      const totalEffectiveness = privateHedges.reduce((sum: number, h: PrivateHedge) => sum + h.effectiveness, 0) / privateHedges.length;
-      const topHedge = privateHedges.sort((a: PrivateHedge, b: PrivateHedge) => b.effectiveness - a.effectiveness)[0];
-
-      hedgeInfo = `\n\n📊 **${privateHedges.length} strategies generated** | Avg effectiveness: ${(totalEffectiveness * 100).toFixed(0)}%`;
-      hedgeInfo += `\n📌 **Top recommendation:** ${topHedge?.priority || 'HIGH'} priority hedge (${(topHedge?.effectiveness * 100).toFixed(0)}% effective)`;
-      hedgeInfo += `\n🔐 ZK: ${privateHedges.filter((h: PrivateHedge) => h.verified).length}/${privateHedges.length} verified`;
-
-      hedgeActions = [
-        {
-          id: 'execute_hedge',
-          label: '⚡ Execute Top Hedge',
-          type: 'hedge',
-          params: {
-            hedgeId: topHedge?.hedgeId,
-            asset: 'BTC-PERP',
-            side: 'SHORT',
-            size: '0.1',
-            leverage: 2,
-            gasless: true,
-            zkVerified: topHedge?.verified,
-          },
-        },
-        {
-          id: 'view_all_hedges',
-          label: '📋 View All Strategies',
-          type: 'view_hedges',
-          params: { hedges: privateHedges.map((h: PrivateHedge) => ({ id: h.hedgeId, effectiveness: h.effectiveness, priority: h.priority })) },
-        },
-        {
-          id: 'adjust_risk',
-          label: '⚙️ Adjust Risk Level',
-          type: 'adjust',
-          params: { showModal: true },
-        },
-      ];
-    } catch (error) {
-      logger.warn('Could not generate private hedges', { error: String(error) });
-      hedgeInfo = '\n\n⚠️ Could not generate hedges. Try again or check portfolio data.';
-    }
-
-    const actionsComment = hedgeActions.length > 0 ? `\n\n<!--ACTIONS:${JSON.stringify(hedgeActions)}-->` : '';
-
     return {
-      content: `✅ **HEDGE ANALYSIS** | Portfolio Protected 🛡️` +
-        hedgeInfo +
-        actionsComment,
+      content: `**Hedging**\n\nHedge recommendations come from the risk and hedging agents, which need the AI provider, and it is not available right now. Open positions and their profit and loss are on the Hedges page. Please try again shortly.`,
       model: 'rule-based-fallback',
       confidence: 0.9,
     };
@@ -143,7 +86,7 @@ export async function generateFallbackResponse(
   // ZK proofs
   if (lower.includes('zk') || lower.includes('zero knowledge') || lower.includes('proof') || lower.includes('privacy')) {
     return {
-      content: `Great question about ZK (Zero-Knowledge) proofs! 🔐\n\n**What are ZK Proofs?**\nThey let you prove something is true without revealing the underlying data. Think of it as proving you know a password without showing it.\n\n**On ZKward:**\n• All AI agent responses are ZK-verified\n• Your portfolio data stays private\n• Compliance reports prove accuracy without exposing details\n• Cryptographic security (521-bit security level)\n\n**Real Benefits:**\n✓ Institutional-grade privacy\n✓ Regulatory compliance\n✓ Trustless verification\n✓ Protection from data breaches\n\nEvery major action generates a ZK-STARK proof that you can verify independently. Want to see a demo?`,
+      content: `**Zero-knowledge proofs on ZKward**\n\nA zero-knowledge proof shows that a statement is true without revealing the data behind it.\n\n**What exists today:** a transparent ZK-STARK (hash-based, no trusted setup) that proves a set of private numbers is inside public limits, for example that a hedge's leverage and notional are within the vault's caps.\n\n**What does not:** the proof system has not been reviewed outside the project, and no live hedge carries a proof yet. The whitepaper's "Proofs" section has the current status.`,
       model: 'rule-based-fallback',
       confidence: 0.9,
     };

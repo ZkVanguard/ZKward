@@ -1,11 +1,9 @@
 'use client';
 
 import { memo, useMemo } from 'react';
-import { useQuery, useQueries, useQueryClient } from '@tanstack/react-query';
-import { logger } from '@/lib/utils/logger';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Activity, CheckCircle, Clock, XCircle, Shield, Brain, Zap, RefreshCw } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ZKBadgeInline, type ZKProofData } from '@/components/ZKVerificationBadge';
 import { getAgentActivity, type AgentTask } from '@/lib/api/agents';
 import { useToggle } from '@/lib/hooks';
 import { usePositions } from '@/contexts/PositionsContext';
@@ -13,54 +11,6 @@ import { usePositions } from '@/contexts/PositionsContext';
 interface AgentActivityProps {
   address: string;
   onTaskComplete?: (task: AgentTask) => void;
-}
-
-async function generateTaskProof(task: AgentTask): Promise<ZKProofData> {
-  try {
-    const response = await fetch('/api/zk-proof/generate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        scenario: 'agent_action',
-        statement: {
-          claim: `Agent ${task.agentName} executed ${task.action}`,
-          taskId: task.id,
-          timestamp: Date.now(),
-        },
-        witness: {
-          agentType: task.agentType,
-          status: task.status,
-        },
-      }),
-    });
-    
-    if (response.ok) {
-      const data = await response.json();
-      if (data.success && data.proof) {
-        return {
-          proofHash: data.proof.merkle_root || data.proof.proof_hash || '0x0',
-          merkleRoot: data.proof.merkle_root || '0x0',
-          timestamp: Date.now(),
-          verified: data.proof.verified !== false,
-          protocol: data.proof.protocol || (data.fallback ? 'ZK-STARK (Fallback)' : 'ZK-STARK'),
-          securityLevel: data.proof.security_level || 0,
-          generationTime: data.duration_ms || 0,
-        };
-      }
-    }
-  } catch (error) {
-    logger.error('ZK proof generation failed', error instanceof Error ? error : undefined);
-  }
-  
-  return {
-    proofHash: '0x0',
-    merkleRoot: '0x0',
-    timestamp: Date.now(),
-    verified: false,
-    protocol: 'ZK-STARK (Unavailable)',
-    securityLevel: 0,
-    generationTime: 0,
-  };
 }
 
 export const AgentActivity = memo(function AgentActivity({ address, onTaskComplete: _onTaskComplete }: AgentActivityProps) {
@@ -174,35 +124,7 @@ export const AgentActivity = memo(function AgentActivity({ address, onTaskComple
     : null;
 
   const trimmedActivity = useMemo(() => (activity ?? []).slice(0, 15), [activity]);
-  const completedTasks = useMemo(
-    () => trimmedActivity.filter((t) => t.status === 'completed'),
-    [trimmedActivity]
-  );
-
-  // Per-task proof cache. A completed task's proof is immutable, so
-  // staleTime: Infinity means every completed task generates its proof
-  // exactly ONCE per tab session. Prior code regenerated every 5s.
-  const proofQueries = useQueries({
-    queries: completedTasks.map((task) => ({
-      queryKey: ['zk-proof-agent-task', task.id],
-      queryFn: () => generateTaskProof(task),
-      staleTime: Infinity,
-      gcTime: Infinity,
-      retry: 1,
-    })),
-  });
-
-  const tasks = useMemo(() => {
-    const proofByTaskId = new Map<string, ZKProofData>();
-    completedTasks.forEach((task, i) => {
-      const proof = proofQueries[i]?.data;
-      if (proof) proofByTaskId.set(task.id, proof);
-    });
-    return trimmedActivity.map((t) => ({
-      ...t,
-      zkProof: proofByTaskId.get(t.id),
-    })) as (AgentTask & { zkProof?: ZKProofData; impact?: { metric: string; before: string | number; after: string | number } })[];
-  }, [trimmedActivity, completedTasks, proofQueries]);
+  const tasks = trimmedActivity as (AgentTask & { impact?: { metric: string; before: string | number; after: string | number } })[];
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -289,7 +211,7 @@ export const AgentActivity = memo(function AgentActivity({ address, onTaskComple
         ) : tasks.length === 1 && tasks[0].agentType === 'system' ? (
           'AI agents standing by • Use chat to trigger actions'
         ) : (
-          'Real AI agents with ZK-verified decisions • Live market data'
+          'Real AI agents • Live market data'
         )}
       </p>
       
@@ -344,9 +266,6 @@ export const AgentActivity = memo(function AgentActivity({ address, onTaskComple
                 
                 <div className="flex flex-col items-end gap-2">
                   <div className="flex items-center gap-2">
-                    {task.status === 'completed' && task.zkProof && (
-                      <ZKBadgeInline verified={task.zkProof.verified} size="sm" />
-                    )}
                     {getStatusIcon(task.status || 'queued')}
                   </div>
                   <span className="text-[11px] text-[#86868b]">

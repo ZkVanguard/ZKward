@@ -15,14 +15,14 @@ commit at time of packet freeze — see `git log` for the exact SHA.
 - All Move contracts under `contracts/sui/sources/` (10 files, ~5,500 LOC)
 - The trade-gating stack: `agent-trade-guard.ts`, `position-drift-monitor.ts`, `SafeExecutionGuard.ts`
 - **v0.3.0 8-gate defense stack (shipped 2026-07-15):** `PortfolioDriver.ts`, `HedgeFillVerifier.ts`, `StaleHedgeDetector.ts`, `applyHedgeabilityClamp` in `cron/allocation.ts`, `regret-tracker.ts`, `alert-response-loop.ts`, `agent-signal-tick` drift-close, `sui-community-pool` PortfolioDriver dispatch
-- ZK-STARK prover interface + on-chain verifier attestation flow
+- The proof client and its use in the trade gate (`zk/prover/ProofGenerator.ts`, `zk/verifier/boundsStark.ts`)
 - Deposit/withdraw/hedge lifecycle end-to-end
 - `/api/health/production` phantom-rate detection + halt-flag write path
 
 **Explicitly out of scope:**
 - EVM mirrors on Cronos / Hedera / Oasis / Sepolia (testnet only, no funds)
 - Frontend UI code (no funds flow through it)
-- Python ZK-STARK internal cryptography (separate cryptographic review path)
+- The ZK-STARK's internal cryptography (`zkp/core/`, `zk/verifier/boundsStark.ts`): a separate cryptographic review
 - Third-party SDK internals (BlueFin, Mysten Sui) — assumed correct with waivers on file
 
 ## 1 · Trust boundaries
@@ -37,7 +37,7 @@ assert that trust across each boundary is either verified or documented.
 | Polymarket API → PredictionAggregator | Ephemeral 5-min market data | Long-term claims (past accuracy is not tracked cryptographically) |
 | User wallet → deposit tx | User signed the deposit | User's balance is spent (Move verifies) |
 | Admin key → admin ops | Key holder is authorized (hot key today, MSafe planned) | Key hasn't been compromised (assume compromise possible) |
-| Prover ed25519 sig → on-chain verifier | Sig proves the prover accepted the statement | Sig proves the underlying STARK math is correct (verified off-chain) |
+| Configured key's ed25519 sig → `zk_verifier.move` | The key holder signed the commitment | Anything about a proof: the contract checks a signature only |
 | Cron heartbeat → dashboards | Health status is fresh (< 45min) | Cron didn't miss a critical action while down |
 
 ## 2 · Move contract invariants
@@ -89,7 +89,7 @@ confirm them under all inputs.
 - **T4: `HEDGE_AGENT_SIDE_BLOCK_CONFIDENCE` (default 70) is a HARD upper bound.** No env can lower this below 50 without a re-audit.
 - **T5: The `stage='pass'` path includes SafeGuard validation.** No branch reaches `return { approved: true }` without invoking `safeExecutionGuard.validateExecution`.
 - **T6: Multi-agent consensus (`requestConsensus` + votes + `checkConsensus`) is required for notional ≥ `LARGE_TRADE_CONSENSUS_USD`.** Default $100k. The votes are cast automatically from the same cached data, so this is currently a "single-source consensus" — audit should flag whether this is sufficient or should be replaced with independent LLM calls.
-- **T7: ZK-STARK attestation is required for notional ≥ `ZK_ATTEST_MIN_NOTIONAL_USD`.** Default $1M. `ZK_ATTEST_STRICT=1` fails closed on prover unreachable.
+- **T7: With `ZK_ATTEST_STRICT=1`, a trade at or above `REPORTING_ZK_REQUIRED_USD` (default $1M) requires the last agent cycle to have produced a proof the verifier accepted.** Without the flag the gate is off.
 
 ### 3.2 · `PositionDriftMonitor.checkAndCloseDrifts`
 
@@ -154,7 +154,7 @@ Each threat below is CLASSIFIED (S = Spoofing, T = Tampering, R = Repudiation, I
 | # | Threat | Class | Mitigation | Residual |
 |---|---|---|---|---|
 | S1 | Aiven regional outage → all writes fail | D | Multi-region failover planned (Tranche B). Read-only degradation mode planned (1 hr eng). | HIGH until multi-region |
-| S2 | Python prover crash → ZK-STARK gate fails-open | D | `ZK_ATTEST_STRICT=1` toggles to fail-closed. Health probe part of Runbook 1. | LOW when strict mode active |
+| S2 | Proof server down → no cycle proof | D | The proof gate applies only with `ZK_ATTEST_STRICT=1`, where it fails closed for large trades. Health probe part of Runbook 1. | LOW |
 | S3 | Vercel platform outage | D | No mitigation. Aligns with all other L7 platform risk. | ACCEPTED |
 | S4 | Full-code-path DoS via API rate limit exhaustion | D | `readLimiter.check(request)` on every public route (120 req/min free tier). | LOW |
 | S5 | Supply chain compromise (typosquat, dep hijack) | T/E | `verify-supply-chain.cjs` on prebuild; allowlist with 90-day expiry; overrides for known-safe transitives. | MEDIUM (external audit should re-verify allowlist) |
@@ -184,8 +184,8 @@ Each threat below is CLASSIFIED (S = Spoofing, T = Tampering, R = Repudiation, I
 ### 6.2 · Off-chain E2E
 
 - `scripts/test-agent-pipeline-e2e.ts` — 17/17 (agent gate, drift, consensus, ZK, router)
-- `scripts/test-zk-stark-e2e.ts` — 4/4 (prover + verifier + tamper)
-- `scripts/test-private-hedge-e2e.ts` — 12/12 (commit, encrypt, STARK, ed25519 bundle)
+- `python -m pytest zkp/tests` — the prover: honest proofs, forgeries, measured query-phase error, the server
+- `test/integration/zk-hedge-stark-cross-check.test.ts` — the TypeScript verifier agrees with the Python one on a corpus
 - `scripts/test-custody-attestor-e2e.ts` — off-chain path (Move contract not deployed)
 - `scripts/audit-reconcile.ts` — cross-source state check
 - `scripts/post-deploy-smoke-test.ts` — 9/9 against live prod URL (2026-07-01)
@@ -195,7 +195,7 @@ Each threat below is CLASSIFIED (S = Spoofing, T = Tampering, R = Repudiation, I
 ### 6.3 · Jest (`bun test`)
 
 - 70% coverage floor enforced in `jest.config.js`
-- Full run requires Python ZK prover live (`ZK_PYTHON_ENABLED=true`)
+- `test/integration/zk-hedge-policy.test.ts` needs the proof server up (`ZK_API_URL`)
 
 ## 7 · Deployment provenance
 
@@ -210,7 +210,7 @@ Every prod deploy has:
 Prioritized list of questions we cannot answer ourselves:
 
 1. **Move contract soundness:** Is `calculate_assets_for_shares` monotonic under adversarial member `high_water_mark` gaming? Are there input ranges where `share_price` can decrease without underlying asset loss?
-2. **STARK attestation binding:** Given the current statement_hash construction (`hash(claim, 0x1f, public_inputs)`), can an attacker construct two different public_inputs that hash to the same statement_hash under any realistic collision-search budget?
+2. **Proof system soundness:** Is the bounds ZK-STARK (`zkp/core/stark_core.py`, `zkp/core/bounds_stark.py`, about 1,100 lines with the TypeScript verifier) sound and zero-knowledge at its stated parameters? It has had no review outside the project.
 3. **Consensus semantics:** Is our automated-vote consensus (all 3 agent votes derived from the same directive cache) actually a meaningful safety layer, or is it security theater? Recommend real independent-LLM-vote pattern if the latter.
 4. **AdminCap blast radius:** Which specific admin functions, if invoked by a compromised key, are (a) instantly draining, (b) griefing-only, (c) recoverable-by-MSafe? Prioritizes which move to MSafe first.
 5. **Oracle staleness edge cases:** Under what sequence of `admin_set_external_nav` + `deposit` + `withdraw` can a strict-mode pool return incorrect share prices? Concrete scenarios needed.
@@ -239,7 +239,7 @@ Any audit engagement starts with a disclosure of known issues. Ours:
 
 1. **Directive cache is derived from PredictionAggregator, not HedgingAgent's own reasoning** — the LeadAgent cycle runs the specialist agents but their `hedgingStrategy.recommendations` output feeds only into the Discord notification, not into the guard cache. Functionally equivalent (same data source underneath), semantically less rigorous.
 2. **7 HIGH-severity npm audit findings remain** after triaging 8 to `.audit-allowlist.json`. Actionable ones (`lodash`, `next`, `path-to-regexp`) are transitives of currently-required Sui SDK versions.
-3. **`test_zk_system.py` is bit-rotted.** References a renamed module (`zkp.core.true_stark` → `cuda_true_stark`). Doesn't affect the shipping `test_real_world_zk.py` or E2E suites.
+3. **No hedge carries a proof.** The proof system is not wired into hedge execution and nothing is verified on chain.
 4. **Multi-agent consensus is deterministic single-source** — see §8.3.
 
 ## Related documents

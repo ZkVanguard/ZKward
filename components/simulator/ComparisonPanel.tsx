@@ -8,7 +8,7 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { CheckCircle, Shield, Zap } from 'lucide-react';
 import { initialPortfolio } from '@/app/[locale]/simulator/constants';
-import type { ZKProofData } from '@/components/ZKVerificationBadge';
+import type { RealZKProof } from '@/app/[locale]/simulator/types';
 
 interface AIAnalysis {
   model: string;
@@ -25,7 +25,7 @@ interface Props {
   simulationSeed: number | string;
   onChainTx: string | null;
   aiAnalysis: AIAnalysis | null;
-  zkProofData: ZKProofData | null;
+  zkProofData: RealZKProof | null;
 }
 
 export function ComparisonPanel({
@@ -137,30 +137,27 @@ export function ComparisonPanel({
             <div className="p-3 sm:p-4 bg-[#AF52DE]/5 rounded-[12px] border border-[#AF52DE]/20">
               <div className="flex items-center gap-2 text-[#AF52DE] mb-2">
                 <Shield className="w-4 h-4" />
-                <span className="font-semibold text-[14px] sm:text-[15px]">ZK Proof of Policy Compliance</span>
+                <span className="font-semibold text-[14px] sm:text-[15px]">Hedge policy proof (ZK-STARK)</span>
               </div>
               <div className="text-[11px] sm:text-[12px] text-[#86868b] mb-2 space-y-0.5">
-                <div className="font-mono text-[#AF52DE]">Proof Hash: {zkProofData.proofHash}</div>
-                <div className="font-mono text-[#AF52DE]">Merkle Root: {zkProofData.merkleRoot}</div>
-                <div>
-                  Protocol: {zkProofData.protocol} ({zkProofData.securityLevel}-bit)
-                </div>
-                <div>Generated in {zkProofData.generationTime} ms</div>
+                <div className="font-mono text-[#AF52DE] break-all">Commitment: {zkProofData.commitment}</div>
+                <div>Protocol: {zkProofData.protocol}</div>
+                <div>Generated in {zkProofData.durationMs} ms</div>
+                <div>Verifier: {zkProofData.verified ? 'accepted' : 'rejected'}</div>
               </div>
               <div className="text-sm text-[#1d1d1f] mb-2">
                 <b>What this proves:</b>
                 <br />
-                <span className="text-[#1d1d1f]">- Risk calculation was performed correctly</span>
+                <span className="text-[#1d1d1f]">- The simulated hedge&apos;s leverage and notional are within the caps</span>
                 <br />
-                <span className="text-[#1d1d1f]">
-                  - Policy compliance (max drawdown, VaR, allowed instruments) was enforced
-                </span>
+                <span className="text-[#1d1d1f]">- Its notional covers its size times its price</span>
                 <br />
-                <span className="text-[#1d1d1f]">- No position or trade details leaked</span>
+                <span className="text-[#1d1d1f]">- Without revealing the size, the price or the leverage</span>
                 <br />
-              </div>
-              <div className="text-lg font-bold text-emerald-400 mt-2">
-                You don't trust our AI. You verify it.
+                <b>What it does not prove:</b>
+                <br />
+                <span className="text-[#1d1d1f]">- That an order sent to a venue is this hedge</span>
+                <br />
               </div>
             </div>
           )}
@@ -200,11 +197,11 @@ export function ComparisonPanel({
             </div>
           </div>
 
-          {/* Compliance blurb */}
-          <div className="p-3 sm:p-4 bg-[#34C759]/5 rounded-[12px] border border-[#34C759]/20 text-[#1d1d1f] text-center text-[13px] sm:text-[14px]">
-            This same proof can be shared with compliance, governance, or regulators —{' '}
-            <b>without revealing positions</b>.
-          </div>
+          {zkProofData?.verified && (
+            <div className="p-3 sm:p-4 bg-[#34C759]/5 rounded-[12px] border border-[#34C759]/20 text-[#1d1d1f] text-center text-[13px] sm:text-[14px]">
+              Anyone holding this proof can check it against the caps — <b>without seeing the position</b>.
+            </div>
+          )}
         </motion.div>
       )}
     </AnimatePresence>

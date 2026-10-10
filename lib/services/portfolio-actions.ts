@@ -1,6 +1,6 @@
 /**
  * Smart Portfolio Actions Service
- * Enables LLM to execute real portfolio operations with automatic ZK proofs
+ * Enables LLM to execute real portfolio operations
  */
 
 import { logger } from '../utils/logger';
@@ -16,21 +16,11 @@ export interface PortfolioAction {
   };
 }
 
-export interface ZKProofData {
-  proofHash: string;
-  merkleRoot: string;
-  timestamp: number;
-  verified: boolean;
-  actionType: string;
-  generationTime: number;
-}
-
 export interface ActionResult {
   success: boolean;
   message: string;
   data?: Record<string, unknown>;
   error?: string;
-  zkProof?: ZKProofData;
   requiresApproval?: boolean;    // Action needs manager signature
   approvalMessage?: string;       // Message for manager to sign
 }
@@ -60,76 +50,7 @@ export function checkAutoApproval(
 }
 
 /**
- * Generate ZK proof for an action
- */
-async function generateActionProof(action: PortfolioAction, result: Record<string, unknown>): Promise<ZKProofData> {
-  try {
-    const response = await fetch(
-      `${typeof window !== 'undefined' ? '' : (process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000')}/api/zk-proof/generate`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          scenario: `action_${action.type}`,
-          statement: {
-            action: action.type,
-            timestamp: Date.now(),
-            success: result.success || true,
-          },
-          witness: {
-            params: action.params,
-            resultHash: JSON.stringify(result).slice(0, 100),
-          },
-        }),
-      }
-    );
-
-    if (response.ok) {
-      const data = await response.json();
-      if (data.success && data.proof) {
-        return {
-          proofHash: data.proof.merkle_root || data.proof.proof_hash || `0x${Date.now().toString(16)}`,
-          merkleRoot: data.proof.merkle_root || '',
-          timestamp: Date.now(),
-          verified: true,
-          actionType: action.type,
-          generationTime: data.duration_ms || 150,
-        };
-      }
-    }
-
-    // Fallback: Generate deterministic proof
-    const proofData = {
-      action: action.type,
-      timestamp: Date.now(),
-      params: Object.keys(action.params).length,
-    };
-    
-    return {
-      proofHash: `0x${Buffer.from(JSON.stringify(proofData)).toString('hex').slice(0, 64).padEnd(64, '0')}`,
-      merkleRoot: `0x${Buffer.from(JSON.stringify(proofData)).toString('hex').slice(0, 64).padEnd(64, '0')}`,
-      timestamp: Date.now(),
-      verified: true,
-      actionType: action.type,
-      generationTime: 100,
-    };
-  } catch (error) {
-    logger.warn('ZK proof generation failed, using deterministic fallback', { error: String(error) });
-    const fallbackData = `fallback:${action.type}:${Date.now()}`;
-    const deterministicHash = `0x${Buffer.from(fallbackData).toString('hex').slice(0, 64).padEnd(64, '0')}`;
-    return {
-      proofHash: deterministicHash,
-      merkleRoot: deterministicHash,
-      timestamp: Date.now(),
-      verified: false,
-      actionType: action.type,
-      generationTime: 0,
-    };
-  }
-}
-
-/**
- * Execute a portfolio action with automatic ZK proof generation
+ * Execute a portfolio action
  * Uses REAL on-chain data - no simulations
  */
 export async function executePortfolioAction(action: PortfolioAction): Promise<ActionResult> {
@@ -155,14 +76,10 @@ export async function executePortfolioAction(action: PortfolioAction): Promise<A
       // Generate analysis result from real on-chain data
       const result = await generateAnalysisFromOnChainData(action.type, portfolioData);
       
-      // Generate ZK proof for the analysis
-      const zkProof = await generateActionProof(action, Array.isArray(result) ? { items: result } : result);
-      
       return {
         success: true,
         message: `${action.type} completed with real on-chain data`,
         data: { result, portfolio: portfolioData.portfolio },
-        zkProof,
       };
     }
 
@@ -187,19 +104,10 @@ export async function executePortfolioAction(action: PortfolioAction): Promise<A
 
     const result = await response.json();
     
-    // 🔐 AUTOMATIC ZK PROOF GENERATION for all actions
-    const zkProof = await generateActionProof(action, result);
-    
-    logger.info('Action executed with ZK proof (ON-CHAIN)', { 
-      action: action.type, 
-      proofHash: zkProof.proofHash.slice(0, 16) 
-    });
-
     return {
       success: true,
       message: `Successfully executed ${action.type}`,
       data: result,
-      zkProof,
     };
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : String(error);
@@ -449,12 +357,11 @@ export function parseActionIntent(text: string): PortfolioAction | null {
     };
   }
 
-  // HEDGE RECOMMENDATIONS (ZK-Protected)
+  // HEDGE RECOMMENDATIONS
   if (lower.match(/hedge|protect|insurance|safe/)) {
     return {
       type: 'get-hedges',
       params: {
-        private: true, // Use ZK-protected hedges
       },
       requiresSignature: false, // Just recommendations, no execution
     };
@@ -488,7 +395,7 @@ export function parseActionIntent(text: string): PortfolioAction | null {
 }
 
 /**
- * Format action result for display with ZK proof
+ * Format action result for display
  */
 export function formatActionResult(action: PortfolioAction, result: ActionResult): string {
   if (!result.success) {
@@ -496,14 +403,6 @@ export function formatActionResult(action: PortfolioAction, result: ActionResult
   }
 
   const data = result.data;
-  const zkBadge = result.zkProof 
-    ? `\n\n🔐 **ZK-STARK Proof Generated**\n` +
-      `• Proof Hash: \`${result.zkProof.proofHash.slice(0, 16)}...${result.zkProof.proofHash.slice(-8)}\`\n` +
-      `• Verified: ${result.zkProof.verified ? '✓' : '✗'}\n` +
-      `• Generation Time: ${result.zkProof.generationTime}ms\n` +
-      `• Security: 521-bit post-quantum safe`
-    : '';
-
   switch (action.type) {
     case 'buy': {
       const buyResult = data?.result as Record<string, number> | undefined;
@@ -512,8 +411,7 @@ export function formatActionResult(action: PortfolioAction, result: ActionResult
         `• Bought ${action.params.amount} ${action.params.symbol}\n` +
         `• Price: $${buyResult?.price?.toFixed(4) || 'N/A'}\n` +
         `• Total Cost: $${buyResult?.total?.toFixed(2) || 'N/A'}\n` +
-        `• New Portfolio Value: $${buyPortfolio?.totalValue?.toFixed(2) || 'N/A'}` +
-        zkBadge;
+        `• New Portfolio Value: $${buyPortfolio?.totalValue?.toFixed(2) || 'N/A'}`;
     }
 
     case 'sell': {
@@ -522,8 +420,7 @@ export function formatActionResult(action: PortfolioAction, result: ActionResult
         `• Sold ${action.params.amount} ${action.params.symbol}\n` +
         `• Price: $${sellResult?.price?.toFixed(4) || 'N/A'}\n` +
         `• Total Received: $${sellResult?.total?.toFixed(2) || 'N/A'}\n` +
-        `• P/L: $${sellResult?.pnl?.toFixed(2) || 'N/A'}` +
-        zkBadge;
+        `• P/L: $${sellResult?.pnl?.toFixed(2) || 'N/A'}`;
     }
 
     case 'analyze': {
@@ -550,8 +447,7 @@ export function formatActionResult(action: PortfolioAction, result: ActionResult
         `**Risk Score:** ${analysis.riskScore || 50}/100\n\n` +
         `**Strengths:**\n${strengths.length > 0 ? strengths.map((s: string) => `• ${s}`).join('\n') : '• Portfolio is diversified'}\n\n` +
         `**Risks:**\n${risks.length > 0 ? risks.map((r: string) => `• ${r}`).join('\n') : '• Risk within acceptable levels'}\n\n` +
-        `**Recommendations:**\n${recommendations.length > 0 ? recommendations.map((r: string) => `• ${r}`).join('\n') : '• Continue monitoring market conditions'}` +
-        zkBadge;
+        `**Recommendations:**\n${recommendations.length > 0 ? recommendations.map((r: string) => `• ${r}`).join('\n') : '• Continue monitoring market conditions'}`;
     }
 
     case 'assess-risk': {
@@ -572,8 +468,7 @@ export function formatActionResult(action: PortfolioAction, result: ActionResult
         `• Risk Score: ${riskScore}/100\n` +
         `• Volatility: ${(volatility * 100).toFixed(1)}%\n` +
         `• VaR (95%): ${(var95 * 100).toFixed(1)}%\n` +
-        `• Sharpe Ratio: ${sharpe !== null ? sharpe.toFixed(2) : 'N/A'}` +
-        zkBadge;
+        `• Sharpe Ratio: ${sharpe !== null ? sharpe.toFixed(2) : 'N/A'}`;
     }
 
     case 'get-hedges': {
@@ -582,29 +477,16 @@ export function formatActionResult(action: PortfolioAction, result: ActionResult
         return `🛡️ **No hedge recommendations available**\n\nYour portfolio may not require hedging at this time.`;
       }
       
-      // Check if these are ZK-protected hedges
-      if (hedges[0]?.zkProofHash) {
-        return `🛡️ **ZK-Protected Hedge Strategies Generated**\n\n` +
-          `🔒 **Privacy Level: MAXIMUM**\n` +
-          `Strategy details are cryptographically hid` +
-          zkBadge +
-          `\n\nWould you like to execute these ZK-protected hedges?`;
-      }
-      
-      // Fallback for non-ZK hedges (shouldn't happen)
       return `🛡️ **Hedge Recommendations**\n\n` +
-        `⚠️ Warning: These hedges are not ZK-protected!\n\n` +
         hedges.map((h: Record<string, unknown>, i: number) =>
           `${i + 1}. **${h.type}** ${h.market}\n` +
           `   • Action: ${h.action}\n` +
           `   • Reason: ${h.reason}\n` +
           `   • Effectiveness: ${((h.effectiveness as number) * 100).toFixed(0)}%`
-        ).join('\n\n') +
-        zkBadge +
-        `\n\n💡 Consider using ZK-protected hedges for better privacy!`;
+        ).join('\n\n');
     }
 
     default:
-      return `✅ ${result.message}` + zkBadge;
+      return `✅ ${result.message}`;
   }
 }
