@@ -1,8 +1,2 @@
-# ZKward proof server (zkp/api/server.py). The prover itself needs only the standard library.
-fastapi>=0.104
-uvicorn[standard]>=0.24
-pydantic>=2.5
-
-# Tests
+# The prover needs only the standard library. This is for its tests.
 pytest>=8
-httpx>=0.27

@@ -169,7 +169,7 @@ def assert_hedge_binding(
     statement: Dict[str, Any], witness: Dict[str, Any]
 ) -> Dict[str, Any]:
     """
-    Full binding check for a hedge proof. Called by the FastAPI server
+    Full binding check for a hedge proof. Called by whoever receives one
     before invoking the STARK prover.
 
     Requires:

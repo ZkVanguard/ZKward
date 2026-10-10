@@ -856,7 +856,7 @@ export default function SimulatorPage() {
               'Hedge shown to be within its caps without revealing size, price or leverage'
             );
           } else {
-            addLog('   └─ ⚠️ Prover unavailable: no proof for this run', 'warning');
+            addLog('   └─ ⚠️ No proof for this run', 'warning');
           }
         }
 

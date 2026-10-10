@@ -1,29 +1,25 @@
 /**
- * Client for the proof server (`zkp/api/server.py`).
+ * Proofs for the application: make a bounds ZK-STARK in this process, then
+ * check it with the verifier (`zk/verifier/boundsStark.ts`). `verified` on a
+ * result is that check's verdict and nothing else: a proof this process has
+ * not verified is never reported as verified.
  *
- * Asks the server for a bounds ZK-STARK and then checks the answer with the
- * local verifier (`zk/verifier/boundsStark.ts`). `verified` on a result is
- * that check's verdict and nothing else: a proof this process has not
- * verified is never reported as verified.
- *
- * Server only: it sends the private witness to the prover.
+ * Server only: it handles the private witness. A proof is a few seconds of
+ * CPU, so one is made at a time per instance; callers wait their turn.
  */
-import { zkApiHeaders } from '@/lib/utils/zk-api-auth';
+import { proveBoundsLocally, WitnessError, type BoundsWitness } from './boundsProver';
+import { ASSET_CODE, SIDE_CODE } from './hedgeCanonical';
 import {
+  hedgePolicyStatement,
+  starkInternals,
   verifyBoundsProof,
-  verifyHedgePolicyProof,
   type BoundsStatement,
   type HedgePolicyCaps,
 } from '../verifier/boundsStark';
 
-type Int = number | bigint | string;
+export type { BoundsWitness };
 
-export interface BoundsWitness {
-  /** One private integer per bound of the statement, in order. */
-  values: Int[];
-  /** Further private integers below 2^62, committed but not constrained. */
-  payload?: Int[];
-}
+type Int = number | bigint | string;
 
 export interface HedgePolicyWitness {
   asset: string;
@@ -45,77 +41,83 @@ export interface ZKProof {
   proofHash: string;
   /** The caller's secret: what an auditor needs to read the values back out of the commitment. */
   opening: Record<string, unknown>;
-  /** The local verifier's verdict on `proof` for the statement that was asked for. */
+  /** The verifier's verdict on `proof` for the statement that was asked for. */
   verified: boolean;
   generationTime: number;
   protocol: string;
 }
 
-/** The prover answered that the witness is outside the statement: there is nothing to prove. */
+/** The witness is outside the statement, or the request is malformed: there is nothing to prove. */
 export class ProofRefusedError extends Error {}
-/** The prover could not be reached, or answered with something that is not a proof. */
-export class ProverUnavailableError extends Error {}
 
-const PROVE_TIMEOUT_MS = Number(process.env.ZK_PYTHON_TIMEOUT) || 30_000;
-
-function proverUrl(): string {
-  return (process.env.ZK_API_URL || '').trim() || 'http://localhost:8000';
-}
-
-/** JSON with integers of any size written as bare numbers, which is what the prover reads. */
-function toJson(body: unknown): string {
-  return JSON.stringify(body, (_k, v) => (typeof v === 'bigint' ? `\u0000int:${v}` : v)).replace(/"\\u0000int:(-?\d+)"/g, '$1');
-}
-
-async function callProver(path: string, body: unknown): Promise<{ proof: Record<string, unknown>; commitment: string; opening: Record<string, unknown> }> {
-  const payload = toJson(body);
-  let res: Response;
-  try {
-    res = await fetch(`${proverUrl()}${path}`, { method: 'POST', headers: zkApiHeaders(), body: payload, signal: AbortSignal.timeout(PROVE_TIMEOUT_MS) });
-  } catch (e) {
-    throw new ProverUnavailableError(`prover unreachable: ${e instanceof Error ? e.message : String(e)}`);
-  }
-  if (res.status === 422) {
-    const detail = ((await res.json().catch(() => ({}))) as { detail?: unknown }).detail;
-    throw new ProofRefusedError(typeof detail === 'string' ? detail : 'the prover refused the witness');
-  }
-  if (!res.ok) throw new ProverUnavailableError(`prover answered ${res.status}`);
-  const out = (await res.json()) as { proof?: Record<string, unknown>; commitment?: string; opening?: Record<string, unknown> };
-  if (!out.proof || typeof out.commitment !== 'string' || !out.opening) throw new ProverUnavailableError('prover answered without a proof');
-  return { proof: out.proof, commitment: out.commitment, opening: out.opening };
-}
-
-function result(out: Awaited<ReturnType<typeof callProver>>, verified: boolean, startedAt: number): ZKProof {
+/** What the proof system is, for health and status surfaces. */
+export function proofSystemInfo() {
   return {
-    proof: out.proof,
-    commitment: out.commitment,
-    proofHash: out.commitment,
-    opening: out.opening,
-    verified,
-    generationTime: Date.now() - startedAt,
-    protocol: String(out.proof.protocol ?? ''),
+    prover: 'bounds-stark',
+    protocol: starkInternals.PROTOCOL,
+    field: 'Goldilocks, challenges in its quintic extension',
+    hash: 'SHA-384',
+    trace_rows: starkInternals.N,
+    blowup: starkInternals.M / starkInternals.N,
+    queries: starkInternals.NUM_QUERIES,
+    grinding_bits: starkInternals.GRINDING_BITS,
+    trusted_setup: false,
+    in_process: true,
   };
 }
 
+let queue: Promise<unknown> = Promise.resolve();
+
 /** Prove that the witness values are inside the statement's bounds. */
-export async function proveBounds(statement: BoundsStatement, witness: BoundsWitness): Promise<ZKProof> {
-  const startedAt = Date.now();
-  const out = await callProver('/api/zk/bounds/prove', {
-    statement: { ...statement, bounds: statement.bounds.map(([lo, hi]) => [BigInt(lo), BigInt(hi)]) },
-    witness: { values: witness.values.map((v) => BigInt(v)), payload: (witness.payload ?? []).map((v) => BigInt(v)) },
-  });
-  return result(out, verifyBoundsProof(out.proof, statement, out.commitment), startedAt);
+export function proveBounds(statement: BoundsStatement, witness: BoundsWitness): Promise<ZKProof> {
+  const run = async (): Promise<ZKProof> => {
+    const startedAt = Date.now();
+    let made;
+    try {
+      made = await proveBoundsLocally(statement, witness);
+    } catch (e) {
+      if (e instanceof WitnessError) throw new ProofRefusedError(e.message);
+      throw e;
+    }
+    return {
+      proof: made.proof,
+      commitment: made.commitment,
+      proofHash: made.commitment,
+      opening: made.opening,
+      verified: verifyBoundsProof(made.proof, statement, made.commitment),
+      generationTime: Date.now() - startedAt,
+      protocol: starkInternals.PROTOCOL,
+    };
+  };
+  const next = queue.then(run, run);
+  queue = next.catch(() => undefined);
+  return next;
 }
 
 /** Prove that a hedge is inside the caps and that its notional covers size times price. */
 export async function proveHedgePolicy(hedge: HedgePolicyWitness, caps: HedgePolicyCaps): Promise<ZKProof> {
-  const startedAt = Date.now();
-  const big = (v: Int) => BigInt(v);
-  const out = await callProver('/api/zk/hedge-policy/prove', {
-    witness: { ...hedge, notionalValueUsdcCents: big(hedge.notionalValueUsdcCents), sizeMilli: big(hedge.sizeMilli), entryPriceCents: big(hedge.entryPriceCents) },
-    public: { leverage_cap: big(caps.leverage_cap), notional_cap_cents: big(caps.notional_cap_cents), ...(caps.asset_count === undefined ? {} : { asset_count: big(caps.asset_count) }) },
-  });
-  return result(out, verifyHedgePolicyProof(out.proof, caps, out.commitment), startedAt);
+  let statement: BoundsStatement;
+  let witness: BoundsWitness;
+  try {
+    statement = hedgePolicyStatement(caps);
+    const asset = ASSET_CODE[String(hedge.asset).toUpperCase() as keyof typeof ASSET_CODE];
+    const side = SIDE_CODE[String(hedge.side).toUpperCase() as keyof typeof SIDE_CODE];
+    if (asset === undefined || side === undefined) throw new Error('unsupported asset or side');
+    if (!Number.isSafeInteger(hedge.leverageX)) throw new Error('leverage is not an integer');
+    const notional = BigInt(hedge.notionalValueUsdcCents);
+    const size = BigInt(hedge.sizeMilli);
+    const price = BigInt(hedge.entryPriceCents);
+    // What the notional exceeds the exposure by. A notional that understates the exposure makes this
+    // negative, which is outside its bounds: no proof can carry it.
+    const slack = starkInternals.PROD_SCALE * notional - size * price;
+    witness = {
+      values: [hedge.leverageX, notional, asset, side, size, price, slack],
+      payload: [hedge.portfolioId ?? 0, hedge.timestampMs ?? 0],
+    };
+  } catch (e) {
+    throw new ProofRefusedError(e instanceof Error ? e.message : 'malformed hedge or caps');
+  }
+  return proveBounds(statement, witness);
 }
 
 /** "The committed risk score is between 0 and `threshold`." */

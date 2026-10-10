@@ -38,36 +38,12 @@ Each runbook has: **symptom** (what you'll see) → **diagnose** (what to check)
 
 ---
 
-### Runbook 1 — Proof server down
+### Runbook 1 — Proofs
 
-**Symptom**
-- `/api/zk-proof/health` reports `unhealthy` or `unavailable`
-- `/api/zk-proof/generate` answers 503
-- With `ZK_ATTEST_STRICT=1`, trades at or above `REPORTING_ZK_REQUIRED_USD` are refused, because the agent cycle produced no verified proof
-
-**Diagnose**
-```bash
-# 1. Is the process answering?
-curl -m 3 $ZK_API_URL/health
-
-# 2. If unreachable:
-ps aux | grep "zkp/api/server"       # linux
-Get-Process python                    # windows
-```
-
-**Mitigate (< 5 min)**
-- Unset `ZK_ATTEST_STRICT`: the proof gate is then off and trading does not
-  depend on the prover. Nothing else depends on it.
-
-**Fix**
-- Restart the server: `python zkp/api/server.py`. It proves and verifies one
-  statement at start and exits if that fails, so a listening port means a
-  working prover. It needs a CPU only.
-
-**Verify**
-- `/health` returns `status: healthy`
-- `python -m pytest zkp/tests/test_server.py`
-- `ZK_API_URL=<address> bun jest test/integration/zk-hedge-policy.test.ts` passes in seconds, not milliseconds
+There is no proof service to run: the application proves and verifies in its
+own process (`zk/`). `/api/zk-proof/health` answers whenever the application
+does, and `/api/zk-proof/generate` returns a proof with the verifier's verdict.
+A proof takes a few seconds of CPU and one is made at a time per instance.
 
 ---
 

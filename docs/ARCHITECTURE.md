@@ -66,7 +66,7 @@
 - Crons: Upstash QStash → `app/api/cron/*` (13 active crons with heartbeats)
 - Cache/locks: Upstash Redis
 - LLM providers: Crypto.com AI SDK → ASI → OpenAI → Claude → Ollama (unified router in `lib/ai/llm-provider.ts`)
-- Proof server: Python FastAPI (`zkp/api/server.py`), a bounds ZK-STARK over the Goldilocks field, hash-based, no trusted setup, CPU only
+- Proofs: a bounds ZK-STARK over the Goldilocks field, hash-based, no trusted setup; proved and verified inside the application (`zk/`), with a reference implementation in Python (`zkp/`)
 
 **Live status (snapshot 2026-07-15):** 46+ days uptime, 2,200+ NAV snapshots, 214 lifetime hedges, 3 members / ~$38 deposited (bounded by $10K TVL cap). Rerun `scripts/analyze-pool-pnl.ts` for current.
 
@@ -190,7 +190,8 @@ ZKward/
 │
 ├── zk/                            # TypeScript side of the proof system
 │   ├── prover/
-│   │   └── ProofGenerator.ts      # Client of the proof server; verifies what it receives
+│   │   ├── boundsProver.ts        # The prover
+│   │   └── ProofGenerator.ts      # Proves, then verifies what it made
 │   ├── verifier/
 │   │   └── boundsStark.ts         # Second implementation of the verifier
 │   └── README.md
@@ -200,8 +201,6 @@ ZKward/
 │   │   ├── stark_core.py          # Field, Merkle trees, transcript, FRI
 │   │   ├── bounds_stark.py        # The proof: private integers within public bounds
 │   │   └── hedge_stark.py         # The hedge policy statement
-│   ├── api/
-│   │   └── server.py              # API server for proof generation
 │   └── tests/                     # Python test suite
 │
 ├── simulator/                     # Dev simulator dashboard
@@ -368,7 +367,7 @@ A transparent ZK-STARK (hash-based, no trusted setup) proving that private
 integers lie within public bounds, with the hedge policy as one statement:
 leverage and notional within caps, and the notional covering size times price.
 
-- Prover and verifier in Python (`zkp/core/`), a second verifier in TypeScript (`zk/verifier/boundsStark.ts`)
+- Prover and verifier in TypeScript (`zk/`), run by the application; a reference prover and verifier in Python (`zkp/core/`) that must agree with them
 - Verified off chain; nothing is verified on chain
 - Not wired into hedge execution: no hedge carries a proof
 - Not reviewed outside the project
@@ -449,8 +448,8 @@ leverage and notional within caps, and the notional covering size times price.
 
 ### ZK Proofs
 - **Proof System**: ZK-STARK (AIR + FRI over the Goldilocks field, SHA-384 commitments)
-- **Implementation**: Python (zkp/ directory)
-- **Second verifier**: TypeScript (zk/ directory)
+- **Implementation**: TypeScript (zk/ directory), in process
+- **Reference implementation**: Python (zkp/ directory)
 - **Protocol**: Transparent (no trusted setup required)
 
 ### Frontend
