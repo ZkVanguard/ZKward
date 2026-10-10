@@ -30,7 +30,7 @@ const TERMS: Array<{ term: string; slug: string; definition: string }> = [
     term: 'ZK-STARK',
     slug: 'zk-stark',
     definition:
-      'A zero-knowledge proof system that lets one party prove a computation was performed correctly without revealing the private inputs. "Scalable Transparent ARgument of Knowledge." ZKward uses STARKs to attest every hedge decision on-chain. The proof is public, the position details are private.',
+      'A zero-knowledge proof system that lets one party prove a computation was performed correctly without revealing the private inputs. "Scalable Transparent ARgument of Knowledge." ZKward has a STARK prover for hedge policy statements; it has had no outside review and no hedge carries a proof today.',
   },
   {
     term: 'Goldilocks field',
@@ -42,7 +42,7 @@ const TERMS: Array<{ term: string; slug: string; definition: string }> = [
     term: 'FRI (Fast Reed-Solomon IOP of Proximity)',
     slug: 'fri',
     definition:
-      "The polynomial commitment scheme inside a STARK. Given a claim that a polynomial has low degree, FRI produces a short proof that anyone can verify in O(log n) time. ZKward uses 80 FRI queries plus 20 bits of proof-of-work grinding, giving 180-bit soundness. Cited: Ben-Sasson, Bentov, Horesh, Riabzev, ePrint 2018/828.",
+      "The polynomial commitment scheme inside a STARK. Given a claim that a polynomial has low degree, FRI produces a short proof that anyone can verify in O(log n) time. ZKward's prover runs FRI at rate 1/16 with 40 queries and 20 bits of proof-of-work grinding. Cited: Ben-Sasson, Bentov, Horesh, Riabzev, ePrint 2018/828.",
   },
   {
     term: 'Prediction market',

@@ -421,7 +421,7 @@ class LLMProvider {
           formattedResult = formatActionResult(actionIntent, actionResult);
         }
         
-        // Return the action result directly with ZK proof
+        // Return the action result directly
         history.push({
           role: 'user',
           content: userMessage,
@@ -435,7 +435,6 @@ class LLMProvider {
           metadata: { 
             actionExecuted: true, 
             action: actionIntent.type,
-            zkProof: actionResult.zkProof,
           },
         });
 
@@ -447,7 +446,6 @@ class LLMProvider {
           confidence: 1.0,
           actionExecuted: true,
           actionResult: actionResult.data,
-          zkProof: actionResult.zkProof,
         };
       }
 

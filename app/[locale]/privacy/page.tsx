@@ -37,14 +37,12 @@ export default function PrivacyPage() {
           <section>
             <h2 className="text-2xl font-semibold mb-4 text-[#1D1D1F]">3. Zero-Knowledge Privacy</h2>
             <p>
-              ZKward uses ZK-STARK technology to ensure:
+              Deposits, withdrawals and pool transactions are public blockchain transactions: their
+              amounts and addresses are visible to anyone. ZKward has a zero-knowledge proof system
+              (a ZK-STARK) for showing that a hedge is within its limits without revealing it, but
+              it is not yet used on live hedges and nothing is verified on-chain. Do not rely on it
+              for privacy.
             </p>
-            <ul className="list-disc pl-6 space-y-2 mt-2">
-              <li>Your portfolio positions remain private</li>
-              <li>Transaction amounts are never revealed publicly</li>
-              <li>AI agent recommendations are computed without exposing your holdings</li>
-              <li>All proofs are verified on-chain without revealing sensitive data</li>
-            </ul>
           </section>
 
           <section>

@@ -26,17 +26,18 @@ import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
+from zkp.core import bounds_stark as bs  # noqa: E402
 from zkp.core import hedge_stark as hs  # noqa: E402
 from zkp.core import stark_core as sc  # noqa: E402
 
 P = sc.P
 HEDGE = {
     'asset': 'BTC', 'side': 'LONG', 'leverageX': 3, 'notionalValueUsdcCents': 4_100_000,
-    'sizeUnits': 500, 'entryPriceUsdcCents': 8_200_000, 'portfolioId': 2, 'timestampMs': 1_791_500_000_000,
+    'sizeMilli': 500, 'entryPriceCents': 8_200_000, 'portfolioId': 2, 'timestampMs': 1_791_500_000_000,
 }
 ILLEGAL = {**HEDGE, 'leverageX': 1000}
 PUBLIC = {'leverage_cap': 4, 'notional_cap_cents': 100_000_000}
-NORMAL = hs.normalize_public(PUBLIC)
+NORMAL = bs.normalize_public(hs.to_public(PUBLIC))
 
 
 # ── helpers a malicious prover needs ─────────────────────────────────
@@ -51,11 +52,11 @@ def solve_first_chunk(ctx, trace_z=None, trace_zn=None):
     trace_zn = trace_zn or ctx['trace_zn']
     z, chunks = ctx['z'], list(ctx['chunks_z'])
     target = sc.K_ZERO
-    for a, q in zip(ctx['alphas'], hs._constraints_at_k(ctx['public'], z, trace_z, trace_zn)):
+    for a, q in zip(ctx['alphas'], bs._constraints_at_k(ctx['public'], z, trace_z, trace_zn)):
         target = sc.k_add(target, sc.k_mul(a, q))
-    step = sc.k_pow(z, hs.CHUNK)
+    step = sc.k_pow(z, bs.CHUNK)
     rest, power = sc.K_ZERO, step
-    for j in range(1, hs.NUM_CHUNKS):
+    for j in range(1, bs.NUM_CHUNKS):
         rest = sc.k_add(rest, sc.k_mul(power, chunks[j]))
         power = sc.k_mul(power, step)
     chunks[0] = sc.k_sub(target, rest)
@@ -64,18 +65,18 @@ def solve_first_chunk(ctx, trace_z=None, trace_zn=None):
 
 def identity_holds(proof, public=NORMAL) -> bool:
     """The verifier's out-of-domain check alone, so a test can show an attack got past it."""
-    t = sc.Transcript(hs.statement_bytes(public))
+    t = sc.Transcript(bs.statement_bytes(public))
     t.absorb(b'trace', bytes.fromhex(proof['commitment']))
-    alphas = [t.draw_k() for _ in hs.CONSTRAINTS]
+    alphas = [t.draw_k() for _ in bs.CONSTRAINTS]
     t.absorb(b'quotient', bytes.fromhex(proof['quotient_root']))
-    z = hs._draw_ood_point(t)
-    tz = hs._k_from_bytes(bytes.fromhex(proof['ood']['trace_z']))
-    tzn = hs._k_from_bytes(bytes.fromhex(proof['ood']['trace_zn']))
-    cz = hs._k_from_bytes(bytes.fromhex(proof['ood']['chunks_z']))
+    z = bs._draw_ood_point(t)
+    tz = bs._k_from_bytes(bytes.fromhex(proof['ood']['trace_z']))
+    tzn = bs._k_from_bytes(bytes.fromhex(proof['ood']['trace_zn']))
+    cz = bs._k_from_bytes(bytes.fromhex(proof['ood']['chunks_z']))
     expected = sc.K_ZERO
-    for a, q in zip(alphas, hs._constraints_at_k(public, z, tz, tzn)):
+    for a, q in zip(alphas, bs._constraints_at_k(public, z, tz, tzn)):
         expected = sc.k_add(expected, sc.k_mul(a, q))
-    return hs._composition_at_z(z, cz) == expected
+    return bs._composition_at_z(z, cz) == expected
 
 
 def interpolate_k(points, values):
@@ -130,23 +131,23 @@ class TestParameters:
         assert sc.k_pow(a, P) == (123, P - 456)
 
     def test_the_domains_are_what_the_protocol_assumes(self):
-        h = {pow(hs.OMEGA_N, i, P) for i in range(hs.N)}
-        active = {pow(hs.OMEGA_A, j, P) for j in range(hs.ACTIVE)}
-        assert len(h) == hs.N and len(active) == hs.ACTIVE and active <= h
-        assert pow(hs.OMEGA_M, hs.M, P) == 1 and pow(hs.OMEGA_M, hs.M // 2, P) == P - 1
+        h = {pow(bs.OMEGA_N, i, P) for i in range(bs.N)}
+        active = {pow(bs.OMEGA_A, j, P) for j in range(bs.ACTIVE)}
+        assert len(h) == bs.N and len(active) == bs.ACTIVE and active <= h
+        assert pow(bs.OMEGA_M, bs.M, P) == 1 and pow(bs.OMEGA_M, bs.M // 2, P) == P - 1
         # The commitment domain is a coset that never meets the trace domain.
-        assert pow(hs.SHIFT, hs.M, P) != 1
+        assert pow(bs.SHIFT, bs.M, P) != 1
         # The weight polynomial is 2^j on the active rows and 0 on the last two.
         for j in (0, 1, 5, 61, 62, 63):
-            at = sum(c * pow(pow(hs.OMEGA_A, j, P), i, P) for i, c in enumerate(hs.WEIGHT_POLY)) % P
+            at = sum(c * pow(pow(bs.OMEGA_A, j, P), i, P) for i, c in enumerate(bs.WEIGHT_POLY)) % P
             assert at == ((1 << j) if j < 62 else 0)
 
     def test_the_rate_and_the_stated_security(self):
         # FRI proves degree < N on a domain of 16 N: rate 1/16 at every layer.
-        assert hs.M // hs.N == 16 and (hs.M >> hs.FRI_LAYERS) // hs.FINAL_DEGREE == 16
+        assert bs.M // bs.N == 16 and (bs.M >> bs.FRI_LAYERS) // bs.FINAL_DEGREE == 16
         bits_per_query = 4                       # log2(1/rate): the best known attack
-        assert hs.NUM_QUERIES * bits_per_query + hs.GRINDING_BITS == 180
-        assert hs.NUM_QUERIES * bits_per_query // 2 + hs.GRINDING_BITS == 100   # the proven (Johnson-radius) figure
+        assert bs.NUM_QUERIES * bits_per_query + bs.GRINDING_BITS == 180
+        assert bs.NUM_QUERIES * bits_per_query // 2 + bs.GRINDING_BITS == 100   # the proven (Johnson-radius) figure
 
 
 # ── 2. random inputs ─────────────────────────────────────────────────
@@ -156,18 +157,23 @@ class TestRandomInputs:
         rng = random.Random(20261010)
         for _ in range(6):
             lev_cap = rng.randrange(1, 60)
-            cap = rng.randrange(1, 1 << 50)
-            public = {'leverage_cap': lev_cap, 'notional_cap_cents': cap}
+            size = rng.randrange(1 << 31)
+            price = rng.randrange(1 << 31)
+            exposure_cents = -(-size * price // 1000)            # rounded up: the least notional that covers it
+            notional = exposure_cents + rng.randrange(0, 1 << 20)
+            public = {'leverage_cap': lev_cap, 'notional_cap_cents': notional + rng.randrange(0, 1 << 30)}
             w = {
                 'asset': rng.choice(['BTC', 'ETH', 'SUI']), 'side': rng.choice(['LONG', 'SHORT']),
-                'leverageX': rng.randrange(1, lev_cap + 1), 'notionalValueUsdcCents': rng.randrange(0, cap + 1),
-                'sizeUnits': rng.randrange(1 << 40), 'entryPriceUsdcCents': rng.randrange(1 << 40),
+                'leverageX': rng.randrange(1, lev_cap + 1), 'notionalValueUsdcCents': notional,
+                'sizeMilli': size, 'entryPriceCents': price,
                 'portfolioId': rng.randrange(1 << 20), 'timestampMs': rng.randrange(1 << 41),
             }
             proof, opening = hs.prove(w, public)
             assert hs.verify(proof, public)
-            got = hs.audit_opening(opening, proof['commitment'])
-            assert got['leverage'] == w['leverageX'] and got['notional'] == w['notionalValueUsdcCents']
+            got = hs.audit_opening(opening, proof['commitment'], public)
+            assert got['leverage'] == w['leverageX'] and got['notional'] == notional
+            assert got['sizeMilli'] == size and got['entryPriceCents'] == price
+            assert 1000 * got['notional'] == got['sizeMilli'] * got['entryPriceCents'] + got['slack']
 
     def test_random_invalid_hedges_from_a_dishonest_prover_are_all_rejected(self):
         rng = random.Random(7)
@@ -200,8 +206,8 @@ class TestStepAttacks:
 
     def test_committing_one_trace_and_claiming_the_values_of_another(self):
         # Commit to the illegal hedge, but answer the out-of-domain questions with a LEGAL trace's values.
-        legal_cols = hs.build_trace(HEDGE, NORMAL)
-        legal = [sc.intt(c, hs.OMEGA_N) for c in legal_cols]
+        legal_cols = bs.build_trace(hs.to_witness(HEDGE), NORMAL)
+        legal = [sc.intt(c, bs.OMEGA_N) for c in legal_cols]
 
         def swap(ctx):
             tz = [sc.fp_poly_at_k(c, ctx['z']) for c in legal]
@@ -216,7 +222,7 @@ class TestStepAttacks:
 
         def garbage(lde):
             out = [list(c) for c in lde]
-            out[hs.col(0, hs.AU)] = [rng.randrange(P) for _ in range(hs.M)]
+            out[bs.col(0, bs.AU)] = [rng.randrange(P) for _ in range(bs.M)]
             return out
         proof, _ = hs.prove(HEDGE, PUBLIC, skip_checks_for_tests=True, attack_hooks_for_tests={'lde': garbage, 'ood': solve_first_chunk})
         assert identity_holds(proof)
@@ -228,8 +234,8 @@ class TestStepAttacks:
 
         def nudge(lde):
             out = [list(c) for c in lde]
-            for i in rng.sample(range(hs.M), hs.M // 20):
-                out[hs.col(1, hs.BU)][i] = rng.randrange(P)
+            for i in rng.sample(range(bs.M), bs.M // 20):
+                out[bs.col(1, bs.BU)][i] = rng.randrange(P)
             return out
         proof, _ = hs.prove(HEDGE, PUBLIC, skip_checks_for_tests=True, attack_hooks_for_tests={'lde': nudge, 'ood': solve_first_chunk})
         assert not hs.verify(proof, PUBLIC)
@@ -244,7 +250,7 @@ class TestStepAttacks:
 
     def test_a_final_polynomial_chosen_by_the_prover(self):
         rng = random.Random(6)
-        free = lambda layer, shift: [(rng.randrange(P), rng.randrange(P)) for _ in range(hs.FINAL_DEGREE)]  # noqa: E731
+        free = lambda layer, shift: [(rng.randrange(P), rng.randrange(P)) for _ in range(bs.FINAL_DEGREE)]  # noqa: E731
         proof, _ = hs.prove(HEDGE, PUBLIC, skip_checks_for_tests=True, attack_hooks_for_tests={'final': free})
         assert not hs.verify(proof, PUBLIC)
 
@@ -267,7 +273,7 @@ class TestMeasuredSoundness:
         def best_final(layer, shift):
             w = sc.root_of_unity(len(layer))
             return interpolate_k([shift * pow(w, i, P) % P for i in agree], [layer[i] for i in agree])
-        state = hs._commit_phase(ILLEGAL, NORMAL, False, {'ood': solve_first_chunk, 'final': best_final})
+        state = bs._commit_phase(hs.to_witness(ILLEGAL), NORMAL, False, {'ood': solve_first_chunk, 'final': best_final})
         return state, set(agree)
 
     def _acceptance(self, state, trials):
@@ -277,21 +283,21 @@ class TestMeasuredSoundness:
         for nonce in range(trials):
             t.state = saved
             t.absorb(b'pow', nonce.to_bytes(8, 'little'))
-            if hs.verify(hs._query_phase(state, nonce), PUBLIC):
+            if hs.verify(bs._query_phase(state, nonce), PUBLIC):
                 accepted += 1
         return accepted / trials
 
     def test_one_query_is_fooled_at_the_code_rate_and_no_more(self, monkeypatch):
-        monkeypatch.setattr(hs, 'NUM_QUERIES', 1)
-        monkeypatch.setattr(hs, 'GRINDING_BITS', 0)
+        monkeypatch.setattr(bs, 'NUM_QUERIES', 1)
+        monkeypatch.setattr(bs, 'GRINDING_BITS', 0)
         state, _ = self._forged_state()
         rate = self._acceptance(state, 4000)
         # Theory: 8/128 = 0.0625. 4000 trials put the estimate within about +-0.012 (three standard errors).
         assert 0.0625 - 0.013 < rate < 0.0625 + 0.013, rate
 
     def test_two_queries_square_it(self, monkeypatch):
-        monkeypatch.setattr(hs, 'NUM_QUERIES', 2)
-        monkeypatch.setattr(hs, 'GRINDING_BITS', 0)
+        monkeypatch.setattr(bs, 'NUM_QUERIES', 2)
+        monkeypatch.setattr(bs, 'GRINDING_BITS', 0)
         state, _ = self._forged_state()
         rate = self._acceptance(state, 6000)
         # Theory: (1/16)^2 = 0.0039. Anything near the one-query rate would mean the queries are not independent.
@@ -300,20 +306,20 @@ class TestMeasuredSoundness:
     def test_the_real_parameters_reject_the_same_forgery_every_time(self):
         state, _ = self._forged_state()
         t = state['transcript']
-        nonce = t.grind(hs.GRINDING_BITS)
-        assert not hs.verify(hs._query_phase(state, nonce), PUBLIC)
+        nonce = t.grind(bs.GRINDING_BITS)
+        assert not hs.verify(bs._query_phase(state, nonce), PUBLIC)
 
     def test_an_honest_proof_passes_under_the_reduced_parameters_too(self, monkeypatch):
         # The control: the low acceptance above is the attack failing, not the reduced verifier rejecting everything.
-        monkeypatch.setattr(hs, 'NUM_QUERIES', 1)
-        monkeypatch.setattr(hs, 'GRINDING_BITS', 0)
-        state = hs._commit_phase(HEDGE, NORMAL, True, {})
+        monkeypatch.setattr(bs, 'NUM_QUERIES', 1)
+        monkeypatch.setattr(bs, 'GRINDING_BITS', 0)
+        state = bs._commit_phase(hs.to_witness(HEDGE), NORMAL, True, {})
         t = state['transcript']
         saved = t.state
         for nonce in range(300):
             t.state = saved
             t.absorb(b'pow', nonce.to_bytes(8, 'little'))
-            assert hs.verify(hs._query_phase(state, nonce), PUBLIC)
+            assert hs.verify(bs._query_phase(state, nonce), PUBLIC)
 
 
 # ── 5. hiding, by linear algebra ─────────────────────────────────────
@@ -353,43 +359,43 @@ class TestHidingByLinearAlgebra:
         """
         proof, _ = hs.prove(HEDGE, PUBLIC)
         # Re-run the verifier's transcript to learn z and the query positions.
-        t = sc.Transcript(hs.statement_bytes(NORMAL))
+        t = sc.Transcript(bs.statement_bytes(NORMAL))
         t.absorb(b'trace', bytes.fromhex(proof['commitment']))
-        for _ in hs.CONSTRAINTS:
+        for _ in bs.CONSTRAINTS:
             t.draw_k()
         t.absorb(b'quotient', bytes.fromhex(proof['quotient_root']))
-        z = hs._draw_ood_point(t)
+        z = bs._draw_ood_point(t)
         t.absorb(b'ood', bytes.fromhex(proof['ood']['trace_z'] + proof['ood']['trace_zn'] + proof['ood']['chunks_z']))
-        for _ in range(2 * hs.WIDTH + hs.NUM_CHUNKS + 1):
+        for _ in range(2 * bs.WIDTH + bs.NUM_CHUNKS + 1):
             t.draw_k()
         for root in proof['fri_roots']:
             t.absorb(b'fri', bytes.fromhex(root))
             t.draw_k()
         t.absorb(b'final', bytes.fromhex(proof['final']))
-        assert t.check_grind(proof['nonce'], hs.GRINDING_BITS)
-        positions = [t.draw_index(hs.M // 2) for _ in range(hs.NUM_QUERIES)]
+        assert t.check_grind(proof['nonce'], bs.GRINDING_BITS)
+        positions = [t.draw_index(bs.M // 2) for _ in range(bs.NUM_QUERIES)]
 
         indices = set()
         for p in positions:
-            for i in (p, p + hs.M // 2):
+            for i in (p, p + bs.M // 2):
                 indices.add(i)
-                indices.add((i + hs.NEXT) % hs.M)
-        points = [hs.SHIFT * pow(hs.OMEGA_M, i, P) % P for i in sorted(indices)]
-        free_rows = [r for r in range(hs.N) if r % hs.STEP]
-        assert len(free_rows) == hs.N - hs.ACTIVE == 448
-        roots = [pow(hs.OMEGA_N, r, P) for r in free_rows]
-        n_inv = sc.inv(hs.N)
+                indices.add((i + bs.NEXT) % bs.M)
+        points = [bs.SHIFT * pow(bs.OMEGA_M, i, P) % P for i in sorted(indices)]
+        free_rows = [r for r in range(bs.N) if r % bs.STEP]
+        assert len(free_rows) == bs.N - bs.ACTIVE == 448
+        roots = [pow(bs.OMEGA_N, r, P) for r in free_rows]
+        n_inv = sc.inv(bs.N)
 
         # Lagrange basis of row r at a point x: w^r (x^N - 1) / (N (x - w^r)).
         matrix = []
         for x in points:
-            zh = (pow(x, hs.N, P) - 1) * n_inv % P
+            zh = (pow(x, bs.N, P) - 1) * n_inv % P
             matrix.append([w * zh % P * sc.inv(x - w) % P for w in roots])
-        for point in (z, sc.k_scale(z, hs.OMEGA_A)):
-            zh = sc.k_scale(sc.k_sub(sc.k_pow(point, hs.N), sc.K_ONE), n_inv)
+        for point in (z, sc.k_scale(z, bs.OMEGA_A)):
+            zh = sc.k_scale(sc.k_sub(sc.k_pow(point, bs.N), sc.K_ONE), n_inv)
             vals = [sc.k_scale(sc.k_mul(zh, sc.k_inv(sc.k_sub(point, (w, 0)))), w) for w in roots]
             matrix.append([v[0] for v in vals])
             matrix.append([v[1] for v in vals])
 
-        assert len(matrix) <= 4 * hs.NUM_QUERIES + 4 <= len(free_rows)
+        assert len(matrix) <= 4 * bs.NUM_QUERIES + 4 <= len(free_rows)
         assert _rank(matrix) == len(matrix)

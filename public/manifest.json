@@ -1,7 +1,7 @@
 {
   "name": "ZKward — AI-managed vault on SUI",
   "short_name": "ZKward",
-  "description": "Autonomous AI vault trading prediction-market alpha on SUI, ZK-STARK-attested on-chain.",
+  "description": "Autonomous AI vault trading prediction-market alpha on SUI.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
@@ -57,7 +57,7 @@
     {
       "name": "ZK proofs",
       "short_name": "ZK",
-      "description": "Verify a proof or read the STARK explainer",
+      "description": "What the proof system is today",
       "url": "/zk",
       "icons": [{ "src": "/api/icon", "sizes": "512x512", "type": "image/png" }]
     },

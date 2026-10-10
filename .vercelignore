@@ -29,7 +29,6 @@ __tests__/
 
 # Non-Next artefacts (1.1GB+ of Rust/Move/build stuff Vercel doesn't need)
 substreams/
-zkp-rust/
 contracts/sui/
 contracts/core/
 contracts/mocks/

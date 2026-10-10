@@ -791,7 +791,7 @@ export class AgentOrchestrator {
     chain: string;
     riskData: null | { totalRisk?: number; riskLevel?: string };
     hedgeData: null | { needsRebalance?: boolean; positions?: unknown[]; recommendations?: unknown[] };
-    report: { aiSummary?: string; zkProofs?: unknown[]; status?: string };
+    report: { aiSummary?: string; zkProofs?: Array<{ verified?: boolean }>; status?: string };
     priceMonitorTick: { alertsTriggered?: number; symbols?: string[]; fiveMinProcessed?: boolean } | null;
   }): Promise<void> {
     const { chain, riskData, hedgeData, report, priceMonitorTick } = input;
@@ -896,7 +896,8 @@ export class AgentOrchestrator {
       await setCronState('cycle-attestation:last', {
         ranAt: Date.now(),
         chain,
-        zkProofsCount: report.zkProofs?.length ?? 0,
+        // Only proofs the verifier accepted count: the trade guard gates on this number.
+        zkProofsCount: report.zkProofs?.filter((p) => p.verified === true).length ?? 0,
         priceAlerts: {
           alertsTriggered: priceMonitorTick?.alertsTriggered ?? 0,
           symbolsAlerted: priceMonitorTick?.symbols ?? [],

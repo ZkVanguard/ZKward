@@ -24,7 +24,7 @@ const ITEMS: Array<{
     title: 'ZKward whitepaper (v2.1)',
     path: '/whitepaper',
     description:
-      'AI-managed USDC vault on SUI with STARK-attested hedge decisions. Full technical thesis.',
+      'AI-managed USDC vault on SUI with signals measured in public. Full technical thesis.',
     pubDate: 'Fri, 19 Sep 2026 00:00:00 GMT',
   },
   {
@@ -69,7 +69,7 @@ export async function GET() {
   <channel>
     <title>ZKward</title>
     <link>${base}</link>
-    <description>Autonomous crypto vault on SUI. STARK-attested hedge decisions.</description>
+    <description>Autonomous crypto vault on SUI. Signals measured in public.</description>
     <language>en-us</language>
     <atom:link href="${base}/rss.xml" rel="self" type="application/rss+xml" />
 ${items}

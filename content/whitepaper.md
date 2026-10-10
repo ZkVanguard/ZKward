@@ -59,19 +59,19 @@ Prior deployment (v0.1.0 at `0x9ccb…c88`) is dormant. The withdrawal-underpaym
 
 Earlier versions of this paper said that every hedge decision carries a STARK proof verified on-chain. That was not true, and an internal review in October 2026 established how far from true it was. This section replaces those claims.
 
-**What exists.** A STARK prover written in Python (Goldilocks field, SHA-256 Merkle trees, FRI, Fiat–Shamir, with a GPU path), a canonical encoding of a hedge decision into a commitment hash, and Move source for an on-chain verifier.
+**What exists.** A ZK-STARK prover and verifier written in Python: the Goldilocks field with challenges drawn from its quadratic extension, SHA-256 Merkle commitments, FRI, a Fiat–Shamir transcript that the verifier re-runs, and no trusted setup. It proves one kind of statement: that privately held integers lie within public bounds. The hedge policy is such a statement: a committed hedge has leverage and notional within the vault's caps, an allowed asset and side, and a declared notional that covers its size times its price. A second verifier, written separately in TypeScript, must return the same verdict as the first on a corpus of honest and forged proofs. The earlier prover, which the October 2026 review found unsound, has been removed, together with every screen and response that presented its output as a proof.
 
 **What does not.**
 
 - **No trade carries a proof.** The job that opens and closes hedges does not call the prover. No hedge record has a proof attached, and no proof has been verified on-chain.
-- **The on-chain STARK verifier is not deployed.** The package on SUI mainnet contains an older module that checks a signature, not a STARK. The STARK verifier exists in source only.
-- **The prover is not sound.** The review produced proofs the verifier accepts for statements that are false, including a hedge with leverage far above its cap, and a proof built from random numbers. The low-degree test does not constrain the committed function, the trace is not tested, and openings are not bound to their positions.
-- **The statement would not bind a trade even if it were sound.** It asserts that an asset code, a side and a leverage within a cap exist. It does not tie them to the order that was placed, its size, its price or its time.
-- **It is not zero-knowledge.** The witness can be recovered from a proof.
+- **Nothing is verified on-chain.** The package on SUI mainnet contains a module that checks a signature, not a STARK. There is no on-chain STARK verifier.
+- **No outside review.** The prover is tested by its authors: forged proofs of several kinds are rejected, and the measured success rate of the best attack on its query phase matches the theory. That shows the code does what its protocol says. It is not a review of the protocol or of the code by anyone independent, and until there is one these proofs are experimental.
+- **A proof would not bind a trade.** It shows that a committed hedge is within the rules. It does not show that the order sent to the venue is that hedge.
+- **Zero-knowledge is argued, not proven.** The proof hides the hedge by design (salted commitments, random padding, a masking polynomial). That argument has not been checked by anyone outside the project.
 
 **What you can check instead.** Every deposit, withdrawal, share issuance, fee and transfer out of the pool is a SUI transaction. The pool's share price comes from the on-chain balance plus a value the operator attests; that attestation is a trust assumption, bounded by the contract but not eliminated. Signal quality is measured in public, as described above.
 
-**What would have to be true before we claim proofs again.** A sound verifier (an audited library, or this one fixed and independently reviewed), a statement that binds the proof to the executed order, the verifier deployed on-chain, and execution that refuses to proceed without a verified proof.
+**What would have to be true before we claim proofs again.** An independent review of the prover and its verifiers, a statement that binds the proof to the executed order, the verifier deployed on-chain, and execution that refuses to proceed without a verified proof.
 
 No external audit has been completed; all review so far is internal.
 
@@ -137,7 +137,7 @@ SUI is the lead chain by design. Other chains are proven at testnet level so poo
 
 **Contracts.** OpenZeppelin where EVM applies; Move code uses `sui::` with explicit `entry` boundaries. 15 internal audit phases completed (2026-06-04 through 2026-06-12). No external audit has been completed.
 
-**Cryptographic.** Funds are secured by the SUI contract and standard SUI signatures. The STARK prover is experimental, is not sound, and secures nothing today (see "Proofs: what exists and what does not").
+**Cryptographic.** Funds are secured by the SUI contract and standard SUI signatures. The STARK prover is experimental, has not been independently reviewed, and secures nothing today (see "Proofs: what exists and what does not").
 
 **Operational.** Non-custodial — the pool holds capital under Move object custody, not admin authority. Every cron uses `verifyCronRequest` + `tryClaimCronRun` (idempotency) + `setCronState` (heartbeat). Missing heartbeats trip alerts within one interval. Every capital-moving action fires a Discord alert and appends to `alert-log:ring-buffer`. Reconcilers cross-check on-chain Move ↔ BlueFin (hourly) and BlueFin ↔ DB (every 15 min). Pre-push hook runs the security scan on every push.
 

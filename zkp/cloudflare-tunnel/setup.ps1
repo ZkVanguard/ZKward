@@ -92,7 +92,6 @@ Write-Host "  https://$Hostname" -ForegroundColor White
 Write-Host ""
 Write-Host "Update your .env with:" -ForegroundColor Cyan
 Write-Host "  ZK_API_URL=https://$Hostname" -ForegroundColor White
-Write-Host "  NEXT_PUBLIC_ZK_API_URL=https://$Hostname" -ForegroundColor White
 Write-Host ""
 Write-Host "To check tunnel status:" -ForegroundColor Cyan
 Write-Host "  cloudflared tunnel info $TunnelName" -ForegroundColor White

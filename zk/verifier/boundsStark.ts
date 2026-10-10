@@ -1,15 +1,16 @@
 /**
- * Verifier for the hedge policy ZK-STARK, in TypeScript.
+ * Verifier for the bounds ZK-STARK, in TypeScript.
  *
- * A second implementation of the verifier in `zkp/core/hedge_stark.py`,
+ * A second implementation of the verifier in `zkp/core/bounds_stark.py`,
  * written from the protocol, not translated line by line. Two verifiers that
  * agree on every accept and every reject are evidence that neither has a
  * slip in its transcript, its encodings or its arithmetic; and this one lets
  * a server or a script check a proof without the Python prover.
  *
- * Statement: "the hedge committed as `commitment` has leverage in
- * [1, leverage_cap], notional in [0, notional_cap_cents], asset in
- * [1, asset_count] and side in {0, 1}". The caps come from the caller.
+ * Statement: "the commitment opens to up to seven private integers, each
+ * within its public bounds, and (when the statement says so) to the product
+ * relation 1000 * v1 = v4 * v5 + v6". The bounds come from the caller. The
+ * hedge policy is one such statement (`hedgePolicyStatement`).
  *
  * Protocol: Goldilocks field with challenges in its quadratic extension,
  * SHA-256 Merkle commitments, a Fiat-Shamir transcript re-run here, an
@@ -90,8 +91,8 @@ function kPolyAtFp(coeffs: readonly K[], x: bigint): K {
   return [re, im];
 }
 
-// ── Parameters (must equal zkp/core/hedge_stark.py) ──────────────────
-const PROTOCOL = 'zkward-hedge-policy-v3';
+// ── Parameters (must equal zkp/core/bounds_stark.py) ──────────────────
+const PROTOCOL = 'zkward-bounds-v4';
 const N = 512;
 const ACTIVE = 64;
 const RANGE_BITS = 62;
@@ -105,7 +106,14 @@ const FRI_LAYERS = 6;
 const FINAL_DEGREE = N >> FRI_LAYERS;
 const CHUNK = (3 * N) / 4;
 const NUM_CHUNKS = 3;
-const NUM_QUANTITIES = 4; // leverage, notional, asset, side
+const NUM_QUANTITIES = 7;
+const LIMIT = 1n << BigInt(RANGE_BITS);
+// The product relation: PROD_SCALE * v[1] = v[4] * v[5] + v[6].
+const PROD_SCALED = 1;
+const PROD_A = 4;
+const PROD_B = 5;
+const PROD_SLACK = 6;
+const PROD_SCALE = 1000n;
 const WIDTH = 4 * NUM_QUANTITIES + 1;
 
 const OMEGA_M = rootOfUnity(M);
@@ -134,7 +142,8 @@ type Constraint =
   | { kind: 'bool'; b: number }
   | { kind: 'acc'; a: number; b: number }
   | { kind: 'init'; a: number; b: number }
-  | { kind: 'sum'; a1: number; a2: number; quantity: number };
+  | { kind: 'sum'; a1: number; a2: number; quantity: number }
+  | { kind: 'prod' };
 
 /** The constraints in the order their random weights are drawn. */
 const CONSTRAINTS: Constraint[] = (() => {
@@ -145,46 +154,72 @@ const CONSTRAINTS: Constraint[] = (() => {
     }
   }
   for (let k = 0; k < NUM_QUANTITIES; k++) out.push({ kind: 'sum', a1: 4 * k + 1, a2: 4 * k + 3, quantity: k });
+  out.push({ kind: 'prod' });
   return out;
 })();
 
 // ── Public inputs ────────────────────────────────────────────────────
-export interface HedgePolicyPublic {
-  leverage_cap: number | bigint | string;
-  notional_cap_cents: number | bigint | string;
-  asset_count?: number | bigint | string;
+type Int = number | bigint | string;
+
+/** What is being proven: a label, up to seven [lo, hi] bounds, and whether the product relation applies. */
+export interface BoundsStatement {
+  kind: string;
+  bounds: ReadonlyArray<readonly [Int, Int]>;
+  product?: boolean;
 }
 
-interface Caps {
-  leverageCap: bigint;
-  notionalCap: bigint;
-  assetCount: bigint;
+export interface HedgePolicyCaps {
+  leverage_cap: Int;
+  notional_cap_cents: Int;
+  asset_count?: Int;
 }
 
-function normalizePublic(pub: HedgePolicyPublic): Caps {
-  const caps: Caps = {
-    leverageCap: BigInt(pub.leverage_cap),
-    notionalCap: BigInt(pub.notional_cap_cents),
-    assetCount: BigInt(pub.asset_count ?? 3),
+interface Statement {
+  kind: string;
+  bounds: Array<[bigint, bigint]>;
+  product: boolean;
+}
+
+function normalizeStatement(st: BoundsStatement): Statement {
+  if (typeof st.kind !== 'string' || !/^[A-Za-z0-9_-]{1,64}$/.test(st.kind)) throw new Error('bad kind');
+  if (!Array.isArray(st.bounds) || st.bounds.length > NUM_QUANTITIES) throw new Error('bad bounds');
+  const bounds: Array<[bigint, bigint]> = st.bounds.map((pair) => {
+    if (!Array.isArray(pair) || pair.length !== 2 || typeof pair[0] === 'boolean' || typeof pair[1] === 'boolean') throw new Error('bad bound');
+    const lo = BigInt(pair[0]);
+    const hi = BigInt(pair[1]);
+    if (lo < 0n || lo > hi || hi >= LIMIT) throw new Error('a bound is outside 0 <= lo <= hi < 2^62');
+    return [lo, hi];
+  });
+  while (bounds.length < NUM_QUANTITIES) bounds.push([0n, 0n]);
+  const product = st.product ?? false;
+  if (typeof product !== 'boolean') throw new Error('product must be a boolean');
+  if (product && (bounds[PROD_SCALED][1] * PROD_SCALE >= LIMIT || bounds[PROD_A][1] * bounds[PROD_B][1] >= LIMIT)) {
+    throw new Error('the bounds let the product relation exceed 2^62');
+  }
+  return { kind: st.kind, bounds, product };
+}
+
+/** The hedge policy as a bounds statement: leverage, notional, asset, side, size, price, slack. */
+export function hedgePolicyStatement(caps: HedgePolicyCaps): BoundsStatement {
+  const leverageCap = BigInt(caps.leverage_cap);
+  const notionalCap = BigInt(caps.notional_cap_cents);
+  const assetCount = BigInt(caps.asset_count ?? 3);
+  if (leverageCap < 1n || assetCount < 1n || notionalCap < 0n) throw new Error('caps out of range');
+  const sizePriceLimit = (1n << 31n) - 1n;
+  return {
+    kind: 'hedge-policy',
+    bounds: [[1n, leverageCap], [0n, notionalCap], [1n, assetCount], [0n, 1n], [0n, sizePriceLimit], [0n, sizePriceLimit], [0n, LIMIT - 1n]],
+    product: true,
   };
-  const limit = 1n << BigInt(RANGE_BITS);
-  if (caps.leverageCap < 1n || caps.leverageCap >= limit) throw new Error('leverage_cap out of range');
-  if (caps.notionalCap < 0n || caps.notionalCap >= limit) throw new Error('notional_cap_cents out of range');
-  if (caps.assetCount < 1n || caps.assetCount >= limit) throw new Error('asset_count out of range');
-  return caps;
 }
-
-/** hi - lo for each bounded quantity: leverage [1, cap], notional [0, cap], asset [1, count], side [0, 1]. */
-const span = (caps: Caps, quantity: number): bigint =>
-  [caps.leverageCap - 1n, caps.notionalCap, caps.assetCount - 1n, 1n][quantity];
 
 /** What both sides agree on before the first message; every challenge depends on it. */
-function statementBytes(caps: Caps): Buffer {
+function statementBytes(st: Statement): Buffer {
   return Buffer.from(
-    `{"active":${ACTIVE},"air":"zkward-hedge-policy","blowup":${BLOWUP},"field":"goldilocks-quadratic",` +
-      `"fri_layers":${FRI_LAYERS},"grinding":${GRINDING_BITS},"hash":"sha256","n":${N},` +
-      `"public":{"asset_count":${caps.assetCount},"leverage_cap":${caps.leverageCap},"notional_cap_cents":${caps.notionalCap}},` +
-      `"queries":${NUM_QUERIES},"version":3}`,
+    `{"active":${ACTIVE},"air":"zkward-bounds","blowup":${BLOWUP},` +
+      `"bounds":[${st.bounds.map(([lo, hi]) => `[${lo},${hi}]`).join(',')}],"field":"goldilocks-quadratic",` +
+      `"fri_layers":${FRI_LAYERS},"grinding":${GRINDING_BITS},"hash":"sha256","kind":"${st.kind}","n":${N},` +
+      `"product":${st.product},"queries":${NUM_QUERIES},"version":4}`,
     'utf8',
   );
 }
@@ -289,7 +324,7 @@ function kList(data: Buffer): K[] {
 }
 
 // ── The statement's constraints at the out-of-domain point ───────────
-function quotientsAt(caps: Caps, z: K, cur: readonly K[], nxt: readonly K[]): K[] {
+function quotientsAt(st: Statement, z: K, cur: readonly K[], nxt: readonly K[]): K[] {
   const zn = kScale(z, OMEGA_A);
   const wCur = polyAtK(WEIGHT_POLY, z);
   const wNxt = polyAtK(WEIGHT_POLY, zn);
@@ -305,8 +340,17 @@ function quotientsAt(caps: Caps, z: K, cur: readonly K[], nxt: readonly K[]): K[
         return kMul(kMul(kSub(kSub(nxt[c.a], cur[c.a]), kMul(nxt[c.b], wNxt)), zMinusLast), invVanishing);
       case 'init':
         return kMul(kSub(cur[c.a], kMul(cur[c.b], wCur)), invFirst);
-      case 'sum':
-        return kMul(kSub(kAdd(cur[c.a1], cur[c.a2]), [mod(span(caps, c.quantity)), 0n]), invLast);
+      case 'sum': {
+        const [lo, hi] = st.bounds[c.quantity];
+        return kMul(kSub(kAdd(cur[c.a1], cur[c.a2]), [mod(hi - lo), 0n]), invLast);
+      }
+      case 'prod': {
+        if (!st.product) return K_ZERO;
+        // Each value is its lower bound plus the final running sum of (v - lo).
+        const value = (k: number): K => kAdd(cur[4 * k + 1], [mod(st.bounds[k][0]), 0n]);
+        const expr = kSub(kSub(kScale(value(PROD_SCALED), PROD_SCALE), kMul(value(PROD_A), value(PROD_B))), value(PROD_SLACK));
+        return kMul(expr, invLast);
+      }
     }
   });
 }
@@ -322,19 +366,28 @@ const layerShift = (k: number): bigint => powMod(SHIFT, 1n << BigInt(k));
 
 // ── Verify ───────────────────────────────────────────────────────────
 /**
- * True only when `proof` proves the hedge policy under `pub` for its
- * commitment (and for `commitment`, when the caller names the one it
- * expects). Malformed input is `false`, never an exception.
+ * True only when `proof` proves `statement` for its commitment (and for
+ * `commitment`, when the caller names the one it expects). Malformed input
+ * is `false`, never an exception.
  */
-export function verifyHedgePolicyProof(proof: unknown, pub: HedgePolicyPublic, commitment?: string): boolean {
+export function verifyBoundsProof(proof: unknown, statement: BoundsStatement, commitment?: string): boolean {
   try {
-    return verify(proof as Record<string, any>, normalizePublic(pub), commitment);
+    return verify(proof as Record<string, any>, normalizeStatement(statement), commitment);
   } catch {
     return false;
   }
 }
 
-function verify(proof: Record<string, any>, caps: Caps, commitment?: string): boolean {
+/** The hedge policy under the CALLER's caps. */
+export function verifyHedgePolicyProof(proof: unknown, caps: HedgePolicyCaps, commitment?: string): boolean {
+  try {
+    return verifyBoundsProof(proof, hedgePolicyStatement(caps), commitment);
+  } catch {
+    return false;
+  }
+}
+
+function verify(proof: Record<string, any>, st: Statement, commitment?: string): boolean {
   if (!proof || proof.protocol !== PROTOCOL) return false;
   const traceRoot = bytes(proof.commitment, 32);
   if (commitment !== undefined && commitment.toLowerCase() !== String(proof.commitment).toLowerCase()) return false;
@@ -353,7 +406,7 @@ function verify(proof: Record<string, any>, caps: Caps, commitment?: string): bo
   if (typeof proof.nonce !== 'number' || !Number.isSafeInteger(proof.nonce) || proof.nonce < 0) return false;
 
   // The transcript, replayed. Every challenge below is this verifier's own.
-  const t = new Transcript(statementBytes(caps));
+  const t = new Transcript(statementBytes(st));
   t.absorb('trace', traceRoot);
   const alphas = CONSTRAINTS.map(() => t.drawK());
   t.absorb('quotient', quotientRoot);
@@ -364,7 +417,7 @@ function verify(proof: Record<string, any>, caps: Caps, commitment?: string): bo
 
   // 1. The constraints hold at z: composition(z) = sum of weighted quotients.
   let expected: K = K_ZERO;
-  quotientsAt(caps, z, traceZ, traceZn).forEach((q, i) => {
+  quotientsAt(st, z, traceZ, traceZn).forEach((q, i) => {
     expected = kAdd(expected, kMul(alphas[i], q));
   });
   const zStep = kPow(z, CHUNK);

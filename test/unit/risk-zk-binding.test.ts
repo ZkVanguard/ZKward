@@ -1,31 +1,18 @@
 /**
- * Golden tests for the STARK risk-binding layer (zk/prover/riskCanonical.ts
- * + zk/verifier/ProofValidator.ts). These are pure-arithmetic checks — no
- * Python server needed. They pin the byte-exact serialization that the
- * Python `zkp/core/risk_canonical.py` must reproduce.
- *
- * If any of these tests fail, the on-chain risk attestation is broken:
- * the STARK proof would no longer bind the claimed `totalRisk` to the
- * inputs that produced it, so an operator could sign any score against
- * any state.
+ * Golden tests for the canonical risk inputs (zk/prover/riskCanonical.ts).
+ * Pure arithmetic, no prover needed. They pin the byte-exact serialization
+ * the inputs digest is taken over: a risk-score proof commits to that
+ * digest, so a change here silently changes what every such proof binds.
  */
 import { describe, it, expect } from '@jest/globals';
-import crypto from 'crypto';
 import {
   RISK_CANONICAL_VERSION,
   SENTIMENT_CODE,
   serializeCanonical,
   computeInputsHash,
-  computeOutputHash,
-  computeCommitmentHash,
   computeBaseRiskScore,
-  fuseRiskScores,
-  prepareRiskBinding,
   type CanonicalRiskInputs,
 } from '@/zk/prover/riskCanonical';
-import { ProofValidator } from '@/zk/verifier/ProofValidator';
-
-const validator = new ProofValidator();
 
 function baseInputs(overrides: Partial<CanonicalRiskInputs> = {}): CanonicalRiskInputs {
   return {
@@ -66,20 +53,6 @@ describe('base-risk formula', () => {
     expect(
       computeBaseRiskScore(20000, [{ contributionBps: 100_000_000 }]),
     ).toBe(100);
-  });
-});
-
-describe('fuseRiskScores', () => {
-  it('returns base when AI is null', () => {
-    expect(fuseRiskScores(50, null)).toBe(50);
-  });
-  it('averages when AI is present', () => {
-    expect(fuseRiskScores(50, 70)).toBe(60);
-    expect(fuseRiskScores(40, 41)).toBe(41); // rounds .5 up (banker's rounding via Math.round)
-  });
-  it('clamps result to [0, 100]', () => {
-    expect(fuseRiskScores(100, 100)).toBe(100);
-    expect(fuseRiskScores(-10, -20)).toBe(0);
   });
 });
 
@@ -141,13 +114,7 @@ describe('serializeCanonical', () => {
 });
 
 describe('computeInputsHash', () => {
-  /**
-   * Golden fixture — MUST match the Python side.
-   * If this hex ever changes, byte-identical serialization has broken
-   * and the STARK binding is silently invalid on-chain until re-signed.
-   * The identical constant lives in zkp/tests/test_risk_canonical.py
-   * `TestCrossLangGolden.EXPECTED_HASH`.
-   */
+  /** Golden fixture: if this changes, the canonical layout changed and older digests no longer match. */
   const GOLDEN_INPUTS_HASH =
     '0619fb3793c77deddf71250e684ad0074c8f9b08ec0fd218e780cc77d7235f2c';
 
@@ -160,7 +127,7 @@ describe('computeInputsHash', () => {
       /^[0-9a-f]{64}$/,
     );
   });
-  it('matches the cross-language golden hash', () => {
+  it('matches the golden hash', () => {
     const inputs = baseInputs({ baseRiskScore: 63, totalRisk: 63 });
     expect(computeInputsHash(inputs)).toBe(GOLDEN_INPUTS_HASH);
   });
@@ -197,96 +164,5 @@ describe('computeInputsHash', () => {
     ).not.toBe(h0);
     // totalRisk itself
     expect(computeInputsHash(baseInputs({ baseRiskScore: 63, totalRisk: 64 }))).not.toBe(h0);
-  });
-});
-
-describe('computeOutputHash', () => {
-  it('is SHA256(u32-BE totalRisk)', () => {
-    const buf = Buffer.alloc(4);
-    buf.writeUInt32BE(63, 0);
-    const expected = crypto.createHash('sha256').update(buf).digest('hex');
-    expect(computeOutputHash(63)).toBe(expected);
-  });
-});
-
-describe('computeCommitmentHash', () => {
-  it('changes if totalRisk or threshold changes even with identical inputsHash', () => {
-    const inputs = baseInputs({ baseRiskScore: 63, totalRisk: 63 });
-    const inputsHash = computeInputsHash(inputs);
-    const outputHash = computeOutputHash(63);
-    const c0 = computeCommitmentHash(inputs, inputsHash, outputHash);
-    // Change totalRisk in inputs (keep inputsHash the same to isolate)
-    const inputs2 = { ...inputs, totalRisk: 64 };
-    const c1 = computeCommitmentHash(inputs2, inputsHash, outputHash);
-    expect(c1).not.toBe(c0);
-  });
-});
-
-describe('ProofValidator.verifyRiskBinding', () => {
-  it('accepts a well-formed statement built from the same inputs', () => {
-    const inputs = baseInputs({ baseRiskScore: 63, totalRisk: 63 });
-    const binding = prepareRiskBinding(inputs);
-    const statement = {
-      claim: 'zkv-risk-v1',
-      public_inputs: [binding.inputsHash, binding.outputHash, String(63), String(100)],
-      public_data: {
-        portfolioId: -2,
-        chain: 'sui',
-        timestampMs: inputs.timestampMs,
-        canonicalVersion: 1,
-        commitmentHash: binding.commitmentHash,
-      },
-    };
-    const result = validator.verifyRiskBinding(statement, inputs);
-    expect(result.bound).toBe(true);
-    expect(result.errors).toEqual([]);
-  });
-
-  it('rejects a statement with a mutated totalRisk', () => {
-    const inputs = baseInputs({ baseRiskScore: 63, totalRisk: 63 });
-    const binding = prepareRiskBinding(inputs);
-    const badStatement = {
-      claim: 'zkv-risk-v1',
-      public_inputs: [binding.inputsHash, binding.outputHash, String(30), String(100)],
-      public_data: { canonicalVersion: 1, commitmentHash: binding.commitmentHash },
-    };
-    const result = validator.verifyRiskBinding(badStatement, inputs);
-    expect(result.bound).toBe(false);
-    expect(result.errors.some((e) => e.includes('totalRisk mismatch'))).toBe(true);
-  });
-
-  it('rejects a statement whose inputsHash was recomputed for a different exposure set', () => {
-    const inputs = baseInputs({ baseRiskScore: 63, totalRisk: 63 });
-    const otherInputs = baseInputs({
-      baseRiskScore: 63,
-      totalRisk: 63,
-      exposures: [
-        { asset: 'BTC', exposureBps: 5000, contributionBps: 2500 },
-        { asset: 'ETH', exposureBps: 5000, contributionBps: 2500 },
-      ],
-    });
-    const evilBinding = prepareRiskBinding(otherInputs);
-    const badStatement = {
-      claim: 'zkv-risk-v1',
-      public_inputs: [evilBinding.inputsHash, evilBinding.outputHash, String(63), String(100)],
-      public_data: { canonicalVersion: 1, commitmentHash: evilBinding.commitmentHash },
-    };
-    // Verifier reruns with the CLAIMED (honest) inputs — mismatch surfaces
-    const result = validator.verifyRiskBinding(badStatement, inputs);
-    expect(result.bound).toBe(false);
-    expect(result.errors.some((e) => e.includes('inputsHash mismatch'))).toBe(true);
-  });
-
-  it('rejects a statement with the wrong claim tag / version', () => {
-    const inputs = baseInputs({ baseRiskScore: 63, totalRisk: 63 });
-    const binding = prepareRiskBinding(inputs);
-    const badStatement = {
-      claim: 'zkv-risk-v1',
-      public_inputs: [binding.inputsHash, binding.outputHash, String(63), String(100)],
-      public_data: { canonicalVersion: 999, commitmentHash: binding.commitmentHash },
-    };
-    const result = validator.verifyRiskBinding(badStatement, inputs);
-    expect(result.bound).toBe(false);
-    expect(result.errors.some((e) => /canonicalVersion/i.test(e))).toBe(true);
   });
 });

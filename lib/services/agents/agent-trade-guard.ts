@@ -26,7 +26,6 @@
  * @see lib/db/agent-decisions.ts — outcome tracking
  */
 
-import { zkApiHeaders } from '@/lib/utils/zk-api-auth';
 import { logger } from '@/lib/utils/logger';
 import { recordAgentDecision } from '@/lib/db/agent-decisions';
 import { getCronState, setCronState } from '@/lib/db/cron-state';
@@ -123,8 +122,7 @@ export interface CheckParams {
 }
 
 const LARGE_TRADE_CONSENSUS_USD = Number(process.env.LARGE_TRADE_CONSENSUS_USD) || 100_000;
-const ZK_ATTEST_USD = Number(process.env.ZK_ATTEST_MIN_NOTIONAL_USD) || 1_000_000;
-/** Threshold above which the ReportingAgent's ZK proof output is required. */
+/** Notional above which the last agent cycle must have produced a verified proof (enforced when ZK_ATTEST_STRICT is on). */
 const REPORTING_ZK_REQUIRED_USD = Number(process.env.REPORTING_ZK_REQUIRED_USD) || 1_000_000;
 
 /**
@@ -157,7 +155,7 @@ export async function getPriceAlertedSymbols(): Promise<Set<string>> {
  * Load the last LeadAgent cycle's attestation (PriceMonitor alerts +
  * ReportingAgent ZK proof count). Used to gate trades:
  *   - PriceMonitor alerts trigger → tighten drift + block opens on the alerted symbol
- *   - ReportingAgent must have produced ZK proofs before large trades
+ *   - the cycle must have produced a verified proof before large trades (strict mode)
  */
 async function loadCycleAttestation(): Promise<{
   ranAt: number;
@@ -236,63 +234,6 @@ async function castAutomatedConsensusVotes(
   // — real check would require settlement queue state).
   guard.submitVote(executionId, 'settlement-agent', true,
     params.chain === 'cronos' ? 'settlement queue clear (approx)' : 'no settlement required on this chain');
-}
-
-/**
- * Generate a ZK-STARK solvency attestation for the trade if enabled. Called
- * only above ZK_ATTEST_MIN_NOTIONAL_USD. If the prover is unreachable at high
- * notionals we FAIL CLOSED — bulletproof scale must not allow >$1M trades
- * without cryptographic attestation of the collateral covering the margin.
- */
-async function attestLargeTradeOrFail(
-  params: CheckParams,
-): Promise<{ attested: boolean; proofHash: string | null; reason: string }> {
-  const url = (process.env.ZK_PYTHON_API_URL || '').trim();
-  const strict = envFlag('ZK_ATTEST_STRICT');
-  if (!url) {
-    return {
-      attested: false, proofHash: null,
-      reason: strict ? 'ZK_PYTHON_API_URL unset — strict mode requires it' : 'ZK_PYTHON_API_URL unset (soft mode)',
-    };
-  }
-  try {
-    // Health probe (cheap, 1s)
-    const h = await fetch(`${url}/health`, { signal: AbortSignal.timeout(2000) });
-    if (!h.ok) throw new Error(`prover health ${h.status}`);
-    // Attest — build the same statement shape the private-hedge path uses
-    const commitment = `0x${'0'.repeat(64)}`; // placeholder — attestation gates the SIZE not identity
-    const r = await fetch(`${url}/api/zk/attest`, {
-      method: 'POST',
-      headers: zkApiHeaders(),
-      body: JSON.stringify({
-        proof_type: 'risk',
-        statement: {
-          claim: `Large trade attestation: ${params.asset} ${params.intendedSide} $${params.notionalUsd}`,
-          threshold: Math.floor(params.notionalUsd),
-          public_inputs: [Math.floor(params.notionalUsd)],
-        },
-        witness: {
-          secret_value: Math.floor(params.notionalUsd * 1.1), // margin buffer
-          portfolio_value: Math.floor(params.notionalUsd * 2),
-          volatility: 20,
-        },
-        commitment_hash_hex: commitment.replace(/^0x/, ''),
-      }),
-      signal: AbortSignal.timeout(15_000),
-    });
-    if (!r.ok) throw new Error(`attest ${r.status}`);
-    const body = await r.json() as { signature_hex?: string; proof_data_hex?: string };
-    if (!body.signature_hex) throw new Error('attest returned no signature');
-    return {
-      attested: true, proofHash: body.signature_hex.slice(0, 64),
-      reason: `attested by prover (${params.notionalUsd} USD ≥ ${ZK_ATTEST_USD})`,
-    };
-  } catch (e) {
-    return {
-      attested: false, proofHash: null,
-      reason: `${strict ? 'STRICT-FAIL' : 'SOFT-SKIP'}: ${e instanceof Error ? e.message : String(e)}`,
-    };
-  }
 }
 
 /**
@@ -439,11 +380,10 @@ export async function checkBeforeTrade(params: CheckParams): Promise<GuardDecisi
       }
     }
 
-    // ─── ReportingAgent gate — large trades require the last cycle to have
-    // produced ≥ 1 ZK proof (via ReportingAgent → LeadAgent chain). This
-    // ties ReportingAgent's output into the trade path: no proof, no
-    // large trade. Small trades unaffected. Bypass in soft mode when
-    // ZK_ATTEST_STRICT != 1.
+    // ─── Proof gate — with ZK_ATTEST_STRICT on, a large trade requires the
+    // last cycle to have produced at least one proof the verifier accepted
+    // (the risk-score proof). Small trades are unaffected; without the flag
+    // the gate is off, so a prover outage does not stop trading.
     if (params.notionalUsd >= REPORTING_ZK_REQUIRED_USD) {
       const zkCount = attestation?.zkProofsCount ?? 0;
       if (zkCount === 0 && envFlag('ZK_ATTEST_STRICT')) {
@@ -452,12 +392,12 @@ export async function checkBeforeTrade(params: CheckParams): Promise<GuardDecisi
           intendedSide: params.intendedSide, agentApproved: false,
           agentSide: directive?.recommendedSide ?? null,
           agentConfidence: directive?.confidence ?? null,
-          agentReason: `ReportingAgent ZK proof required for trade ≥ $${REPORTING_ZK_REQUIRED_USD} but last cycle produced 0 proofs`,
+          agentReason: `A verified proof is required for a trade ≥ $${REPORTING_ZK_REQUIRED_USD} but the last cycle produced none`,
           notionalUsd: params.notionalUsd, wasActedOn: false,
         });
         return {
           approved: false, stage: 'safe-execution-guard',
-          reason: `ReportingAgent audit gate FAIL: notional $${params.notionalUsd} ≥ $${REPORTING_ZK_REQUIRED_USD} requires ≥ 1 ZK proof from last cycle; got ${zkCount}. STRICT mode active.`,
+          reason: `Proof gate: notional $${params.notionalUsd} ≥ $${REPORTING_ZK_REQUIRED_USD} requires a verified proof from the last cycle; got ${zkCount}. STRICT mode active.`,
           agentSide: directive?.recommendedSide ?? null,
           agentConfidence: directive?.confidence ?? null,
         };
@@ -494,35 +434,6 @@ export async function checkBeforeTrade(params: CheckParams): Promise<GuardDecisi
       }
     }
 
-    // ─── Layer 4: ZK-STARK attestation for very large trades ─────────────
-    // At >= $1M notional the trade requires a real ZK-STARK proof (via
-    // Python prover, ed25519-signed by the prover key) so an operator can
-    // later independently verify that the collateral was mathematically
-    // sufficient. Set ZK_ATTEST_STRICT=1 to fail closed when the prover is
-    // unreachable — the default is soft-skip so testnet/CI don't break.
-    let zkProofHash: string | null = null;
-    if (params.notionalUsd >= ZK_ATTEST_USD) {
-      const attest = await attestLargeTradeOrFail(params);
-      if (attest.attested) {
-        zkProofHash = attest.proofHash;
-      } else if (envFlag('ZK_ATTEST_STRICT')) {
-        await recordAgentDecision({
-          chain: params.chain, agent: 'zk-attestor', asset: assetUpper,
-          intendedSide: params.intendedSide, agentApproved: false,
-          agentSide: directive?.recommendedSide ?? null, agentConfidence: directive?.confidence ?? null,
-          agentReason: `ZK attest STRICT-FAIL: ${attest.reason}`,
-          notionalUsd: params.notionalUsd, wasActedOn: false,
-        });
-        return {
-          approved: false, stage: 'safe-execution-guard',
-          reason: `ZK-STARK attestation required (>= $${ZK_ATTEST_USD}) — ${attest.reason}`,
-          agentSide: directive?.recommendedSide ?? null,
-          agentConfidence: directive?.confidence ?? null,
-        };
-      }
-      // soft mode: record the miss but allow
-    }
-
     return {
       approved: true, stage: 'pass',
       reason: [
@@ -530,7 +441,6 @@ export async function checkBeforeTrade(params: CheckParams): Promise<GuardDecisi
         `RiskAgent(score=${snap?.riskScore ?? '?'})`,
         'SafeGuard cleared',
         params.notionalUsd >= LARGE_TRADE_CONSENSUS_USD ? '2/3 consensus PASSED' : null,
-        zkProofHash ? `ZK-STARK attested (${zkProofHash.slice(0, 12)}...)` : null,
       ].filter(Boolean).join(' | '),
       agentSide: directive?.recommendedSide ?? null,
       agentConfidence: directive?.confidence ?? null,

@@ -29,7 +29,6 @@ Living reference for the platform. All docs listed here are under active mainten
 ## Product + protocol specs
 
 - [CUSTODY_ATTESTATION_SPEC.md](./CUSTODY_ATTESTATION_SPEC.md) — RWA custody attestation primitive
-- [FORMAL_STARK_VERIFICATION.md](./FORMAL_STARK_VERIFICATION.md) — STARK protocol formal verification
 - [INTERNAL_AUDIT_PACKET.md](./INTERNAL_AUDIT_PACKET.md) — invariants + hot spots for external audit review
 - [VISION.md](./VISION.md) — product vision
 - [INVESTOR_PITCH_DECK.md](./INVESTOR_PITCH_DECK.md) — investor deck

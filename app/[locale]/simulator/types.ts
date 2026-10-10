@@ -1,5 +1,3 @@
-import type { ZKProofData } from '@/components/ZKVerificationBadge';
-
 export interface RealPriceData {
   symbol: string;
   price: number;
@@ -16,15 +14,12 @@ export interface RealRiskAssessment {
   realAgent: boolean;
 }
 
+/** A hedge policy proof as the generate route returned it; `verified` is the server-side verifier's verdict. */
 export interface RealZKProof {
-  proof_hash: string;
-  merkle_root: string;
-  timestamp: number;
+  commitment: string;
   verified: boolean;
   protocol: string;
-  security_level: number;
-  cuda_acceleration: boolean;
-  fallback_mode?: boolean;
+  durationMs: number;
 }
 
 export interface AgentStatus {
@@ -55,7 +50,6 @@ export interface AgentAction {
   action: string;
   description: string;
   status: 'pending' | 'executing' | 'completed' | 'failed';
-  zkProof?: ZKProofData;
   impact?: {
     metric: string;
     before: number;

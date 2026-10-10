@@ -14,13 +14,14 @@ import json
 import random
 import sys
 
+from zkp.core import bounds_stark as bs
 from zkp.core import hedge_stark as hs
 from zkp.core import stark_core as sc
 from zkp.tests.test_hedge_stark_soundness import solve_first_chunk
 
 HEDGE = {
     'asset': 'BTC', 'side': 'LONG', 'leverageX': 3, 'notionalValueUsdcCents': 4_100_000,
-    'sizeUnits': 500, 'entryPriceUsdcCents': 8_200_000, 'portfolioId': 2, 'timestampMs': 1_791_500_000_000,
+    'sizeMilli': 500, 'entryPriceCents': 8_200_000, 'portfolioId': 2, 'timestampMs': 1_791_500_000_000,
 }
 PUBLIC = {'leverage_cap': 4, 'notional_cap_cents': 100_000_000}
 
@@ -34,8 +35,9 @@ def main(out_path: str) -> None:
     cases = []
 
     def add(name, proof, public, commitment=None):
+        # The statement as the engine sees it, so a verifier in another language needs no hedge-specific code.
         cases.append({
-            'name': name, 'proof': proof, 'public': public, 'commitment': commitment,
+            'name': name, 'proof': proof, 'public': hs.to_public(public), 'commitment': commitment,
             'expected': hs.verify(proof, public, commitment),
         })
 
@@ -48,9 +50,12 @@ def main(out_path: str) -> None:
     add('honest, lower notional cap', honest, {**PUBLIC, 'notional_cap_cents': 1})
     add('honest, other asset count', honest, {**PUBLIC, 'asset_count': 2})
 
-    big_public = {'leverage_cap': 50, 'notional_cap_cents': (1 << 61) + 12345, 'asset_count': 3}
-    big, _ = hs.prove({**HEDGE, 'asset': 'SUI', 'side': 'SHORT', 'leverageX': 50, 'notionalValueUsdcCents': 1 << 61}, big_public)
-    add('honest, caps beyond 2^53', big, big_public)
+    risk = {'kind': 'risk-score', 'bounds': [[0, 70], [3, (1 << 61) + 12345]]}
+    lower = {**risk, 'bounds': [[0, 69], [3, (1 << 61) + 12345]]}
+    big, _ = bs.prove({'values': [55, (1 << 61) + 5], 'payload': [1, 2, 3]}, risk)
+    for name, public in (('honest, another kind, bounds beyond 2^53', risk), ('another kind, checked under a lower bound', lower)):
+        cases.append({'name': name, 'proof': big, 'public': bs.normalize_public(public), 'commitment': None, 'expected': bs.verify(big, public)})
+    cases.append({'name': 'another kind, checked as a hedge', 'proof': big, 'public': hs.to_public(PUBLIC), 'commitment': None, 'expected': hs.verify(big, PUBLIC)})
 
     edits = {
         'edited: commitment': lambda p: p.update(commitment=flip(p['commitment'], 0)),
@@ -71,8 +76,8 @@ def main(out_path: str) -> None:
         'reshaped: one query repeated': lambda p: p.update(queries=[p['queries'][0]] * len(p['queries'])),
         'reshaped: a longer final polynomial': lambda p: p.update(final=p['final'] + '00' * 16),
         'reshaped: openings at swapped positions': lambda p: p['queries'][0]['trace'].reverse(),
-        'reshaped: a non-canonical field element': lambda p: p['ood'].update(trace_z='ff' * (16 * hs.WIDTH)),
-        'reshaped: another protocol version': lambda p: p.update(protocol='zkward-hedge-policy-v2'),
+        'reshaped: a non-canonical field element': lambda p: p['ood'].update(trace_z='ff' * (16 * bs.WIDTH)),
+        'reshaped: another protocol version': lambda p: p.update(protocol='zkward-bounds-v3'),
     }
     for name, edit in edits.items():
         p = copy.deepcopy(honest)
@@ -84,6 +89,8 @@ def main(out_path: str) -> None:
     add('dishonest prover: leverage 1000 against cap 4', cheat, PUBLIC)
     cheat, _ = hs.prove({**HEDGE, 'notionalValueUsdcCents': 100_000_001}, PUBLIC, skip_checks_for_tests=True)
     add('dishonest prover: notional over the cap', cheat, PUBLIC)
+    cheat, _ = hs.prove({**HEDGE, 'notionalValueUsdcCents': 4_099_999}, PUBLIC, skip_checks_for_tests=True)
+    add('dishonest prover: notional understating size times price', cheat, PUBLIC)
     cheat, _ = hs.prove(illegal, PUBLIC, skip_checks_for_tests=True, attack_hooks_for_tests={'ood': solve_first_chunk})
     add('dishonest prover: out-of-domain values forged so the identity holds', cheat, PUBLIC)
     cheat, _ = hs.prove(HEDGE, PUBLIC, skip_checks_for_tests=True, attack_hooks_for_tests={
@@ -91,7 +98,7 @@ def main(out_path: str) -> None:
     })
     add('dishonest prover: a FRI layer that is not a fold', cheat, PUBLIC)
     cheat, _ = hs.prove(HEDGE, PUBLIC, skip_checks_for_tests=True, attack_hooks_for_tests={
-        'final': lambda layer, shift: [(rng.randrange(sc.P), rng.randrange(sc.P)) for _ in range(hs.FINAL_DEGREE)],
+        'final': lambda layer, shift: [(rng.randrange(sc.P), rng.randrange(sc.P)) for _ in range(bs.FINAL_DEGREE)],
     })
     add('dishonest prover: a final polynomial of its own choosing', cheat, PUBLIC)
 

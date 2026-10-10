@@ -38,44 +38,36 @@ Each runbook has: **symptom** (what you'll see) → **diagnose** (what to check)
 
 ---
 
-### Runbook 1 — Python ZK prover down
+### Runbook 1 — Proof server down
 
 **Symptom**
-- `/api/zk/*` calls return 5xx or timeout
-- Discord silent on `🔀 DRIFT-CLOSED` events even after clear signal flips (the drift monitor calls `checkBeforeTrade` which soft-passes when the ZK attestor is optional — but at scale with `ZK_ATTEST_STRICT=1`, all trades above $1M are blocked)
-- Grafana / logs show `Prover /api/zk/attest failed`
+- `/api/zk-proof/health` reports `unhealthy` or `unavailable`
+- `/api/zk-proof/generate` answers 503
+- With `ZK_ATTEST_STRICT=1`, trades at or above `REPORTING_ZK_REQUIRED_USD` are refused, because the agent cycle produced no verified proof
 
 **Diagnose**
 ```bash
-# 1. Is the process running?
-curl -m 3 $ZK_PYTHON_API_URL/health
+# 1. Is the process answering?
+curl -m 3 $ZK_API_URL/health
 
-# 2. If it responds but reports errors:
-curl -m 3 $ZK_PYTHON_API_URL/api/zk/prover-pubkey
-# → 404 = ZKV_PROVER_PRIV_KEY_HEX unset → env drift
-# → 500 = CUDA/CuPy driver issue → check nvidia-smi
-
-# 3. If unreachable:
+# 2. If unreachable:
 ps aux | grep "zkp/api/server"       # linux
 Get-Process python                    # windows
 ```
 
 **Mitigate (< 5 min)**
-- Set `ZK_ATTEST_STRICT=0` in Vercel env — reverts to soft-skip on prover
-  outage so trades ≤ $1M continue. Trades > $1M will now proceed WITHOUT
-  ZK attestation — safe as long as SafeExecutionGuard's position cap is
-  still enforced.
-- **DO NOT** set `SAFE_GUARD_MAX_POSITION_USD` higher during this window.
+- Unset `ZK_ATTEST_STRICT`: the proof gate is then off and trading does not
+  depend on the prover. Nothing else depends on it.
 
 **Fix**
-- Restart the prover: `python zkp/api/server.py` (or systemd unit)
-- If CUDA driver crashed: reboot the host. Move to CPU-only via
-  `ZK_CUDA_ENABLED=0` while investigating.
+- Restart the server: `python zkp/api/server.py`. It proves and verifies one
+  statement at start and exits if that fails, so a listening port means a
+  working prover. It needs a CPU only.
 
 **Verify**
-- `/health` returns `cuda_enabled: true, status: healthy`
-- `scripts/test-zk-stark-e2e.ts` → 4/4 pass
-- Revert `ZK_ATTEST_STRICT=1`
+- `/health` returns `status: healthy`
+- `python -m pytest zkp/tests/test_server.py`
+- `ZK_API_URL=<address> bun jest test/integration/zk-hedge-policy.test.ts` passes in seconds, not milliseconds
 
 ---
 

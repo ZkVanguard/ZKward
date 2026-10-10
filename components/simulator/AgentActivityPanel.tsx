@@ -7,7 +7,6 @@
  */
 import { motion, AnimatePresence } from 'framer-motion';
 import { Brain, Zap, Terminal, Eye, EyeOff } from 'lucide-react';
-import { ZKBadgeInline } from '@/components/ZKVerificationBadge';
 import type { AgentAction } from '@/app/[locale]/simulator/types';
 import type { RefObject } from 'react';
 
@@ -62,9 +61,6 @@ export function AgentActivityPanel({ agentActions, logs, showLogs, onToggleLogs,
                     {action.agent} Agent
                   </span>
                   <div className="flex items-center gap-2">
-                    {action.status === 'completed' && action.zkProof && (
-                      <ZKBadgeInline verified={true} />
-                    )}
                     {action.status === 'executing' && (
                       <span className="text-[11px] sm:text-[12px] text-[#007AFF] animate-pulse">
                         Executing...

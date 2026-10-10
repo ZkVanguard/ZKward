@@ -111,13 +111,6 @@ describe('browser-callable pool actions cannot move funds', () => {
   });
 });
 
-describe('proof verification never signs with the operator key', () => {
-  const src = read('app/api/zk-proof/verify-hedge-onchain/route.ts');
-  it('has no signing path', () => {
-    for (const s of ['signAndExecuteTransaction', 'signTransaction', 'SUI_POOL_ADMIN_KEY', 'PRIVATE_KEY', 'Keypair', 'setSender']) expect(src).not.toContain(s);
-  });
-});
-
 describe('auto-rebalance: a wallet edits only its own portfolio', () => {
   const src = read('app/api/agents/auto-rebalance/route.ts');
   for (const method of ['POST', 'PATCH']) {

@@ -194,7 +194,6 @@ export async function POST(request: NextRequest) {
         isRealAI: llmProvider.isAvailable(),
         actionExecuted: response.actionExecuted || false,
         actionResult: response.actionResult,
-        zkProof: response.zkProof,
       },
     });
   } catch (error) {
@@ -304,7 +303,7 @@ function formatAgentResponse(report: AgentReport): { content: string } {
   // ZK verification status
   if ((report.zkProofs?.length ?? 0) > 0) {
     const verified = report.zkProofs!.filter((p) => p.verified).length;
-    lines.push(`\n🔐 ZK: ${verified}/${report.zkProofs!.length} verified on-chain`);
+    lines.push(`\n🔐 ZK: ${verified}/${report.zkProofs!.length} proofs verified`);
   }
   
   // Settlement info (brief)

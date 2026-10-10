@@ -16,12 +16,13 @@ import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
+from zkp.core import bounds_stark as bs  # noqa: E402
 from zkp.core import hedge_stark as hs  # noqa: E402
 from zkp.core import stark_core as sc  # noqa: E402
 
 HEDGE = {
     'asset': 'BTC', 'side': 'LONG', 'leverageX': 3, 'notionalValueUsdcCents': 4_100_000,
-    'sizeUnits': 500, 'entryPriceUsdcCents': 8_200_000, 'portfolioId': 2, 'timestampMs': 1_791_500_000_000,
+    'sizeMilli': 500, 'entryPriceCents': 8_200_000, 'portfolioId': 2, 'timestampMs': 1_791_500_000_000,
 }
 PUBLIC = {'leverage_cap': 4, 'notional_cap_cents': 100_000_000}
 
@@ -86,19 +87,19 @@ class TestCore:
 
     def test_prover_and_verifier_share_one_constraint_definition(self):
         # The quotients over Fp at a point of L equal the K formulas at the same point.
-        cols = hs.build_trace(HEDGE, hs.normalize_public(PUBLIC))
-        coeffs = [sc.intt(c, hs.OMEGA_N) for c in cols]
-        x = hs.SHIFT * pow(hs.OMEGA_M, 37, sc.P) % sc.P
-        xn = x * hs.OMEGA_A % sc.P
+        public = bs.normalize_public(hs.to_public(PUBLIC))
+        cols = bs.build_trace(hs.to_witness(HEDGE), public)
+        coeffs = [sc.intt(c, bs.OMEGA_N) for c in cols]
+        x = bs.SHIFT * pow(bs.OMEGA_M, 37, sc.P) % sc.P
+        xn = x * bs.OMEGA_A % sc.P
         at = lambda poly, pt: sum(c * pow(pt, i, sc.P) for i, c in enumerate(poly)) % sc.P  # noqa: E731
         cur = [at(c, x) for c in coeffs]
         nxt = [at(c, xn) for c in coeffs]
-        public = hs.normalize_public(PUBLIC)
-        fp = hs._quotients(
-            hs._FpOps, public, cur, nxt, at(hs.WEIGHT_POLY, x), at(hs.WEIGHT_POLY, xn), (x - hs.LAST) % sc.P,
-            sc.inv(pow(x, hs.ACTIVE, sc.P) - 1), sc.inv(x - 1), sc.inv(x - hs.LAST),
+        fp = bs._quotients(
+            bs._FpOps, public, cur, nxt, at(bs.WEIGHT_POLY, x), at(bs.WEIGHT_POLY, xn), (x - bs.LAST) % sc.P,
+            sc.inv(pow(x, bs.ACTIVE, sc.P) - 1), sc.inv(x - 1), sc.inv(x - bs.LAST),
         )
-        k = hs._constraints_at_k(public, (x, 0), [(v, 0) for v in cur], [(v, 0) for v in nxt])
+        k = bs._constraints_at_k(public, (x, 0), [(v, 0) for v in cur], [(v, 0) for v in nxt])
         assert [(v, 0) for v in fp] == k
 
 
@@ -113,7 +114,7 @@ class TestHonest:
     def test_every_allowed_extreme_proves(self):
         for w in (
             {**HEDGE, 'leverageX': 1}, {**HEDGE, 'leverageX': 4},
-            {**HEDGE, 'notionalValueUsdcCents': 0}, {**HEDGE, 'notionalValueUsdcCents': 100_000_000},
+            {**HEDGE, 'notionalValueUsdcCents': 100_000_000}, {**HEDGE, 'sizeMilli': 0, 'notionalValueUsdcCents': 0},
             {**HEDGE, 'asset': 'SUI', 'side': 'SHORT'},
         ):
             proof, _ = hs.prove(w, PUBLIC)
@@ -121,19 +122,21 @@ class TestHonest:
 
     def test_the_commitment_opens_to_the_hedge(self, honest):
         proof, opening = honest
-        got = hs.audit_opening(opening, proof['commitment'])
+        got = hs.audit_opening(opening, proof['commitment'], PUBLIC)
         assert got == {
             'leverage': 3, 'notional': 4_100_000, 'asset': 1, 'side': 0,
-            'sizeUnits': 500, 'entryPriceUsdcCents': 8_200_000, 'portfolioId': 2, 'timestampMs': 1_791_500_000_000,
+            'sizeMilli': 500, 'entryPriceCents': 8_200_000, 'slack': 0, 'portfolioId': 2, 'timestampMs': 1_791_500_000_000,
         }
+        # The caps are part of what the opening is read against.
+        assert hs.audit_opening(opening, proof['commitment'], {**PUBLIC, 'leverage_cap': 'x'}) is None
 
     def test_an_opening_does_not_open_another_commitment(self, honest):
         proof, opening = honest
         other, _ = hs.prove({**HEDGE, 'leverageX': 2}, PUBLIC)
-        assert hs.audit_opening(opening, other['commitment']) is None
+        assert hs.audit_opening(opening, other['commitment'], PUBLIC) is None
         broken = copy.deepcopy(opening)
-        broken['columns'][hs.col(0, hs.AU)] = flip_hex(broken['columns'][hs.col(0, hs.AU)], 3)
-        assert hs.audit_opening(broken, proof['commitment']) is None
+        broken['columns'][bs.col(0, bs.AU)] = flip_hex(broken['columns'][bs.col(0, bs.AU)], 3)
+        assert hs.audit_opening(broken, proof['commitment'], PUBLIC) is None
 
     def test_two_proofs_of_one_hedge_share_nothing(self, honest):
         proof, _ = honest
@@ -144,7 +147,7 @@ class TestHonest:
     def test_the_proof_carries_no_witness_field(self, honest):
         proof, _ = honest
         assert set(proof) == {'protocol', 'public', 'commitment', 'quotient_root', 'ood', 'fri_roots', 'final', 'nonce', 'queries'}
-        assert set(proof['public']) == {'leverage_cap', 'notional_cap_cents', 'asset_count'}
+        assert set(proof['public']) == {'kind', 'bounds', 'product'}
 
 
 # ── a prover that follows the protocol refuses a false statement ─────
@@ -184,27 +187,27 @@ class TestDishonestProver:
         # Put a whole value in one "bit": every running sum and the final sum
         # are right, only the bit constraint is broken.
         def cheat(value):
-            bits = [value] + [0] * (hs.ACTIVE - 1)
-            return bits, [value % sc.P] * hs.ACTIVE
-        monkeypatch.setattr(hs, '_bits_column', cheat)
+            bits = [value] + [0] * (bs.ACTIVE - 1)
+            return bits, [value % sc.P] * bs.ACTIVE
+        monkeypatch.setattr(bs, '_bits_column', cheat)
         proof, _ = hs.prove({**HEDGE, 'leverageX': 3}, PUBLIC, skip_checks_for_tests=True)
         assert not hs.verify(proof, PUBLIC)
 
     def test_a_range_that_wraps_around_the_field_is_rejected(self, monkeypatch):
         # leverage 1000 with cap 4: (v - lo) + (hi - v) = hi - lo holds modulo p
         # if the second term is allowed to be p - 996. The 62-bit range forbids it.
-        real = hs._bits_column
+        real = bs._bits_column
 
         def cheat(value):
             bits, acc = real(value)
             return bits, acc
-        monkeypatch.setattr(hs, '_bits_column', cheat)
-        cols = hs.build_trace({**HEDGE, 'leverageX': 1000}, hs.normalize_public(PUBLIC), check=False)
-        last = (hs.ACTIVE - 1) * hs.STEP
-        k = hs.QUANTITIES.index('leverage')
+        monkeypatch.setattr(bs, '_bits_column', cheat)
+        cols = bs.build_trace(hs.to_witness({**HEDGE, 'leverageX': 1000}), bs.normalize_public(hs.to_public(PUBLIC)), check=False)
+        last = (bs.ACTIVE - 1) * bs.STEP
+        k = hs.FIELDS.index('leverage')
         # Force the final running sum of (hi - v) to the wrapped value, breaking only the transition into it.
-        cols[hs.col(k, hs.AG)][last] = (4 - 1000) % sc.P
-        monkeypatch.setattr(hs, 'build_trace', lambda *a, **kw: cols)
+        cols[bs.col(k, bs.AG)][last] = (4 - 1000) % sc.P
+        monkeypatch.setattr(bs, 'build_trace', lambda *a, **kw: cols)
         proof, _ = hs.prove({**HEDGE, 'leverageX': 1000}, PUBLIC, skip_checks_for_tests=True)
         assert not hs.verify(proof, PUBLIC)
 
@@ -221,7 +224,7 @@ class TestStatementBinding:
 
     def test_the_caps_come_from_the_caller_not_the_proof(self, honest):
         proof, _ = honest
-        lying = tampered(proof, lambda p: p['public'].update(leverage_cap=2))
+        lying = tampered(proof, lambda p: p['public']['bounds'].__setitem__(0, [1, 2]))
         assert hs.verify(lying, PUBLIC)            # the field in the proof is not what is checked
         assert not hs.verify(lying, lying['public'])
 
@@ -259,19 +262,19 @@ class TestTampering:
         proof, _ = honest
         assert not hs.verify(tampered(proof, lambda p: p['queries'].pop()), PUBLIC)                     # fewer queries
         assert not hs.verify(tampered(proof, lambda p: p.update(queries=[])), PUBLIC)                   # no queries at all
-        assert not hs.verify(tampered(proof, lambda p: p.update(queries=[p['queries'][0]] * hs.NUM_QUERIES)), PUBLIC)  # one query repeated
+        assert not hs.verify(tampered(proof, lambda p: p.update(queries=[p['queries'][0]] * bs.NUM_QUERIES)), PUBLIC)  # one query repeated
         assert not hs.verify(tampered(proof, lambda p: p.update(final=p['final'] + '00' * 16)), PUBLIC)  # a longer final polynomial
         assert not hs.verify(tampered(proof, lambda p: p.update(final=p['final'][:-32])), PUBLIC)
         assert not hs.verify(tampered(proof, lambda p: p['fri_roots'].pop()), PUBLIC)                   # one layer fewer
         assert not hs.verify(tampered(proof, lambda p: p['queries'][0]['trace'].reverse()), PUBLIC)     # openings at swapped positions
-        assert not hs.verify(tampered(proof, lambda p: p.update(protocol='zkward-hedge-policy-v2')), PUBLIC)
+        assert not hs.verify(tampered(proof, lambda p: p.update(protocol='zkward-bounds-v3')), PUBLIC)
 
     def test_malformed_input_is_false_not_an_exception(self, honest):
         proof, _ = honest
         for junk in ({}, {'protocol': proof['protocol']}, None, 'proof', 7,
                      tampered(proof, lambda p: p.update(commitment='zz')),
                      tampered(proof, lambda p: p.update(nonce='1')),
-                     tampered(proof, lambda p: p['ood'].update(trace_z='ff' * 16 * hs.WIDTH))):  # a non-canonical field element
+                     tampered(proof, lambda p: p['ood'].update(trace_z='ff' * 16 * bs.WIDTH))):  # a non-canonical field element
             assert hs.verify(junk, PUBLIC) is False
         assert hs.verify(proof, {'leverage_cap': 'x'}) is False
 
@@ -281,16 +284,89 @@ class TestTampering:
 class TestHiding:
     def test_nothing_is_opened_on_the_trace_domain(self):
         # Every opened position is on the coset L, and L does not meet H.
-        h = {pow(hs.OMEGA_N, i, sc.P) for i in range(hs.N)}
-        assert all(hs.SHIFT * pow(hs.OMEGA_M, i, sc.P) % sc.P not in h for i in range(0, hs.M, 97))
+        h = {pow(bs.OMEGA_N, i, sc.P) for i in range(bs.N)}
+        assert all(bs.SHIFT * pow(bs.OMEGA_M, i, sc.P) % sc.P not in h for i in range(0, bs.M, 97))
 
     def test_the_randomness_budget_covers_what_is_revealed(self):
         # Free random rows per column against the field functionals of a column the view depends on.
-        assert hs.N - hs.ACTIVE >= 4 * hs.NUM_QUERIES + 4
-        assert hs.MASK >= 2 * hs.NUM_QUERIES + 2
+        assert bs.N - bs.ACTIVE >= 4 * bs.NUM_QUERIES + 4
+        assert bs.MASK >= 2 * bs.NUM_QUERIES + 2
 
     def test_opened_rows_differ_between_proofs_of_the_same_hedge(self, honest):
         proof, _ = honest
         again, _ = hs.prove(HEDGE, PUBLIC)
         rows = lambda p: {o['row'] for q in p['queries'] for o in q['trace']}  # noqa: E731
         assert not rows(proof) & rows(again)
+
+
+# ── the notional must cover size times price ─────────────────────────
+
+class TestExposure:
+    def test_a_notional_that_understates_the_exposure_cannot_be_proven(self):
+        # 0.5 BTC at $82,000 is $41,000. Declaring $40,999.99 hides exposure from the notional cap.
+        with pytest.raises(hs.HedgeProofError):
+            hs.prove({**HEDGE, 'notionalValueUsdcCents': 4_099_999}, PUBLIC)
+
+    def test_a_dishonest_prover_understating_the_exposure_is_rejected(self):
+        proof, _ = hs.prove({**HEDGE, 'notionalValueUsdcCents': 4_099_999}, PUBLIC, skip_checks_for_tests=True)
+        assert not hs.verify(proof, PUBLIC)
+        # Hiding a large position behind a tiny declared notional.
+        proof, _ = hs.prove({**HEDGE, 'sizeMilli': 2_000_000, 'notionalValueUsdcCents': 1}, PUBLIC, skip_checks_for_tests=True)
+        assert not hs.verify(proof, PUBLIC)
+
+    def test_a_notional_above_the_exposure_is_allowed_and_the_slack_is_what_is_left(self):
+        proof, opening = hs.prove({**HEDGE, 'notionalValueUsdcCents': 5_000_000}, PUBLIC)
+        assert hs.verify(proof, PUBLIC)
+        got = hs.audit_opening(opening, proof['commitment'], PUBLIC)
+        assert got['slack'] == 1000 * 5_000_000 - 500 * 8_200_000
+
+    def test_size_and_price_are_range_checked(self):
+        for w in ({**HEDGE, 'sizeMilli': 1 << 31}, {**HEDGE, 'entryPriceCents': 1 << 31}):
+            with pytest.raises(hs.HedgeProofError):
+                hs.prove(w, {**PUBLIC, 'notional_cap_cents': 1 << 50})
+
+
+# ── the engine on a statement that is not a hedge ────────────────────
+
+class TestBoundsEngine:
+    RISK = {'kind': 'risk-score', 'bounds': [[0, 70], [0, 1 << 60]]}
+
+    def test_any_bounded_values_with_a_committed_payload(self):
+        witness = {'values': [55, (1 << 60) - 7], 'payload': [11, 22, (1 << 62) - 1]}
+        proof, opening = bs.prove(witness, self.RISK)
+        assert bs.verify(proof, self.RISK)
+        opened = bs.audit_opening(opening, proof['commitment'], self.RISK)
+        assert opened['values'][:2] == [55, (1 << 60) - 7] and opened['values'][2:] == [0] * 5
+        assert opened['payload'][:3] == [11, 22, (1 << 62) - 1] and not any(opened['payload'][3:])
+
+    def test_the_statement_is_the_kind_the_bounds_and_the_relation(self):
+        proof, _ = bs.prove({'values': [55, 9]}, self.RISK)
+        assert not bs.verify(proof, {**self.RISK, 'kind': 'risk-score-2'})
+        assert not bs.verify(proof, {**self.RISK, 'bounds': [[0, 60], [0, 1 << 60]]})
+        assert not bs.verify(proof, {**self.RISK, 'bounds': [[0, 70], [0, 1 << 60], [0, 1]]})
+        assert not bs.verify(proof, {**self.RISK, 'bounds': [[0, 70], [0, 1 << 40]], 'product': True})
+
+    def test_a_value_outside_its_bounds(self):
+        with pytest.raises(bs.ProofError):
+            bs.prove({'values': [71, 0]}, self.RISK)
+        proof, _ = bs.prove({'values': [71, 0]}, self.RISK, skip_checks_for_tests=True)
+        assert not bs.verify(proof, self.RISK)
+
+    @pytest.mark.parametrize('public', [
+        {'kind': '', 'bounds': []},
+        {'kind': 'has space', 'bounds': []},
+        {'kind': 'k', 'bounds': [[5, 4]]},
+        {'kind': 'k', 'bounds': [[0, 1 << 62]]},
+        {'kind': 'k', 'bounds': [[-1, 4]]},
+        {'kind': 'k', 'bounds': [[0, 1]] * 8},
+        {'kind': 'k', 'bounds': [[0, True]]},
+        {'kind': 'k', 'bounds': [], 'product': 1},
+        # The product relation's sides must stay below 2^62.
+        {'kind': 'k', 'bounds': [[0, 0], [0, 1 << 55]], 'product': True},
+        {'kind': 'k', 'bounds': [[0, 0], [0, 1], [0, 0], [0, 0], [0, 1 << 31], [0, 1 << 31]], 'product': True},
+    ])
+    def test_malformed_statements_are_refused(self, public):
+        with pytest.raises(bs.ProofError):
+            bs.normalize_public(public)
+        assert bs.verify({}, public) is False
+

@@ -19,10 +19,10 @@ import { agentSystemPrompt } from '../../lib/services/ai/model-constitution';
 import type { CanonicalRiskInputs } from '../../zk/prover/riskCanonical';
 
 /**
- * Compliance threshold the STARK proof asserts `totalRisk` stays below.
- * Env override: RISK_ZK_THRESHOLD (0..100). Default 100 = permissive
- * (proof always asserts a true claim as long as the risk math is
- * honest). Set lower to force circuit breaker on high-risk states.
+ * The bound the risk-score proof shows `totalRisk` stays within.
+ * Env override: RISK_ZK_THRESHOLD (0..100). At the default of 100 the
+ * statement holds for every score; a lower value means no proof can be
+ * made for a riskier state.
  */
 const RISK_THRESHOLD_DEFAULT = Math.min(
   100,
@@ -339,11 +339,8 @@ REC3: [third recommendation]`;
       aiEnhanced: aiRecommendations.length > 0,
     });
 
-    // Build the canonical binding tuple — everything the STARK proof
-    // needs to prove `f(inputs) → totalRisk`. Portfolio value comes
-    // from the resolved portfolioData; before this refactor it was
-    // hardcoded to $10M in ProofGenerator, so proofs were meaningless
-    // as a NAV attestation.
+    // The canonical inputs: everything the score was computed from. Their
+    // digest is committed inside the risk-score proof next to the score.
     const { SENTIMENT_CODE } = await import('@shared/../zk/prover/riskCanonical');
     const canonicalInputs = {
       version: 1 as const,
@@ -973,50 +970,41 @@ REC3: [third recommendation]`;
   }
 
   /**
-   * Generate a bound ZK-STARK proof for the risk calculation. The
-   * canonical inputs pin every numeric fed into the risk formula — the
-   * Python prover recomputes the input hash and derived base score and
-   * refuses to generate a proof if anything mismatches.
-   *
-   * Returns both `proofHash` (short fingerprint for downstream
-   * attribution) and `binding` (hashes to attach to `RiskAnalysis`).
-   * `binding` is `undefined` only when the Python prover is offline or
-   * threw — in that case we return an empty proofHash rather than
-   * fabricating one.
+   * Prove that the risk score is within its threshold, with the digest of
+   * the canonical inputs committed next to it. When the prover is offline,
+   * or the score is over the threshold, there is no proof: the hash stays
+   * empty and no binding is attached.
    */
   private async generateRiskProof(
     analysis: RiskAnalysis,
     canonical: CanonicalRiskInputs,
   ): Promise<{ proofHash: string; binding?: RiskAnalysis['zkBinding'] }> {
-    logger.info('Generating ZK-STARK proof for risk calculation', {
-      agentId: this.id,
-      portfolioId: analysis.portfolioId,
-      canonicalVersion: canonical.version,
-    });
-
     try {
-      const { proofGenerator } = await import('@shared/../zk/prover/ProofGenerator');
-      const zkProof = await proofGenerator.generateRiskProof(analysis, canonical);
+      const [{ proveRiskScore }, { computeInputsHash }] = await Promise.all([
+        import('@shared/../zk/prover/ProofGenerator'),
+        import('@shared/../zk/prover/riskCanonical'),
+      ]);
+      const inputsHash = computeInputsHash(canonical);
+      const zkProof = await proveRiskScore(canonical.totalRisk, canonical.threshold, inputsHash);
 
-      logger.info('ZK-STARK proof generated successfully', {
+      logger.info('Risk-score proof generated', {
         agentId: this.id,
         portfolioId: analysis.portfolioId,
-        proofHash: zkProof.proofHash.substring(0, 16) + '...',
-        inputsHash: zkProof.binding?.inputsHash.substring(0, 16) + '...',
-        protocol: zkProof.protocol,
+        commitment: zkProof.commitment.substring(0, 16) + '...',
+        verified: zkProof.verified,
         generationTime: zkProof.generationTime,
       });
 
-      return { proofHash: zkProof.proofHash, binding: zkProof.binding };
+      return {
+        proofHash: zkProof.commitment,
+        binding: { inputsHash, commitment: zkProof.commitment, threshold: canonical.threshold, verified: zkProof.verified, canonicalVersion: 1 },
+      };
     } catch (error) {
-      logger.error('ZK-STARK proof generation failed', {
-        error,
+      logger.warn('No risk-score proof for this analysis', {
+        error: error instanceof Error ? error.message : String(error),
         agentId: this.id,
         portfolioId: analysis.portfolioId,
       });
-
-      // Do not fabricate a proof. Caller sees empty proofHash + no
-      // binding, and downstream verifiers know to reject.
       return { proofHash: '' };
     }
   }
