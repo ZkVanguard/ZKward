@@ -19,7 +19,7 @@ function answer(status: number, body: unknown) {
   return calls;
 }
 
-const NOT_A_PROOF = { proof: { protocol: 'zkward-bounds-v4', verified: true }, commitment: 'ab'.repeat(32), opening: {}, valid: true };
+const NOT_A_PROOF = { proof: { protocol: 'zkward-bounds-v5', verified: true }, commitment: 'ab'.repeat(32), opening: {}, valid: true };
 
 describe('hashToLimbs', () => {
   it('splits a digest into five integers below 2^52 that rebuild it', () => {

@@ -42,7 +42,7 @@ const TERMS: Array<{ term: string; slug: string; definition: string }> = [
     term: 'FRI (Fast Reed-Solomon IOP of Proximity)',
     slug: 'fri',
     definition:
-      "The polynomial commitment scheme inside a STARK. Given a claim that a polynomial has low degree, FRI produces a short proof that anyone can verify in O(log n) time. ZKward's prover runs FRI at rate 1/16 with 40 queries and 20 bits of proof-of-work grinding. Cited: Ben-Sasson, Bentov, Horesh, Riabzev, ePrint 2018/828.",
+      "The polynomial commitment scheme inside a STARK. Given a claim that a polynomial has low degree, FRI produces a short proof that anyone can verify in O(log n) time. ZKward's prover runs FRI at rate 1/16 with 64 queries and 20 bits of proof-of-work grinding. Cited: Ben-Sasson, Bentov, Horesh, Riabzev, ePrint 2018/828.",
   },
   {
     term: 'Prediction market',

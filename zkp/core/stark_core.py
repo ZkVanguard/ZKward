@@ -2,7 +2,7 @@
 STARK building blocks: field, extension field, NTT, Merkle tree, transcript, FRI folding.
 
 Everything a STARK needs that is not specific to one statement. The protocol
-that uses these is in `hedge_stark.py`. Design follows:
+that uses these is in `bounds_stark.py`. Design follows:
 
   - ethSTARK Documentation v1.2 (IACR ePrint 2021/582): the overall recipe
   - DEEP-FRI (ePrint 2019/336): out-of-domain sampling
@@ -10,8 +10,10 @@ that uses these is in `hedge_stark.py`. Design follows:
 
 Field: Goldilocks, p = 2^64 - 2^32 + 1. A 64-bit field is too small to draw
 verifier challenges from (a cheating prover would succeed once in about 2^64
-tries per challenge), so every challenge lives in the quadratic extension
-K = Fp[u] / (u^2 - 7), which has about 2^128 elements.
+tries per challenge), so every challenge lives in the quartic extension
+K = Fp[u] / (u^4 - 7), which has about 2^256 elements. That size is chosen
+for an attacker with a quantum computer, who gets a square-root speed-up on
+the search for a lucky challenge: 2^256 leaves about 128 bits against it.
 
 Hash: SHA-256 everywhere. No other assumption: no pairings, no setup.
 """
@@ -20,15 +22,19 @@ from typing import List, Sequence, Tuple
 
 P = 0xFFFFFFFF00000001          # 2^64 - 2^32 + 1
 GENERATOR = 7                   # generates the multiplicative group of Fp
-NONRESIDUE = 7                  # u^2 = 7 defines the extension
+NONRESIDUE = 7                  # u^4 = 7 defines the extension
+DEGREE = 4
 TWO_ADICITY = 32
 
-# 7 is not a square mod p, so x^2 - 7 is irreducible and K is a field.
+# x^4 - a is irreducible over Fp (p = 1 mod 4) exactly when a is not a square
+# and -4a is not a fourth power. Both hold for a = 7, so K is a field.
 assert pow(NONRESIDUE, (P - 1) // 2, P) == P - 1
+assert pow(P - 4 * NONRESIDUE, (P - 1) // 4, P) != 1
 
-K = Tuple[int, int]             # a + b*u
-K_ZERO: K = (0, 0)
-K_ONE: K = (1, 0)
+K = Tuple[int, int, int, int]   # a0 + a1 u + a2 u^2 + a3 u^3
+K_ZERO: K = (0, 0, 0, 0)
+K_ONE: K = (1, 0, 0, 0)
+K_BYTES = 8 * DEGREE
 
 
 # ── Fp ───────────────────────────────────────────────────────────────
@@ -60,28 +66,49 @@ def root_of_unity(n: int) -> int:
     return pow(GENERATOR, (P - 1) // n, P)
 
 
-# ── K = Fp[u]/(u^2 - 7) ──────────────────────────────────────────────
+# ── K = Fp[u]/(u^4 - 7) ──────────────────────────────────────────────
 
 def k_add(a: K, b: K) -> K:
-    return ((a[0] + b[0]) % P, (a[1] + b[1]) % P)
+    return ((a[0] + b[0]) % P, (a[1] + b[1]) % P, (a[2] + b[2]) % P, (a[3] + b[3]) % P)
 
 
 def k_sub(a: K, b: K) -> K:
-    return ((a[0] - b[0]) % P, (a[1] - b[1]) % P)
+    return ((a[0] - b[0]) % P, (a[1] - b[1]) % P, (a[2] - b[2]) % P, (a[3] - b[3]) % P)
 
 
 def k_mul(a: K, b: K) -> K:
-    return ((a[0] * b[0] + NONRESIDUE * a[1] * b[1]) % P, (a[0] * b[1] + a[1] * b[0]) % P)
+    a0, a1, a2, a3 = a
+    b0, b1, b2, b3 = b
+    return (
+        (a0 * b0 + NONRESIDUE * (a1 * b3 + a2 * b2 + a3 * b1)) % P,
+        (a0 * b1 + a1 * b0 + NONRESIDUE * (a2 * b3 + a3 * b2)) % P,
+        (a0 * b2 + a1 * b1 + a2 * b0 + NONRESIDUE * a3 * b3) % P,
+        (a0 * b3 + a1 * b2 + a2 * b1 + a3 * b0) % P,
+    )
 
 
 def k_scale(a: K, s: int) -> K:
-    return (a[0] * s % P, a[1] * s % P)
+    return (a[0] * s % P, a[1] * s % P, a[2] * s % P, a[3] * s % P)
 
 
 def k_inv(a: K) -> K:
-    norm = (a[0] * a[0] - NONRESIDUE * a[1] * a[1]) % P
-    n = inv(norm)  # nonzero for a != 0, because 7 is not a square
-    return (a[0] * n % P, (-a[1]) * n % P)
+    """
+    Inverse through the tower K = F2[u]/(u^2 - w), F2 = Fp[w]/(w^2 - 7).
+    Write a = A + B u with A = a0 + a2 w and B = a1 + a3 w in F2. Then
+    1/a = (A - B u) / (A^2 - w B^2), and the denominator is inverted in F2.
+    """
+    a0, a1, a2, a3 = a
+    # n = A^2 - w B^2 in F2, as n0 + n1 w
+    n0 = (a0 * a0 + NONRESIDUE * a2 * a2 - 2 * NONRESIDUE * a1 * a3) % P
+    n1 = (2 * a0 * a2 - a1 * a1 - NONRESIDUE * a3 * a3) % P
+    d = inv((n0 * n0 - NONRESIDUE * n1 * n1) % P)   # nonzero for a != 0
+    i0, i1 = n0 * d % P, (-n1) * d % P              # 1/n = i0 + i1 w
+    return (
+        (a0 * i0 + NONRESIDUE * a2 * i1) % P,
+        -(a1 * i0 + NONRESIDUE * a3 * i1) % P,
+        (a0 * i1 + a2 * i0) % P,
+        -(a1 * i1 + a3 * i0) % P,
+    )
 
 
 def k_pow(a: K, e: int) -> K:
@@ -95,11 +122,16 @@ def k_pow(a: K, e: int) -> K:
 
 
 def k_from(x: int) -> K:
-    return (x % P, 0)
+    return (x % P, 0, 0, 0)
 
 
 def k_bytes(a: K) -> bytes:
-    return a[0].to_bytes(8, 'little') + a[1].to_bytes(8, 'little')
+    return b''.join(c.to_bytes(8, 'little') for c in a)
+
+
+def k_in_base_or_quadratic_subfield(a: K) -> bool:
+    """True when a lies in Fp[u^2], the largest proper subfield of K."""
+    return a[1] == 0 and a[3] == 0
 
 
 def fp_poly_at_k(coeffs: Sequence[int], x: K) -> K:
@@ -107,7 +139,7 @@ def fp_poly_at_k(coeffs: Sequence[int], x: K) -> K:
     acc = K_ZERO
     for c in reversed(coeffs):
         acc = k_mul(acc, x)
-        acc = ((acc[0] + c) % P, acc[1])
+        acc = ((acc[0] + c) % P, acc[1], acc[2], acc[3])
     return acc
 
 
@@ -119,11 +151,11 @@ def k_poly_at_k(coeffs: Sequence[K], x: K) -> K:
 
 
 def k_poly_at_fp(coeffs: Sequence[K], x: int) -> K:
-    re = im = 0
+    acc = [0] * DEGREE
     for c in reversed(coeffs):
-        re = (re * x + c[0]) % P
-        im = (im * x + c[1]) % P
-    return (re, im)
+        for d in range(DEGREE):
+            acc[d] = (acc[d] * x + c[d]) % P
+    return tuple(acc)
 
 
 # ── NTT ──────────────────────────────────────────────────────────────
@@ -264,7 +296,7 @@ class Transcript:
                 return v
 
     def draw_k(self) -> K:
-        return (self.draw_fp(), self.draw_fp())
+        return tuple(self.draw_fp() for _ in range(DEGREE))
 
     def draw_index(self, bound: int) -> int:
         """A uniform index below `bound`, a power of two."""
@@ -314,9 +346,6 @@ def fold_layer(values: Sequence[K], beta: K, shift: int) -> List[K]:
     for i in range(half):
         a = values[i]
         b = values[i + half]
-        d = INV2 * x_inv % P
-        even = ((a[0] + b[0]) * INV2 % P, (a[1] + b[1]) * INV2 % P)
-        odd = ((a[0] - b[0]) * d % P, (a[1] - b[1]) * d % P)
-        out.append(k_add(even, k_mul(beta, odd)))
+        out.append(k_add(k_scale(k_add(a, b), INV2), k_mul(beta, k_scale(k_sub(a, b), INV2 * x_inv % P))))
         x_inv = x_inv * omega_inv % P
     return out

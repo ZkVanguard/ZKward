@@ -48,11 +48,12 @@ def flip_hex(s: str, at: int = 0) -> str:
 
 class TestCore:
     def test_extension_field_is_a_field(self):
-        a, b = (123456789, 987654321), (sc.P - 5, 42)
+        a, b = (123456789, 987654321, 5, sc.P - 1), (sc.P - 5, 42, 0, 77)
         assert sc.k_mul(a, sc.k_inv(a)) == sc.K_ONE
         assert sc.k_mul(sc.k_mul(a, b), sc.k_inv(b)) == a
-        # u^2 = 7
-        assert sc.k_mul((0, 1), (0, 1)) == (7, 0)
+        # u^4 = 7
+        u = (0, 1, 0, 0)
+        assert sc.k_pow(u, 4) == sc.k_from(7)
 
     def test_ntt_round_trip_and_coset(self):
         coeffs = [(i * 7919 + 13) % sc.P for i in range(64)]
@@ -76,14 +77,14 @@ class TestCore:
         even, odd = [3, 5, 7, 11], [2, 4, 6, 8]
         f = [0] * 8
         f[0::2], f[1::2] = even, odd
-        beta = (17, 23)
+        beta = (17, 23, 29, 31)
         x = sc.GENERATOR * sc.root_of_unity(16) % sc.P
-        fx = (sum(c * pow(x, i, sc.P) for i, c in enumerate(f)) % sc.P, 0)
-        fmx = (sum(c * pow(sc.P - x, i, sc.P) for i, c in enumerate(f)) % sc.P, 0)
+        fx = sc.k_from(sum(c * pow(x, i, sc.P) for i, c in enumerate(f)))
+        fmx = sc.k_from(sum(c * pow(sc.P - x, i, sc.P) for i, c in enumerate(f)))
         y = x * x % sc.P
         e = sum(c * pow(y, i, sc.P) for i, c in enumerate(even)) % sc.P
         o = sum(c * pow(y, i, sc.P) for i, c in enumerate(odd)) % sc.P
-        assert sc.fold_pair(fx, fmx, beta, x) == sc.k_add((e, 0), sc.k_scale(beta, o))
+        assert sc.fold_pair(fx, fmx, beta, x) == sc.k_add(sc.k_from(e), sc.k_scale(beta, o))
 
     def test_prover_and_verifier_share_one_constraint_definition(self):
         # The quotients over Fp at a point of L equal the K formulas at the same point.
@@ -99,8 +100,8 @@ class TestCore:
             bs._FpOps, public, cur, nxt, at(bs.WEIGHT_POLY, x), at(bs.WEIGHT_POLY, xn), (x - bs.LAST) % sc.P,
             sc.inv(pow(x, bs.ACTIVE, sc.P) - 1), sc.inv(x - 1), sc.inv(x - bs.LAST),
         )
-        k = bs._constraints_at_k(public, (x, 0), [(v, 0) for v in cur], [(v, 0) for v in nxt])
-        assert [(v, 0) for v in fp] == k
+        k = bs._constraints_at_k(public, sc.k_from(x), [sc.k_from(v) for v in cur], [sc.k_from(v) for v in nxt])
+        assert [sc.k_from(v) for v in fp] == k
 
 
 # ── an honest proof ──────────────────────────────────────────────────
@@ -267,7 +268,7 @@ class TestTampering:
         assert not hs.verify(tampered(proof, lambda p: p.update(final=p['final'][:-32])), PUBLIC)
         assert not hs.verify(tampered(proof, lambda p: p['fri_roots'].pop()), PUBLIC)                   # one layer fewer
         assert not hs.verify(tampered(proof, lambda p: p['queries'][0]['trace'].reverse()), PUBLIC)     # openings at swapped positions
-        assert not hs.verify(tampered(proof, lambda p: p.update(protocol='zkward-bounds-v3')), PUBLIC)
+        assert not hs.verify(tampered(proof, lambda p: p.update(protocol='zkward-bounds-v4')), PUBLIC)
 
     def test_malformed_input_is_false_not_an_exception(self, honest):
         proof, _ = honest
