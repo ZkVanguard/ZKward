@@ -12,8 +12,8 @@
  * relation 1000 * v1 = v4 * v5 + v6". The bounds come from the caller. The
  * hedge policy is one such statement (`hedgePolicyStatement`).
  *
- * Protocol: Goldilocks field with challenges in its quartic extension,
- * SHA-256 Merkle commitments, a Fiat-Shamir transcript re-run here, an
+ * Protocol: Goldilocks field with challenges in its quintic extension,
+ * SHA-384 Merkle commitments, a Fiat-Shamir transcript re-run here, an
  * out-of-domain check of the constraints, and FRI on the DEEP quotients.
  * No setup of any kind.
  */
@@ -22,7 +22,7 @@ import { createHash } from 'node:crypto';
 // ── Field ────────────────────────────────────────────────────────────
 const P = 0xffffffff00000001n; // 2^64 - 2^32 + 1
 const GENERATOR = 7n;
-const NONRESIDUE = 7n; // the extension is Fp[u] / (u^4 - 7), about 2^256 elements
+const NONRESIDUE = 3n; // the extension is Fp[u] / (u^5 - 3), about 2^320 elements
 
 const mod = (a: bigint): bigint => ((a % P) + P) % P;
 
@@ -46,35 +46,36 @@ function inv(a: bigint): bigint {
 
 const rootOfUnity = (n: number): bigint => powMod(GENERATOR, (P - 1n) / BigInt(n));
 
-type K = readonly [bigint, bigint, bigint, bigint]; // a0 + a1 u + a2 u^2 + a3 u^3
-const DEGREE = 4;
+type K = readonly [bigint, bigint, bigint, bigint, bigint]; // a0 + a1 u + ... + a4 u^4
+const DEGREE = 5;
 const K_BYTES = 8 * DEGREE;
-const K_ZERO: K = [0n, 0n, 0n, 0n];
-const K_ONE: K = [1n, 0n, 0n, 0n];
-const kFrom = (x: bigint): K => [mod(x), 0n, 0n, 0n];
-const kAdd = (a: K, b: K): K => [mod(a[0] + b[0]), mod(a[1] + b[1]), mod(a[2] + b[2]), mod(a[3] + b[3])];
-const kSub = (a: K, b: K): K => [mod(a[0] - b[0]), mod(a[1] - b[1]), mod(a[2] - b[2]), mod(a[3] - b[3])];
+const K_ZERO: K = [0n, 0n, 0n, 0n, 0n];
+const K_ONE: K = [1n, 0n, 0n, 0n, 0n];
+const kFrom = (x: bigint): K => [mod(x), 0n, 0n, 0n, 0n];
+const kAdd = (a: K, b: K): K => [mod(a[0] + b[0]), mod(a[1] + b[1]), mod(a[2] + b[2]), mod(a[3] + b[3]), mod(a[4] + b[4])];
+const kSub = (a: K, b: K): K => [mod(a[0] - b[0]), mod(a[1] - b[1]), mod(a[2] - b[2]), mod(a[3] - b[3]), mod(a[4] - b[4])];
 const kMul = (a: K, b: K): K => [
-  mod(a[0] * b[0] + NONRESIDUE * (a[1] * b[3] + a[2] * b[2] + a[3] * b[1])),
-  mod(a[0] * b[1] + a[1] * b[0] + NONRESIDUE * (a[2] * b[3] + a[3] * b[2])),
-  mod(a[0] * b[2] + a[1] * b[1] + a[2] * b[0] + NONRESIDUE * a[3] * b[3]),
-  mod(a[0] * b[3] + a[1] * b[2] + a[2] * b[1] + a[3] * b[0]),
+  mod(a[0] * b[0] + NONRESIDUE * (a[1] * b[4] + a[2] * b[3] + a[3] * b[2] + a[4] * b[1])),
+  mod(a[0] * b[1] + a[1] * b[0] + NONRESIDUE * (a[2] * b[4] + a[3] * b[3] + a[4] * b[2])),
+  mod(a[0] * b[2] + a[1] * b[1] + a[2] * b[0] + NONRESIDUE * (a[3] * b[4] + a[4] * b[3])),
+  mod(a[0] * b[3] + a[1] * b[2] + a[2] * b[1] + a[3] * b[0] + NONRESIDUE * a[4] * b[4]),
+  mod(a[0] * b[4] + a[1] * b[3] + a[2] * b[2] + a[3] * b[1] + a[4] * b[0]),
 ];
-const kScale = (a: K, s: bigint): K => [mod(a[0] * s), mod(a[1] * s), mod(a[2] * s), mod(a[3] * s)];
-const kEq = (a: K, b: K): boolean => a[0] === b[0] && a[1] === b[1] && a[2] === b[2] && a[3] === b[3];
+const kScale = (a: K, s: bigint): K => [mod(a[0] * s), mod(a[1] * s), mod(a[2] * s), mod(a[3] * s), mod(a[4] * s)];
+const kEq = (a: K, b: K): boolean => a[0] === b[0] && a[1] === b[1] && a[2] === b[2] && a[3] === b[3] && a[4] === b[4];
 
-/**
- * Inverse through the tower K = F2[u]/(u^2 - w), F2 = Fp[w]/(w^2 - 7): with
- * a = A + B u, 1/a = (A - B u) / (A^2 - w B^2), the denominator being in F2.
- */
+// u^p = ZETA * u with ZETA a primitive fifth root of unity, so the i-th conjugate scales coordinate d by ZETA^(i d).
+const ZETA = powMod(NONRESIDUE, (P - 1n) / 5n);
+const kFrobenius = (a: K, i: number): K => {
+  const f = powMod(ZETA, BigInt(i));
+  const f2 = mod(f * f);
+  return [a[0], mod(a[1] * f), mod(a[2] * f2), mod(a[3] * f2 * f), mod(a[4] * f2 * f2)];
+};
+
+/** 1/a = c / N(a): c is the product of the four other conjugates of a, and the norm N(a) = a c is in Fp. */
 function kInv(a: K): K {
-  const [a0, a1, a2, a3] = a;
-  const n0 = mod(a0 * a0 + NONRESIDUE * a2 * a2 - 2n * NONRESIDUE * a1 * a3);
-  const n1 = mod(2n * a0 * a2 - a1 * a1 - NONRESIDUE * a3 * a3);
-  const d = inv(n0 * n0 - NONRESIDUE * n1 * n1);
-  const i0 = mod(n0 * d);
-  const i1 = mod(-n1 * d);
-  return [mod(a0 * i0 + NONRESIDUE * a2 * i1), mod(-(a1 * i0 + NONRESIDUE * a3 * i1)), mod(a0 * i1 + a2 * i0), mod(-(a1 * i1 + a3 * i0))];
+  const c = kMul(kMul(kFrobenius(a, 1), kFrobenius(a, 2)), kMul(kFrobenius(a, 3), kFrobenius(a, 4)));
+  return kScale(c, inv(kMul(a, c)[0]));
 }
 
 function kPow(a: K, e: number): K {
@@ -92,7 +93,7 @@ function polyAtK(coeffs: readonly bigint[], x: K): K {
   let acc: K = K_ZERO;
   for (let i = coeffs.length - 1; i >= 0; i--) {
     const m = kMul(acc, x);
-    acc = [mod(m[0] + coeffs[i]), m[1], m[2], m[3]];
+    acc = [mod(m[0] + coeffs[i]), m[1], m[2], m[3], m[4]];
   }
   return acc;
 }
@@ -105,7 +106,7 @@ function kPolyAtFp(coeffs: readonly K[], x: bigint): K {
 }
 
 // ── Parameters (must equal zkp/core/bounds_stark.py) ──────────────────
-const PROTOCOL = 'zkward-bounds-v5';
+const PROTOCOL = 'zkward-bounds-v6';
 const N = 512;
 const ACTIVE = 64;
 const RANGE_BITS = 62;
@@ -231,16 +232,17 @@ export function hedgePolicyStatement(caps: HedgePolicyCaps): BoundsStatement {
 function statementBytes(st: Statement): Buffer {
   return Buffer.from(
     `{"active":${ACTIVE},"air":"zkward-bounds","blowup":${BLOWUP},` +
-      `"bounds":[${st.bounds.map(([lo, hi]) => `[${lo},${hi}]`).join(',')}],"field":"goldilocks-quartic",` +
-      `"fri_layers":${FRI_LAYERS},"grinding":${GRINDING_BITS},"hash":"sha256","kind":"${st.kind}","n":${N},` +
-      `"product":${st.product},"queries":${NUM_QUERIES},"version":5}`,
+      `"bounds":[${st.bounds.map(([lo, hi]) => `[${lo},${hi}]`).join(',')}],"field":"goldilocks-quintic",` +
+      `"fri_layers":${FRI_LAYERS},"grinding":${GRINDING_BITS},"hash":"sha384","kind":"${st.kind}","n":${N},` +
+      `"product":${st.product},"queries":${NUM_QUERIES},"version":6}`,
     'utf8',
   );
 }
 
 // ── Hashing, Merkle, transcript ──────────────────────────────────────
-const sha256 = (...parts: Uint8Array[]): Buffer => {
-  const h = createHash('sha256');
+const HASH_BYTES = 48; // SHA-384
+const hash = (...parts: Uint8Array[]): Buffer => {
+  const h = createHash('sha384');
   for (const p of parts) h.update(p);
   return h.digest();
 };
@@ -251,7 +253,7 @@ const u64le = (v: number | bigint): Buffer => {
   return b;
 };
 
-const leafHash = (index: number, data: Uint8Array): Buffer => sha256(Buffer.from([0]), u64le(index), data);
+const leafHash = (index: number, data: Uint8Array): Buffer => hash(Buffer.from([0]), u64le(index), data);
 
 /** True when `leaf` is at `index` under `root`. The side of each sibling comes from the index. */
 function merkleVerify(root: Buffer, index: number, leaf: Buffer, path: Buffer[], depth: number): boolean {
@@ -259,8 +261,8 @@ function merkleVerify(root: Buffer, index: number, leaf: Buffer, path: Buffer[],
   let node = leaf;
   let i = index;
   for (const sibling of path) {
-    if (sibling.length !== 32) return false;
-    node = i % 2 === 1 ? sha256(Buffer.from([1]), sibling, node) : sha256(Buffer.from([1]), node, sibling);
+    if (sibling.length !== HASH_BYTES) return false;
+    node = i % 2 === 1 ? hash(Buffer.from([1]), sibling, node) : hash(Buffer.from([1]), node, sibling);
     i = Math.floor(i / 2);
   }
   return node.equals(root);
@@ -270,19 +272,19 @@ class Transcript {
   private state: Buffer;
 
   constructor(statement: Uint8Array) {
-    this.state = sha256(Buffer.from('zkward-stark-3\0', 'latin1'), statement);
+    this.state = hash(Buffer.from('zkward-stark-6\0', 'latin1'), statement);
   }
 
   absorb(label: string, data: Uint8Array): void {
     const l = Buffer.from(label, 'latin1');
     const len = Buffer.alloc(2);
     len.writeUInt16LE(l.length);
-    this.state = sha256(this.state, Buffer.from([1]), len, l, u64le(data.length), data);
+    this.state = hash(this.state, Buffer.from([1]), len, l, u64le(data.length), data);
   }
 
   private draw(): Buffer {
-    this.state = sha256(this.state, Buffer.from([2]));
-    return sha256(this.state, Buffer.from([3]));
+    this.state = hash(this.state, Buffer.from([2]));
+    return hash(this.state, Buffer.from([3]));
   }
 
   drawFp(): bigint {
@@ -296,7 +298,8 @@ class Transcript {
     const a0 = this.drawFp();
     const a1 = this.drawFp();
     const a2 = this.drawFp();
-    return [a0, a1, a2, this.drawFp()];
+    const a3 = this.drawFp();
+    return [a0, a1, a2, a3, this.drawFp()];
   }
 
   drawIndex(bound: number): number {
@@ -305,8 +308,8 @@ class Transcript {
 
   /** Accepts the nonce only if its hash with the state has `bits` leading zero bits, then absorbs it. */
   checkGrind(nonce: bigint, bits: number): boolean {
-    const digest = sha256(this.state, Buffer.from([4]), u64le(nonce));
-    if (BigInt('0x' + digest.toString('hex')) >> BigInt(256 - bits) !== 0n) return false;
+    const digest = hash(this.state, Buffer.from([4]), u64le(nonce));
+    if (BigInt('0x' + digest.toString('hex')) >> BigInt(8 * HASH_BYTES - bits) !== 0n) return false;
     this.absorb('pow', u64le(nonce));
     return true;
   }
@@ -335,7 +338,7 @@ function kList(data: Buffer): K[] {
   const flat = fpList(data);
   if (flat.length % DEGREE !== 0) throw new Error('bad extension-field encoding');
   const out: K[] = [];
-  for (let i = 0; i < flat.length; i += DEGREE) out.push([flat[i], flat[i + 1], flat[i + 2], flat[i + 3]]);
+  for (let i = 0; i < flat.length; i += DEGREE) out.push([flat[i], flat[i + 1], flat[i + 2], flat[i + 3], flat[i + 4]]);
   return out;
 }
 
@@ -405,11 +408,11 @@ export function verifyHedgePolicyProof(proof: unknown, caps: HedgePolicyCaps, co
 
 function verify(proof: Record<string, any>, st: Statement, commitment?: string): boolean {
   if (!proof || proof.protocol !== PROTOCOL) return false;
-  const traceRoot = bytes(proof.commitment, 32);
+  const traceRoot = bytes(proof.commitment, HASH_BYTES);
   if (commitment !== undefined && commitment.toLowerCase() !== String(proof.commitment).toLowerCase()) return false;
-  const quotientRoot = bytes(proof.quotient_root, 32);
+  const quotientRoot = bytes(proof.quotient_root, HASH_BYTES);
   if (!Array.isArray(proof.fri_roots) || proof.fri_roots.length !== FRI_LAYERS - 1) return false;
-  const friRoots: Buffer[] = proof.fri_roots.map((r: unknown) => bytes(r, 32));
+  const friRoots: Buffer[] = proof.fri_roots.map((r: unknown) => bytes(r, HASH_BYTES));
   const traceZBytes = bytes(proof.ood.trace_z, K_BYTES * WIDTH);
   const traceZnBytes = bytes(proof.ood.trace_zn, K_BYTES * WIDTH);
   const chunksZBytes = bytes(proof.ood.chunks_z, K_BYTES * NUM_CHUNKS);
@@ -427,8 +430,8 @@ function verify(proof: Record<string, any>, st: Statement, commitment?: string):
   const alphas = CONSTRAINTS.map(() => t.drawK());
   t.absorb('quotient', quotientRoot);
   let z = t.drawK();
-  // Outside the proper subfields of K, as the prover draws it.
-  while (z[1] === 0n && z[3] === 0n) z = t.drawK();
+  // Outside Fp, the only proper subfield of K, as the prover draws it.
+  while (z[1] === 0n && z[2] === 0n && z[3] === 0n && z[4] === 0n) z = t.drawK();
   const zn = kScale(z, OMEGA_A);
   t.absorb('ood', Buffer.concat([traceZBytes, traceZnBytes, chunksZBytes]));
 

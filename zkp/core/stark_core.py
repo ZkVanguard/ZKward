@@ -9,32 +9,48 @@ that uses these is in `bounds_stark.py`. Design follows:
   - FRI (ePrint 2018/828): the low-degree test
 
 Field: Goldilocks, p = 2^64 - 2^32 + 1. A 64-bit field is too small to draw
-verifier challenges from (a cheating prover would succeed once in about 2^64
-tries per challenge), so every challenge lives in the quartic extension
-K = Fp[u] / (u^4 - 7), which has about 2^256 elements. That size is chosen
-for an attacker with a quantum computer, who gets a square-root speed-up on
-the search for a lucky challenge: 2^256 leaves about 128 bits against it.
+verifier challenges from, so every challenge lives in the quintic extension
+K = Fp[u] / (u^5 - 3), which has about 2^320 elements.
 
-Hash: SHA-256 everywhere. No other assumption: no pairings, no setup.
+Hash: SHA-384 everywhere. No other assumption: no pairings, no setup.
+
+Why these sizes. For a non-interactive proof made from an interactive oracle
+proof by hashing (the construction of the STARK papers), an attacker making t
+hash queries succeeds with probability about
+    t * e + t^2 / 2^h          on a classical computer,
+    t^2 * e + t^3 / 2^h        on a quantum computer (random-oracle model),
+where e is the largest error of any single round and h the hash length. For
+128 bits against a quantum attacker that needs e <= 2^-256 and h >= 384. The
+field is the smallest extension of Goldilocks that keeps the field-dependent
+rounds below 2^-256 (the quartic one gives about 2^-243), and SHA-384 is the
+shortest standard hash with h >= 384.
 """
 import hashlib
 from typing import List, Sequence, Tuple
 
 P = 0xFFFFFFFF00000001          # 2^64 - 2^32 + 1
 GENERATOR = 7                   # generates the multiplicative group of Fp
-NONRESIDUE = 7                  # u^4 = 7 defines the extension
-DEGREE = 4
+NONRESIDUE = 3                  # u^5 = 3 defines the extension
+DEGREE = 5
 TWO_ADICITY = 32
+HASH_BYTES = 48                 # SHA-384
 
-# x^4 - a is irreducible over Fp (p = 1 mod 4) exactly when a is not a square
-# and -4a is not a fourth power. Both hold for a = 7, so K is a field.
-assert pow(NONRESIDUE, (P - 1) // 2, P) == P - 1
-assert pow(P - 4 * NONRESIDUE, (P - 1) // 4, P) != 1
 
-K = Tuple[int, int, int, int]   # a0 + a1 u + a2 u^2 + a3 u^3
-K_ZERO: K = (0, 0, 0, 0)
-K_ONE: K = (1, 0, 0, 0)
+def H(data: bytes) -> bytes:
+    return hashlib.sha384(data).digest()
+
+
+# x^5 - a is irreducible over Fp exactly when a is not a fifth power (5 divides
+# p - 1). ZETA is then a primitive fifth root of unity, and u^p = ZETA * u.
+ZETA = pow(NONRESIDUE, (P - 1) // 5, P)
+assert (P - 1) % 5 == 0 and ZETA != 1
+
+K = Tuple[int, int, int, int, int]   # a0 + a1 u + a2 u^2 + a3 u^3 + a4 u^4
+K_ZERO: K = (0, 0, 0, 0, 0)
+K_ONE: K = (1, 0, 0, 0, 0)
 K_BYTES = 8 * DEGREE
+# Frobenius: (sum a_d u^d)^(p^i) = sum a_d ZETA^(i d) u^d.
+_FROBENIUS = [[pow(ZETA, i * d, P) for d in range(DEGREE)] for i in range(DEGREE)]
 
 
 # ── Fp ───────────────────────────────────────────────────────────────
@@ -66,49 +82,46 @@ def root_of_unity(n: int) -> int:
     return pow(GENERATOR, (P - 1) // n, P)
 
 
-# ── K = Fp[u]/(u^4 - 7) ──────────────────────────────────────────────
+# ── K = Fp[u]/(u^5 - 3) ──────────────────────────────────────────────
 
 def k_add(a: K, b: K) -> K:
-    return ((a[0] + b[0]) % P, (a[1] + b[1]) % P, (a[2] + b[2]) % P, (a[3] + b[3]) % P)
+    return ((a[0] + b[0]) % P, (a[1] + b[1]) % P, (a[2] + b[2]) % P, (a[3] + b[3]) % P, (a[4] + b[4]) % P)
 
 
 def k_sub(a: K, b: K) -> K:
-    return ((a[0] - b[0]) % P, (a[1] - b[1]) % P, (a[2] - b[2]) % P, (a[3] - b[3]) % P)
+    return ((a[0] - b[0]) % P, (a[1] - b[1]) % P, (a[2] - b[2]) % P, (a[3] - b[3]) % P, (a[4] - b[4]) % P)
 
 
 def k_mul(a: K, b: K) -> K:
-    a0, a1, a2, a3 = a
-    b0, b1, b2, b3 = b
+    a0, a1, a2, a3, a4 = a
+    b0, b1, b2, b3, b4 = b
     return (
-        (a0 * b0 + NONRESIDUE * (a1 * b3 + a2 * b2 + a3 * b1)) % P,
-        (a0 * b1 + a1 * b0 + NONRESIDUE * (a2 * b3 + a3 * b2)) % P,
-        (a0 * b2 + a1 * b1 + a2 * b0 + NONRESIDUE * a3 * b3) % P,
-        (a0 * b3 + a1 * b2 + a2 * b1 + a3 * b0) % P,
+        (a0 * b0 + NONRESIDUE * (a1 * b4 + a2 * b3 + a3 * b2 + a4 * b1)) % P,
+        (a0 * b1 + a1 * b0 + NONRESIDUE * (a2 * b4 + a3 * b3 + a4 * b2)) % P,
+        (a0 * b2 + a1 * b1 + a2 * b0 + NONRESIDUE * (a3 * b4 + a4 * b3)) % P,
+        (a0 * b3 + a1 * b2 + a2 * b1 + a3 * b0 + NONRESIDUE * a4 * b4) % P,
+        (a0 * b4 + a1 * b3 + a2 * b2 + a3 * b1 + a4 * b0) % P,
     )
 
 
 def k_scale(a: K, s: int) -> K:
-    return (a[0] * s % P, a[1] * s % P, a[2] * s % P, a[3] * s % P)
+    return (a[0] * s % P, a[1] * s % P, a[2] * s % P, a[3] * s % P, a[4] * s % P)
+
+
+def k_frobenius(a: K, i: int) -> K:
+    """a^(p^i): the i-th conjugate of a."""
+    f = _FROBENIUS[i % DEGREE]
+    return (a[0], a[1] * f[1] % P, a[2] * f[2] % P, a[3] * f[3] % P, a[4] * f[4] % P)
 
 
 def k_inv(a: K) -> K:
     """
-    Inverse through the tower K = F2[u]/(u^2 - w), F2 = Fp[w]/(w^2 - 7).
-    Write a = A + B u with A = a0 + a2 w and B = a1 + a3 w in F2. Then
-    1/a = (A - B u) / (A^2 - w B^2), and the denominator is inverted in F2.
+    1/a = c / N(a), where c is the product of the four other conjugates of a
+    and the norm N(a) = a * c lies in Fp.
     """
-    a0, a1, a2, a3 = a
-    # n = A^2 - w B^2 in F2, as n0 + n1 w
-    n0 = (a0 * a0 + NONRESIDUE * a2 * a2 - 2 * NONRESIDUE * a1 * a3) % P
-    n1 = (2 * a0 * a2 - a1 * a1 - NONRESIDUE * a3 * a3) % P
-    d = inv((n0 * n0 - NONRESIDUE * n1 * n1) % P)   # nonzero for a != 0
-    i0, i1 = n0 * d % P, (-n1) * d % P              # 1/n = i0 + i1 w
-    return (
-        (a0 * i0 + NONRESIDUE * a2 * i1) % P,
-        -(a1 * i0 + NONRESIDUE * a3 * i1) % P,
-        (a0 * i1 + a2 * i0) % P,
-        -(a1 * i1 + a3 * i0) % P,
-    )
+    c = k_mul(k_mul(k_frobenius(a, 1), k_frobenius(a, 2)), k_mul(k_frobenius(a, 3), k_frobenius(a, 4)))
+    norm = (a[0] * c[0] + NONRESIDUE * (a[1] * c[4] + a[2] * c[3] + a[3] * c[2] + a[4] * c[1])) % P
+    return k_scale(c, inv(norm))   # the norm is nonzero for a != 0
 
 
 def k_pow(a: K, e: int) -> K:
@@ -122,16 +135,16 @@ def k_pow(a: K, e: int) -> K:
 
 
 def k_from(x: int) -> K:
-    return (x % P, 0, 0, 0)
+    return (x % P, 0, 0, 0, 0)
 
 
 def k_bytes(a: K) -> bytes:
     return b''.join(c.to_bytes(8, 'little') for c in a)
 
 
-def k_in_base_or_quadratic_subfield(a: K) -> bool:
-    """True when a lies in Fp[u^2], the largest proper subfield of K."""
-    return a[1] == 0 and a[3] == 0
+def k_in_base_field(a: K) -> bool:
+    """True when a lies in Fp, the only proper subfield of K (its degree is prime)."""
+    return not any(a[1:])
 
 
 def fp_poly_at_k(coeffs: Sequence[int], x: K) -> K:
@@ -139,7 +152,7 @@ def fp_poly_at_k(coeffs: Sequence[int], x: K) -> K:
     acc = K_ZERO
     for c in reversed(coeffs):
         acc = k_mul(acc, x)
-        acc = ((acc[0] + c) % P, acc[1], acc[2], acc[3])
+        acc = ((acc[0] + c) % P,) + acc[1:]
     return acc
 
 
@@ -228,11 +241,11 @@ def coset_interpolate(values: Sequence[int], shift: int) -> List[int]:
 # never be passed off as a leaf.
 
 def leaf_hash(index: int, data: bytes) -> bytes:
-    return hashlib.sha256(b'\x00' + index.to_bytes(8, 'little') + data).digest()
+    return H(b'\x00' + index.to_bytes(8, 'little') + data)
 
 
 def _node_hash(left: bytes, right: bytes) -> bytes:
-    return hashlib.sha256(b'\x01' + left + right).digest()
+    return H(b'\x01' + left + right)
 
 
 class MerkleTree:
@@ -263,7 +276,7 @@ def merkle_verify(root: bytes, index: int, leaf: bytes, path: Sequence[bytes], d
         return False
     node = leaf
     for sibling in path:
-        if not isinstance(sibling, (bytes, bytearray)) or len(sibling) != 32:
+        if not isinstance(sibling, (bytes, bytearray)) or len(sibling) != HASH_BYTES:
             return False
         node = _node_hash(sibling, node) if index & 1 else _node_hash(node, sibling)
         index >>= 1
@@ -278,16 +291,16 @@ def merkle_verify(root: bytes, index: int, leaf: bytes, path: Sequence[bytes], d
 
 class Transcript:
     def __init__(self, statement: bytes):
-        self.state = hashlib.sha256(b'zkward-stark-3\x00' + statement).digest()
+        self.state = H(b'zkward-stark-6\x00' + statement)
 
     def absorb(self, label: bytes, data: bytes) -> None:
-        self.state = hashlib.sha256(
+        self.state = H(
             self.state + b'\x01' + len(label).to_bytes(2, 'little') + label + len(data).to_bytes(8, 'little') + data
-        ).digest()
+        )
 
     def _draw(self) -> bytes:
-        self.state = hashlib.sha256(self.state + b'\x02').digest()
-        return hashlib.sha256(self.state + b'\x03').digest()
+        self.state = H(self.state + b'\x02')
+        return H(self.state + b'\x03')
 
     def draw_fp(self) -> int:
         while True:
@@ -317,8 +330,8 @@ class Transcript:
         return True
 
     def _pow_ok(self, nonce: int, bits: int) -> bool:
-        digest = hashlib.sha256(self.state + b'\x04' + nonce.to_bytes(8, 'little')).digest()
-        return int.from_bytes(digest, 'big') >> (256 - bits) == 0 if bits > 0 else True
+        digest = H(self.state + b'\x04' + nonce.to_bytes(8, 'little'))
+        return int.from_bytes(digest, 'big') >> (8 * HASH_BYTES - bits) == 0 if bits > 0 else True
 
 
 # ── FRI folding ──────────────────────────────────────────────────────

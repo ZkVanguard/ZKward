@@ -39,7 +39,7 @@ export interface HedgePolicyWitness {
 
 export interface ZKProof {
   proof: Record<string, unknown>;
-  /** 64 hex characters. Commits to the private values; this is what is stored next to a record. */
+  /** 96 hex characters (SHA-384). Commits to the private values; this is what is stored next to a record. */
   commitment: string;
   /** Same value as `commitment`, under the name older callers read. */
   proofHash: string;

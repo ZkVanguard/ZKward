@@ -47,8 +47,8 @@ def test_health_names_the_proof_system_and_no_setup(client):
 
 def test_prove_returns_the_proof_its_commitment_and_the_private_opening(proved):
     assert set(proved) == {'proof', 'commitment', 'opening', 'proof_digest', 'duration_ms'}
-    assert proved['commitment'] == proved['proof']['commitment'] and len(proved['commitment']) == 64
-    assert len(proved['proof_digest']) == 64
+    assert proved['commitment'] == proved['proof']['commitment'] and len(proved['commitment']) == 96
+    assert len(proved['proof_digest']) == 96
 
 
 def test_verify_takes_the_statement_from_the_caller(client, proved):
@@ -56,7 +56,7 @@ def test_verify_takes_the_statement_from_the_caller(client, proved):
     assert ok['valid'] is True and ok['commitment'] == proved['commitment']
     lower = client.post('/api/zk/bounds/verify', json={'proof': proved['proof'], 'statement': {'kind': 'risk-score', 'bounds': [[0, 50]]}}).json()
     assert lower == {'valid': False, 'commitment': None, 'duration_ms': lower['duration_ms']}
-    other = client.post('/api/zk/bounds/verify', json={'proof': proved['proof'], 'statement': STATEMENT, 'commitment': '00' * 32}).json()
+    other = client.post('/api/zk/bounds/verify', json={'proof': proved['proof'], 'statement': STATEMENT, 'commitment': '00' * 48}).json()
     assert other['valid'] is False
     junk = client.post('/api/zk/bounds/verify', json={'proof': {}, 'statement': STATEMENT})
     assert junk.status_code == 200 and junk.json()['valid'] is False

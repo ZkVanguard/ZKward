@@ -64,7 +64,7 @@ describe('bounds STARK: the TypeScript verifier agrees with the Python one', () 
 
   it('malformed input is false, never an exception', () => {
     const statement: BoundsStatement = { kind: 'k', bounds: [[0, 4]] };
-    for (const junk of [null, undefined, 7, 'proof', {}, { protocol: 'zkward-bounds-v5' }, { protocol: 'zkward-bounds-v5', commitment: 'zz' }]) {
+    for (const junk of [null, undefined, 7, 'proof', {}, { protocol: 'zkward-bounds-v6' }, { protocol: 'zkward-bounds-v6', commitment: 'zz' }]) {
       expect(verifyBoundsProof(junk, statement)).toBe(false);
     }
     for (const bad of [
