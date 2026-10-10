@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslations } from 'next-intl';
 
 interface Made {
@@ -32,6 +32,9 @@ export function ProofDemo() {
   const [status, setStatus] = useState<Status>('idle');
   const [made, setMade] = useState<Made | null>(null);
   const [lower, setLower] = useState<'unknown' | 'checking' | 'refused' | 'accepted'>('unknown');
+  // The button is rendered on the server; a click before the page is interactive would be lost without a trace.
+  const [ready, setReady] = useState(false);
+  useEffect(() => setReady(true), []);
 
   async function prove() {
     setStatus('proving');
@@ -52,6 +55,7 @@ export function ProofDemo() {
             notionalValueUsdcCents: Math.ceil((sizeMilli * entryPriceCents) / 1000), timestampMs: Date.now(),
           },
           caps,
+          opening: false,
         }),
       });
       if (res.status === 422 || res.status === 400) return setStatus('refused');
@@ -127,7 +131,7 @@ export function ProofDemo() {
       <button
         type="button"
         onClick={prove}
-        disabled={status === 'proving'}
+        disabled={!ready || status === 'proving'}
         className="mt-4 rounded-full bg-[#007AFF] px-5 py-2.5 text-[15px] font-semibold text-white disabled:opacity-60"
       >
         {status === 'proving' ? t('proving') : t('prove')}
