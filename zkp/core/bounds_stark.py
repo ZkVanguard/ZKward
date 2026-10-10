@@ -49,9 +49,9 @@ integers.
 Zero knowledge (a design argument, not a formal proof)
 -----------------------------------------------------
 Every value the verifier sees from the trace is an evaluation outside H. A
-column has 448 free random rows; the view depends on at most 4 * 64 + 8 = 264
+column has 448 free random rows; the view depends on at most 4 * 64 + 10 = 266
 field functionals of a column (the opened points, their w' shifts through
-the composition, and the two out-of-domain points, each four coordinates), so
+the composition, and the two out-of-domain points, each five coordinates), so
 those values are uniform whatever the witness is. Chunks are blinded with
 random polynomials of degree < 160 (129 openings), the FRI layers by the
 masking polynomial, and unopened leaves by 32-byte per-leaf salts.
@@ -59,31 +59,32 @@ masking polynomial, and unopened leaves by 32-byte per-leaf salts.
 Soundness and the quantum attacker
 ----------------------------------
 Nothing here rests on factoring or discrete logarithms: the only assumption
-is the hash function. Parameters are sized so that the square-root speed-up
-a quantum computer gets on search still leaves a wide margin:
-  - challenges from a field of about 2^256 elements;
-  - rate 1/16 and 64 queries: the query phase errs with probability about
-    2^-119 by the proven bound and 2^-256 by the conjectured one, before 20
-    bits of grinding;
-  - SHA-256 commitments and 256-bit salts.
+is the hash function. The sizes follow the rule in `stark_core.py` (largest
+round error at most 2^-256, hash of at least 384 bits) for 128 bits against a
+quantum attacker:
+  - challenges from a field of about 2^320 elements, so the field-dependent
+    rounds err with probability below 2^-300;
+  - rate 1/16 and 64 queries: the query phase errs with probability 2^-256
+    under the standard conjecture on FRI (and about 2^-119 by what is proven
+    today), before 20 bits of grinding;
+  - SHA-384 commitments and 256-bit salts.
 The full accounting is in the arguments document. This code has not been
 reviewed by anyone outside the project; until it is, treat the numbers as the
 design target, not as a guarantee.
 """
-import hashlib
 import json
 import secrets
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from zkp.core.stark_core import (
-    DEGREE, GENERATOR, K_BYTES, K_ONE, P, K, K_ZERO, MerkleTree, Transcript,
+    DEGREE, GENERATOR, H, HASH_BYTES, K_BYTES, K_ONE, P, K, K_ZERO, MerkleTree, Transcript,
     batch_inv, coset_evaluate, coset_interpolate, fold_layer, fold_pair, fp_poly_at_k, intt, inv,
-    k_add, k_bytes, k_from, k_in_base_or_quadratic_subfield, k_inv, k_mul, k_poly_at_fp, k_poly_at_k, k_pow, k_scale, k_sub,
+    k_add, k_bytes, k_from, k_in_base_field, k_inv, k_mul, k_poly_at_fp, k_poly_at_k, k_pow, k_scale, k_sub,
     leaf_hash, merkle_verify, ntt, root_of_unity,
 )
 
 AIR_ID = 'zkward-bounds'
-AIR_VERSION = 5
+AIR_VERSION = 6
 
 # ── Parameters ───────────────────────────────────────────────────────
 N = 512                      # trace rows
@@ -195,7 +196,7 @@ def _span(public: Dict[str, Any], k: int) -> int:
 def statement_bytes(public: Dict[str, Any]) -> bytes:
     """Everything both sides agree on before the first message, bound into every challenge."""
     return json.dumps({
-        'air': AIR_ID, 'version': AIR_VERSION, 'field': 'goldilocks-quartic', 'hash': 'sha256',
+        'air': AIR_ID, 'version': AIR_VERSION, 'field': 'goldilocks-quintic', 'hash': 'sha384',
         'n': N, 'active': ACTIVE, 'blowup': BLOWUP, 'queries': NUM_QUERIES, 'grinding': GRINDING_BITS,
         'fri_layers': FRI_LAYERS, 'kind': public['kind'], 'bounds': public['bounds'], 'product': public['product'],
     }, sort_keys=True, separators=(',', ':')).encode()
@@ -369,13 +370,13 @@ def _fp_from_bytes(data: bytes) -> List[int]:
 
 def _draw_ood_point(t: Transcript) -> K:
     """
-    A point of K outside its proper subfields. It is then outside H and L, no
-    denominator can vanish, and its four conjugates are distinct, which is
-    what the zero-knowledge count of out-of-domain values assumes.
+    A point of K outside Fp. It is then outside H and L, no denominator can
+    vanish, and its five conjugates are distinct (K has no other subfield),
+    which is what the zero-knowledge count of out-of-domain values assumes.
     """
     while True:
         z = t.draw_k()
-        if not k_in_base_or_quadratic_subfield(z):
+        if not k_in_base_field(z):
             return z
 
 
@@ -389,11 +390,12 @@ def _deep_value(x: int, row: Sequence[int], chunks: Sequence[K], mask: K, z: K, 
     It is a polynomial of degree < N exactly when the claimed out-of-domain
     values are the true ones and every part has degree < N.
     """
-    a = K_ZERO
-    b = K_ZERO
+    # sum g_c (T_c(x) - v_c): T_c(x) is in Fp, so each term is a scaling of g_c, not a K product.
+    a = tuple(sum(g1[c][d] * row[c] for c in range(WIDTH)) % P for d in range(DEGREE))
+    b = tuple(sum(g2[c][d] * row[c] for c in range(WIDTH)) % P for d in range(DEGREE))
     for c in range(WIDTH):
-        a = k_add(a, k_mul(g1[c], k_sub(k_from(row[c]), trace_z[c])))
-        b = k_add(b, k_mul(g2[c], k_sub(k_from(row[c]), trace_zn[c])))
+        a = k_sub(a, k_mul(g1[c], trace_z[c]))
+        b = k_sub(b, k_mul(g2[c], trace_zn[c]))
     for j in range(NUM_CHUNKS):
         a = k_add(a, k_mul(g3[j], k_sub(chunks[j], chunks_z[j])))
     inv1 = k_inv(k_sub(k_from(x), z))
@@ -638,11 +640,11 @@ def _verify(proof: Dict[str, Any], public: Dict[str, int], commitment: Optional[
     if proof.get('protocol') != f'{AIR_ID}-v{AIR_VERSION}':
         return False
     trace_root = bytes.fromhex(proof['commitment'])
-    if len(trace_root) != 32 or (commitment is not None and commitment.lower() != proof['commitment'].lower()):
+    if len(trace_root) != HASH_BYTES or (commitment is not None and commitment.lower() != proof['commitment'].lower()):
         return False
     quotient_root = bytes.fromhex(proof['quotient_root'])
     fri_roots = [bytes.fromhex(r) for r in proof['fri_roots']]
-    if len(quotient_root) != 32 or len(fri_roots) != FRI_LAYERS - 1 or any(len(r) != 32 for r in fri_roots):
+    if len(quotient_root) != HASH_BYTES or len(fri_roots) != FRI_LAYERS - 1 or any(len(r) != HASH_BYTES for r in fri_roots):
         return False
     trace_z = _k_from_bytes(bytes.fromhex(proof['ood']['trace_z']))
     trace_zn = _k_from_bytes(bytes.fromhex(proof['ood']['trace_zn']))
@@ -777,4 +779,4 @@ def proof_size_bytes(proof: Dict[str, Any]) -> int:
 
 def proof_digest(proof: Dict[str, Any]) -> str:
     """A stable identifier for a proof, for storing next to a record."""
-    return hashlib.sha256(json.dumps(proof, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
+    return H(json.dumps(proof, sort_keys=True, separators=(',', ':')).encode()).hex()

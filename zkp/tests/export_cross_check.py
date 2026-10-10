@@ -44,7 +44,7 @@ def main(out_path: str) -> None:
     honest, _ = hs.prove(HEDGE, PUBLIC)
     add('honest', honest, PUBLIC)
     add('honest, with its commitment named', honest, PUBLIC, honest['commitment'])
-    add('honest, another commitment named', honest, PUBLIC, '00' * 32)
+    add('honest, another commitment named', honest, PUBLIC, '00' * sc.HASH_BYTES)
     add('honest, lower leverage cap', honest, {**PUBLIC, 'leverage_cap': 2})
     add('honest, higher leverage cap', honest, {**PUBLIC, 'leverage_cap': 5})
     add('honest, lower notional cap', honest, {**PUBLIC, 'notional_cap_cents': 1})
@@ -77,7 +77,7 @@ def main(out_path: str) -> None:
         'reshaped: a longer final polynomial': lambda p: p.update(final=p['final'] + '00' * 16),
         'reshaped: openings at swapped positions': lambda p: p['queries'][0]['trace'].reverse(),
         'reshaped: a non-canonical field element': lambda p: p['ood'].update(trace_z='ff' * (sc.K_BYTES * bs.WIDTH)),
-        'reshaped: another protocol version': lambda p: p.update(protocol='zkward-bounds-v4'),
+        'reshaped: another protocol version': lambda p: p.update(protocol='zkward-bounds-v5'),
     }
     for name, edit in edits.items():
         p = copy.deepcopy(honest)

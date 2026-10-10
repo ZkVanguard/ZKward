@@ -113,28 +113,39 @@ class TestParameters:
         assert sc.root_of_unity(1 << 32) == 1753635133440165772
         assert pow(sc.root_of_unity(1 << 32), 1 << 31, P) == P - 1
 
-    def test_the_extension_is_a_field_of_about_2_256_elements(self):
-        # x^4 - 7 is irreducible over Fp: 7 is not a square and -28 is not a fourth power (p = 1 mod 4).
-        assert pow(7, (P - 1) // 2, P) == P - 1
-        assert pow(P - 28, (P - 1) // 4, P) != 1
-        assert (P ** 4).bit_length() == 256
+    def test_the_extension_is_a_field_of_about_2_320_elements(self):
+        # x^5 - 3 is irreducible over Fp: 5 divides p - 1 and 3 is not a fifth power.
+        assert (P - 1) % 5 == 0 and pow(3, (P - 1) // 5, P) != 1
+        assert (P ** sc.DEGREE).bit_length() == 320
         rng = random.Random(1)
-        rand = lambda: tuple(rng.randrange(P) for _ in range(4))  # noqa: E731
+        rand = lambda: tuple(rng.randrange(P) for _ in range(sc.DEGREE))  # noqa: E731
         for _ in range(200):
             a, b, c = rand(), rand(), rand()
             assert sc.k_mul(a, sc.k_add(b, c)) == sc.k_add(sc.k_mul(a, b), sc.k_mul(a, c))
             assert sc.k_mul(sc.k_mul(a, b), c) == sc.k_mul(a, sc.k_mul(b, c))
             if a != sc.K_ZERO:
                 assert sc.k_mul(a, sc.k_inv(a)) == sc.K_ONE
-        # Every nonzero element has order dividing p^4 - 1, and the Frobenius map has order exactly 4:
-        # a field with p^4 elements, not a ring that only looks like one.
+        # Every nonzero element has order dividing p^5 - 1, and the Frobenius map has order exactly 5:
+        # a field with p^5 elements, not a ring that only looks like one.
         a = rand()
-        assert sc.k_pow(a, P ** 4 - 1) == sc.K_ONE
-        assert sc.k_pow(a, P ** 2) != a and sc.k_pow(sc.k_pow(a, P ** 2), P ** 2) == a
-        # Elements of Fp are fixed by Frobenius; u is sent to another root of x^4 - 7.
+        assert sc.k_pow(a, P ** 5 - 1) == sc.K_ONE
+        assert sc.k_pow(a, P) == sc.k_frobenius(a, 1) != a
+        conjugates = {sc.k_frobenius(a, i) for i in range(5)}
+        assert len(conjugates) == 5 and sc.k_frobenius(sc.k_frobenius(a, 2), 3) == a
+        # Elements of Fp are fixed by Frobenius; u is sent to another root of x^5 - 3.
         assert sc.k_pow(sc.k_from(12345), P) == sc.k_from(12345)
-        u = (0, 1, 0, 0)
-        assert sc.k_pow(u, P) != u and sc.k_pow(sc.k_pow(u, P), 4) == sc.k_from(7)
+        u = (0, 1, 0, 0, 0)
+        assert sc.k_pow(u, P) != u and sc.k_pow(sc.k_pow(u, P), 5) == sc.k_from(3)
+        # The norm used by the inverse lies in Fp.
+        norm = a
+        for i in range(1, 5):
+            norm = sc.k_mul(norm, sc.k_frobenius(a, i))
+        assert sc.k_in_base_field(norm) and not sc.k_in_base_field(a)
+
+    def test_the_hash_is_sha_384(self):
+        import hashlib
+        assert sc.HASH_BYTES == 48 and sc.H(b'abc') == hashlib.sha384(b'abc').digest()
+        assert len(sc.leaf_hash(0, b'x')) == 48 and len(sc.Transcript(b's').state) == 48
 
     def test_the_domains_are_what_the_protocol_assumes(self):
         h = {pow(bs.OMEGA_N, i, P) for i in range(bs.N)}
@@ -152,12 +163,13 @@ class TestParameters:
         # FRI proves degree < N on a domain of 16 N: rate 1/16 at every layer.
         assert bs.M // bs.N == 16 and (bs.M >> bs.FRI_LAYERS) // bs.FINAL_DEGREE == 16
         bits_per_query = 4                       # log2(1/rate): the best known attack
-        # Query phase alone, before grinding: 2^-256 against the best known attack and about
-        # 2^-128 at the Johnson radius. A quantum search halves the exponent, so the first
-        # figure is the one sized for it. The field has 2^256 elements for the same reason.
-        assert bs.NUM_QUERIES * bits_per_query == 256
-        assert bs.NUM_QUERIES * bits_per_query // 2 == 128
-        assert (P ** sc.DEGREE).bit_length() == 256 and bs.SALT_BYTES == 32
+        # The target is 128 bits against a quantum attacker: every round's error at most 2^-256
+        # and a hash of at least 384 bits (see the header of stark_core.py).
+        assert bs.NUM_QUERIES * bits_per_query == 256                    # query phase, conjectured
+        field_bits = (P ** sc.DEGREE).bit_length()
+        assert field_bits - bs.LOG_M - 1 >= 256                          # commit phase: |L| / |K|
+        assert field_bits - (2 * bs.N).bit_length() >= 256               # out-of-domain: degree / |K|
+        assert 8 * sc.HASH_BYTES >= 3 * 128 and 8 * bs.SALT_BYTES >= 2 * 128
 
 
 # ── 2. random inputs ─────────────────────────────────────────────────
@@ -254,13 +266,13 @@ class TestStepAttacks:
         rng = random.Random(5)
         for target in (1, 3, 5):
             def fake(k, layer, target=target):
-                return [tuple(rng.randrange(P) for _ in range(4)) for _ in layer] if k == target else layer
+                return [tuple(rng.randrange(P) for _ in range(sc.DEGREE)) for _ in layer] if k == target else layer
             proof, _ = hs.prove(HEDGE, PUBLIC, skip_checks_for_tests=True, attack_hooks_for_tests={'fri_layer': fake})
             assert not hs.verify(proof, PUBLIC), target
 
     def test_a_final_polynomial_chosen_by_the_prover(self):
         rng = random.Random(6)
-        free = lambda layer, shift: [tuple(rng.randrange(P) for _ in range(4)) for _ in range(bs.FINAL_DEGREE)]  # noqa: E731
+        free = lambda layer, shift: [tuple(rng.randrange(P) for _ in range(sc.DEGREE)) for _ in range(bs.FINAL_DEGREE)]  # noqa: E731
         proof, _ = hs.prove(HEDGE, PUBLIC, skip_checks_for_tests=True, attack_hooks_for_tests={'final': free})
         assert not hs.verify(proof, PUBLIC)
 
@@ -362,7 +374,7 @@ class TestHidingByLinearAlgebra:
         rows and uniformly random on the other 448. Everything the verifier's
         view depends on, for one column, is a list of linear functionals of
         it: its values at the opened points, at their w'-shifts (through the
-        composition), and at the two out-of-domain points (four field elements
+        composition), and at the two out-of-domain points (five field elements
         each). If those functionals are linearly independent as functions of
         the 448 random rows, their values are exactly uniform, whatever the
         active rows hold. This computes that rank for a real proof.

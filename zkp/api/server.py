@@ -175,8 +175,8 @@ def _system_info() -> Dict[str, Any]:
     return {
         "prover": "bounds-stark",
         "protocol": f"{bounds_stark.AIR_ID}-v{bounds_stark.AIR_VERSION}",
-        "field": "Goldilocks, challenges in its quartic extension",
-        "hash": "SHA-256",
+        "field": "Goldilocks, challenges in its quintic extension",
+        "hash": "SHA-384",
         "trace_rows": bounds_stark.N,
         "blowup": bounds_stark.BLOWUP,
         "queries": bounds_stark.NUM_QUERIES,

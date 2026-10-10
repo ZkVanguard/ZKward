@@ -448,7 +448,7 @@ leverage and notional within caps, and the notional covering size times price.
 - **Patterns**: Event-driven, microservices-style agents
 
 ### ZK Proofs
-- **Proof System**: ZK-STARK (AIR + FRI over the Goldilocks field, SHA-256 commitments)
+- **Proof System**: ZK-STARK (AIR + FRI over the Goldilocks field, SHA-384 commitments)
 - **Implementation**: Python (zkp/ directory)
 - **Second verifier**: TypeScript (zk/ directory)
 - **Protocol**: Transparent (no trusted setup required)

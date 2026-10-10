@@ -33,7 +33,7 @@ export async function GET() {
 
 - Live on SUI mainnet, package \`0x107292…7b726\`, pool state \`0xe814…fb3a\`.
 - Also deployed on Hedera Testnet (vault) and Solana devnet (token pool).
-- Proofs: a transparent ZK-STARK (Goldilocks field, SHA-256 Merkle commitments, FRI, no trusted setup) exists off chain. It has no outside review, no hedge carries a proof, and nothing is verified on-chain.
+- Proofs: a transparent ZK-STARK (Goldilocks field, SHA-384 Merkle commitments, FRI, no trusted setup) exists off chain. It has no outside review, no hedge carries a proof, and nothing is verified on-chain.
 - Eight-gate autonomy defense system with contract-enforced kill switches.
 - Fees: 50 bps annual management + 10% performance, routed through MSafe-held FeeManagerCap.
 - Non-custodial: user keys, on-chain custody, permissionless withdraw anytime.

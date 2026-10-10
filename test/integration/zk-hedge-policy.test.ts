@@ -35,7 +35,7 @@ describe('hedge policy proof through the server', () => {
     if (!up) return;
     const p = await post('/api/zk/hedge-policy/prove', { witness: hedge, public: caps });
     expect(p.status).toBe(200);
-    expect(p.body.commitment).toMatch(/^[0-9a-f]{64}$/);
+    expect(p.body.commitment).toMatch(/^[0-9a-f]{96}$/);
     expect(p.body.proof.commitment).toBe(p.body.commitment);
     // The public proof names no part of the hedge.
     expect(Object.keys(p.body.proof).sort()).toEqual(['commitment', 'final', 'fri_roots', 'nonce', 'ood', 'protocol', 'public', 'queries', 'quotient_root']);
@@ -46,7 +46,7 @@ describe('hedge policy proof through the server', () => {
     const lowerCap = await post('/api/zk/hedge-policy/verify', { proof: p.body.proof, public: { ...caps, leverage_cap: 2 } });
     expect(lowerCap.body.valid).toBe(false);
 
-    const otherCommitment = await post('/api/zk/hedge-policy/verify', { proof: p.body.proof, public: caps, commitment: '00'.repeat(32) });
+    const otherCommitment = await post('/api/zk/hedge-policy/verify', { proof: p.body.proof, public: caps, commitment: '00'.repeat(48) });
     expect(otherCommitment.body.valid).toBe(false);
 
     const edited = structuredClone(p.body.proof);
