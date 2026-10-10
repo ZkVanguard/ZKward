@@ -368,6 +368,58 @@ async def verify_proof(request: VerificationRequest):
         raise HTTPException(status_code=400, detail=f"Verification failed: {str(e)}")
 
 
+class HedgePolicyProveRequest(BaseModel):
+    witness: Dict[str, Any] = Field(..., description="The hedge: asset, side, leverageX, notionalValueUsdcCents, and the committed payload fields")
+    public: Dict[str, Any] = Field(..., description="leverage_cap, notional_cap_cents, optional asset_count")
+
+
+class HedgePolicyVerifyRequest(BaseModel):
+    proof: Dict[str, Any]
+    public: Dict[str, Any]
+    commitment: Optional[str] = Field(None, description="The commitment the caller expects the proof to be for")
+
+
+@app.post("/api/zk/hedge-policy/prove", response_class=LargeIntJSONResponse)
+async def hedge_policy_prove(request: HedgePolicyProveRequest):
+    """
+    Prove that a hedge is inside the vault's rules (zkp/core/hedge_stark.py).
+
+    Returns the public proof, whose `commitment` is the hedge commitment,
+    and the opening. The opening is the caller's secret: it is what an
+    auditor needs to read the hedge back out of the commitment.
+    """
+    import asyncio
+    from zkp.core import hedge_stark
+    started = datetime.now()
+    try:
+        proof, opening = await asyncio.get_running_loop().run_in_executor(
+            None, hedge_stark.prove, request.witness, request.public
+        )
+    except (hedge_stark.HedgeProofError, KeyError, TypeError, ValueError) as e:
+        # The witness is outside the rules, or the request is malformed: there is nothing to prove.
+        raise HTTPException(status_code=422, detail=f"cannot prove: {e}")
+    return {
+        "proof": proof,
+        "commitment": proof["commitment"],
+        "opening": opening,
+        "proof_digest": hedge_stark.proof_digest(proof),
+        "duration_ms": int((datetime.now() - started).total_seconds() * 1000),
+    }
+
+
+@app.post("/api/zk/hedge-policy/verify")
+async def hedge_policy_verify(request: HedgePolicyVerifyRequest):
+    """Check a hedge policy proof against caps the CALLER supplies."""
+    from zkp.core import hedge_stark
+    started = datetime.now()
+    valid = hedge_stark.verify(request.proof, request.public, request.commitment)
+    return {
+        "valid": valid,
+        "commitment": request.proof.get("commitment") if valid else None,
+        "duration_ms": int((datetime.now() - started).total_seconds() * 1000),
+    }
+
+
 class AttestationRequest(BaseModel):
     """
     Off-chain → on-chain attestation: prove + sign the commitment_hash with
