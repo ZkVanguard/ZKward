@@ -19,18 +19,25 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { proof, statement, claim } = body;
 
-    // Use the claim from proof generation if available
-    const verificationClaim = claim || JSON.stringify(statement, null, 0);
+    // The proof is bound to the statement it was generated for, so that
+    // statement is what the prover must check it against. The generate route
+    // returns it as `statement` (and, as an object, as `claim`). A bare
+    // string claim is the older {claim, public_inputs: []} form.
+    const isObject = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
+    const fullStatement = isObject(statement) ? statement : isObject(claim) ? claim : null;
+    if (!fullStatement && typeof claim !== 'string') {
+      return NextResponse.json({ success: false, error: 'A statement or a claim is required' }, { status: 400 });
+    }
 
     // Call the real FastAPI ZK server
     const response = await fetch(`${ZK_API_URL}/api/zk/verify`, {
       method: 'POST',
       headers: zkApiHeaders(),
-      body: JSON.stringify({
-        proof: proof,
-        claim: verificationClaim,
-        public_inputs: []
-      })
+      body: JSON.stringify(
+        fullStatement
+          ? { proof, statement: fullStatement, public_inputs: [] }
+          : { proof, claim, public_inputs: [] },
+      ),
     });
 
     if (!response.ok) {

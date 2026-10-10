@@ -156,8 +156,13 @@ class ProofRequest(BaseModel):
 
 class VerificationRequest(BaseModel):
     proof: Dict[str, Any] = Field(..., description="Proof to verify")
-    public_inputs: List[int] = Field(..., description="Public inputs")
+    public_inputs: List[int] = Field(default_factory=list, description="Public inputs")
     claim: Optional[str] = Field(None, description="Statement claim to verify against")
+    # The statement the proof was generated for, exactly as it was given to
+    # /api/zk/generate. Without it the verifier could only rebuild statements
+    # of the shape {claim, public_inputs}: a proof made for any other
+    # statement could never be verified through this endpoint.
+    statement: Optional[Dict[str, Any]] = Field(None, description="Full statement to verify against")
 
 
 class ProofResponse(BaseModel):
@@ -335,13 +340,16 @@ async def verify_proof(request: VerificationRequest):
         
         # Reconstruct statement - verifier must provide the correct claim
         # This is proper ZK protocol: verifier knows what they're verifying
-        if not claim:
-            raise HTTPException(status_code=400, detail="Claim required for verification")
-        
-        statement = {
-            "claim": claim,
-            "public_inputs": public_inputs
-        }
+        if request.statement is not None:
+            # The verifier names the statement; the proof is bound to its hash.
+            statement = request.statement
+        elif claim:
+            statement = {
+                "claim": claim,
+                "public_inputs": public_inputs
+            }
+        else:
+            raise HTTPException(status_code=400, detail="A statement or a claim is required for verification")
         
         # Verify using REAL proof structure (statement_hash, challenge, response, etc.)
         is_valid = zk_system.verify_proof(proof_data, statement)
