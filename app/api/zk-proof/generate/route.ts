@@ -1,17 +1,17 @@
 /**
  * POST /api/zk-proof/generate
  *
- * Asks the proof server for a bounds ZK-STARK and returns it with the local
- * verifier's verdict. Two request shapes:
+ * Makes a bounds ZK-STARK in this process and returns it with the verifier's
+ * verdict. Two request shapes:
  *   { statement: { kind, bounds, product? }, witness: { values, payload? } }
  *   { hedge: { asset, side, leverageX, ... }, caps: { leverage_cap, notional_cap_cents } }
  *
- * No prover, no proof: when the server is unreachable the answer is 503.
+ * A witness outside its statement gets 422 and no proof.
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { logger } from '@/lib/utils/logger';
 import { heavyLimiter } from '@/lib/security/rate-limiter';
-import { ProofRefusedError, ProverUnavailableError, proveBounds, proveHedgePolicy } from '@/zk/prover/ProofGenerator';
+import { ProofRefusedError, proveBounds, proveHedgePolicy } from '@/zk/prover/ProofGenerator';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -53,11 +53,7 @@ export async function POST(request: NextRequest) {
     if (error instanceof ProofRefusedError) {
       return NextResponse.json({ success: false, error: error.message, code: 'OUTSIDE_STATEMENT' }, { status: 422 });
     }
-    if (error instanceof ProverUnavailableError) {
-      logger.error('[zk-proof/generate] prover unavailable', error);
-      return NextResponse.json({ success: false, error: 'The proof server is unavailable', code: 'ZK_SERVICE_UNAVAILABLE' }, { status: 503 });
-    }
-    // What is left is a number or a statement that could not be read.
-    return NextResponse.json({ success: false, error: 'The statement or the witness is malformed' }, { status: 400 });
+    logger.error('[zk-proof/generate] proving failed', error);
+    return NextResponse.json({ success: false, error: 'The proof could not be made', code: 'PROVER_ERROR' }, { status: 500 });
   }
 }

@@ -154,7 +154,7 @@ Each threat below is CLASSIFIED (S = Spoofing, T = Tampering, R = Repudiation, I
 | # | Threat | Class | Mitigation | Residual |
 |---|---|---|---|---|
 | S1 | Aiven regional outage → all writes fail | D | Multi-region failover planned (Tranche B). Read-only degradation mode planned (1 hr eng). | HIGH until multi-region |
-| S2 | Proof server down → no cycle proof | D | The proof gate applies only with `ZK_ATTEST_STRICT=1`, where it fails closed for large trades. Health probe part of Runbook 1. | LOW |
+| S2 | Proving fails inside the application → no cycle proof | D | The proof gate applies only with `ZK_ATTEST_STRICT=1`, where it fails closed for large trades. | LOW |
 | S3 | Vercel platform outage | D | No mitigation. Aligns with all other L7 platform risk. | ACCEPTED |
 | S4 | Full-code-path DoS via API rate limit exhaustion | D | `readLimiter.check(request)` on every public route (120 req/min free tier). | LOW |
 | S5 | Supply chain compromise (typosquat, dep hijack) | T/E | `verify-supply-chain.cjs` on prebuild; allowlist with 90-day expiry; overrides for known-safe transitives. | MEDIUM (external audit should re-verify allowlist) |
@@ -195,7 +195,7 @@ Each threat below is CLASSIFIED (S = Spoofing, T = Tampering, R = Repudiation, I
 ### 6.3 · Jest (`bun test`)
 
 - 70% coverage floor enforced in `jest.config.js`
-- `test/integration/zk-hedge-policy.test.ts` needs the proof server up (`ZK_API_URL`)
+- `test/integration/zk-hedge-policy.test.ts` — the in-process prover against both verifiers
 
 ## 7 · Deployment provenance
 

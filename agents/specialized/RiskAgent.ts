@@ -21,8 +21,8 @@ import type { CanonicalRiskInputs } from '../../zk/prover/riskCanonical';
 /**
  * The bound the risk-score proof shows `totalRisk` stays within.
  * Env override: RISK_ZK_THRESHOLD (0..100). At the default of 100 the
- * statement holds for every score; a lower value means no proof can be
- * made for a riskier state.
+ * statement holds for every score, so no proof is made: a proof is worth
+ * its seconds of CPU only for a statement that could be false.
  */
 const RISK_THRESHOLD_DEFAULT = Math.min(
   100,
@@ -971,14 +971,15 @@ REC3: [third recommendation]`;
 
   /**
    * Prove that the risk score is within its threshold, with the digest of
-   * the canonical inputs committed next to it. When the prover is offline,
-   * or the score is over the threshold, there is no proof: the hash stays
+   * the canonical inputs committed next to it. With no threshold below 100
+   * configured, or with the score over it, there is no proof: the hash stays
    * empty and no binding is attached.
    */
   private async generateRiskProof(
     analysis: RiskAnalysis,
     canonical: CanonicalRiskInputs,
   ): Promise<{ proofHash: string; binding?: RiskAnalysis['zkBinding'] }> {
+    if (canonical.threshold >= 100) return { proofHash: '' };
     try {
       const [{ proveRiskScore }, { computeInputsHash }] = await Promise.all([
         import('@shared/../zk/prover/ProofGenerator'),

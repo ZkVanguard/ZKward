@@ -306,6 +306,19 @@ class Transcript {
     return Number(this.draw().readBigUInt64LE(0) & BigInt(bound - 1));
   }
 
+  /** Prover side of `checkGrind`: finds the smallest nonce that passes, absorbs it and returns it. */
+  grind(bits: number): number {
+    const prefix = Buffer.concat([this.state, Buffer.from([4])]);
+    const limit = BigInt(8 * HASH_BYTES - bits);
+    for (let nonce = 0; ; nonce++) {
+      const digest = hash(prefix, u64le(nonce));
+      if (BigInt('0x' + digest.toString('hex')) >> limit === 0n) {
+        this.absorb('pow', u64le(nonce));
+        return nonce;
+      }
+    }
+  }
+
   /** Accepts the nonce only if its hash with the state has `bits` leading zero bits, then absorbs it. */
   checkGrind(nonce: bigint, bits: number): boolean {
     const digest = hash(this.state, Buffer.from([4]), u64le(nonce));
@@ -515,3 +528,19 @@ function verify(proof: Record<string, any>, st: Statement, commitment?: string):
   }
   return true;
 }
+
+// ── Shared with the prover ───────────────────────────────────────────
+/**
+ * What `zk/prover/boundsProver.ts` builds a proof from. The prover has no
+ * field, hash, transcript, statement or constraint list of its own, so it
+ * cannot drift from what this file verifies.
+ */
+export type { K, Statement };
+export const starkInternals = {
+  P, mod, powMod, inv, rootOfUnity,
+  K_ZERO, K_ONE, DEGREE, kFrom, kAdd, kSub, kMul, kScale, kInv, kPow, polyAtK,
+  PROTOCOL, N, ACTIVE, RANGE_BITS, M, SHIFT, NUM_QUERIES, GRINDING_BITS, FRI_LAYERS, FINAL_DEGREE, CHUNK, SALT_BYTES,
+  NUM_CHUNKS, NUM_QUANTITIES, LIMIT, PROD_SCALED, PROD_A, PROD_B, PROD_SLACK, PROD_SCALE, WIDTH,
+  OMEGA_M, OMEGA_A, LAST, INV2, WEIGHT_POLY, CONSTRAINTS,
+  normalizeStatement, statementBytes, hash, u64le, leafHash, Transcript, quotientsAt, layerShift,
+};

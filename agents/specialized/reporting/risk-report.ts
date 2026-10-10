@@ -1,8 +1,7 @@
 /**
  * Risk-report generator — extracted from ReportingAgent for isolation
  * and testability. Aggregates portfolio positions into per-asset VaR /
- * CVaR / Sharpe metrics and (optionally) attaches the commitment of a
- * risk-score proof that the local verifier accepted.
+ * CVaR / Sharpe metrics.
  */
 import { AgentTask, TaskResult } from '@shared/types/agent';
 import { logger } from '@shared/utils/logger';
@@ -23,9 +22,8 @@ export async function generateRiskReport(
     portfolioId: string;
     startDate?: number;
     endDate?: number;
-    includeZKProofs?: boolean;
   };
-  const { portfolioId, startDate, endDate, includeZKProofs } = parameters;
+  const { portfolioId, startDate, endDate } = parameters;
 
   logger.info('Generating risk report with real data', { portfolioId });
 
@@ -82,52 +80,6 @@ export async function generateRiskReport(
   else if (totalRisk >= 60) riskLevel = 'HIGH';
   else if (totalRisk >= 40) riskLevel = 'MEDIUM';
 
-  // Optional proof that the report's risk score is within 0..100, with the
-  // digest of its inputs committed next to it. Only a proof the local
-  // verifier accepted is listed.
-  let zkProofs: string[] = [];
-  if (includeZKProofs) {
-    try {
-      const [{ proveRiskScore }, { computeBaseRiskScore, computeInputsHash, SENTIMENT_CODE }] = await Promise.all([
-        import('../../../zk/prover/ProofGenerator'),
-        import('../../../zk/prover/riskCanonical'),
-      ]);
-      const periodPortfolioId = parseInt(portfolioId, 10) || 0;
-      const nowMs = Date.now();
-      const canonicalExposures = assetRisks.map((r) => ({
-        asset: r.asset,
-        exposureBps: Math.round(r.allocation * 100),
-        contributionBps: Math.round(r.contribution * 100),
-      }));
-      const volatilityBps = Math.round(avgVolatility * 10_000);
-      const baseRiskScore = computeBaseRiskScore(volatilityBps, canonicalExposures);
-      const canonical = {
-        version: 1 as const,
-        portfolioId: periodPortfolioId,
-        chain: 'report' as const,
-        timestampMs: nowMs,
-        portfolioValueUsdc: 0,
-        volatilityBps,
-        exposures: canonicalExposures,
-        sentimentCode: SENTIMENT_CODE.neutral,
-        baseRiskScore,
-        aiRiskScore: null,
-        totalRisk: Math.round(totalRisk),
-        threshold: 100,
-      };
-      const PROOF_TIMEOUT_MS = Number(process.env.REPORTING_ZK_TIMEOUT_MS) || 5000;
-      const proof = await Promise.race([
-        proveRiskScore(canonical.totalRisk, canonical.threshold, computeInputsHash(canonical)),
-        new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error(`ZK prover timeout after ${PROOF_TIMEOUT_MS}ms`)), PROOF_TIMEOUT_MS),
-        ),
-      ]);
-      if (proof.verified) zkProofs = [proof.commitment];
-    } catch (error) {
-      logger.warn('No risk-score proof for the risk report', { error: error instanceof Error ? error.message : String(error) });
-    }
-  }
-
   const report: RiskReport = {
     portfolioId,
     period: {
@@ -144,7 +96,7 @@ export async function generateRiskReport(
     },
     assetRisks,
     hedges: [],
-    zkProofs,
+    zkProofs: [],
     timestamp: Date.now(),
   };
 

@@ -6,32 +6,31 @@ seven private integers lie within public bounds, optionally with the relation
 and notional within the vault's caps, and the notional covering size times
 price.
 
-Status: verified off chain only, not wired into hedge execution, and not
-reviewed outside the project. The public position is the "Proofs" section of
-`content/whitepaper.md`.
+Status: proved and verified inside the application, off chain; not wired into
+hedge execution; not reviewed outside the project. The public position is the
+"Proofs" section of `content/whitepaper.md`.
 
 ```
-zkp/core/stark_core.py     field, extension field, NTT, Merkle trees, transcript, FRI
-zkp/core/bounds_stark.py   the proof: prover, verifier, audit opening
-zkp/core/hedge_stark.py    the hedge policy statement
-zkp/api/server.py          proof server (FastAPI)
-zk/prover/ProofGenerator.ts   client of the server; verifies what it receives
-zk/verifier/boundsStark.ts    second implementation of the verifier
+zk/prover/boundsProver.ts     the prover
+zk/prover/ProofGenerator.ts   proves, then verifies what it made
+zk/verifier/boundsStark.ts    the verifier; the prover takes its field, hash and transcript from here
+
+zkp/core/stark_core.py        reference implementation in Python: field, Merkle trees, transcript, FRI
+zkp/core/bounds_stark.py      reference prover and verifier, audit opening, the hooks the forgery tests use
+zkp/core/hedge_stark.py       the hedge policy statement
 ```
 
-## Run
-
-```bash
-python -m pip install -r zkp/requirements.txt
-python zkp/api/server.py        # port 8000; proves and verifies one statement before serving
-```
+The two implementations must agree: each verifier accepts the other prover's
+proofs, and both verifiers give the same verdict on a corpus of honest and
+forged proofs.
 
 ## Test
 
 ```bash
-python -m pytest zkp/tests                                              # prover, forgeries, server
-bun jest test/integration/zk-hedge-stark-cross-check.test.ts            # the two verifiers agree
-ZK_API_URL=http://127.0.0.1:8000 bun jest test/integration/zk-hedge-policy.test.ts   # through the server
+python -m pip install -r zkp/requirements.txt
+python -m pytest zkp/tests                                        # reference prover, forgeries, measured error
+bun jest test/integration/zk-hedge-stark-cross-check.test.ts      # both verifiers on one corpus
+bun jest test/integration/zk-hedge-policy.test.ts                 # the in-process prover against both verifiers
 ```
 
 ## Use
@@ -45,7 +44,7 @@ const proven = await proveHedgePolicy(
   { asset: 'BTC', side: 'LONG', leverageX: 3, notionalValueUsdcCents: 4_100_000, sizeMilli: 500, entryPriceCents: 8_200_000 },
   caps,
 );
-proven.verified;                                                  // the local verifier's verdict
+proven.verified;                                                  // the verifier's verdict
 verifyHedgePolicyProof(proven.proof, caps, proven.commitment);    // anyone can re-check, with caps they choose
 ```
 

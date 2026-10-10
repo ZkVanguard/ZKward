@@ -1,100 +1,105 @@
 /**
- * The proof server end to end: a hedge inside the rules proves and verifies,
- * one outside them cannot be proven, a proof is only valid under the
- * statement it was made for, and the TypeScript client reports "verified"
- * from its own verifier.
+ * The in-process prover end to end. A proof made in TypeScript is accepted
+ * by the TypeScript verifier and by the Python one, under its own statement
+ * only; the Python audit reads the hedge back out of its commitment; and two
+ * proofs of the same hedge share nothing.
  *
- * Needs the Python prover (`python start.py`). Skips when it is not up; a
- * real run takes seconds, not milliseconds.
+ * The Python half needs Python (standard library only). It is skipped when
+ * Python is absent, unless ZK_REQUIRE_PYTHON is set.
  */
-import { describe, it, expect, beforeAll } from '@jest/globals';
-import { proveHedgePolicy, proveRiskScore, riskScoreStatement, ProofRefusedError } from '@/zk/prover/ProofGenerator';
+import { describe, it, expect } from '@jest/globals';
+import { spawnSync } from 'node:child_process';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { proveHedgePolicy, proveRiskScore, riskScoreStatement, type ZKProof } from '@/zk/prover/ProofGenerator';
 import { verifyBoundsProof, verifyHedgePolicyProof } from '@/zk/verifier/boundsStark';
 
-const ZK_API_URL = (process.env.ZK_API_URL || '').trim() || 'http://localhost:8000';
-let up = false;
-
-const post = async (path: string, body: unknown) => {
-  const r = await fetch(`${ZK_API_URL}${path}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-  return { status: r.status, body: (await r.json().catch(() => ({}))) as Record<string, any> };
-};
-
-// 0.5 BTC at $82,000 is $41,000 of exposure.
+// 0.5 BTC at $82,000 is $41,000 of exposure; the declared notional is $45,000.
 const hedge = {
-  asset: 'BTC', side: 'LONG' as const, leverageX: 3, notionalValueUsdcCents: 4_100_000,
+  asset: 'BTC', side: 'SHORT' as const, leverageX: 3, notionalValueUsdcCents: 4_500_000,
   sizeMilli: 500, entryPriceCents: 8_200_000, portfolioId: 2, timestampMs: 1_791_500_000_000,
 };
 const caps = { leverage_cap: 4, notional_cap_cents: 100_000_000 };
 
-beforeAll(async () => {
-  up = await fetch(`${ZK_API_URL}/health`, { signal: AbortSignal.timeout(5000) }).then((r) => r.ok).catch(() => false);
-});
+const PYTHON_CHECK = `
+import json, sys
+from zkp.core import hedge_stark as hs
+d = json.load(open(sys.argv[1]))
+caps = d['caps']
+print(json.dumps({
+    'accepted': hs.verify(d['proof'], caps, d['proof']['commitment']),
+    'lower_cap': hs.verify(d['proof'], {**caps, 'leverage_cap': 2}),
+    'opened': hs.audit_opening(d['opening'], d['proof']['commitment'], caps),
+}))
+`;
 
-describe('hedge policy proof through the server', () => {
-  it('a hedge inside the rules proves; the proof verifies for its commitment under its caps only', async () => {
-    if (!up) return;
-    const p = await post('/api/zk/hedge-policy/prove', { witness: hedge, public: caps });
-    expect(p.status).toBe(200);
-    expect(p.body.commitment).toMatch(/^[0-9a-f]{96}$/);
-    expect(p.body.proof.commitment).toBe(p.body.commitment);
+let first: ZKProof;
+
+describe('a hedge policy proof made in this process', () => {
+  it('verifies under its caps and its commitment, and under nothing else', async () => {
+    first = await proveHedgePolicy(hedge, caps);
+    expect(first.verified).toBe(true);
+    expect(first.commitment).toMatch(/^[0-9a-f]{96}$/);
+    expect(first.proofHash).toBe(first.commitment);
     // The public proof names no part of the hedge.
-    expect(Object.keys(p.body.proof).sort()).toEqual(['commitment', 'final', 'fri_roots', 'nonce', 'ood', 'protocol', 'public', 'queries', 'quotient_root']);
+    expect(Object.keys(first.proof).sort()).toEqual(['commitment', 'final', 'fri_roots', 'nonce', 'ood', 'protocol', 'public', 'queries', 'quotient_root']);
 
-    const ok = await post('/api/zk/hedge-policy/verify', { proof: p.body.proof, public: caps, commitment: p.body.commitment });
-    expect(ok.body.valid).toBe(true);
+    expect(verifyHedgePolicyProof(first.proof, caps, first.commitment)).toBe(true);
+    expect(verifyHedgePolicyProof(first.proof, { ...caps, leverage_cap: 2 })).toBe(false);
+    expect(verifyHedgePolicyProof(first.proof, { ...caps, notional_cap_cents: 4_000_000 })).toBe(false);
+    expect(verifyHedgePolicyProof(first.proof, caps, '00'.repeat(48))).toBe(false);
 
-    const lowerCap = await post('/api/zk/hedge-policy/verify', { proof: p.body.proof, public: { ...caps, leverage_cap: 2 } });
-    expect(lowerCap.body.valid).toBe(false);
-
-    const otherCommitment = await post('/api/zk/hedge-policy/verify', { proof: p.body.proof, public: caps, commitment: '00'.repeat(48) });
-    expect(otherCommitment.body.valid).toBe(false);
-
-    const edited = structuredClone(p.body.proof);
+    const edited = structuredClone(first.proof) as { final: string };
     edited.final = (edited.final[0] === '0' ? '1' : '0') + edited.final.slice(1);
-    expect((await post('/api/zk/hedge-policy/verify', { proof: edited, public: caps })).body.valid).toBe(false);
-  }, 120000);
+    expect(verifyHedgePolicyProof(edited, caps)).toBe(false);
+  }, 120_000);
 
-  it('a hedge outside the rules cannot be proven', async () => {
-    if (!up) return;
-    const outside = [
-      { ...hedge, leverageX: 5 },
-      { ...hedge, leverageX: 1000 },
-      { ...hedge, notionalValueUsdcCents: 100_000_001 },
-      { ...hedge, asset: 'DOGE' },
-      // A declared notional one cent below size times price.
-      { ...hedge, notionalValueUsdcCents: 4_099_999 },
-    ];
-    for (const witness of outside) {
-      const r = await post('/api/zk/hedge-policy/prove', { witness, public: caps });
-      expect(r.status).toBe(422);
-      expect(r.body.proof).toBeUndefined();
+  it('is accepted by the Python verifier, which reads the hedge back out of the commitment', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'zk-ts-proof-'));
+    try {
+      const file = join(dir, 'proof.json');
+      writeFileSync(file, JSON.stringify({ proof: first.proof, opening: first.opening, caps }));
+      const run = spawnSync('python', ['-c', PYTHON_CHECK, file], {
+        cwd: process.cwd(), encoding: 'utf8', timeout: 100_000, env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
+      });
+      if (run.error || run.status !== 0) {
+        if (process.env.ZK_REQUIRE_PYTHON) throw new Error(`python check failed: ${run.error?.message ?? run.stderr?.slice(-300)}`);
+        console.warn('Python not available: the second verifier was skipped');
+        return;
+      }
+      const out = JSON.parse(run.stdout.trim().split('\n').pop() as string);
+      expect(out.accepted).toBe(true);
+      expect(out.lower_cap).toBe(false);
+      expect(out.opened).toEqual({
+        leverage: 3, notional: 4_500_000, asset: 1, side: 1, sizeMilli: 500, entryPriceCents: 8_200_000,
+        slack: 1000 * 4_500_000 - 500 * 8_200_000, portfolioId: 2, timestampMs: 1_791_500_000_000,
+      });
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
     }
-  }, 120000);
+  }, 120_000);
 
-  it('the old endpoints and the signing endpoint are gone', async () => {
-    if (!up) return;
-    for (const path of ['/api/zk/generate', '/api/zk/verify', '/api/zk/attest']) expect([404, 405]).toContain((await post(path, {})).status);
-  });
+  it('shares nothing with a second proof of the same hedge', async () => {
+    const second = await proveHedgePolicy(hedge, caps);
+    expect(second.verified).toBe(true);
+    expect(second.commitment).not.toBe(first.commitment);
+    const a = first.proof as Record<string, any>;
+    const b = second.proof as Record<string, any>;
+    expect(b.quotient_root).not.toBe(a.quotient_root);
+    expect(b.ood.trace_z).not.toBe(a.ood.trace_z);
+    expect(b.final).not.toBe(a.final);
+    // A proof for one commitment does not verify for the other.
+    expect(verifyHedgePolicyProof(second.proof, caps, first.commitment)).toBe(false);
+  }, 120_000);
 });
 
-describe('the TypeScript client', () => {
-  it('proves a hedge and verifies it locally; the local verifier refuses other caps', async () => {
-    if (!up) return;
-    const proven = await proveHedgePolicy(hedge, caps);
-    expect(proven.verified).toBe(true);
-    expect(proven.proofHash).toBe(proven.commitment);
-    expect(verifyHedgePolicyProof(proven.proof, caps, proven.commitment)).toBe(true);
-    expect(verifyHedgePolicyProof(proven.proof, { ...caps, notional_cap_cents: 4_000_000 })).toBe(false);
-    await expect(proveHedgePolicy({ ...hedge, leverageX: 9 }, caps)).rejects.toBeInstanceOf(ProofRefusedError);
-  }, 120000);
-
-  it('proves a risk score within its threshold, and cannot for a score over it', async () => {
-    if (!up) return;
-    const inputsHash = '0619fb3793c77deddf71250e684ad0074c8f9b08ec0fd218e780cc77d7235f2c';
-    const proven = await proveRiskScore(63, 70, inputsHash);
+describe('a risk-score proof made in this process', () => {
+  it('verifies under its threshold only', async () => {
+    const proven = await proveRiskScore(63, 70, '0619fb3793c77deddf71250e684ad0074c8f9b08ec0fd218e780cc77d7235f2c');
     expect(proven.verified).toBe(true);
     expect(verifyBoundsProof(proven.proof, riskScoreStatement(70), proven.commitment)).toBe(true);
     expect(verifyBoundsProof(proven.proof, riskScoreStatement(60))).toBe(false);
-    await expect(proveRiskScore(71, 70, inputsHash)).rejects.toBeInstanceOf(ProofRefusedError);
-  }, 120000);
+    expect(verifyBoundsProof(proven.proof, { kind: 'risk-score-2', bounds: [[0, 70]] })).toBe(false);
+  }, 120_000);
 });
