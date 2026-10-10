@@ -381,23 +381,40 @@ def _layer_shift(k: int) -> int:
 
 # ── Prover ───────────────────────────────────────────────────────────
 
-def prove(witness: Dict[str, Any], public: Dict[str, Any], *, skip_checks_for_tests: bool = False) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+def prove(witness: Dict[str, Any], public: Dict[str, Any], *, skip_checks_for_tests: bool = False,
+          attack_hooks_for_tests: Optional[Dict[str, Any]] = None) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     """
     Prove the hedge policy for `witness`. Returns (proof, opening). The proof
     is public; its `commitment` is the hedge commitment. The opening is the
     prover's secret: it is what an auditor needs to read the hedge back.
 
     `skip_checks_for_tests` makes this a dishonest prover: it proves whatever
-    it is given, without checking the witness or its own polynomials. It
-    exists so the tests can show the VERIFIER rejects such proofs.
+    it is given, without checking the witness or its own polynomials.
+    `attack_hooks_for_tests` lets a test replace what such a prover sends at
+    each step (see `_commit_phase`). Both exist so the tests can show that
+    the VERIFIER rejects, whatever the prover does.
     """
-    public = normalize_public(public)
-    honest = not skip_checks_for_tests
+    state = _commit_phase(witness, normalize_public(public), not skip_checks_for_tests, attack_hooks_for_tests or {})
+    nonce = state['transcript'].grind(GRINDING_BITS)
+    return _query_phase(state, nonce), state['opening']
+
+
+def _commit_phase(witness: Dict[str, Any], public: Dict[str, int], honest: bool, hooks: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Everything the prover sends before the queries are known. Hooks, used
+    only by tests acting as a malicious prover:
+      'lde'       (lde) -> lde                       replace the committed trace
+      'ood'       (context) -> (trace_z, trace_zn, chunks_z)   lie about the out-of-domain values
+      'fri_layer' (k, layer) -> layer                commit to something other than the true fold
+      'final'     (last_layer, shift) -> coefficients          choose the final polynomial freely
+    """
     cols = build_trace(witness, public, check=honest)
 
     # 1. Trace polynomials and their commitment on L.
     coeffs = [intt(c, OMEGA_N) for c in cols]
     lde = [coset_evaluate(c, M, SHIFT) for c in coeffs]
+    if 'lde' in hooks:
+        lde = hooks['lde'](lde)
     trace_salts = [secrets.token_bytes(16) for _ in range(M)]
     trace_tree = MerkleTree([leaf_hash(i, _row_bytes([lde[c][i] for c in range(WIDTH)]) + trace_salts[i]) for i in range(M)])
 
@@ -469,6 +486,11 @@ def prove(witness: Dict[str, Any], public: Dict[str, Any], *, skip_checks_for_te
     trace_z = [fp_poly_at_k(c, z) for c in coeffs]
     trace_zn = [fp_poly_at_k(c, zn) for c in coeffs]
     chunks_z = [k_poly_at_k(p, z) for p in chunk_coeffs]
+    if 'ood' in hooks:
+        trace_z, trace_zn, chunks_z = hooks['ood']({
+            'z': z, 'zn': zn, 'alphas': alphas, 'public': public,
+            'trace_z': trace_z, 'trace_zn': trace_zn, 'chunks_z': chunks_z,
+        })
     t.absorb(b'ood', _k_list_bytes(trace_z + trace_zn + chunks_z))
 
     # 5. DEEP combination, then FRI.
@@ -486,21 +508,43 @@ def prove(witness: Dict[str, Any], public: Dict[str, Any], *, skip_checks_for_te
     for k in range(FRI_LAYERS):
         layer = fold_layer(layer, beta, _layer_shift(k))
         if k + 1 < FRI_LAYERS:
+            if 'fri_layer' in hooks:
+                layer = hooks['fri_layer'](k + 1, layer)
             tree = MerkleTree([leaf_hash(i, k_bytes(v)) for i, v in enumerate(layer)])
             fri_layers.append(layer)
             fri_trees.append(tree)
             t.absorb(b'fri', tree.root)
             beta = t.draw_k()
     final_shift = _layer_shift(FRI_LAYERS)
-    final_re = coset_interpolate([v[0] for v in layer], final_shift)
-    final_im = coset_interpolate([v[1] for v in layer], final_shift)
-    if honest and (any(final_re[FINAL_DEGREE:]) or any(final_im[FINAL_DEGREE:])):
-        raise HedgeProofError('FRI did not reach a low-degree final polynomial')
-    final = list(zip(final_re[:FINAL_DEGREE], final_im[:FINAL_DEGREE]))
+    if 'final' in hooks:
+        final = hooks['final'](layer, final_shift)
+    else:
+        final_re = coset_interpolate([v[0] for v in layer], final_shift)
+        final_im = coset_interpolate([v[1] for v in layer], final_shift)
+        if honest and (any(final_re[FINAL_DEGREE:]) or any(final_im[FINAL_DEGREE:])):
+            raise HedgeProofError('FRI did not reach a low-degree final polynomial')
+        final = list(zip(final_re[:FINAL_DEGREE], final_im[:FINAL_DEGREE]))
     t.absorb(b'final', _k_list_bytes(final))
 
-    # 6. Grinding and queries.
-    nonce = t.grind(GRINDING_BITS)
+    return {
+        'transcript': t, 'public': public, 'lde': lde, 'trace_salts': trace_salts, 'trace_tree': trace_tree,
+        'chunk_lde': chunk_lde, 'mask_lde': mask_lde, 'quotient_salts': quotient_salts, 'quotient_tree': quotient_tree,
+        'trace_z': trace_z, 'trace_zn': trace_zn, 'chunks_z': chunks_z,
+        'fri_layers': fri_layers, 'fri_trees': fri_trees, 'final': final,
+        'opening': {
+            'protocol': f'{AIR_ID}-v{AIR_VERSION}',
+            'commitment': trace_tree.root.hex(),
+            'columns': [_row_bytes(c).hex() for c in coeffs],
+            'salts': b''.join(trace_salts).hex(),
+        },
+    }
+
+
+def _query_phase(state: Dict[str, Any], nonce: int) -> Dict[str, Any]:
+    """Draw the query positions from the transcript (after the grinding nonce) and open them."""
+    t = state['transcript']
+    lde, chunk_lde, mask_lde = state['lde'], state['chunk_lde'], state['mask_lde']
+    trace_tree, quotient_tree = state['trace_tree'], state['quotient_tree']
     positions = [t.draw_index(M // 2) for _ in range(NUM_QUERIES)]
     queries = []
     for p in positions:
@@ -510,7 +554,7 @@ def prove(witness: Dict[str, Any], public: Dict[str, Any], *, skip_checks_for_te
         for k in range(1, FRI_LAYERS):
             size = M >> k
             lo = idx % (size // 2)
-            tree, values = fri_trees[k - 1], fri_layers[k - 1]
+            tree, values = state['fri_trees'][k - 1], state['fri_layers'][k - 1]
             fri_open.append([
                 {'value': k_bytes(values[i]).hex(), 'path': [h.hex() for h in tree.open(i)]}
                 for i in (lo, lo + size // 2)
@@ -518,36 +562,32 @@ def prove(witness: Dict[str, Any], public: Dict[str, Any], *, skip_checks_for_te
             idx = lo
         queries.append({
             'trace': [
-                {'row': _row_bytes([lde[c][i] for c in range(WIDTH)]).hex(), 'salt': trace_salts[i].hex(),
+                {'row': _row_bytes([lde[c][i] for c in range(WIDTH)]).hex(), 'salt': state['trace_salts'][i].hex(),
                  'path': [h.hex() for h in trace_tree.open(i)]}
                 for i in pair
             ],
             'quotient': [
                 {'values': _k_list_bytes([chunk_lde[j][i] for j in range(NUM_CHUNKS)] + [mask_lde[i]]).hex(),
-                 'salt': quotient_salts[i].hex(), 'path': [h.hex() for h in quotient_tree.open(i)]}
+                 'salt': state['quotient_salts'][i].hex(), 'path': [h.hex() for h in quotient_tree.open(i)]}
                 for i in pair
             ],
             'fri': fri_open,
         })
-
-    proof = {
+    return {
         'protocol': f'{AIR_ID}-v{AIR_VERSION}',
-        'public': public,
+        'public': state['public'],
         'commitment': trace_tree.root.hex(),
         'quotient_root': quotient_tree.root.hex(),
-        'ood': {'trace_z': _k_list_bytes(trace_z).hex(), 'trace_zn': _k_list_bytes(trace_zn).hex(), 'chunks_z': _k_list_bytes(chunks_z).hex()},
-        'fri_roots': [tree.root.hex() for tree in fri_trees],
-        'final': _k_list_bytes(final).hex(),
+        'ood': {
+            'trace_z': _k_list_bytes(state['trace_z']).hex(),
+            'trace_zn': _k_list_bytes(state['trace_zn']).hex(),
+            'chunks_z': _k_list_bytes(state['chunks_z']).hex(),
+        },
+        'fri_roots': [tree.root.hex() for tree in state['fri_trees']],
+        'final': _k_list_bytes(state['final']).hex(),
         'nonce': nonce,
         'queries': queries,
     }
-    opening = {
-        'protocol': proof['protocol'],
-        'commitment': proof['commitment'],
-        'columns': [_row_bytes(c).hex() for c in coeffs],
-        'salts': b''.join(trace_salts).hex(),
-    }
-    return proof, opening
 
 
 # ── Verifier ─────────────────────────────────────────────────────────
