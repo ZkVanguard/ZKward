@@ -12,7 +12,7 @@
  * relation 1000 * v1 = v4 * v5 + v6". The bounds come from the caller. The
  * hedge policy is one such statement (`hedgePolicyStatement`).
  *
- * Protocol: Goldilocks field with challenges in its quadratic extension,
+ * Protocol: Goldilocks field with challenges in its quartic extension,
  * SHA-256 Merkle commitments, a Fiat-Shamir transcript re-run here, an
  * out-of-domain check of the constraints, and FRI on the DEEP quotients.
  * No setup of any kind.
@@ -22,7 +22,7 @@ import { createHash } from 'node:crypto';
 // ── Field ────────────────────────────────────────────────────────────
 const P = 0xffffffff00000001n; // 2^64 - 2^32 + 1
 const GENERATOR = 7n;
-const NONRESIDUE = 7n; // the extension is Fp[u] / (u^2 - 7)
+const NONRESIDUE = 7n; // the extension is Fp[u] / (u^4 - 7), about 2^256 elements
 
 const mod = (a: bigint): bigint => ((a % P) + P) % P;
 
@@ -46,18 +46,35 @@ function inv(a: bigint): bigint {
 
 const rootOfUnity = (n: number): bigint => powMod(GENERATOR, (P - 1n) / BigInt(n));
 
-type K = readonly [bigint, bigint];
-const K_ZERO: K = [0n, 0n];
-const K_ONE: K = [1n, 0n];
-const kAdd = (a: K, b: K): K => [mod(a[0] + b[0]), mod(a[1] + b[1])];
-const kSub = (a: K, b: K): K => [mod(a[0] - b[0]), mod(a[1] - b[1])];
-const kMul = (a: K, b: K): K => [mod(a[0] * b[0] + NONRESIDUE * a[1] * b[1]), mod(a[0] * b[1] + a[1] * b[0])];
-const kScale = (a: K, s: bigint): K => [mod(a[0] * s), mod(a[1] * s)];
-const kEq = (a: K, b: K): boolean => a[0] === b[0] && a[1] === b[1];
+type K = readonly [bigint, bigint, bigint, bigint]; // a0 + a1 u + a2 u^2 + a3 u^3
+const DEGREE = 4;
+const K_BYTES = 8 * DEGREE;
+const K_ZERO: K = [0n, 0n, 0n, 0n];
+const K_ONE: K = [1n, 0n, 0n, 0n];
+const kFrom = (x: bigint): K => [mod(x), 0n, 0n, 0n];
+const kAdd = (a: K, b: K): K => [mod(a[0] + b[0]), mod(a[1] + b[1]), mod(a[2] + b[2]), mod(a[3] + b[3])];
+const kSub = (a: K, b: K): K => [mod(a[0] - b[0]), mod(a[1] - b[1]), mod(a[2] - b[2]), mod(a[3] - b[3])];
+const kMul = (a: K, b: K): K => [
+  mod(a[0] * b[0] + NONRESIDUE * (a[1] * b[3] + a[2] * b[2] + a[3] * b[1])),
+  mod(a[0] * b[1] + a[1] * b[0] + NONRESIDUE * (a[2] * b[3] + a[3] * b[2])),
+  mod(a[0] * b[2] + a[1] * b[1] + a[2] * b[0] + NONRESIDUE * a[3] * b[3]),
+  mod(a[0] * b[3] + a[1] * b[2] + a[2] * b[1] + a[3] * b[0]),
+];
+const kScale = (a: K, s: bigint): K => [mod(a[0] * s), mod(a[1] * s), mod(a[2] * s), mod(a[3] * s)];
+const kEq = (a: K, b: K): boolean => a[0] === b[0] && a[1] === b[1] && a[2] === b[2] && a[3] === b[3];
 
+/**
+ * Inverse through the tower K = F2[u]/(u^2 - w), F2 = Fp[w]/(w^2 - 7): with
+ * a = A + B u, 1/a = (A - B u) / (A^2 - w B^2), the denominator being in F2.
+ */
 function kInv(a: K): K {
-  const n = inv(a[0] * a[0] - NONRESIDUE * a[1] * a[1]);
-  return [mod(a[0] * n), mod(-a[1] * n)];
+  const [a0, a1, a2, a3] = a;
+  const n0 = mod(a0 * a0 + NONRESIDUE * a2 * a2 - 2n * NONRESIDUE * a1 * a3);
+  const n1 = mod(2n * a0 * a2 - a1 * a1 - NONRESIDUE * a3 * a3);
+  const d = inv(n0 * n0 - NONRESIDUE * n1 * n1);
+  const i0 = mod(n0 * d);
+  const i1 = mod(-n1 * d);
+  return [mod(a0 * i0 + NONRESIDUE * a2 * i1), mod(-(a1 * i0 + NONRESIDUE * a3 * i1)), mod(a0 * i1 + a2 * i0), mod(-(a1 * i1 + a3 * i0))];
 }
 
 function kPow(a: K, e: number): K {
@@ -75,24 +92,20 @@ function polyAtK(coeffs: readonly bigint[], x: K): K {
   let acc: K = K_ZERO;
   for (let i = coeffs.length - 1; i >= 0; i--) {
     const m = kMul(acc, x);
-    acc = [mod(m[0] + coeffs[i]), m[1]];
+    acc = [mod(m[0] + coeffs[i]), m[1], m[2], m[3]];
   }
   return acc;
 }
 
 /** A polynomial with extension coefficients at a base-field point. */
 function kPolyAtFp(coeffs: readonly K[], x: bigint): K {
-  let re = 0n;
-  let im = 0n;
-  for (let i = coeffs.length - 1; i >= 0; i--) {
-    re = mod(re * x + coeffs[i][0]);
-    im = mod(im * x + coeffs[i][1]);
-  }
-  return [re, im];
+  let acc: K = K_ZERO;
+  for (let i = coeffs.length - 1; i >= 0; i--) acc = kAdd(kScale(acc, x), coeffs[i]);
+  return acc;
 }
 
 // ── Parameters (must equal zkp/core/bounds_stark.py) ──────────────────
-const PROTOCOL = 'zkward-bounds-v4';
+const PROTOCOL = 'zkward-bounds-v5';
 const N = 512;
 const ACTIVE = 64;
 const RANGE_BITS = 62;
@@ -100,11 +113,12 @@ const BLOWUP = 16;
 const M = N * BLOWUP;
 const LOG_M = 13;
 const SHIFT = GENERATOR;
-const NUM_QUERIES = 40;
+const NUM_QUERIES = 64;
 const GRINDING_BITS = 20;
 const FRI_LAYERS = 6;
 const FINAL_DEGREE = N >> FRI_LAYERS;
-const CHUNK = (3 * N) / 4;
+const CHUNK = (11 * N) / 16;
+const SALT_BYTES = 32;
 const NUM_CHUNKS = 3;
 const NUM_QUANTITIES = 7;
 const LIMIT = 1n << BigInt(RANGE_BITS);
@@ -217,9 +231,9 @@ export function hedgePolicyStatement(caps: HedgePolicyCaps): BoundsStatement {
 function statementBytes(st: Statement): Buffer {
   return Buffer.from(
     `{"active":${ACTIVE},"air":"zkward-bounds","blowup":${BLOWUP},` +
-      `"bounds":[${st.bounds.map(([lo, hi]) => `[${lo},${hi}]`).join(',')}],"field":"goldilocks-quadratic",` +
+      `"bounds":[${st.bounds.map(([lo, hi]) => `[${lo},${hi}]`).join(',')}],"field":"goldilocks-quartic",` +
       `"fri_layers":${FRI_LAYERS},"grinding":${GRINDING_BITS},"hash":"sha256","kind":"${st.kind}","n":${N},` +
-      `"product":${st.product},"queries":${NUM_QUERIES},"version":4}`,
+      `"product":${st.product},"queries":${NUM_QUERIES},"version":5}`,
     'utf8',
   );
 }
@@ -279,8 +293,10 @@ class Transcript {
   }
 
   drawK(): K {
-    const re = this.drawFp();
-    return [re, this.drawFp()];
+    const a0 = this.drawFp();
+    const a1 = this.drawFp();
+    const a2 = this.drawFp();
+    return [a0, a1, a2, this.drawFp()];
   }
 
   drawIndex(bound: number): number {
@@ -317,9 +333,9 @@ function fpList(data: Buffer): bigint[] {
 
 function kList(data: Buffer): K[] {
   const flat = fpList(data);
-  if (flat.length % 2 !== 0) throw new Error('bad extension-field encoding');
+  if (flat.length % DEGREE !== 0) throw new Error('bad extension-field encoding');
   const out: K[] = [];
-  for (let i = 0; i < flat.length; i += 2) out.push([flat[i], flat[i + 1]]);
+  for (let i = 0; i < flat.length; i += DEGREE) out.push([flat[i], flat[i + 1], flat[i + 2], flat[i + 3]]);
   return out;
 }
 
@@ -328,7 +344,7 @@ function quotientsAt(st: Statement, z: K, cur: readonly K[], nxt: readonly K[]):
   const zn = kScale(z, OMEGA_A);
   const wCur = polyAtK(WEIGHT_POLY, z);
   const wNxt = polyAtK(WEIGHT_POLY, zn);
-  const zMinusLast = kSub(z, [LAST, 0n]);
+  const zMinusLast = kSub(z, kFrom(LAST));
   const invVanishing = kInv(kSub(kPow(z, ACTIVE), K_ONE)); // 1 / (z^64 - 1)
   const invFirst = kInv(kSub(z, K_ONE));
   const invLast = kInv(zMinusLast);
@@ -342,12 +358,12 @@ function quotientsAt(st: Statement, z: K, cur: readonly K[], nxt: readonly K[]):
         return kMul(kSub(cur[c.a], kMul(cur[c.b], wCur)), invFirst);
       case 'sum': {
         const [lo, hi] = st.bounds[c.quantity];
-        return kMul(kSub(kAdd(cur[c.a1], cur[c.a2]), [mod(hi - lo), 0n]), invLast);
+        return kMul(kSub(kAdd(cur[c.a1], cur[c.a2]), kFrom(hi - lo)), invLast);
       }
       case 'prod': {
         if (!st.product) return K_ZERO;
         // Each value is its lower bound plus the final running sum of (v - lo).
-        const value = (k: number): K => kAdd(cur[4 * k + 1], [mod(st.bounds[k][0]), 0n]);
+        const value = (k: number): K => kAdd(cur[4 * k + 1], kFrom(st.bounds[k][0]));
         const expr = kSub(kSub(kScale(value(PROD_SCALED), PROD_SCALE), kMul(value(PROD_A), value(PROD_B))), value(PROD_SLACK));
         return kMul(expr, invLast);
       }
@@ -394,10 +410,10 @@ function verify(proof: Record<string, any>, st: Statement, commitment?: string):
   const quotientRoot = bytes(proof.quotient_root, 32);
   if (!Array.isArray(proof.fri_roots) || proof.fri_roots.length !== FRI_LAYERS - 1) return false;
   const friRoots: Buffer[] = proof.fri_roots.map((r: unknown) => bytes(r, 32));
-  const traceZBytes = bytes(proof.ood.trace_z, 16 * WIDTH);
-  const traceZnBytes = bytes(proof.ood.trace_zn, 16 * WIDTH);
-  const chunksZBytes = bytes(proof.ood.chunks_z, 16 * NUM_CHUNKS);
-  const finalBytes = bytes(proof.final, 16 * FINAL_DEGREE); // the length IS the degree bound
+  const traceZBytes = bytes(proof.ood.trace_z, K_BYTES * WIDTH);
+  const traceZnBytes = bytes(proof.ood.trace_zn, K_BYTES * WIDTH);
+  const chunksZBytes = bytes(proof.ood.chunks_z, K_BYTES * NUM_CHUNKS);
+  const finalBytes = bytes(proof.final, K_BYTES * FINAL_DEGREE); // the length IS the degree bound
   const traceZ = kList(traceZBytes);
   const traceZn = kList(traceZnBytes);
   const chunksZ = kList(chunksZBytes);
@@ -411,7 +427,8 @@ function verify(proof: Record<string, any>, st: Statement, commitment?: string):
   const alphas = CONSTRAINTS.map(() => t.drawK());
   t.absorb('quotient', quotientRoot);
   let z = t.drawK();
-  while (z[1] === 0n) z = t.drawK();
+  // Outside the proper subfields of K, as the prover draws it.
+  while (z[1] === 0n && z[3] === 0n) z = t.drawK();
   const zn = kScale(z, OMEGA_A);
   t.absorb('ood', Buffer.concat([traceZBytes, traceZnBytes, chunksZBytes]));
 
@@ -446,12 +463,12 @@ function verify(proof: Record<string, any>, st: Statement, commitment?: string):
     let a: K = K_ZERO;
     let b: K = K_ZERO;
     for (let c = 0; c < WIDTH; c++) {
-      a = kAdd(a, kMul(g1[c], kSub([row[c], 0n], traceZ[c])));
-      b = kAdd(b, kMul(g2[c], kSub([row[c], 0n], traceZn[c])));
+      a = kAdd(a, kMul(g1[c], kSub(kFrom(row[c]), traceZ[c])));
+      b = kAdd(b, kMul(g2[c], kSub(kFrom(row[c]), traceZn[c])));
     }
     for (let j = 0; j < NUM_CHUNKS; j++) a = kAdd(a, kMul(g3[j], kSub(opened[j], chunksZ[j])));
-    const inv1 = kInv([mod(x - z[0]), mod(-z[1])]);
-    const inv2 = kInv([mod(x - zn[0]), mod(-zn[1])]);
+    const inv1 = kInv(kSub(kFrom(x), z));
+    const inv2 = kInv(kSub(kFrom(x), zn));
     return kAdd(kAdd(kMul(a, inv1), kMul(b, inv2)), opened[NUM_CHUNKS]);
   };
 
@@ -464,10 +481,10 @@ function verify(proof: Record<string, any>, st: Statement, commitment?: string):
     for (let s = 0; s < 2; s++) {
       const i = p + s * (M / 2);
       const rowBytes = bytes(query.trace[s].row, 8 * WIDTH);
-      const salt = bytes(query.trace[s].salt, 16);
+      const salt = bytes(query.trace[s].salt, SALT_BYTES);
       if (!merkleVerify(traceRoot, i, leafHash(i, Buffer.concat([rowBytes, salt])), query.trace[s].path.map((h: unknown) => bytes(h)), LOG_M)) return false;
-      const openedBytes = bytes(query.quotient[s].values, 16 * (NUM_CHUNKS + 1));
-      const qSalt = bytes(query.quotient[s].salt, 16);
+      const openedBytes = bytes(query.quotient[s].values, K_BYTES * (NUM_CHUNKS + 1));
+      const qSalt = bytes(query.quotient[s].salt, SALT_BYTES);
       if (!merkleVerify(quotientRoot, i, leafHash(i, Buffer.concat([openedBytes, qSalt])), query.quotient[s].path.map((h: unknown) => bytes(h)), LOG_M)) return false;
       const x = mod(SHIFT * powMod(OMEGA_M, BigInt(i)));
       values.push(deepValue(x, fpList(rowBytes), kList(openedBytes)));
@@ -482,7 +499,7 @@ function verify(proof: Record<string, any>, st: Statement, commitment?: string):
       const opened: K[] = [];
       for (let s = 0; s < 2; s++) {
         const i = lo + s * (size / 2);
-        const valueBytes = bytes(pair[s].value, 16);
+        const valueBytes = bytes(pair[s].value, K_BYTES);
         if (!merkleVerify(friRoots[k - 1], i, leafHash(i, valueBytes), pair[s].path.map((h: unknown) => bytes(h)), LOG_M - k)) return false;
         opened.push(kList(valueBytes)[0]);
       }

@@ -36,7 +36,7 @@ Protocol (ethSTARK 2021/582 with DEEP-FRI 2019/336)
   6. DEEP quotients of every trace column and chunk, plus the mask, are
      combined into one polynomial, and FRI proves it has degree < N. That is
      the low-degree test of the TRACE, not only of the composition.
-  7. Grinding, then 40 queries. Every challenge is derived by the verifier.
+  7. Grinding, then 64 queries. Every challenge is derived by the verifier.
 
 Range checks use bits. For a value v in [lo, hi] the trace holds the bits of
 u = v - lo and of g = hi - v, each with a running sum, and one constraint
@@ -49,16 +49,24 @@ integers.
 Zero knowledge (a design argument, not a formal proof)
 -----------------------------------------------------
 Every value the verifier sees from the trace is an evaluation outside H. A
-column has 448 free random rows; the view depends on at most 4 * 40 + 4 = 164
+column has 448 free random rows; the view depends on at most 4 * 64 + 8 = 264
 field functionals of a column (the opened points, their w' shifts through
-the composition, and the two out-of-domain points), so those values are
-uniform whatever the witness is. Chunks are blinded with random polynomials
-of degree < 128 (98 openings), the FRI layers by the masking polynomial, and
-unopened leaves by per-leaf salts.
+the composition, and the two out-of-domain points, each four coordinates), so
+those values are uniform whatever the witness is. Chunks are blinded with
+random polynomials of degree < 160 (129 openings), the FRI layers by the
+masking polynomial, and unopened leaves by 32-byte per-leaf salts.
 
-Soundness: challenges come from a field of about 2^128 elements. With rate
-1/16 and 40 queries the query phase gives 80 bits by the proven bound and
-160 by the conjectured one, plus 20 bits of grinding. This code has not been
+Soundness and the quantum attacker
+----------------------------------
+Nothing here rests on factoring or discrete logarithms: the only assumption
+is the hash function. Parameters are sized so that the square-root speed-up
+a quantum computer gets on search still leaves a wide margin:
+  - challenges from a field of about 2^256 elements;
+  - rate 1/16 and 64 queries: the query phase errs with probability about
+    2^-119 by the proven bound and 2^-256 by the conjectured one, before 20
+    bits of grinding;
+  - SHA-256 commitments and 256-bit salts.
+The full accounting is in the arguments document. This code has not been
 reviewed by anyone outside the project; until it is, treat the numbers as the
 design target, not as a guarantee.
 """
@@ -68,14 +76,14 @@ import secrets
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from zkp.core.stark_core import (
-    GENERATOR, P, K, K_ZERO, MerkleTree, Transcript,
+    DEGREE, GENERATOR, K_BYTES, K_ONE, P, K, K_ZERO, MerkleTree, Transcript,
     batch_inv, coset_evaluate, coset_interpolate, fold_layer, fold_pair, fp_poly_at_k, intt, inv,
-    k_add, k_bytes, k_inv, k_mul, k_poly_at_fp, k_poly_at_k, k_pow, k_scale, k_sub,
+    k_add, k_bytes, k_from, k_in_base_or_quadratic_subfield, k_inv, k_mul, k_poly_at_fp, k_poly_at_k, k_pow, k_scale, k_sub,
     leaf_hash, merkle_verify, ntt, root_of_unity,
 )
 
 AIR_ID = 'zkward-bounds'
-AIR_VERSION = 4
+AIR_VERSION = 5
 
 # ── Parameters ───────────────────────────────────────────────────────
 N = 512                      # trace rows
@@ -86,13 +94,14 @@ BLOWUP = 16                  # rate 1/16
 M = N * BLOWUP               # size of the commitment domain L
 LOG_M = M.bit_length() - 1
 SHIFT = GENERATOR            # L = SHIFT * <omega_M>, disjoint from H
-NUM_QUERIES = 40
+NUM_QUERIES = 64
 GRINDING_BITS = 20
 FRI_LAYERS = 6
 FINAL_DEGREE = N >> FRI_LAYERS          # 8 coefficients sent in the clear
-CHUNK = 3 * N // 4                      # composition chunk size
+CHUNK = 11 * N // 16                    # composition chunk size
 NUM_CHUNKS = 3
 MASK = N - CHUNK                        # degree of each chunk's blinding polynomial
+SALT_BYTES = 32
 
 OMEGA_N = root_of_unity(N)
 OMEGA_M = root_of_unity(M)
@@ -102,7 +111,7 @@ LAST = inv(OMEGA_A)                     # w'^63, the last active row
 
 assert pow(OMEGA_N, STEP, P) == OMEGA_A and pow(OMEGA_M, NEXT, P) == OMEGA_A
 assert NUM_CHUNKS * CHUNK >= 2 * N and MASK >= 2 * NUM_QUERIES + 2
-assert N - ACTIVE >= 4 * NUM_QUERIES + 4
+assert N - ACTIVE >= 4 * NUM_QUERIES + 2 * DEGREE
 
 # Bit j of a value weighs 2^j; rows 62 and 63 weigh nothing, which is what
 # keeps every value below 2^62 without a constraint per unused bit.
@@ -186,7 +195,7 @@ def _span(public: Dict[str, Any], k: int) -> int:
 def statement_bytes(public: Dict[str, Any]) -> bytes:
     """Everything both sides agree on before the first message, bound into every challenge."""
     return json.dumps({
-        'air': AIR_ID, 'version': AIR_VERSION, 'field': 'goldilocks-quadratic', 'hash': 'sha256',
+        'air': AIR_ID, 'version': AIR_VERSION, 'field': 'goldilocks-quartic', 'hash': 'sha256',
         'n': N, 'active': ACTIVE, 'blowup': BLOWUP, 'queries': NUM_QUERIES, 'grinding': GRINDING_BITS,
         'fri_layers': FRI_LAYERS, 'kind': public['kind'], 'bounds': public['bounds'], 'product': public['product'],
     }, sort_keys=True, separators=(',', ':')).encode()
@@ -210,7 +219,7 @@ class _KOps:
     sub = staticmethod(k_sub)
     mul = staticmethod(k_mul)
     @staticmethod
-    def const(c): return (c % P, 0)
+    def const(c): return k_from(c)
 
 
 def _quotients(ops, public: Dict[str, Any], cur: Sequence, nxt: Sequence, w_cur, w_nxt, x_minus_last, inv_zh, inv_x_minus_1, inv_x_minus_last) -> List:
@@ -253,14 +262,14 @@ def _quotients(ops, public: Dict[str, Any], cur: Sequence, nxt: Sequence, w_cur,
 def _constraints_at_k(public: Dict[str, Any], z: K, cur: Sequence[K], nxt: Sequence[K]) -> List[K]:
     """The quotients at an extension-field point, from the trace values claimed there."""
     zn = k_scale(z, OMEGA_A)
-    one = (1, 0)
+    one = K_ONE
     return _quotients(
         _KOps, public, cur, nxt,
         fp_poly_at_k(WEIGHT_POLY, z), fp_poly_at_k(WEIGHT_POLY, zn),
-        k_sub(z, (LAST, 0)),
+        k_sub(z, k_from(LAST)),
         k_inv(k_sub(k_pow(z, ACTIVE), one)),
         k_inv(k_sub(z, one)),
-        k_inv(k_sub(z, (LAST, 0))),
+        k_inv(k_sub(z, k_from(LAST))),
     )
 
 
@@ -343,16 +352,10 @@ def _k_list_bytes(values: Sequence[K]) -> bytes:
 
 
 def _k_from_bytes(data: bytes) -> List[K]:
-    if len(data) % 16:
+    if len(data) % K_BYTES:
         raise ValueError('bad extension-field encoding')
-    out = []
-    for i in range(0, len(data), 16):
-        a = int.from_bytes(data[i:i + 8], 'little')
-        b = int.from_bytes(data[i + 8:i + 16], 'little')
-        if a >= P or b >= P:
-            raise ValueError('non-canonical field element')
-        out.append((a, b))
-    return out
+    flat = _fp_from_bytes(data)
+    return [tuple(flat[i:i + DEGREE]) for i in range(0, len(flat), DEGREE)]
 
 
 def _fp_from_bytes(data: bytes) -> List[int]:
@@ -365,10 +368,14 @@ def _fp_from_bytes(data: bytes) -> List[int]:
 
 
 def _draw_ood_point(t: Transcript) -> K:
-    """A point of K outside Fp: it is then outside H and L, and no denominator can vanish."""
+    """
+    A point of K outside its proper subfields. It is then outside H and L, no
+    denominator can vanish, and its four conjugates are distinct, which is
+    what the zero-knowledge count of out-of-domain values assumes.
+    """
     while True:
         z = t.draw_k()
-        if z[1] != 0:
+        if not k_in_base_or_quadratic_subfield(z):
             return z
 
 
@@ -385,19 +392,19 @@ def _deep_value(x: int, row: Sequence[int], chunks: Sequence[K], mask: K, z: K, 
     a = K_ZERO
     b = K_ZERO
     for c in range(WIDTH):
-        a = k_add(a, k_mul(g1[c], k_sub((row[c], 0), trace_z[c])))
-        b = k_add(b, k_mul(g2[c], k_sub((row[c], 0), trace_zn[c])))
+        a = k_add(a, k_mul(g1[c], k_sub(k_from(row[c]), trace_z[c])))
+        b = k_add(b, k_mul(g2[c], k_sub(k_from(row[c]), trace_zn[c])))
     for j in range(NUM_CHUNKS):
         a = k_add(a, k_mul(g3[j], k_sub(chunks[j], chunks_z[j])))
-    inv1 = k_inv(((x - z[0]) % P, (-z[1]) % P))
-    inv2 = k_inv(((x - zn[0]) % P, (-zn[1]) % P))
+    inv1 = k_inv(k_sub(k_from(x), z))
+    inv2 = k_inv(k_sub(k_from(x), zn))
     return k_add(k_add(k_mul(a, inv1), k_mul(b, inv2)), mask)
 
 
 def _composition_at_z(z: K, chunks_z: Sequence[K]) -> K:
     """C(z) from its chunks: sum z^(j * CHUNK) h_j(z)."""
     step = k_pow(z, CHUNK)
-    acc, power = K_ZERO, (1, 0)
+    acc, power = K_ZERO, K_ONE
     for j in range(NUM_CHUNKS):
         acc = k_add(acc, k_mul(power, chunks_z[j]))
         power = k_mul(power, step)
@@ -444,7 +451,7 @@ def _commit_phase(witness: Dict[str, Any], public: Dict[str, int], honest: bool,
     lde = [coset_evaluate(c, M, SHIFT) for c in coeffs]
     if 'lde' in hooks:
         lde = hooks['lde'](lde)
-    trace_salts = [secrets.token_bytes(16) for _ in range(M)]
+    trace_salts = [secrets.token_bytes(SALT_BYTES) for _ in range(M)]
     trace_tree = MerkleTree([leaf_hash(i, _row_bytes([lde[c][i] for c in range(WIDTH)]) + trace_salts[i]) for i in range(M)])
 
     t = Transcript(statement_bytes(public))
@@ -462,8 +469,7 @@ def _commit_phase(witness: Dict[str, Any], public: Dict[str, int], honest: bool,
     inv_xm1 = batch_inv([(v - 1) % P for v in xs])
     inv_xml = batch_inv([(v - LAST) % P for v in xs])
     weights = coset_evaluate(WEIGHT_POLY, M, SHIFT)
-    comp_re = [0] * M
-    comp_im = [0] * M
+    comp = [[0] * M for _ in range(DEGREE)]
     for i in range(M):
         j = (i + NEXT) % M
         q = _quotients(
@@ -471,38 +477,34 @@ def _commit_phase(witness: Dict[str, Any], public: Dict[str, int], honest: bool,
             [lde[c][i] for c in range(WIDTH)], [lde[c][j] for c in range(WIDTH)],
             weights[i], weights[j], (xs[i] - LAST) % P, zh_period[i % period], inv_xm1[i], inv_xml[i],
         )
-        re = im = 0
-        for a, v in zip(alphas, q):
-            re += a[0] * v
-            im += a[1] * v
-        comp_re[i] = re % P
-        comp_im[i] = im % P
-    c_re = coset_interpolate(comp_re, SHIFT)
-    c_im = coset_interpolate(comp_im, SHIFT)
-    if honest and (any(c_re[2 * N:]) or any(c_im[2 * N:])):
+        for d in range(DEGREE):
+            comp[d][i] = sum(a[d] * v for a, v in zip(alphas, q)) % P
+    c_parts = [coset_interpolate(part, SHIFT) for part in comp]
+    if honest and any(any(part[2 * N:]) for part in c_parts):
         raise ProofError('composition is not a polynomial of the expected degree: the trace breaks a constraint')
 
     # 3. Three chunks of degree < CHUNK, each blinded so that an opened
     #    chunk value says nothing: h0 + x^CHUNK r0, h1 - r0 + x^CHUNK r1, h2 - r1.
+    #    (The composition has degree < 2N, so the last chunk is mostly zeros.)
     def base(j: int) -> List[K]:
-        return [(c_re[i], c_im[i]) for i in range(j * CHUNK, (j + 1) * CHUNK)]
-    r0 = [(secrets.randbelow(P), secrets.randbelow(P)) for _ in range(MASK)]
-    r1 = [(secrets.randbelow(P), secrets.randbelow(P)) for _ in range(MASK)]
+        return [tuple(part[i] for part in c_parts) for i in range(j * CHUNK, (j + 1) * CHUNK)]
+    def random_k() -> K:
+        return tuple(secrets.randbelow(P) for _ in range(DEGREE))
+    r0 = [random_k() for _ in range(MASK)]
+    r1 = [random_k() for _ in range(MASK)]
     h0, h1, h2 = base(0), base(1), base(2)
     chunk_coeffs = [
         h0 + r0,
         [k_sub(h1[i], r0[i]) if i < MASK else h1[i] for i in range(CHUNK)] + r1,
         [k_sub(h2[i], r1[i]) if i < MASK else h2[i] for i in range(CHUNK)],
     ]
-    mask_coeffs = [(secrets.randbelow(P), secrets.randbelow(P)) for _ in range(N)]
+    mask_coeffs = [random_k() for _ in range(N)]
 
     def k_lde(poly: List[K]) -> List[K]:
-        re = coset_evaluate([c[0] for c in poly], M, SHIFT)
-        im = coset_evaluate([c[1] for c in poly], M, SHIFT)
-        return list(zip(re, im))
+        return list(zip(*(coset_evaluate([c[d] for c in poly], M, SHIFT) for d in range(DEGREE))))
     chunk_lde = [k_lde(p) for p in chunk_coeffs]
     mask_lde = k_lde(mask_coeffs)
-    quotient_salts = [secrets.token_bytes(16) for _ in range(M)]
+    quotient_salts = [secrets.token_bytes(SALT_BYTES) for _ in range(M)]
     quotient_tree = MerkleTree([
         leaf_hash(i, _k_list_bytes([chunk_lde[j][i] for j in range(NUM_CHUNKS)] + [mask_lde[i]]) + quotient_salts[i])
         for i in range(M)
@@ -548,11 +550,10 @@ def _commit_phase(witness: Dict[str, Any], public: Dict[str, int], honest: bool,
     if 'final' in hooks:
         final = hooks['final'](layer, final_shift)
     else:
-        final_re = coset_interpolate([v[0] for v in layer], final_shift)
-        final_im = coset_interpolate([v[1] for v in layer], final_shift)
-        if honest and (any(final_re[FINAL_DEGREE:]) or any(final_im[FINAL_DEGREE:])):
+        final_parts = [coset_interpolate([v[d] for v in layer], final_shift) for d in range(DEGREE)]
+        if honest and any(any(part[FINAL_DEGREE:]) for part in final_parts):
             raise ProofError('FRI did not reach a low-degree final polynomial')
-        final = list(zip(final_re[:FINAL_DEGREE], final_im[:FINAL_DEGREE]))
+        final = list(zip(*(part[:FINAL_DEGREE] for part in final_parts)))
     t.absorb(b'final', _k_list_bytes(final))
 
     return {
@@ -693,13 +694,13 @@ def _verify(proof: Dict[str, Any], public: Dict[str, int], commitment: Optional[
         for i, t_open, q_open in zip(pair, query['trace'], query['quotient']):
             row_bytes = bytes.fromhex(t_open['row'])
             salt = bytes.fromhex(t_open['salt'])
-            if len(row_bytes) != 8 * WIDTH or len(salt) != 16:
+            if len(row_bytes) != 8 * WIDTH or len(salt) != SALT_BYTES:
                 return False
             if not merkle_verify(trace_root, i, leaf_hash(i, row_bytes + salt), [bytes.fromhex(h) for h in t_open['path']], LOG_M):
                 return False
             q_bytes = bytes.fromhex(q_open['values'])
             q_salt = bytes.fromhex(q_open['salt'])
-            if len(q_bytes) != 16 * (NUM_CHUNKS + 1) or len(q_salt) != 16:
+            if len(q_bytes) != K_BYTES * (NUM_CHUNKS + 1) or len(q_salt) != SALT_BYTES:
                 return False
             if not merkle_verify(quotient_root, i, leaf_hash(i, q_bytes + q_salt), [bytes.fromhex(h) for h in q_open['path']], LOG_M):
                 return False
@@ -721,7 +722,7 @@ def _verify(proof: Dict[str, Any], public: Dict[str, int], commitment: Optional[
             pair_values: List[K] = []
             for i, o in zip((lo, lo + size // 2), opened_pair):
                 v_bytes = bytes.fromhex(o['value'])
-                if len(v_bytes) != 16:
+                if len(v_bytes) != K_BYTES:
                     return False
                 if not merkle_verify(fri_roots[k - 1], i, leaf_hash(i, v_bytes), [bytes.fromhex(h) for h in o['path']], depth):
                     return False
@@ -752,11 +753,11 @@ def audit_opening(opening: Dict[str, Any], commitment: str, public: Dict[str, An
         public = normalize_public(public)
         coeffs = [_fp_from_bytes(bytes.fromhex(c)) for c in opening['columns']]
         salts = bytes.fromhex(opening['salts'])
-        if len(coeffs) != WIDTH or any(len(c) != N for c in coeffs) or len(salts) != 16 * M:
+        if len(coeffs) != WIDTH or any(len(c) != N for c in coeffs) or len(salts) != SALT_BYTES * M:
             return None
         lde = [coset_evaluate(c, M, SHIFT) for c in coeffs]
         root = MerkleTree([
-            leaf_hash(i, _row_bytes([lde[c][i] for c in range(WIDTH)]) + salts[16 * i:16 * i + 16]) for i in range(M)
+            leaf_hash(i, _row_bytes([lde[c][i] for c in range(WIDTH)]) + salts[SALT_BYTES * i:SALT_BYTES * (i + 1)]) for i in range(M)
         ]).root
         if root.hex() != commitment.lower():
             return None

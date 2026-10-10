@@ -11,7 +11,7 @@ Evidence that the hedge policy STARK does what the theory says, beyond
   4. THE MEASUREMENT: with the verifier cut down to ONE query and no
      grinding, the best attack on FRI's query phase succeeds at the rate the
      theory predicts (the code rate, 1/16), not more. Forty queries then give
-     (1/16)^40 = 2^-160 against this attack, before grinding.
+     (1/16)^64 = 2^-256 against this attack, before grinding.
   5. Hiding, by linear algebra: every trace value the verifier's view depends
      on is an independent functional of the random rows, so those values are
      exactly uniform whatever the witness is.
@@ -113,22 +113,28 @@ class TestParameters:
         assert sc.root_of_unity(1 << 32) == 1753635133440165772
         assert pow(sc.root_of_unity(1 << 32), 1 << 31, P) == P - 1
 
-    def test_the_extension_is_a_field_of_about_2_128_elements(self):
-        # x^2 - 7 has no root in Fp, so Fp[u]/(u^2 - 7) is a field with p^2 elements.
+    def test_the_extension_is_a_field_of_about_2_256_elements(self):
+        # x^4 - 7 is irreducible over Fp: 7 is not a square and -28 is not a fourth power (p = 1 mod 4).
         assert pow(7, (P - 1) // 2, P) == P - 1
-        assert (P * P).bit_length() == 128
+        assert pow(P - 28, (P - 1) // 4, P) != 1
+        assert (P ** 4).bit_length() == 256
         rng = random.Random(1)
+        rand = lambda: tuple(rng.randrange(P) for _ in range(4))  # noqa: E731
         for _ in range(200):
-            a = (rng.randrange(P), rng.randrange(P))
-            b = (rng.randrange(P), rng.randrange(P))
-            c = (rng.randrange(P), rng.randrange(P))
+            a, b, c = rand(), rand(), rand()
             assert sc.k_mul(a, sc.k_add(b, c)) == sc.k_add(sc.k_mul(a, b), sc.k_mul(a, c))
             assert sc.k_mul(sc.k_mul(a, b), c) == sc.k_mul(a, sc.k_mul(b, c))
             if a != sc.K_ZERO:
                 assert sc.k_mul(a, sc.k_inv(a)) == sc.K_ONE
-        # Frobenius: a^p is the conjugate, so a^(p^2) = a.
-        a = (123, 456)
-        assert sc.k_pow(a, P) == (123, P - 456)
+        # Every nonzero element has order dividing p^4 - 1, and the Frobenius map has order exactly 4:
+        # a field with p^4 elements, not a ring that only looks like one.
+        a = rand()
+        assert sc.k_pow(a, P ** 4 - 1) == sc.K_ONE
+        assert sc.k_pow(a, P ** 2) != a and sc.k_pow(sc.k_pow(a, P ** 2), P ** 2) == a
+        # Elements of Fp are fixed by Frobenius; u is sent to another root of x^4 - 7.
+        assert sc.k_pow(sc.k_from(12345), P) == sc.k_from(12345)
+        u = (0, 1, 0, 0)
+        assert sc.k_pow(u, P) != u and sc.k_pow(sc.k_pow(u, P), 4) == sc.k_from(7)
 
     def test_the_domains_are_what_the_protocol_assumes(self):
         h = {pow(bs.OMEGA_N, i, P) for i in range(bs.N)}
@@ -146,8 +152,12 @@ class TestParameters:
         # FRI proves degree < N on a domain of 16 N: rate 1/16 at every layer.
         assert bs.M // bs.N == 16 and (bs.M >> bs.FRI_LAYERS) // bs.FINAL_DEGREE == 16
         bits_per_query = 4                       # log2(1/rate): the best known attack
-        assert bs.NUM_QUERIES * bits_per_query + bs.GRINDING_BITS == 180
-        assert bs.NUM_QUERIES * bits_per_query // 2 + bs.GRINDING_BITS == 100   # the proven (Johnson-radius) figure
+        # Query phase alone, before grinding: 2^-256 against the best known attack and about
+        # 2^-128 at the Johnson radius. A quantum search halves the exponent, so the first
+        # figure is the one sized for it. The field has 2^256 elements for the same reason.
+        assert bs.NUM_QUERIES * bits_per_query == 256
+        assert bs.NUM_QUERIES * bits_per_query // 2 == 128
+        assert (P ** sc.DEGREE).bit_length() == 256 and bs.SALT_BYTES == 32
 
 
 # ── 2. random inputs ─────────────────────────────────────────────────
@@ -244,13 +254,13 @@ class TestStepAttacks:
         rng = random.Random(5)
         for target in (1, 3, 5):
             def fake(k, layer, target=target):
-                return [(rng.randrange(P), rng.randrange(P)) for _ in layer] if k == target else layer
+                return [tuple(rng.randrange(P) for _ in range(4)) for _ in layer] if k == target else layer
             proof, _ = hs.prove(HEDGE, PUBLIC, skip_checks_for_tests=True, attack_hooks_for_tests={'fri_layer': fake})
             assert not hs.verify(proof, PUBLIC), target
 
     def test_a_final_polynomial_chosen_by_the_prover(self):
         rng = random.Random(6)
-        free = lambda layer, shift: [(rng.randrange(P), rng.randrange(P)) for _ in range(bs.FINAL_DEGREE)]  # noqa: E731
+        free = lambda layer, shift: [tuple(rng.randrange(P) for _ in range(4)) for _ in range(bs.FINAL_DEGREE)]  # noqa: E731
         proof, _ = hs.prove(HEDGE, PUBLIC, skip_checks_for_tests=True, attack_hooks_for_tests={'final': free})
         assert not hs.verify(proof, PUBLIC)
 
@@ -352,7 +362,7 @@ class TestHidingByLinearAlgebra:
         rows and uniformly random on the other 448. Everything the verifier's
         view depends on, for one column, is a list of linear functionals of
         it: its values at the opened points, at their w'-shifts (through the
-        composition), and at the two out-of-domain points (two field elements
+        composition), and at the two out-of-domain points (four field elements
         each). If those functionals are linearly independent as functions of
         the 448 random rows, their values are exactly uniform, whatever the
         active rows hold. This computes that rank for a real proof.
@@ -393,9 +403,9 @@ class TestHidingByLinearAlgebra:
             matrix.append([w * zh % P * sc.inv(x - w) % P for w in roots])
         for point in (z, sc.k_scale(z, bs.OMEGA_A)):
             zh = sc.k_scale(sc.k_sub(sc.k_pow(point, bs.N), sc.K_ONE), n_inv)
-            vals = [sc.k_scale(sc.k_mul(zh, sc.k_inv(sc.k_sub(point, (w, 0)))), w) for w in roots]
-            matrix.append([v[0] for v in vals])
-            matrix.append([v[1] for v in vals])
+            vals = [sc.k_scale(sc.k_mul(zh, sc.k_inv(sc.k_sub(point, sc.k_from(w)))), w) for w in roots]
+            for d in range(sc.DEGREE):
+                matrix.append([v[d] for v in vals])
 
-        assert len(matrix) <= 4 * bs.NUM_QUERIES + 4 <= len(free_rows)
+        assert len(matrix) <= 4 * bs.NUM_QUERIES + 2 * sc.DEGREE <= len(free_rows)
         assert _rank(matrix) == len(matrix)

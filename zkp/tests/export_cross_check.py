@@ -76,8 +76,8 @@ def main(out_path: str) -> None:
         'reshaped: one query repeated': lambda p: p.update(queries=[p['queries'][0]] * len(p['queries'])),
         'reshaped: a longer final polynomial': lambda p: p.update(final=p['final'] + '00' * 16),
         'reshaped: openings at swapped positions': lambda p: p['queries'][0]['trace'].reverse(),
-        'reshaped: a non-canonical field element': lambda p: p['ood'].update(trace_z='ff' * (16 * bs.WIDTH)),
-        'reshaped: another protocol version': lambda p: p.update(protocol='zkward-bounds-v3'),
+        'reshaped: a non-canonical field element': lambda p: p['ood'].update(trace_z='ff' * (sc.K_BYTES * bs.WIDTH)),
+        'reshaped: another protocol version': lambda p: p.update(protocol='zkward-bounds-v4'),
     }
     for name, edit in edits.items():
         p = copy.deepcopy(honest)
@@ -94,11 +94,11 @@ def main(out_path: str) -> None:
     cheat, _ = hs.prove(illegal, PUBLIC, skip_checks_for_tests=True, attack_hooks_for_tests={'ood': solve_first_chunk})
     add('dishonest prover: out-of-domain values forged so the identity holds', cheat, PUBLIC)
     cheat, _ = hs.prove(HEDGE, PUBLIC, skip_checks_for_tests=True, attack_hooks_for_tests={
-        'fri_layer': lambda k, layer: [(rng.randrange(sc.P), rng.randrange(sc.P)) for _ in layer] if k == 2 else layer,
+        'fri_layer': lambda k, layer: [tuple(rng.randrange(sc.P) for _ in range(sc.DEGREE)) for _ in layer] if k == 2 else layer,
     })
     add('dishonest prover: a FRI layer that is not a fold', cheat, PUBLIC)
     cheat, _ = hs.prove(HEDGE, PUBLIC, skip_checks_for_tests=True, attack_hooks_for_tests={
-        'final': lambda layer, shift: [(rng.randrange(sc.P), rng.randrange(sc.P)) for _ in range(bs.FINAL_DEGREE)],
+        'final': lambda layer, shift: [tuple(rng.randrange(sc.P) for _ in range(sc.DEGREE)) for _ in range(bs.FINAL_DEGREE)],
     })
     add('dishonest prover: a final polynomial of its own choosing', cheat, PUBLIC)
 
