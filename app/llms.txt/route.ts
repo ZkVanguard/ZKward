@@ -25,7 +25,7 @@ export async function GET() {
 
 - [Dashboard](${base}/dashboard): Live pool state, hedges, drawdown, cron health (per-user; requires wallet).
 - [Six-agent system](${base}/agents): Lead, Risk, Hedging, Reporting, Price Monitor, SUI Pool. Trades above $100K need a 2-of-3 vote.
-- [Zero-knowledge](${base}/zk): What the proof system is and is not today (forwards to the whitepaper's "Proofs" section).
+- [Zero-knowledge](${base}/zk): Make a real hedge policy proof and check it; states what the proof system is and is not today.
 - [Real-world assets](${base}/rwa): Custodian-signed attestations bind portfolios to off-chain assets, private by default.
 - [Simulator](${base}/simulator): Backtest the strategy against historical drawdowns.
 
