@@ -210,7 +210,6 @@ export const CronKeys = {
 
   // Pool NAV Monitor
   poolNavPeak: (poolId: string) => `poolNav:peak:${poolId}`,
-  poolNavLastHedge: (poolId: string) => `poolNav:lastHedge:${poolId}`,
 
   // Auto-Rebalance
   rebalanceLastHedge: (portfolioId: number) => `rebalance:lastHedge:${portfolioId}`,

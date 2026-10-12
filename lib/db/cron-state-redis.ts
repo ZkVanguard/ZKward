@@ -322,7 +322,6 @@ export const CronKeys = {
   requestCounter: 'priceAlert:requestCounter',
   priceAlertLastAlert: (asset: string) => `priceAlert:lastAlert:${asset}`,
   poolNavPeak: (poolId: string) => `poolNav:peak:${poolId}`,
-  poolNavLastHedge: (poolId: string) => `poolNav:lastHedge:${poolId}`,
   rebalanceLastHedge: (portfolioId: number) => `rebalance:lastHedge:${portfolioId}`,
   rebalancePeakValue: (portfolioId: number) => `rebalance:peakValue:${portfolioId}`,
   cronLastRun: (cronId: string) => `cron:lastRun:${cronId}`,
