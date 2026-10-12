@@ -21,9 +21,18 @@ import {
   MAX_CONSECUTIVE_LOSSES,
   MAX_DRAWDOWN_PCT,
   DAILY_LOSS_CAP_USD,
+  CUMULATIVE_LOSS_CAP_USD,
   BASE_STAKE_USD,
   HALT_DURATION_MS,
 } from './config';
+
+/** The venue did not confirm a close: nothing was booked and the trade is still on record. */
+export class CloseNotConfirmedError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'CloseNotConfirmedError';
+  }
+}
 
 export async function closeWithRetry(bf: BluefinService, symbol: string) {
   const attempt = () =>
@@ -70,6 +79,7 @@ export async function applyOutcome(
     peakPnlUsd: Math.max(prev.peakPnlUsd, newTotal),
     consecutiveLosses: realizedUsd > 0 ? 0 : prev.consecutiveLosses + 1,
     lastUpdatedMs: Date.now(),
+    ...(prev.haltAnchorPnlUsd !== undefined ? { haltAnchorPnlUsd: prev.haltAnchorPnlUsd } : {}),
     perAsset,
   };
   await setCronState(KEY_STATS, next);
@@ -120,6 +130,19 @@ export async function finalizeClosingExit(args: {
   halted: boolean;
 }> {
   const close = await closeWithRetry(args.bf, args.active.symbol);
+  // A close the venue did not confirm changes nothing here. Booking it and
+  // clearing the trade left a 5x position on the venue from 2026-10-07 that
+  // the trader believed was closed. The trade stays on record and the next
+  // run tries again; if the position is in fact gone, that run sees it.
+  if (!(close as { success?: boolean } | null)?.success) {
+    const why = String((close as { error?: string } | null)?.error || 'no confirmation from the venue').slice(0, 200);
+    await notifyDiscord(
+      `Close of ${args.active.symbol} ${args.active.side} was not confirmed by the venue (${why}). Nothing was booked; the trade stays open on record and is retried next run.`,
+      'ERROR',
+      { chain: 'sui', asset: args.active.asset, side: args.active.side, size: args.active.size },
+    ).catch(() => {});
+    throw new CloseNotConfirmedError(`close of ${args.active.symbol} not confirmed: ${why}`);
+  }
   const exitPrice = pickExitPrice(close, args.refPrice, args.active.entryPrice);
   const fees = Number((close as { fees?: number }).fees) || 0;
   const dir = args.active.side === 'LONG' ? 1 : -1;
@@ -152,10 +175,14 @@ export async function maybeHalt(
     maxDrawdownPct: MAX_DRAWDOWN_PCT,
     dailyLossCapUsd: DAILY_LOSS_CAP_USD,
     baseStakeUsd: BASE_STAKE_USD,
+    cumulativeLossCapUsd: CUMULATIVE_LOSS_CAP_USD,
     haltDurationMs: HALT_DURATION_MS,
   });
   if (decision.trip && decision.untilMs) {
     await setCronState(KEY_HALTED_UNTIL, decision.untilMs);
+    if (decision.newAnchorPnlUsd !== undefined) {
+      await setCronState(KEY_STATS, { ...stats, haltAnchorPnlUsd: decision.newAnchorPnlUsd });
+    }
     logger.warn('[PolymarketEdge] KILL SWITCH TRIPPED — halting 24h', {
       reason: decision.detail,
       consecutiveLosses: stats.consecutiveLosses,

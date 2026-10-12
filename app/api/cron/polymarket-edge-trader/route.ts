@@ -1032,36 +1032,46 @@ export async function GET(request: NextRequest): Promise<NextResponse<EdgeResult
         ref: refPrice,
       });
       const close = await closeWithRetry(bf, symbol);
-      const exitPrice = pickExitPrice(close, refPrice, fillPrice);
-      const fees = (Number(open.fees) || 0) + (Number((close as { fees?: number }).fees) || 0);
-      const dir = side === 'LONG' ? 1 : -1;
-      const realized = (exitPrice - fillPrice) * sizeQty * dir - fees;
-      const newStats = await applyOutcome(safeStats, realized, asset);
-      const newDaily = await applyDaily(daily, realized);
-      const halted = await maybeHalt(newStats, newDaily, haltedUntil);
-      await setCronState(KEY_ACTIVE, null);
+      // Only a confirmed close is booked. An unconfirmed one leaves the
+      // position on the venue, so it is recorded below as an open trade and
+      // managed from the next run instead of being forgotten.
+      if ((close as { success?: boolean } | null)?.success) {
+        const exitPrice = pickExitPrice(close, refPrice, fillPrice);
+        const fees = (Number(open.fees) || 0) + (Number((close as { fees?: number }).fees) || 0);
+        const dir = side === 'LONG' ? 1 : -1;
+        const realized = (exitPrice - fillPrice) * sizeQty * dir - fees;
+        const newStats = await applyOutcome(safeStats, realized, asset);
+        const newDaily = await applyDaily(daily, realized);
+        const halted = await maybeHalt(newStats, newDaily, haltedUntil);
+        await setCronState(KEY_ACTIVE, null);
+        await notifyDiscord(
+          `Slippage emergency close: ${slipBps.toFixed(1)}bps > ${MAX_SLIPPAGE_BPS}bps. Realized $${realized.toFixed(2)}`,
+          'WARN',
+          { asset, side, fill: fillPrice, ref: refPrice, exit: exitPrice },
+        );
+        return NextResponse.json({
+          success: true,
+          ranAt,
+          attempted: true,
+          action: 'slippage-exit',
+          closed: {
+            symbol,
+            asset,
+            realizedPnlUsd: realized,
+            win: realized > 0,
+            durationS: 0,
+          },
+          stats: newStats,
+          daily: newDaily,
+          haltedUntil: halted ? haltedUntil + HALT_DURATION_MS : undefined,
+          reason: `slip ${slipBps.toFixed(1)}bps > ${MAX_SLIPPAGE_BPS}bps`,
+        });
+      }
       await notifyDiscord(
-        `Slippage emergency close: ${slipBps.toFixed(1)}bps > ${MAX_SLIPPAGE_BPS}bps. Realized $${realized.toFixed(2)}`,
-        'WARN',
-        { asset, side, fill: fillPrice, ref: refPrice, exit: exitPrice },
-      );
-      return NextResponse.json({
-        success: true,
-        ranAt,
-        attempted: true,
-        action: 'slippage-exit',
-        closed: {
-          symbol,
-          asset,
-          realizedPnlUsd: realized,
-          win: realized > 0,
-          durationS: 0,
-        },
-        stats: newStats,
-        daily: newDaily,
-        haltedUntil: halted ? haltedUntil + HALT_DURATION_MS : undefined,
-        reason: `slip ${slipBps.toFixed(1)}bps > ${MAX_SLIPPAGE_BPS}bps`,
-      });
+        `Slippage emergency close of ${symbol} ${side} was not confirmed by the venue. The position is recorded as an open trade and managed from the next run.`,
+        'ERROR',
+        { chain: 'sui', asset, side, fill: fillPrice, ref: refPrice },
+      ).catch(() => {});
     }
 
     const trade: ActiveTrade = {
