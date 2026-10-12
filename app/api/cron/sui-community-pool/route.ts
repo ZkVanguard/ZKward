@@ -410,7 +410,7 @@ export async function GET(request: NextRequest): Promise<NextResponse<SuiCronRes
 
 
     // Step 5: Sync members to DB from on-chain
-    await syncMembersToDb({ suiService, suiPriceUsd: pricesUSD['SUI'] || 0 });
+    await syncMembersToDb({ suiService });
 
     // Step 6: Save pool state to DB
     await savePoolState({
