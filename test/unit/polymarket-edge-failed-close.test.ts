@@ -57,4 +57,14 @@ describe('a confirmed close', () => {
     expect(setCronState.mock.calls[0][1]).toMatchObject({ trades: 243, haltAnchorPnlUsd: -22 });
     expect(setCronState.mock.calls[2][1]).toBeNull();
   });
+
+  it('takes the venue account change as the result, less what the open cost, over the price estimate', async () => {
+    const withOpenCost = { ...(active as object), openCostUsd: 0.01 } as typeof active;
+    const closeHedge = jest.fn(async (_p: unknown) => ({ success: true, executionPrice: 117.53, fees: 0, settledUsd: -0.12 }));
+    const r = await finalizeClosingExit({ bf: { closeHedge } as never, active: withOpenCost, refPrice: 117.5, safeStats: stats, daily, haltedUntil: 0 });
+    expect(r.realized).toBeCloseTo(-0.13, 6);
+    // the open cost travels to the venue code so the row gets the same figure
+    expect(closeHedge).toHaveBeenCalledWith({ symbol: 'SOL-PERP', openCostUsd: 0.01 });
+    expect(recordOutcome.mock.calls[0][0]).toMatchObject({ realizedPnl: r.realized });
+  });
 });

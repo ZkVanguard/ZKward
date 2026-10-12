@@ -15,6 +15,7 @@ import * as HedgeResult from '@/lib/services/sui/bluefin/hedge-result';
 import { snapToStepSize } from '@/lib/services/sui/bluefin-order-size';
 import { checkMarkPriceDivergence } from '@/lib/services/sui/bluefin/markprice-divergence';
 import type { OrderSignedFields } from '@/lib/services/sui/bluefin/sign-request';
+import { readAccountSnapshot, settledDeltaUsd } from '@/lib/services/sui/bluefin/settled-equity';
 
 /** How long the fill verification may poll before giving up. */
 const VERIFY_POLL_DEADLINE_MS = 8_000;
@@ -37,6 +38,8 @@ export interface CloseHedgeParams {
   symbol: string;
   /** If not provided, closes entire position. */
   size?: number;
+  /** What opening this position settled (its fee). Booked on the row with the close, never returned in `settledUsd`. */
+  openCostUsd?: number;
 }
 
 export async function performCloseHedge(
@@ -106,6 +109,7 @@ export async function performCloseHedge(
       signedAtMillis,
     };
     const signature = await ctx.signOrder(signedFields);
+    const accountBefore = await readAccountSnapshot(ctx);
 
     // NOTE: BlueFin deprecated reduceOnly. Setting reduceOnly:true returns
     // orderHash but matching engine drops it (observed 2026-05-30/31).
@@ -211,6 +215,7 @@ export async function performCloseHedge(
       });
     }
 
+    let settledUsd: number | undefined;
     // Persist realized PnL + fees to DB. Best-effort — never blocks the close.
     // Without this, hedges.realized_pnl stays 0 and win-rate/signal validation break.
     try {
@@ -224,10 +229,26 @@ export async function performCloseHedge(
       const responsePnl = orderResponse?.realizedPnl;
       const hasResponsePnl = typeof responsePnl === 'string' && responsePnl !== '' && !isNaN(parseFloat(responsePnl));
       const closeFraction = preCloseSize > 0 ? Math.min(1, closeSize / preCloseSize) : 1;
-      const realizedPnl = hasResponsePnl
+      const estimatedPnl = hasResponsePnl
         ? parseFloat(responsePnl!)
         : Number((position.unrealizedPnl ?? 0)) * closeFraction;
-      const feesPaid = parseFloat(orderResponse?.fee || '0');
+      // The account's own change across the close is the result: it has the
+      // fee and the fill price in it, which the estimate does not.
+      const settled = await settledDeltaUsd({
+        ctx,
+        before: accountBefore,
+        symbol: params.symbol,
+        reflectsFill: (sizeNow) => sizeNow <= preCloseSize - closeSize * 0.99,
+        estimateUsd: estimatedPnl,
+        notionalUsd: closeSize * currentPrice,
+      });
+      settledUsd = settled ?? undefined;
+      const realizedPnl = (settled ?? estimatedPnl) - Math.max(0, params.openCostUsd ?? 0);
+      if (settled === null) {
+        logger.warn('[BlueFin] Close result is an estimate: the account change could not be established', {
+          symbol: params.symbol, estimatedPnl, hadAccountBefore: accountBefore !== null,
+        });
+      }
 
       // markPrice divergence check — silent-PnL-corruption barrier.
       // Only meaningful when we're using the unrealizedPnl fallback (since
@@ -267,7 +288,6 @@ export async function performCloseHedge(
         symbol: params.symbol,
         side: originalSide,
         realizedPnl,
-        feesPaid,
         closeOrderId: orderResponse?.orderHash,
         closeTxDigest: orderResponse?.txDigest,
       });
@@ -290,6 +310,7 @@ export async function performCloseHedge(
       executionPrice: parseFloat(orderResponse?.avgFillPrice || String(currentPrice)),
       filledSize: filledSize || closeSize,
       fees: parseFloat(orderResponse?.fee || '0'),
+      ...(settledUsd !== undefined ? { settledUsd } : {}),
       timestamp: Date.now(),
     };
   } catch (error) {

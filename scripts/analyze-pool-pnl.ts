@@ -17,6 +17,7 @@ import { existsSync } from 'fs';
 if (existsSync('.env.local')) loadDotenv({ path: '.env.local', override: true });
 import { SuiClient, getFullnodeUrl } from '@mysten/sui/client';
 import { Pool } from 'pg';
+import { TRADE_OUTCOME_SQL } from '../lib/db/hedges';
 
 const POOL_STATE_ID = (
   process.env.NEXT_PUBLIC_SUI_MAINNET_USDC_POOL_STATE
@@ -166,7 +167,19 @@ async function main() {
     console.log(`  ${row.status.padEnd(12)} ${String(n).padStart(3)} real (+${ops} ops)  notional $${notional.toFixed(2).padStart(10)}  current_pnl ${c(dollars(cpnl), cpnl >= 0 ? 'g' : 'r')}  realized_pnl ${c(dollars(rpnl), rpnl >= 0 ? 'g' : 'r')}  (${row.n_with_realized}/${n} have settled realized_pnl)`);
   }
   console.log('');
-  console.log(`  ${c('Realised PnL (closed, BlueFin-confirmed):', 'bold')}  ${c(dollars(sumRealizedClosed), sumRealizedClosed >= 0 ? 'g' : 'r')}  ← actual settled $ from the perp venue`);
+  console.log(`  ${c('Realised PnL (closed, as recorded on the rows):', 'bold')}  ${c(dollars(sumRealizedClosed), sumRealizedClosed >= 0 ? 'g' : 'r')}  ${c('← rows closed before the venue-settled record understate costs; compare with the venue account', 'dim')}`);
+
+  // A row is not a trade: the reconciler re-adopts leftover venue positions as
+  // new rows and closes rows the venue no longer shows. Count outcomes only.
+  const byKind = await safeQuery(pg, `
+    SELECT CASE WHEN ${TRADE_OUTCOME_SQL} THEN CASE WHEN order_id LIKE 'polyedge_%' THEN 'live trader' ELSE 'pool hedge' END ELSE 'reconciler (not a trade)' END AS kind,
+           COUNT(*)::int n, SUM((realized_pnl > 0)::int)::int wins, SUM((realized_pnl < 0)::int)::int losses, COALESCE(SUM(realized_pnl), 0)::numeric pnl
+    FROM hedges WHERE chain = 'sui' AND status IN ('closed','liquidated') AND notional_value >= 1 GROUP BY 1 ORDER BY 2 DESC
+  `);
+  for (const r of byKind.rows) {
+    const decided = r.wins + r.losses;
+    console.log(`  ${String(r.kind).padEnd(26)} ${String(r.n).padStart(4)} rows  ${decided ? `${r.wins}/${decided} wins` : 'no results'}  ${dollars(Number(r.pnl))}`);
+  }
   console.log(`  ${c('Snapshot PnL (current_pnl at close):    ', 'bold')}  ${c(dollars(sumCurrentClosed), sumCurrentClosed >= 0 ? 'g' : 'r')}  ${c('← live-PnL frozen at close (not equal to realised — informational)', 'dim')}`);
   console.log(`  ${c('Unrealised PnL on active hedges:        ', 'bold')}  ${c(dollars(sumCurrentActive), sumCurrentActive >= 0 ? 'g' : 'r')}`);
 

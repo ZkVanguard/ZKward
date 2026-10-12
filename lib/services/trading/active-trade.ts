@@ -47,6 +47,12 @@ export interface ActiveTrade {
    * Capped at MAX_ALIGNED_DEFER_COUNT. Optional for back-compat.
    */
   alignedDeferCount?: number;
+  /**
+   * What the open settled in the venue account (its fee), in USD. Subtracted
+   * from the close's settled result so one trade has one figure. Optional for
+   * back-compat; missing means unknown and counts as 0.
+   */
+  openCostUsd?: number;
 }
 
 /** cron_state key where the ActiveTrade blob lives. */

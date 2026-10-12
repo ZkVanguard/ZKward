@@ -17,6 +17,7 @@ import { BLUEFIN_PAIRS, BLUEFIN_NETWORKS, type BluefinHedgeResult, type BluefinP
 import * as HedgeResult from '@/lib/services/sui/bluefin/hedge-result';
 import { snapToStepSize } from '@/lib/services/sui/bluefin-order-size';
 import type { OrderSignedFields } from '@/lib/services/sui/bluefin/sign-request';
+import { readAccountSnapshot, settledDeltaUsd } from '@/lib/services/sui/bluefin/settled-equity';
 
 export interface OpenHedgeContext {
   walletAddress: string | null;
@@ -269,6 +270,7 @@ export async function performOpenHedge(
 
     const signature = await ctx.signOrder(signedFields);
 
+    const accountBefore = await readAccountSnapshot(ctx);
     // Snapshot pre-open so we can verify the order took effect.
     const preOpenPositions = await ctx.getPositions();
     const prePos = preOpenPositions.find((p) => p.symbol === params.symbol);
@@ -367,6 +369,18 @@ export async function performOpenHedge(
       elapsed: `${Date.now() - startTime}ms`,
     });
 
+    // What the open cost: the account's change across it (the fee; the margin
+    // only moves from cash into the position).
+    const responseFee = parseFloat(orderResponse?.fee || '0') || 0;
+    const settled = await settledDeltaUsd({
+      ctx,
+      before: accountBefore,
+      symbol: params.symbol,
+      reflectsFill: (sizeNow) => Math.abs(sizeNow - preOpenSize) >= (filledSize || params.size) * 0.99,
+      estimateUsd: -responseFee,
+      notionalUsd: (filledSize || params.size) * currentPrice,
+    });
+
     return {
       success: true,
       hedgeId,
@@ -374,7 +388,8 @@ export async function performOpenHedge(
       txDigest: orderResponse?.txDigest,
       executionPrice: parseFloat(orderResponse?.avgFillPrice || String(currentPrice)),
       filledSize: filledSize || params.size,
-      fees: parseFloat(orderResponse?.fee || '0'),
+      fees: responseFee,
+      ...(settled !== null ? { settledUsd: settled } : {}),
       timestamp: Date.now(),
     };
   } catch (error) {

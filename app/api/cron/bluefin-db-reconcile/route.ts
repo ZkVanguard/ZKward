@@ -37,7 +37,7 @@ import { verifyCronRequest } from '@/lib/qstash';
 import { notifyDiscord } from '@/lib/utils/discord-notify';
 import { BluefinService, BLUEFIN_PAIRS } from '@/lib/services/sui/BluefinService';
 import { classifyPosition } from '@/lib/services/sui/dust-manager';
-import { getActiveHedges, closeHedge, createHedge, isPaperHedge, type Hedge } from '@/lib/db/hedges';
+import { getActiveHedges, closeHedge, createHedge, isPaperHedge, RECONCILED_CLOSE, type Hedge } from '@/lib/db/hedges';
 import { getCronStateOr, setCronState } from '@/lib/db/cron-state';
 import { SUI_COMMUNITY_POOL_PORTFOLIO_ID } from '@/lib/constants';
 import { query } from '@/lib/db/postgres';
@@ -271,7 +271,7 @@ export async function GET(request: NextRequest): Promise<NextResponse<ReconcileR
           // entire history — same failure mode as close-hedge-impl.ts before
           // its unrealizedPnl fallback fix.
           const estRealized = Number(h.current_pnl ?? 0);
-          await closeHedge(h.order_id, estRealized);
+          await closeHedge(h.order_id, estRealized, 'closed', RECONCILED_CLOSE);
           closedDbRowIds.push(h.id);
         } catch (e) {
           logger.warn('[bluefin-db-reconcile] failed to close phantom DB row', {

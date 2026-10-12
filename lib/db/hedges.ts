@@ -406,10 +406,24 @@ export async function updateHedgeStatus(
   }
 }
 
+/**
+ * `close_reason` of a row the reconciler closed because the venue no longer
+ * showed the position. Its figure is the last mark-to-market the row held, not
+ * a venue result, so it is not a trade outcome: a win rate or trade count must
+ * leave these rows out (207 of the pool's 449 closed rows by 2026-10-12 were
+ * re-adoptions of the same leftover positions).
+ */
+export const RECONCILED_CLOSE = 'reconciled';
+
+/** SQL condition for rows that are trade outcomes: not re-adopted, not closed by the reconciler. */
+export const TRADE_OUTCOME_SQL = `order_id NOT LIKE 'reconstructed_%' AND COALESCE(close_reason, '') <> '${RECONCILED_CLOSE}'`;
+
 export async function closeHedge(
   orderId: string,
   realizedPnl: number,
-  status: 'closed' | 'liquidated' = 'closed'
+  status: 'closed' | 'liquidated' = 'closed',
+  /** Why the row was closed, when the closer is not a venue fill (see RECONCILED_CLOSE). */
+  closeReason?: string,
 ): Promise<void> {
   // Mirror realized_pnl into current_pnl so closed-hedge analytics that sum
   // current_pnl don't carry over stale price-watch snapshots.
@@ -417,11 +431,12 @@ export async function closeHedge(
   // nothing below runs for it.
   const sql = `
     UPDATE hedges
-    SET status = $1, realized_pnl = $2, current_pnl = $2, closed_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+    SET status = $1, realized_pnl = $2, current_pnl = $2, closed_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP,
+        close_reason = COALESCE($4, close_reason)
     WHERE order_id = $3 AND status NOT IN ('closed', 'liquidated')
     RETURNING id
   `;
-  const settled = await query(sql, [status, realizedPnl, orderId]);
+  const settled = await query(sql, [status, realizedPnl, orderId, closeReason ?? null]);
   if (settled.length === 0) {
     logger.warn('[Hedges] closeHedge: row already closed or missing — nothing settled', { orderId });
     return;
@@ -466,8 +481,7 @@ export async function updateHedgeFundingPaid(
 export async function closePerpHedgeBySymbolSide(args: {
   symbol: string;            // e.g. "BTC-PERP"
   side: 'LONG' | 'SHORT';    // direction of the ORIGINAL position being closed
-  realizedPnl: number;       // USD, can be negative
-  feesPaid?: number;         // USD
+  realizedPnl: number;       // USD, can be negative; net of fees when it came from the venue account
   closeOrderId?: string;     // Bluefin order hash for the close
   closeTxDigest?: string;
 }): Promise<{ updated: number }> {
@@ -476,11 +490,10 @@ export async function closePerpHedgeBySymbolSide(args: {
       status = 'closed',
       realized_pnl = COALESCE(realized_pnl, 0) + $3,
       current_pnl  = COALESCE(realized_pnl, 0) + $3,
-      funding_paid = COALESCE(funding_paid, 0) + COALESCE($4, 0),
       closed_at = CURRENT_TIMESTAMP,
       updated_at = CURRENT_TIMESTAMP,
-      tx_hash = COALESCE($6, tx_hash),
-      reason = COALESCE(reason, '') || ' | closed via ' || COALESCE($5, 'cron')
+      tx_hash = COALESCE($5, tx_hash),
+      reason = COALESCE(reason, '') || ' | closed via ' || COALESCE($4, 'cron')
     WHERE id = (
       SELECT id FROM hedges
       WHERE market = $1 AND side = $2 AND status = 'active' AND ${HEDGES_REAL_ONLY_SQL}
@@ -494,7 +507,6 @@ export async function closePerpHedgeBySymbolSide(args: {
       args.symbol,
       args.side,
       args.realizedPnl,
-      args.feesPaid ?? null,
       args.closeOrderId ?? null,
       args.closeTxDigest ?? null,
     ]);
