@@ -21,12 +21,9 @@ import { getNavHistory, getLatestNavSnapshot } from '@/lib/db/community-pool';
 import {
   getNumber,
   setNumber,
-  getTimestamp,
-  setTimestamp,
   setCronState,
   CronKeys,
 } from '@/lib/db/cron-state';
-import { COMMUNITY_POOL_PORTFOLIO_ID } from '@/lib/constants';
 import { errMsg } from '@/lib/utils/error-handler';
 import { computeRollingPeak } from '@/lib/services/hedging/rolling-peak';
 
@@ -113,11 +110,7 @@ const POOLS: Array<{
 // In-memory caches (warm path) — loaded from DB on cold start, saved on change
 const peakNavCache = new Map<string, number>();
 const navHistoryCache = new Map<string, { nav: number; timestamp: number }[]>();
-const lastPoolHedgeTimeCache = new Map<string, number>();
 let dbStateLoaded = false;
-
-// Last hedge time tracking to prevent spam (cooldown 4 hours)
-const POOL_HEDGE_COOLDOWN_MS = 4 * 60 * 60 * 1000;
 
 /**
  * Load critical state from database on cold start (once per invocation)
@@ -136,11 +129,6 @@ async function loadStateFromDb(): Promise<void> {
           type: 'peak' as const,
           value: v,
         })),
-        getTimestamp(CronKeys.poolNavLastHedge(pool.id)).then((v) => ({
-          pool: pool.id,
-          type: 'hedge' as const,
-          value: v,
-        })),
       ])
     );
 
@@ -150,8 +138,6 @@ async function loadStateFromDb(): Promise<void> {
         logger.info(
           `[PoolNAVMonitor] Loaded peak NAV from DB for ${r.pool}: $${r.value.toFixed(2)}`
         );
-      } else if (r.type === 'hedge' && r.value > 0) {
-        lastPoolHedgeTimeCache.set(r.pool, r.value);
       }
     }
   } catch (error: unknown) {
@@ -417,82 +403,6 @@ function updateInMemoryHistory(poolId: string, totalNAV: number): void {
 }
 
 /**
- * Trigger protective hedge for pool on significant loss
- */
-async function triggerPoolHedge(
-  pool: (typeof POOLS)[0],
-  totalNAV: number,
-  lossPercent: number,
-  largestAsset: string
-): Promise<boolean> {
-  const now = Date.now();
-
-  // Load state from DB on cold start
-  await loadStateFromDb();
-  const lastHedge = lastPoolHedgeTimeCache.get(pool.id) || 0;
-
-  // Check cooldown
-  if (now - lastHedge < POOL_HEDGE_COOLDOWN_MS) {
-    logger.info(`[PoolNAVMonitor] Hedge cooldown active for ${pool.id}, skipping`);
-    return false;
-  }
-
-  try {
-    const baseUrl = process.env.VERCEL
-      ? 'https://zkward.com'
-      : process.env.NEXTAUTH_URL || 'http://localhost:3000';
-
-    // Calculate hedge size - 25% of NAV as protective hedge
-    const hedgeRatio = 0.25;
-    const hedgeNotional = totalNAV * hedgeRatio;
-    const hedgeLeverage = 3; // Conservative leverage
-
-    logger.warn(`[PoolNAVMonitor] Triggering protective hedge for ${pool.id}`, {
-      lossPercent,
-      hedgeNotional,
-      asset: largestAsset,
-    });
-
-    const response = await fetch(`${baseUrl}/api/agents/hedging/execute`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Pool-Hedge-Trigger': 'true',
-        Authorization: `Bearer ${process.env.INTERNAL_API_SECRET || process.env.CRON_SECRET}`,
-      },
-      signal: AbortSignal.timeout(15000),
-      body: JSON.stringify({
-        portfolioId: COMMUNITY_POOL_PORTFOLIO_ID, // Community pool uses reserved ID (-1)
-        asset: largestAsset,
-        strategy: 'PROTECTIVE_PUT',
-        notionalValue: hedgeNotional,
-        leverage: hedgeLeverage,
-        side: 'SHORT', // Protective short since pool is NET LONG
-        orderType: 'MARKET',
-        reason: `Auto loss protection: ${pool.name} down ${Math.abs(lossPercent).toFixed(2)}%`,
-        simulationMode: false,
-        requiresSignature: false,
-      }),
-    });
-
-    if (response.ok) {
-      const result = await response.json();
-      lastPoolHedgeTimeCache.set(pool.id, now);
-      await setTimestamp(CronKeys.poolNavLastHedge(pool.id), now);
-      logger.info(`[PoolNAVMonitor] Protective hedge executed for ${pool.id}:`, result);
-      return true;
-    } else {
-      const errorText = await response.text();
-      logger.error(`[PoolNAVMonitor] Hedge failed for ${pool.id}:`, errorText);
-    }
-  } catch (error) {
-    logger.error(`[PoolNAVMonitor] Failed to trigger hedge for ${pool.id}:`, error);
-  }
-
-  return false;
-}
-
-/**
  * Monitor all pools
  */
 async function monitorPools(): Promise<{
@@ -595,11 +505,9 @@ async function monitorPools(): Promise<{
     }
 
     if (shouldHedge) {
-      // Find largest allocation asset to hedge
-      const largestAsset =
-        Object.entries(stats.allocations).sort((a, b) => b[1] - a[1])[0]?.[0] || 'BTC';
-
-      const lossToReport = Math.max(sharePriceLoss, Math.abs(navChangePercent), drawdownPercent);
+      // This monitor reports; it places no orders. Until 2026-10-12 it posted a
+      // "protective short" to a route that did not exist and logged it as placed.
+      // Responding to a loss belongs to the pool job's hedge step.
       const hedgeReason =
         sharePriceDeviation >= SHARE_PRICE_HEDGE_THRESHOLD
           ? `share price ${sharePriceLoss.toFixed(2)}% below $1.00`
@@ -607,22 +515,12 @@ async function monitorPools(): Promise<{
             ? `hourly loss ${Math.abs(navChangePercent).toFixed(2)}%`
             : `drawdown ${drawdownPercent.toFixed(2)}%`;
 
-      logger.warn(`[PoolNAVMonitor] 🚨 AUTO-HEDGE TRIGGER: ${hedgeReason}`, {
+      logger.warn(`[PoolNAVMonitor] Loss threshold crossed: ${hedgeReason}`, {
         sharePrice: stats.sharePrice,
         sharePriceLoss,
         navChangePercent,
         drawdownPercent,
       });
-
-      const hedged = await triggerPoolHedge(pool, stats.totalNAV, lossToReport, largestAsset);
-      if (hedged) {
-        alerts.push({
-          severity: 'WARNING',
-          type: 'PERFORMANCE',
-          message: `🛡️ ${pool.name} AUTO-HEDGED: Protective SHORT placed - ${hedgeReason}`,
-          timestamp: Date.now(),
-        });
-      }
     }
 
     const metrics: PoolMetrics = {

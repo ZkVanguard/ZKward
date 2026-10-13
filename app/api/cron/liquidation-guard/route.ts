@@ -1,15 +1,20 @@
 /**
- * Cron Job: Liquidation Risk Monitor
- * 
- * Monitors all leveraged positions for liquidation risk and executes:
- * - Add collateral when margin level drops below threshold
- * - Reduce position size to improve health
- * - Emergency close before liquidation
- * - Alert generation for critical positions
- * 
- * Schedule: Every 10 minutes via Upstash QStash
- * 
- * Security: Verified by QStash signature or CRON_SECRET
+ * Cron Job: Liquidation Guard
+ *
+ * Reads the pool's positions from the venue and closes one that is about to
+ * be liquidated, because a liquidation costs the margin and a penalty and a
+ * close a few percent earlier does not.
+ *
+ * It judges by the venue's own liquidation price (see liquidation-risk.ts).
+ * Until 2026-10-12 it estimated one from database rows and sent its closes to
+ * a route that did not exist, so it alerted every run and never acted.
+ *
+ * It acts while pool trading is paused: the pause stops the system opening or
+ * resizing risk, not a last-resort close (the same exemption the venue-health
+ * flatten has; see pool-trading-pause.ts).
+ *
+ * Schedule: every 10 minutes, from the master job's fanout.
+ * Security: jobs-service signature or CRON_SECRET.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -17,465 +22,120 @@ import { logger } from '@/lib/utils/logger';
 import { verifyCronRequest } from '@/lib/qstash';
 import { safeErrorResponse } from '@/lib/security/safe-error';
 import { errMsg } from '@/lib/utils/error-handler';
-import { getActiveHedges, isPaperHedge } from '@/lib/db/hedges';
-import type { Hedge } from '@/lib/db/hedges';
 import { notifyDiscord } from '@/lib/utils/discord-notify';
-import { setCronState } from '@/lib/db/cron-state';
+import { setCronState, tryClaimCronRun } from '@/lib/db/cron-state';
+import { BluefinService } from '@/lib/services/sui/BluefinService';
+import {
+  liquidationDistancePct, liquidationLevel, LIQUIDATION_EMERGENCY_PCT, LIQUIDATION_WARNING_PCT,
+} from '@/lib/services/sui/liquidation-risk';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 30;
 
-// Types
-interface LeveragedPosition {
-  id: string;
-  asset: string;
-  side: 'LONG' | 'SHORT';
-  entryPrice: number;
-  currentPrice: number;
-  size: number;
-  leverage: number;
-  collateral: number;
-  notionalValue: number;
-  marginLevel: number; // 100% = safe, 0% = liquidated
-  liquidationPrice: number;
-  healthScore: number; // 0-100
-  walletAddress: string;
-  portfolioId?: number;
-}
+/** One close attempt per symbol in this window: overlapping runs must not both send it. */
+const CLOSE_CLAIM_MS = 5 * 60 * 1000;
 
-interface LiquidationAction {
-  positionId: string;
-  action: 'ADD_COLLATERAL' | 'REDUCE_SIZE' | 'EMERGENCY_CLOSE' | 'ALERT';
-  amount?: number;
-  reason: string;
+interface GuardAction {
+  symbol: string;
+  side: 'LONG' | 'SHORT';
+  action: 'EMERGENCY_CLOSE' | 'ALERT';
+  distancePct: number;
+  liquidationPrice: number;
   executed: boolean;
   txHash?: string;
+  error?: string;
 }
 
 interface LiquidationGuardResult {
   success: boolean;
   positionsChecked: number;
-  actionsExecuted: LiquidationAction[];
-  summary: {
-    criticalCount: number;
-    warningCount: number;
-    healthyCount: number;
-    totalCollateralAtRisk: number;
-    averageMarginLevel: number;
-  };
+  actionsExecuted: GuardAction[];
+  summary: { criticalCount: number; warningCount: number; healthyCount: number; unknownCount: number; marginAtRiskUsd: number };
   duration: number;
   error?: string;
 }
 
-// Thresholds
-const MARGIN_LEVEL_CRITICAL = 120; // Below 120% = emergency action
-const MARGIN_LEVEL_WARNING = 150; // Below 150% = add collateral
-const _MARGIN_LEVEL_HEALTHY = 200; // Above 200% = healthy
-const LIQUIDATION_BUFFER_PERCENT = 5; // Close if within 5% of liquidation
-const COLLATERAL_TOP_UP_PERCENT = 20; // Add 20% more collateral when needed
-const SIZE_REDUCTION_PERCENT = 25; // Reduce size by 25% if collateral unavailable
+const EMPTY_SUMMARY = { criticalCount: 0, warningCount: 0, healthyCount: 0, unknownCount: 0, marginAtRiskUsd: 0 };
 
-/**
- * Fetch all leveraged positions from the hedge database
- */
-async function fetchLeveragedPositions(): Promise<LeveragedPosition[]> {
-  try {
-    const hedges = await getActiveHedges();
-
-    // Convert Hedge DB records to LeveragedPosition format
-    // Only include real leveraged positions (leverage > 1). Skip paper
-    // trades — they don't have BlueFin liquidation-price mechanics and
-    // just spam warnings like "No live price for XRP" (2026-09-17).
-    return hedges
-      .filter((h: Hedge) =>
-        h.leverage > 1 &&
-        h.entry_price != null && h.entry_price > 0 &&
-        !isPaperHedge(h)
-      )
-      .map((h: Hedge) => {
-        const collateral = h.notional_value / h.leverage;
-        return {
-          id: h.order_id,
-          asset: h.asset,
-          side: h.side,
-          entryPrice: h.entry_price!,
-          currentPrice: h.current_price || h.entry_price!,
-          size: h.size,
-          leverage: h.leverage,
-          collateral,
-          notionalValue: h.notional_value,
-          marginLevel: 200, // Will be recalculated with live prices
-          liquidationPrice: h.liquidation_price || 0,
-          healthScore: 100, // Will be recalculated
-          walletAddress: h.wallet_address || '',
-          portfolioId: h.portfolio_id || undefined,
-        };
-      });
-  } catch (error: unknown) {
-    logger.error('[LiquidationGuard] Error fetching positions from hedge DB', { error: errMsg(error) });
-    return [];
-  }
-}
-
-/**
- * Get current prices
- */
-async function getCurrentPrices(assets: string[]): Promise<Record<string, number>> {
-  try {
-    const baseUrl = process.env.VERCEL 
-      ? 'https://zkward.com' 
-      : process.env.NEXTAUTH_URL || 'http://localhost:3000';
-    
-    const response = await fetch(`${baseUrl}/api/prices?assets=${assets.join(',')}`, {
-      headers: { 'Content-Type': 'application/json' },
-      signal: AbortSignal.timeout(8000),
-    });
-    
-    if (!response.ok) {
-      return getDefaultPrices();
-    }
-    
-    const data = await response.json();
-    return data.prices || getDefaultPrices();
-  } catch {
-    return getDefaultPrices();
-  }
-}
-
-function getDefaultPrices(): Record<string, number> {
-  // Return empty map — no hardcoded prices. Callers must handle missing prices.
-  logger.warn('[LiquidationGuard] No live prices available — returning empty price map');
-  return {};
-}
-
-/**
- * Calculate margin level for a position
- * Margin Level = (Equity / Used Margin) * 100
- * Equity = Collateral + Unrealized P&L
- */
-function calculateMarginLevel(position: LeveragedPosition, currentPrice: number): { marginLevel: number; liquidationPrice: number; healthScore: number } {
-  const priceChange = currentPrice - position.entryPrice;
-  const direction = position.side === 'LONG' ? 1 : -1;
-  const unrealizedPnl = direction * (priceChange / position.entryPrice) * position.notionalValue;
-  
-  const equity = position.collateral + unrealizedPnl;
-  const usedMargin = position.notionalValue / position.leverage;
-  const marginLevel = (equity / usedMargin) * 100;
-  
-  // Calculate liquidation price
-  // For LONG: liquidation when equity = 0, so price drops enough to wipe collateral
-  // For SHORT: liquidation when price rises enough to wipe collateral
-  const maxLossPercent = (position.collateral / position.notionalValue) * 100;
-  const liquidationPrice = position.side === 'LONG'
-    ? position.entryPrice * (1 - maxLossPercent / 100)
-    : position.entryPrice * (1 + maxLossPercent / 100);
-  
-  // Health score 0-100
-  const healthScore = Math.min(100, Math.max(0, (marginLevel - 100) / 2));
-  
-  return { marginLevel, liquidationPrice, healthScore };
-}
-
-/**
- * Check how close position is to liquidation
- */
-function getDistanceToLiquidation(position: LeveragedPosition, currentPrice: number): number {
-  const { liquidationPrice } = calculateMarginLevel(position, currentPrice);
-  
-  if (position.side === 'LONG') {
-    return ((currentPrice - liquidationPrice) / currentPrice) * 100;
-  } else {
-    return ((liquidationPrice - currentPrice) / currentPrice) * 100;
-  }
-}
-
-/**
- * Execute add collateral — falls back to position reduction if unavailable
- */
-async function addCollateral(position: LeveragedPosition, amount: number): Promise<{ success: boolean; txHash?: string }> {
-  // Collateral top-up is not supported by the current hedge execution pipeline.
-  // Log the need and return false so the caller falls through to reducePosition().
-  logger.warn(`[LiquidationGuard] Collateral top-up not available for ${position.id} ($${amount.toFixed(2)}) — will attempt position reduction`);
-  return { success: false };
-}
-
-/**
- * Execute reduce size
- */
-async function reducePosition(position: LeveragedPosition, reductionPercent: number): Promise<{ success: boolean; txHash?: string }> {
-  try {
-    const baseUrl = process.env.VERCEL 
-      ? 'https://zkward.com' 
-      : process.env.NEXTAUTH_URL || 'http://localhost:3000';
-    
-    // Calculate reduction value
-    const notionalReduction = position.notionalValue * (reductionPercent / 100);
-    
-    // For reducing a position, we close part of it by taking the opposite side
-    const response = await fetch(`${baseUrl}/api/agents/hedging/execute`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${process.env.INTERNAL_API_SECRET || process.env.CRON_SECRET}`,
-      },
-      signal: AbortSignal.timeout(15000),
-      body: JSON.stringify({
-        portfolioId: position.portfolioId || 1,
-        asset: position.asset,
-        side: position.side === 'LONG' ? 'SHORT' : 'LONG', // Opposite to reduce
-        notionalValue: notionalReduction,
-        leverage: position.leverage,
-        reason: `Reduce position size by ${reductionPercent}% to improve margin`,
-        walletAddress: position.walletAddress,
-        autoApprovalEnabled: true,
-      }),
-    });
-    
-    if (!response.ok) {
-      const errorText = await response.text();
-      logger.error(`[LiquidationGuard] Failed to reduce position ${position.id}:`, { error: errorText });
-      return { success: false };
-    }
-    
-    const result = await response.json();
-    return { success: result.success, txHash: result.txHash };
-  } catch (error) {
-    logger.error(`[LiquidationGuard] Error reducing position:`, { error: errMsg(error) });
-    return { success: false };
-  }
-}
-
-/**
- * Execute emergency close
- */
-async function emergencyClose(position: LeveragedPosition, reason: string): Promise<{ success: boolean; txHash?: string }> {
-  try {
-    const baseUrl = process.env.VERCEL 
-      ? 'https://zkward.com' 
-      : process.env.NEXTAUTH_URL || 'http://localhost:3000';
-    
-    // Close entire position by taking opposite side
-    const response = await fetch(`${baseUrl}/api/agents/hedging/execute`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${process.env.INTERNAL_API_SECRET || process.env.CRON_SECRET}`,
-      },
-      signal: AbortSignal.timeout(15000),
-      body: JSON.stringify({
-        portfolioId: position.portfolioId || 1,
-        asset: position.asset,
-        side: position.side === 'LONG' ? 'SHORT' : 'LONG', // Opposite to close
-        notionalValue: position.notionalValue, // Close full value
-        leverage: position.leverage,
-        reason: `EMERGENCY CLOSE: ${reason}`,
-        walletAddress: position.walletAddress,
-        autoApprovalEnabled: true,
-      }),
-    });
-    
-    if (!response.ok) {
-      const errorText = await response.text();
-      logger.error(`[LiquidationGuard] Emergency close failed for ${position.id}:`, { error: errorText });
-      return { success: false };
-    }
-    
-    const result = await response.json();
-    return { success: result.success, txHash: result.txHash };
-  } catch (error) {
-    logger.error(`[LiquidationGuard] Error in emergency close:`, { error: errMsg(error) });
-    return { success: false };
-  }
-}
-
-// NOTE: getMockPositions removed — production code must never use mock data.
-// For testing, use the E2E test scripts in scripts/test-* instead.
-
-/**
- * Main guard function
- */
-async function guardPositions(): Promise<{ positions: LeveragedPosition[]; actions: LiquidationAction[]; summary: LiquidationGuardResult['summary'] }> {
-  const positions = await fetchLeveragedPositions();
-  const assets = [...new Set(positions.map(p => p.asset))];
-  const prices = await getCurrentPrices(assets);
-  
-  const actions: LiquidationAction[] = [];
-  let criticalCount = 0;
-  let warningCount = 0;
-  let healthyCount = 0;
-  let totalCollateralAtRisk = 0;
-  let totalMarginLevel = 0;
-  
-  for (const position of positions) {
-    const currentPrice = prices[position.asset];
-    if (!currentPrice || currentPrice <= 0) {
-      logger.warn(`[LiquidationGuard] No live price for ${position.asset} — skipping position ${position.id}`);
-      continue;
-    }
-    const { marginLevel, liquidationPrice, healthScore } = calculateMarginLevel(position, currentPrice);
-    const distanceToLiq = getDistanceToLiquidation(position, currentPrice);
-    
-    // Update position with current calculations
-    position.marginLevel = marginLevel;
-    position.liquidationPrice = liquidationPrice;
-    position.healthScore = healthScore;
-    position.currentPrice = currentPrice;
-    
-    totalMarginLevel += marginLevel;
-    
-    logger.info(`[LiquidationGuard] Checking ${position.id}: ${position.side} ${position.asset} ${position.leverage}x`, {
-      marginLevel: `${marginLevel.toFixed(1)}%`,
-      healthScore,
-      distanceToLiq: `${distanceToLiq.toFixed(2)}%`,
-      liquidationPrice: liquidationPrice.toFixed(2),
-    });
-    
-    // Check if within liquidation buffer
-    if (distanceToLiq < LIQUIDATION_BUFFER_PERCENT) {
-      logger.error(`[LiquidationGuard] EMERGENCY: ${position.id} within ${distanceToLiq.toFixed(2)}% of liquidation!`);
-      await notifyDiscord(
-        `EMERGENCY CLOSE: ${position.id} (${position.side} ${position.asset} ${position.leverage}x) is ${distanceToLiq.toFixed(2)}% from liquidation @ $${liquidationPrice.toFixed(2)}. Collateral at risk: $${position.collateral.toFixed(2)}.`,
-        'KILL',
-        { positionId: position.id, asset: position.asset, distanceToLiq: distanceToLiq.toFixed(2), liquidationPrice: liquidationPrice.toFixed(2) },
-      );
-
-      const result = await emergencyClose(position, `Emergency close: ${distanceToLiq.toFixed(2)}% from liquidation`);
-      actions.push({
-        positionId: position.id,
-        action: 'EMERGENCY_CLOSE',
-        reason: `Only ${distanceToLiq.toFixed(2)}% from liquidation price (${liquidationPrice.toFixed(2)})`,
-        executed: result.success,
-        txHash: result.txHash,
-      });
-
-      criticalCount++;
-      totalCollateralAtRisk += position.collateral;
-      continue;
-    }
-
-    // Check critical margin level
-    if (marginLevel < MARGIN_LEVEL_CRITICAL) {
-      logger.warn(`[LiquidationGuard] CRITICAL: ${position.id} margin level ${marginLevel.toFixed(1)}%`);
-      await notifyDiscord(
-        `Margin CRITICAL: ${position.id} (${position.asset} ${position.leverage}x) at ${marginLevel.toFixed(1)}% (threshold ${MARGIN_LEVEL_CRITICAL}%). Attempting collateral top-up or size reduction.`,
-        'ERROR',
-        { positionId: position.id, asset: position.asset, marginLevel: marginLevel.toFixed(1) },
-      );
-      
-      // Try to add collateral first
-      const topUpAmount = position.collateral * (COLLATERAL_TOP_UP_PERCENT / 100);
-      const addResult = await addCollateral(position, topUpAmount);
-      
-      if (addResult.success) {
-        actions.push({
-          positionId: position.id,
-          action: 'ADD_COLLATERAL',
-          amount: topUpAmount,
-          reason: `Margin level critical at ${marginLevel.toFixed(1)}%`,
-          executed: true,
-          txHash: addResult.txHash,
-        });
-      } else {
-        // Fallback: reduce position size
-        const reduceResult = await reducePosition(position, SIZE_REDUCTION_PERCENT);
-        actions.push({
-          positionId: position.id,
-          action: 'REDUCE_SIZE',
-          amount: position.size * (SIZE_REDUCTION_PERCENT / 100),
-          reason: `Margin level critical at ${marginLevel.toFixed(1)}%, collateral unavailable`,
-          executed: reduceResult.success,
-          txHash: reduceResult.txHash,
-        });
-      }
-      
-      criticalCount++;
-      totalCollateralAtRisk += position.collateral;
-      continue;
-    }
-    
-    // Check warning margin level
-    if (marginLevel < MARGIN_LEVEL_WARNING) {
-      logger.warn(`[LiquidationGuard] WARNING: ${position.id} margin level ${marginLevel.toFixed(1)}%`);
-      await notifyDiscord(
-        `Margin warning: ${position.id} (${position.asset} ${position.leverage}x) at ${marginLevel.toFixed(1)}% (threshold ${MARGIN_LEVEL_WARNING}%). Attempting collateral top-up.`,
-        'WARN',
-        { positionId: position.id, asset: position.asset, marginLevel: marginLevel.toFixed(1) },
-      );
-      
-      const topUpAmount = position.collateral * (COLLATERAL_TOP_UP_PERCENT / 100);
-      const addResult = await addCollateral(position, topUpAmount);
-      
-      actions.push({
-        positionId: position.id,
-        action: addResult.success ? 'ADD_COLLATERAL' : 'ALERT',
-        amount: topUpAmount,
-        reason: `Margin level warning at ${marginLevel.toFixed(1)}%`,
-        executed: addResult.success,
-        txHash: addResult.txHash,
-      });
-      
-      warningCount++;
-      continue;
-    }
-    
-    // Healthy position
-    healthyCount++;
-  }
-  
-  return {
-    positions,
-    actions,
-    summary: {
-      criticalCount,
-      warningCount,
-      healthyCount,
-      totalCollateralAtRisk,
-      averageMarginLevel: positions.length > 0 ? totalMarginLevel / positions.length : 0,
-    },
-  };
-}
-
-/**
- * GET handler for Vercel Cron
- */
 export async function GET(request: NextRequest): Promise<NextResponse<LiquidationGuardResult>> {
   const startTime = Date.now();
 
-  // Security: Verify QStash signature or CRON_SECRET
   const authResult = await verifyCronRequest(request, 'LiquidationGuard');
   if (authResult !== true) {
     return NextResponse.json(
-      { success: false, positionsChecked: 0, actionsExecuted: [], summary: { criticalCount: 0, warningCount: 0, healthyCount: 0, totalCollateralAtRisk: 0, averageMarginLevel: 0 }, duration: Date.now() - startTime, error: 'Unauthorized' },
-      { status: 401 }
+      { success: false, positionsChecked: 0, actionsExecuted: [], summary: EMPTY_SUMMARY, duration: Date.now() - startTime, error: 'Unauthorized' },
+      { status: 401 },
     );
   }
   // After auth: an unauthenticated hit must not make the job look alive.
   void setCronState('cron:lastRun:liquidation-guard', Date.now()).catch(() => {});
-  
-  logger.info('[LiquidationGuard] Starting liquidation risk monitoring');
-  
+
+  const network: 'mainnet' | 'testnet' = (process.env.SUI_NETWORK || '').trim() === 'mainnet' ? 'mainnet' : 'testnet';
+  const adminKey = (process.env.BLUEFIN_PRIVATE_KEY || process.env.SUI_POOL_ADMIN_KEY || '').trim();
+  if (!adminKey) {
+    return NextResponse.json({ success: true, positionsChecked: 0, actionsExecuted: [], summary: EMPTY_SUMMARY, duration: Date.now() - startTime, error: 'venue key not configured — nothing to guard' });
+  }
+
   try {
-    const result = await guardPositions();
-    
-    logger.info(`[LiquidationGuard] Complete: ${result.positions.length} positions checked`, {
-      summary: result.summary,
-      actionsCount: result.actions.length,
-    });
-    
-    return NextResponse.json({
-      success: true,
-      positionsChecked: result.positions.length,
-      actionsExecuted: result.actions,
-      summary: result.summary,
-      duration: Date.now() - startTime,
-    });
-    
+    const bf = BluefinService.getInstance();
+    await bf.initialize(adminKey, network);
+    // Strict: an unreadable venue is an error, not "no positions at risk".
+    const positions = await bf.getPositionsStrict();
+
+    const actions: GuardAction[] = [];
+    const summary = { ...EMPTY_SUMMARY };
+
+    for (const p of positions) {
+      if (!(p.size > 0)) continue;
+      const distancePct = liquidationDistancePct(p);
+      const level = liquidationLevel(distancePct);
+      if (level === 'unknown') { summary.unknownCount++; continue; }
+      if (level === 'healthy') { summary.healthyCount++; continue; }
+      const distance = distancePct as number;
+      const context = { chain: 'sui', symbol: p.symbol, side: p.side, size: p.size, mark: p.markPrice, liquidationPrice: p.liquidationPrice, distancePct: distance.toFixed(2) };
+      summary.marginAtRiskUsd += Number(p.margin) || 0;
+
+      if (level === 'warning') {
+        summary.warningCount++;
+        await notifyDiscord(
+          `${p.symbol} ${p.side} is ${distance.toFixed(1)}% from liquidation at $${p.liquidationPrice} (closes automatically under ${LIQUIDATION_EMERGENCY_PCT}%, warns under ${LIQUIDATION_WARNING_PCT}%).`,
+          'WARN', context,
+        ).catch(() => {});
+        actions.push({ symbol: p.symbol, side: p.side, action: 'ALERT', distancePct: distance, liquidationPrice: p.liquidationPrice, executed: false });
+        continue;
+      }
+
+      summary.criticalCount++;
+      const claim = await tryClaimCronRun(`liquidation-guard:close:${p.symbol}`, CLOSE_CLAIM_MS, Date.now());
+      if (!claim.claimed) {
+        actions.push({ symbol: p.symbol, side: p.side, action: 'EMERGENCY_CLOSE', distancePct: distance, liquidationPrice: p.liquidationPrice, executed: false, error: 'a close for this symbol was sent in the last five minutes' });
+        continue;
+      }
+      await notifyDiscord(
+        `EMERGENCY CLOSE: ${p.symbol} ${p.side} ${p.size} is ${distance.toFixed(2)}% from liquidation at $${p.liquidationPrice}. Closing on the venue.`,
+        'KILL', context,
+      ).catch(() => {});
+      const close = await bf.closeHedge({ symbol: p.symbol }).catch((e) => ({ success: false, error: errMsg(e) }) as { success: false; error: string; txDigest?: undefined });
+      if (!close.success) {
+        await notifyDiscord(
+          `Emergency close of ${p.symbol} ${p.side} FAILED (${String(close.error || 'not confirmed').slice(0, 160)}). It is ${distance.toFixed(2)}% from liquidation: close it by hand on the venue.`,
+          'ERROR', context,
+        ).catch(() => {});
+      }
+      actions.push({
+        symbol: p.symbol, side: p.side, action: 'EMERGENCY_CLOSE', distancePct: distance, liquidationPrice: p.liquidationPrice,
+        executed: close.success === true, txHash: close.txDigest, ...(close.success ? {} : { error: String(close.error || 'not confirmed') }),
+      });
+    }
+
+    logger.info('[LiquidationGuard] Complete', { positions: positions.length, summary, actions: actions.length });
+    return NextResponse.json({ success: true, positionsChecked: positions.length, actionsExecuted: actions, summary, duration: Date.now() - startTime });
   } catch (error: unknown) {
     logger.error('[LiquidationGuard] Error:', error);
     return safeErrorResponse(error, 'Liquidation guard') as NextResponse<LiquidationGuardResult>;
   }
 }
 
-// QStash sends POST by default — support both methods
+// The jobs service sends POST by default — support both methods
 export const POST = GET;
