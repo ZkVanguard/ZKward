@@ -10,6 +10,7 @@ import { describe, it, expect } from '@jest/globals';
 import {
   erf,
   normalCdf,
+  normalInv,
   expectedValueUsd,
   kellyFractionLeveraged,
   firstPassageProbability,
@@ -266,5 +267,21 @@ describe('maxLeverageForLiqCap', () => {
       expect(Number.isInteger(L)).toBe(true);
       expect(L).toBeGreaterThanOrEqual(1);
     }
+  });
+});
+
+describe('normalInv', () => {
+  it('undoes normalCdf across the whole range, tails included', () => {
+    for (const p of [0.001, 0.02, 0.03, 0.105, 0.445, 0.5, 0.845, 0.97, 0.98, 0.999]) {
+      expect(normalCdf(normalInv(p))).toBeCloseTo(p, 6);
+    }
+  });
+  it('even odds is zero, and it is odd around it', () => {
+    expect(normalInv(0.5)).toBeCloseTo(0, 9);
+    expect(normalInv(0.975)).toBeCloseTo(1.96, 2);
+    expect(normalInv(0.1)).toBeCloseTo(-normalInv(0.9), 9);
+  });
+  it('a probability that is not one has no distance', () => {
+    for (const bad of [0, 1, -0.2, 1.5, NaN]) expect(normalInv(bad)).toBeNaN();
   });
 });

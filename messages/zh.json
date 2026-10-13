@@ -128,6 +128,11 @@
       "retry": "重试",
       "staleAfterError": "上次刷新失败，当前数字来自上一次。",
       "footer": "倾向是所列来源的加权投票。信号账本用随后的价格为每个来源打分；倾向不是预测。",
+      "pricedMove": "市场计入的波动约 ±{pct}%",
+      "pricedBy": "截至 {when}",
+      "chanceBelow": "收于 {price} 以下的概率为 {pct}%",
+      "pricedSource": "每日价格阶梯",
+      "pricedFooter": "计入的波动为一个标准差，读取自每日价格市场的阶梯。它反映的是币价波动的幅度，而不是方向。",
       "overall": {
         "up": "市场偏多",
         "down": "市场偏空",

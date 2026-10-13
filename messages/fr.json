@@ -128,6 +128,11 @@
       "retry": "Réessayer",
       "staleAfterError": "La dernière actualisation a échoué ; ces chiffres viennent de la précédente.",
       "footer": "La tendance est le vote pondéré des sources listées. Le registre des signaux note chaque source d’après le prix qui a suivi ; une tendance n’est pas une prévision.",
+      "pricedMove": "Mouvement anticipé d’environ ±{pct} %",
+      "pricedBy": "d’ici {when}",
+      "chanceBelow": "{pct} % de chances de finir sous {price}",
+      "pricedSource": "échelle de prix quotidienne",
+      "pricedFooter": "Le mouvement anticipé correspond à un écart-type, lu sur une échelle de marchés de prix quotidiens. Il a indiqué l’ampleur du mouvement d’un actif, pas sa direction.",
       "overall": {
         "up": "Marché à tendance haussière",
         "down": "Marché à tendance baissière",

@@ -3,7 +3,7 @@
  * signal services themselves, which put that code in every visitor's bundle
  * and ran the upstream calls from the browser. It reads the API instead.
  */
-import type { FiveMinBTCSignal, FiveMinSignalHistory, PerAssetSignal, PredictionMarket } from '@/lib/types/market-signals';
+import type { ExpectedMove, FiveMinBTCSignal, FiveMinSignalHistory, PerAssetSignal, PredictionMarket } from '@/lib/types/market-signals';
 
 async function getJson<T>(url: string, signal?: AbortSignal): Promise<T> {
   const res = await fetch(url, { signal });
@@ -50,6 +50,13 @@ export async function fetchPerAssetSignals(signal?: AbortSignal): Promise<Record
   const j = await getJson<{ success?: boolean; predictions?: Record<string, PerAssetSignal> }>('/api/predictions/per-asset', signal);
   if (!j.success || !j.predictions) throw new Error('per-asset signals unavailable');
   return j.predictions;
+}
+
+/** How far the prediction market prices each coin to move. A coin whose ladder could not be read is absent. */
+export async function fetchExpectedMoves(signal?: AbortSignal): Promise<Record<string, ExpectedMove>> {
+  const j = await getJson<{ success?: boolean; moves?: Record<string, ExpectedMove> }>('/api/predictions/expected-move', signal);
+  if (!j.success || !j.moves) throw new Error('expected moves unavailable');
+  return j.moves;
 }
 
 /** Spot prices by symbol. Missing symbols are simply absent. */

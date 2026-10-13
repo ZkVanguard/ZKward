@@ -128,6 +128,11 @@
       "retry": "Riprova",
       "staleAfterError": "L’ultimo aggiornamento non è riuscito; questi numeri provengono dal precedente.",
       "footer": "La tendenza è il voto ponderato delle fonti elencate. Il registro dei segnali valuta ogni fonte rispetto al prezzo successivo; una tendenza non è una previsione.",
+      "pricedMove": "Movimento prezzato di circa ±{pct}%",
+      "pricedBy": "entro {when}",
+      "chanceBelow": "{pct}% di probabilità di chiudere sotto {price}",
+      "pricedSource": "scala giornaliera dei prezzi",
+      "pricedFooter": "Il movimento prezzato è una deviazione standard, letta da una scala di mercati di prezzo giornalieri. Ha indicato quanto si è mosso un asset, non in quale direzione.",
       "overall": {
         "up": "Mercato in tendenza rialzista",
         "down": "Mercato in tendenza ribassista",
