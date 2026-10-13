@@ -194,6 +194,12 @@ export interface BluefinHedgeResult {
   executionPrice?: number;
   filledSize?: number;
   fees?: number;
+  /**
+   * What the fill settled in the venue account, in USD: realised P&L less
+   * fees on a close, minus the fee on an open. Absent when it could not be
+   * established; the caller then has only an estimate.
+   */
+  settledUsd?: number;
   error?: string;
   /**
    * Machine-readable error code for callers that want to branch on failure
@@ -908,6 +914,8 @@ export class BluefinService {
   async closeHedge(params: {
     symbol: string;
     size?: number;
+    /** What opening this position settled (its fee), so the row carries the whole trade's result. */
+    openCostUsd?: number;
   }): Promise<BluefinHedgeResult> {
     await this.ensureInitializedAsync();
     return performCloseHedge(

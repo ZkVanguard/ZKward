@@ -97,6 +97,7 @@ import {
   applyDaily,
   maybeHalt,
   closeWithRetry,
+  openCostUsd,
   pickExitPrice,
 } from './handlers/state-transitions';
 import { reconcileActiveTrade } from './handlers/reconcile-active-trade';
@@ -1031,15 +1032,19 @@ export async function GET(request: NextRequest): Promise<NextResponse<EdgeResult
         fill: fillPrice,
         ref: refPrice,
       });
-      const close = await closeWithRetry(bf, symbol);
+      const openCost = openCostUsd(open);
+      const close = await closeWithRetry(bf, symbol, openCost);
       // Only a confirmed close is booked. An unconfirmed one leaves the
       // position on the venue, so it is recorded below as an open trade and
       // managed from the next run instead of being forgotten.
       if ((close as { success?: boolean } | null)?.success) {
         const exitPrice = pickExitPrice(close, refPrice, fillPrice);
-        const fees = (Number(open.fees) || 0) + (Number((close as { fees?: number }).fees) || 0);
+        const fees = Number((close as { fees?: number }).fees) || 0;
         const dir = side === 'LONG' ? 1 : -1;
-        const realized = (exitPrice - fillPrice) * sizeQty * dir - fees;
+        const settled = (close as { settledUsd?: number }).settledUsd;
+        const realized = (typeof settled === 'number' && Number.isFinite(settled)
+          ? settled
+          : (exitPrice - fillPrice) * sizeQty * dir - fees) - openCost;
         const newStats = await applyOutcome(safeStats, realized, asset);
         const newDaily = await applyDaily(daily, realized);
         const halted = await maybeHalt(newStats, newDaily, haltedUntil);
@@ -1096,6 +1101,7 @@ export async function GET(request: NextRequest): Promise<NextResponse<EdgeResult
       closeBy: now + (prediction.recommendation.startsWith('STRONG_') ? MAX_HOLD_MIN_STRONG : MAX_HOLD_MIN_MODERATE) * 60 * 1000,
       clientOrderId,
       highWaterBps: 0,
+      openCostUsd: openCostUsd(open),
     };
     await setCronState(KEY_ACTIVE, trade);
     // Write the DB row NOW with actual fill price. Without this, the trader

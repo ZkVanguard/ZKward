@@ -32,6 +32,8 @@ function makeCtx(reads: Array<'fail' | 'open' | 'gone'>): { ctx: CloseHedgeConte
     walletAddress: '0xabc',
     network: 'mainnet',
     apiRequest: (async (_m: string, _p: string, body: unknown) => {
+      // the account read that brackets the order is not an order
+      if (_m !== 'POST') return null;
       orders.push(body);
       // accepted, but the response carries no fill and no realized P&L: only the position delta can confirm it
       return { orderHash: '0xhash' };

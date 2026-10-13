@@ -34,9 +34,9 @@ export class CloseNotConfirmedError extends Error {
   }
 }
 
-export async function closeWithRetry(bf: BluefinService, symbol: string) {
+export async function closeWithRetry(bf: BluefinService, symbol: string, openCostUsd?: number) {
   const attempt = () =>
-    bf.closeHedge({ symbol }).catch((e) => ({
+    bf.closeHedge({ symbol, openCostUsd }).catch((e) => ({
       success: false,
       executionPrice: 0,
       fees: 0,
@@ -47,6 +47,16 @@ export async function closeWithRetry(bf: BluefinService, symbol: string) {
   // Brief backoff then retry once.
   await new Promise((r) => setTimeout(r, 1500));
   return attempt();
+}
+
+/**
+ * What an open cost: the venue account's change across it when that was read
+ * (a cost is a negative change), otherwise the fee the venue reported.
+ */
+export function openCostUsd(open: { settledUsd?: number; fees?: number }): number {
+  const settled = open.settledUsd;
+  if (typeof settled === 'number' && Number.isFinite(settled)) return Math.max(0, -settled);
+  return Math.max(0, Number(open.fees) || 0);
 }
 
 export function pickExitPrice(close: unknown, markPriceRaw: unknown, fallback: number): number {
@@ -129,7 +139,8 @@ export async function finalizeClosingExit(args: {
   newDaily: DailyStats;
   halted: boolean;
 }> {
-  const close = await closeWithRetry(args.bf, args.active.symbol);
+  const openCost = Math.max(0, args.active.openCostUsd ?? 0);
+  const close = await closeWithRetry(args.bf, args.active.symbol, openCost);
   // A close the venue did not confirm changes nothing here. Booking it and
   // clearing the trade left a 5x position on the venue from 2026-10-07 that
   // the trader believed was closed. The trade stays on record and the next
@@ -146,7 +157,13 @@ export async function finalizeClosingExit(args: {
   const exitPrice = pickExitPrice(close, args.refPrice, args.active.entryPrice);
   const fees = Number((close as { fees?: number }).fees) || 0;
   const dir = args.active.side === 'LONG' ? 1 : -1;
-  const realized = (exitPrice - args.active.entryPrice) * args.active.size * dir - fees;
+  // The venue account's own change is the result when it could be read: the
+  // same figure the row and the ledger get. The price difference is only an
+  // estimate (it has no exit slippage and often no fee in it).
+  const settled = (close as { settledUsd?: number }).settledUsd;
+  const realized = (typeof settled === 'number' && Number.isFinite(settled)
+    ? settled
+    : (exitPrice - args.active.entryPrice) * args.active.size * dir - fees) - openCost;
   const newStats = await applyOutcome(args.safeStats, realized, args.active.asset);
   const newDaily = await applyDaily(args.daily, realized);
   const halted = await maybeHalt(newStats, newDaily, args.haltedUntil);
