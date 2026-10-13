@@ -128,6 +128,11 @@
       "retry": "Erneut versuchen",
       "staleAfterError": "Die letzte Aktualisierung ist fehlgeschlagen; diese Zahlen stammen von der vorherigen.",
       "footer": "Die Tendenz ist das gewichtete Votum der gelisteten Quellen. Das Signal-Ledger bewertet jede Quelle am anschließenden Kurs; eine Tendenz ist keine Prognose.",
+      "pricedMove": "Eingepreiste Bewegung etwa ±{pct} %",
+      "pricedBy": "bis {when}",
+      "chanceBelow": "{pct} % Chance, unter {price} zu schließen",
+      "pricedSource": "tägliche Preisleiter",
+      "pricedFooter": "Die eingepreiste Bewegung ist eine Standardabweichung, abgelesen aus einer Leiter täglicher Preismärkte. Sie hat angezeigt, wie weit sich ein Coin bewegt hat, nicht in welche Richtung.",
       "overall": {
         "up": "Markt tendiert aufwärts",
         "down": "Markt tendiert abwärts",

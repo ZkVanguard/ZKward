@@ -8,15 +8,19 @@
  * Reads `/api/predictions/per-asset` (the same read as the Risk and Agents
  * views, so the three never disagree) and `/api/prices` for the spot price.
  * A failed read shows as an error, never as a flat market.
+ *
+ * Under each lean sits the move the prediction market prices for the coin
+ * (`/api/predictions/expected-move`): a size, with the odds of a fall. It is
+ * shown apart from the lean because it says how far, never which way.
  */
 import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import Image from 'next/image';
-import { useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import { ChevronDown, RefreshCw, TrendingDown, TrendingUp, Minus } from 'lucide-react';
 import { fetchSpotPrices } from '@/lib/api/market-signals';
-import { usePerAssetSignals } from '@/lib/hooks/useLiveSignals';
-import type { PerAssetSignal } from '@/lib/types/market-signals';
+import { useExpectedMoves, usePerAssetSignals } from '@/lib/hooks/useLiveSignals';
+import type { ExpectedMove, PerAssetSignal } from '@/lib/types/market-signals';
 import { logoPath, providerForSource } from '@/lib/api/signal-providers';
 
 const REFRESH_MS = 60_000;
@@ -26,6 +30,9 @@ interface Loaded {
   prices: Record<string, number>;
   at: number;
 }
+
+const wholeDollars = (v: number): string =>
+  new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(v);
 
 const money = (v: number): string =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: v >= 100 ? 2 : 4, maximumFractionDigits: v >= 100 ? 2 : 4 }).format(v);
@@ -86,7 +93,32 @@ function Lean({ direction, confidence }: { direction: PerAssetSignal['direction'
   );
 }
 
-function AssetCard({ asset, s, price }: { asset: string; s: PerAssetSignal; price?: number }) {
+/** The move the market prices and the nearest strike it gives real odds of ending under. A near coin flip is left out: it restates the middle. */
+function PricedMove({ move }: { move: ExpectedMove }) {
+  const t = useTranslations('dashboard.marketBoard');
+  const locale = useLocale();
+  const when = new Intl.DateTimeFormat(locale, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }).format(new Date(move.resolvesAt));
+  const tail = move.downside.find((d) => d.chancePct < 40);
+  return (
+    <div className="mt-3 pt-3 border-t border-label-primary/[0.06] text-xs">
+      <p className="text-label-secondary">
+        <span className="font-semibold text-label-primary tabular-nums">{t('pricedMove', { pct: move.movePct.toFixed(1) })}</span>
+        {' '}{t('pricedBy', { when })}
+      </p>
+      {tail && (
+        <p className="mt-1 text-label-tertiary tabular-nums">
+          {t('chanceBelow', { pct: Math.round(tail.chancePct), price: wholeDollars(tail.price) })}
+        </p>
+      )}
+      <p className="mt-1.5 flex items-center gap-1.5 text-[11px] text-label-tertiary">
+        <ProviderLogo sourceName="Polymarket" size={10} />
+        {t('pricedSource')}
+      </p>
+    </div>
+  );
+}
+
+function AssetCard({ asset, s, price, move }: { asset: string; s: PerAssetSignal; price?: number; move?: ExpectedMove }) {
   const t = useTranslations('dashboard.marketBoard');
   const [open, setOpen] = useState(false);
   const agree = s.sources.filter((x) => x.direction === s.direction).length;
@@ -146,6 +178,7 @@ function AssetCard({ asset, s, price }: { asset: string; s: PerAssetSignal; pric
           )}
         </>
       )}
+      {move && <PricedMove move={move} />}
     </article>
   );
 }
@@ -174,12 +207,14 @@ export function MarketLeanBoard() {
     staleTime: 30_000,
     refetchInterval: REFRESH_MS,
   });
+  // The priced move is context under the lean; a failed read leaves the cards without it.
+  const movesQ = useExpectedMoves();
   const data: Loaded | null = signalsQ.data
     ? { signals: signalsQ.data, prices: pricesQ.data ?? {}, at: signalsQ.dataUpdatedAt }
     : null;
   const error = signalsQ.error ? signalsQ.error.message : null;
   const loading = signalsQ.isFetching;
-  const load = () => { void signalsQ.refetch(); void pricesQ.refetch(); };
+  const load = () => { void signalsQ.refetch(); void pricesQ.refetch(); void movesQ.refetch(); };
 
   useEffect(() => {
     const tick = setInterval(() => setNow(Date.now()), 5_000);
@@ -229,11 +264,12 @@ export function MarketLeanBoard() {
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{[0, 1, 2, 3, 4].map((i) => <Skeleton key={i} />)}</div>
         ) : (
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-            {entries.map(([asset, s]) => <AssetCard key={asset} asset={asset} s={s} price={data?.prices[asset]} />)}
+            {entries.map(([asset, s]) => <AssetCard key={asset} asset={asset} s={s} price={data?.prices[asset]} move={movesQ.data?.[asset]} />)}
           </div>
         )}
         {error && data && <p className="mt-3 text-xs text-red-700">{t('staleAfterError')}</p>}
         <p className="mt-4 text-[11px] text-label-tertiary">{t('footer')}</p>
+        {movesQ.data && <p className="mt-1 text-[11px] text-label-tertiary">{t('pricedFooter')}</p>}
       </div>
     </section>
   );

@@ -110,3 +110,15 @@ export interface PerAssetSignal {
   sourceCount: number;
   sources: Array<{ name: string; direction: 'UP' | 'DOWN' | 'NEUTRAL'; confidence: number; weight: number }>;
 }
+
+/** How far the prediction market's daily strike ladder prices a coin to move by `resolvesAt`. A size of move, not a direction. */
+export interface ExpectedMove {
+  /** When the ladder resolves, ISO 8601. */
+  resolvesAt: string;
+  /** One standard deviation of the priced move, in percent of price. */
+  movePct: number;
+  /** Undecided strikes under the ladder's middle, nearest first, with the chance it gives of ending below each, in percent. */
+  downside: Array<{ price: number; chancePct: number }>;
+  /** Undecided strikes the move was read from. */
+  strikes: number;
+}

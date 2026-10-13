@@ -21,6 +21,7 @@ const POOL_WIDE_ROUTES = [
   'app/api/platform/nav-history/route.ts',
   'app/api/hedera/nav-history/route.ts',
   'app/api/predictions/per-asset/route.ts',
+  'app/api/predictions/expected-move/route.ts',
   'app/api/solana-pool/status/route.ts',
   'app/api/solana-pool/history/route.ts',
   'app/api/sui/community-pool/route.ts',

@@ -128,6 +128,11 @@
       "retry": "Reintentar",
       "staleAfterError": "La última actualización falló; estas cifras son de la anterior.",
       "footer": "El sesgo es el voto ponderado de las fuentes listadas. El libro de señales puntúa cada fuente contra el precio posterior; un sesgo no es un pronóstico.",
+      "pricedMove": "Movimiento descontado de aproximadamente ±{pct}%",
+      "pricedBy": "hasta {when}",
+      "chanceBelow": "{pct}% de probabilidad de cerrar por debajo de {price}",
+      "pricedSource": "escalera diaria de precios",
+      "pricedFooter": "El movimiento descontado es una desviación estándar, leída de una escalera de mercados de precios diarios. Ha reflejado cuánto se movió una moneda, no en qué dirección.",
       "overall": {
         "up": "Mercado con sesgo alcista",
         "down": "Mercado con sesgo bajista",

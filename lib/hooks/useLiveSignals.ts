@@ -8,7 +8,7 @@
  */
 
 import { useQuery } from '@tanstack/react-query';
-import { fetchPerAssetSignals } from '@/lib/api/market-signals';
+import { fetchExpectedMoves, fetchPerAssetSignals } from '@/lib/api/market-signals';
 import type { PerAssetSignal } from '@/lib/types/market-signals';
 
 type SignalsMap = Record<string, PerAssetSignal>;
@@ -19,6 +19,16 @@ export function usePerAssetSignals() {
     queryFn: () => fetchPerAssetSignals(),
     staleTime: 30_000,
     refetchInterval: 60_000,
+  });
+}
+
+/** The move the prediction market prices per coin. It changes slowly, so it is read far less often than the signals. */
+export function useExpectedMoves() {
+  return useQuery({
+    queryKey: ['expected-moves'],
+    queryFn: () => fetchExpectedMoves(),
+    staleTime: 60_000,
+    refetchInterval: 5 * 60_000,
   });
 }
 
