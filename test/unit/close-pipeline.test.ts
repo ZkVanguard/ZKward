@@ -77,6 +77,7 @@ describe('categorizeCloseReason', () => {
     ['LIQUIDATION price crossed', 'liquidation'],
     ['horizon-expiry', 'horizon-expiry'],
     ['daily halt engaged', 'halt'],
+    ['floor-rebalance', 'rebalance'],
     ['manual', 'other'],
   ])('%s → %s', (raw, want) => expect(categorizeCloseReason(raw)).toBe(want));
 });
