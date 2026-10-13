@@ -15,7 +15,7 @@
 import { config as loadDotenv } from 'dotenv';
 import { existsSync } from 'fs';
 if (existsSync('.env.local')) loadDotenv({ path: '.env.local', override: true });
-import { SuiClient, getFullnodeUrl } from '@mysten/sui/client';
+import { createFailoverSuiClient } from '../lib/services/sui/sui-failover-transport';
 import { Pool } from 'pg';
 import { TRADE_OUTCOME_SQL } from '../lib/db/hedges';
 
@@ -48,7 +48,7 @@ async function safeQuery(pg: Pool, sql: string, params?: unknown[]): Promise<{ r
 }
 
 async function main() {
-  const sui = new SuiClient({ url: process.env.SUI_MAINNET_RPC?.trim() || getFullnodeUrl('mainnet') });
+  const sui = createFailoverSuiClient('mainnet');
   // The self-hosted production database. This read the retired hosted one
   // until 2026-10, so its figures were from a database nothing writes to.
   const dbUrl = (process.env.PROD_DATABASE_URL || process.env.DATABASE_URL || '').trim().replace(/([?&])sslmode=[^&]+/g, '$1').replace(/[?&]$/, '');
