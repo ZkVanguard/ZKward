@@ -27,6 +27,7 @@ export function categorizeCloseReason(rawReason: string): string {
   if (r.includes('liquidation')) return 'liquidation';
   if (r.includes('horizon')) return 'horizon-expiry';
   if (r.includes('halt')) return 'halt';
+  if (r.includes('rebalance')) return 'rebalance';
   return 'other';
 }
 

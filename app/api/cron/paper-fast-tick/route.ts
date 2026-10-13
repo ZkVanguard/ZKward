@@ -126,6 +126,19 @@ async function runStages(): Promise<Record<string, string>> {
     logger.warn('[PaperFastTick] lead tick failed (non-fatal)', { error: errMsg(e) });
   }
 
+  // Floor book (portfolio -8): holds BTC and ETH by the floor rule, with no
+  // signal. Last, so a slow price read here delays no book that trades one.
+  try {
+    const { FloorTrader } = await import('@/lib/services/paper-trader/FloorTrader');
+    const s = await FloorTrader.runTick(Date.now());
+    results.floor = s.skipped
+      ? `skipped — ${s.skipped}`
+      : `value ${s.valueUsd.toFixed(0)}, floor ${s.floorUsd.toFixed(0)}, exposure ${s.exposureUsd.toFixed(0)} in ${s.lots} lots, bought ${s.bought}, sold ${s.sold}`;
+  } catch (e) {
+    results.floor = `error: ${errMsg(e).slice(0, 80)}`;
+    logger.warn('[PaperFastTick] floor tick failed (non-fatal)', { error: errMsg(e) });
+  }
+
   return results;
 }
 
