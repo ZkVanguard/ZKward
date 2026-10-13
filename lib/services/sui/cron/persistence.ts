@@ -119,8 +119,18 @@ interface PoolStatsLike {
 interface PoolMemberLike {
   address: string;
   shares: number;
-  valueUsd?: number;
-  valueSui: number;
+  depositedSui: number;
+  withdrawnSui: number;
+}
+
+/**
+ * A member's cost basis is the capital they still have in the pool: what the
+ * contract recorded as deposited less what it recorded as withdrawn. The
+ * position's current value is not a cost: writing it made every member read as
+ * break-even whatever the share price had done.
+ */
+export function memberCostBasisUsd(m: Pick<PoolMemberLike, 'depositedSui' | 'withdrawnSui'>): number {
+  return Math.max(0, m.depositedSui - m.withdrawnSui);
 }
 
 interface MemberSource {
@@ -178,9 +188,8 @@ export async function recordPoolNavSnapshot(args: {
 /** Step 5: sync on-chain members to DB. Non-critical. */
 export async function syncMembersToDb(args: {
   suiService: MemberSource;
-  suiPriceUsd: number;
 }): Promise<void> {
-  const { suiService, suiPriceUsd } = args;
+  const { suiService } = args;
   try {
     const members = await suiService.getAllMembers();
     let synced = 0;
@@ -189,7 +198,7 @@ export async function syncMembersToDb(args: {
         await saveUserSharesToDb({
           walletAddress: m.address.toLowerCase(),
           shares: m.shares,
-          costBasisUSD: m.valueUsd || m.valueSui * (suiPriceUsd || 0),
+          costBasisUSD: memberCostBasisUsd(m),
           chain: 'sui',
         });
         synced++;

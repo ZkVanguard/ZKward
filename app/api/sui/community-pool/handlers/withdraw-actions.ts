@@ -455,12 +455,12 @@ export async function handleRecordWithdraw(ctx: ActionCtx): Promise<NextResponse
       await deleteUserSharesFromDb(walletAddress, 'sui');
       remainingShares = 0;
     } else {
-      // Cost basis at share price, matching how deposits are recorded. It does
-      // not track a weighted-average entry.
+      // Net capital still in the pool, the same figure the pool job writes from chain.
+      const priorBasis = (await getUserSharesFromDb(walletAddress, 'sui'))?.cost_basis_usd ?? 0;
       await saveUserSharesToDb({
         walletAddress,
         shares: remainingShares,
-        costBasisUSD: remainingShares * sharePrice,
+        costBasisUSD: Math.max(0, priorBasis - usdcReturned),
         chain: 'sui',
       });
     }
