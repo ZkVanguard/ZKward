@@ -22,6 +22,8 @@ const LIVE_LOW = 0.03;
 const LIVE_HIGH = 0.97;
 /** A ladder nearer to resolution than this has too few undecided strikes left to read. */
 const MIN_HOURS_AHEAD = 12;
+/** The width was checked against what followed for ladders up to three days out, and no further. */
+const MAX_HOURS_AHEAD = 84;
 
 export interface LadderStrike {
   strike: number;
@@ -79,10 +81,19 @@ export function readLadder(input: LadderStrike[]): LadderReading | null {
   return { width, middle, downside, strikes: live.length };
 }
 
-/** The ladder to read: the first that resolves far enough ahead to still have undecided strikes. */
-export function pickLadder<T extends { resolvesAtMs: number }>(ladders: T[], now: number): T | null {
-  const ahead = ladders.filter((l) => l.resolvesAtMs - now >= MIN_HOURS_AHEAD * 3_600_000);
-  return ahead.sort((a, b) => a.resolvesAtMs - b.resolvesAtMs)[0] ?? null;
+/**
+ * The ladders worth trying, nearest first. The nearest is preferred, but a
+ * day from resolution a coin whose strikes sit far apart can have fewer than
+ * three still undecided, and the next ladder out is then the first that can
+ * be read.
+ */
+export function ladderCandidates<T extends { resolvesAtMs: number }>(ladders: T[], now: number): T[] {
+  return ladders
+    .filter((l) => {
+      const hoursAhead = (l.resolvesAtMs - now) / 3_600_000;
+      return hoursAhead >= MIN_HOURS_AHEAD && hoursAhead <= MAX_HOURS_AHEAD;
+    })
+    .sort((a, b) => a.resolvesAtMs - b.resolvesAtMs);
 }
 
 interface VenueEvent {
@@ -118,14 +129,19 @@ export async function getExpectedMove(asset: string, now: number = Date.now()): 
   if (!res.ok) throw new Error(`strike ladder ${asset}: upstream ${res.status}`);
   const events = (await res.json()) as VenueEvent[];
   const ladders = (Array.isArray(events) ? events : []).map(toLadder).filter((l): l is NonNullable<typeof l> => l !== null);
-  const ladder = pickLadder(ladders, now);
-  if (!ladder) throw new Error(`strike ladder ${asset}: none resolves far enough ahead`);
-  const reading = readLadder(ladder.strikes);
-  if (!reading) throw new Error(`strike ladder ${asset}: not readable`);
-  return {
-    resolvesAt: new Date(ladder.resolvesAtMs).toISOString(),
-    movePct: round(reading.width * 100, 2),
-    downside: reading.downside.map((d) => ({ price: d.price, chancePct: round(d.chance * 100, 1) })),
-    strikes: reading.strikes,
-  };
+  const candidates = ladderCandidates(ladders, now);
+  if (candidates.length === 0) {
+    throw new Error(`strike ladder ${asset}: none resolves ${MIN_HOURS_AHEAD} to ${MAX_HOURS_AHEAD} hours ahead`);
+  }
+  for (const ladder of candidates) {
+    const reading = readLadder(ladder.strikes);
+    if (!reading) continue;
+    return {
+      resolvesAt: new Date(ladder.resolvesAtMs).toISOString(),
+      movePct: round(reading.width * 100, 2),
+      downside: reading.downside.map((d) => ({ price: d.price, chancePct: round(d.chance * 100, 1) })),
+      strikes: reading.strikes,
+    };
+  }
+  throw new Error(`strike ladder ${asset}: not readable`);
 }

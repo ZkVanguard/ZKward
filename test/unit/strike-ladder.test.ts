@@ -9,7 +9,7 @@ import { describe, it, expect, afterEach, jest } from '@jest/globals';
 import * as fs from 'fs';
 import * as path from 'path';
 import { normalCdf } from '@/lib/services/hedging/quant-models';
-import { getExpectedMove, pickLadder, readLadder, type LadderStrike } from '@/lib/services/market-data/StrikeLadderService';
+import { getExpectedMove, ladderCandidates, readLadder, type LadderStrike } from '@/lib/services/market-data/StrikeLadderService';
 
 const NOW = Date.parse('2026-10-13T07:00:00Z');
 const HOUR = 3_600_000;
@@ -18,6 +18,7 @@ const HOUR = 3_600_000;
 const ladder = (middle: number, width: number, strikes: number[]): LadderStrike[] =>
   strikes.map((strike) => ({ strike, yes: normalCdf(Math.log(middle / strike) / width) }));
 const BTC_STRIKES = [74_000, 76_000, 78_000, 80_000, 82_000, 84_000, 86_000, 88_000, 90_000, 92_000, 94_000];
+const ETH_STRIKES = [2_100, 2_200, 2_300, 2_400, 2_500, 2_600, 2_700, 2_800, 2_900];
 
 describe('readLadder', () => {
   it('recovers the width and the middle the ladder was priced with', () => {
@@ -63,16 +64,20 @@ describe('readLadder', () => {
   });
 });
 
-describe('pickLadder', () => {
+describe('ladderCandidates', () => {
   const at = (h: number) => ({ resolvesAtMs: NOW + h * HOUR });
 
-  it('takes the first ladder far enough ahead to still have undecided strikes', () => {
-    expect(pickLadder([at(57), at(9), at(33)], NOW)).toEqual(at(33));
-    expect(pickLadder([at(12), at(36)], NOW)).toEqual(at(12));
+  it('offers the ladders far enough ahead to read, nearest first', () => {
+    expect(ladderCandidates([at(57), at(9), at(33)], NOW)).toEqual([at(33), at(57)]);
+    expect(ladderCandidates([at(36), at(12)], NOW)).toEqual([at(12), at(36)]);
   });
 
-  it('has nothing to read when every ladder is about to resolve', () => {
-    expect(pickLadder([at(2), at(11.9)], NOW)).toBeNull();
+  it('has nothing to offer when every ladder is about to resolve', () => {
+    expect(ladderCandidates([at(2), at(11.9)], NOW)).toEqual([]);
+  });
+
+  it('does not reach past the three days the width was checked at', () => {
+    expect(ladderCandidates([at(81), at(105), at(129)], NOW)).toEqual([at(81)]);
   });
 });
 
@@ -98,8 +103,16 @@ describe('getExpectedMove', () => {
     expect(move.strikes).toBeGreaterThanOrEqual(3);
   });
 
+  it('when the nearest ladder has too few undecided strikes left, reads the next one out', async () => {
+    // A day out, strikes four percent apart leave only two undecided; two days out there are enough.
+    answer([event(23, ladder(2_530, 0.012, ETH_STRIKES)), event(47, ladder(2_530, 0.03, ETH_STRIKES)), event(71, ladder(2_530, 0.04, ETH_STRIKES))]);
+    const move = await getExpectedMove('ETH', NOW);
+    expect(move.resolvesAt).toBe(new Date(NOW + 47 * HOUR).toISOString());
+    expect(move.movePct).toBeCloseTo(3.0, 1);
+  });
+
   it('asks the venue for the open ladders of the coin', async () => {
-    answer([event(33, ladder(2_530, 0.03, [2_300, 2_400, 2_500, 2_600, 2_700, 2_800]))]);
+    answer([event(33, ladder(2_530, 0.03, ETH_STRIKES))]);
     await getExpectedMove('ETH', NOW);
     const url = String((global.fetch as jest.Mock).mock.calls[0][0]);
     expect(url).toMatch(/series_id=42/);
@@ -111,8 +124,10 @@ describe('getExpectedMove', () => {
     await expect(getExpectedMove('BTC', NOW)).rejects.toThrow(/503/);
     answer([event(33, ladder(83_700, 0.004, BTC_STRIKES))]);
     await expect(getExpectedMove('BTC', NOW)).rejects.toThrow(/not readable/);
-    answer([event(3, ladder(83_700, 0.021, BTC_STRIKES))]);
-    await expect(getExpectedMove('BTC', NOW)).rejects.toThrow(/far enough ahead/);
+    answer([event(3, ladder(83_700, 0.021, BTC_STRIKES)), event(120, ladder(83_700, 0.05, BTC_STRIKES))]);
+    await expect(getExpectedMove('BTC', NOW)).rejects.toThrow(/12 to 84 hours ahead/);
+    answer([event(23, ladder(83_700, 0.004, BTC_STRIKES)), event(47, ladder(83_700, 0.004, BTC_STRIKES))]);
+    await expect(getExpectedMove('BTC', NOW)).rejects.toThrow(/not readable/);
     answer({ unexpected: 'shape' });
     await expect(getExpectedMove('BTC', NOW)).rejects.toThrow();
   });
