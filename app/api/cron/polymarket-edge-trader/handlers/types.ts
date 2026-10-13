@@ -14,6 +14,8 @@ export interface EdgeStats {
   peakPnlUsd: number;
   consecutiveLosses: number;
   lastUpdatedMs: number;
+  /** Total P&L when the cumulative-loss halt last fired (see kill-switches.ts). */
+  haltAnchorPnlUsd?: number;
   perAsset?: Record<string, { trades: number; wins: number; pnlUsd: number }>;
 }
 

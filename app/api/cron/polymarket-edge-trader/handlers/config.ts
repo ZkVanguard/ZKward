@@ -45,6 +45,10 @@ export const MAX_SLIPPAGE_BPS = Number(process.env.POLYMARKET_EDGE_MAX_SLIPPAGE_
 export const DAILY_LOSS_CAP_USD = Number(
   process.env.POLYMARKET_EDGE_DAILY_LOSS_CAP_USD || -2 * BASE_STAKE_USD,
 );
+/** One full stake lost since the last such halt stops the trader for a day. 0 turns it off. */
+export const CUMULATIVE_LOSS_CAP_USD = Number(
+  process.env.POLYMARKET_EDGE_CUMULATIVE_LOSS_CAP_USD || BASE_STAKE_USD,
+);
 
 // ── Trailing stop + fee-bleed defer (resolved from trailing-stop config) ─
 export const STOP_LOSS_BPS = DEFAULT_TRAILING_STOP_CONFIG.stopLossBps;

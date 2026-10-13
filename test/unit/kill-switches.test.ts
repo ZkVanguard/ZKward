@@ -15,6 +15,7 @@ const CFG = {
   maxDrawdownPct: 0.30,
   dailyLossCapUsd: -10,
   baseStakeUsd: 5,
+  cumulativeLossCapUsd: 0, // off here: these cases pin the three older conditions
   haltDurationMs: 24 * 60 * 60 * 1000,
   now: NOW,
 };

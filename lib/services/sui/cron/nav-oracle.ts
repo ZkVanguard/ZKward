@@ -16,6 +16,7 @@ import { isStrongHedgeSignal } from '@/lib/services/sui/cron/signal-gating';
 import { getCronStateOr, setCronState } from '@/lib/db/cron-state';
 import { notifyDiscord } from '@/lib/utils/discord-notify';
 import { attestPath } from '@/lib/services/sui/cron/onchain-math';
+import { attestationsLeft, gasRunwayLevel } from '@/lib/services/sui/attestation-status';
 
 
 /**
@@ -57,9 +58,18 @@ const SAME_TARGET_TOLERANCE = 0.05;
 const PENDING_MAX_AGE_MS = 60 * 60 * 1000;
 const REPRICE_THRESHOLD = 0.3;
 const MAX_REPRICE_UP = 3;
-/** A single attestation costs about 0.0002 SUI. The budget must stay under the wallet balance or the node rejects the transaction outright. */
-const ATTEST_GAS_BASE = 2_000_000;
-const ATTEST_GAS_PER_STEP = 1_000_000;
+/**
+ * The node rejects a transaction whose budget exceeds the wallet balance, so
+ * the budget decides how low the wallet can run. One attestation nets 221,700
+ * MIST (see attestation-status.ts); 700,000 leaves a threefold margin. The
+ * earlier 3,000,000 froze the pool with 2,963,961 MIST in the wallet.
+ */
+const ATTEST_GAS_BASE = 600_000;
+const ATTEST_GAS_PER_STEP = 100_000;
+/** An unchanged figure is re-attested this often, well inside the contract's two hours. */
+const ATTEST_HEARTBEAT_MIN = 60;
+/** A figure that moved less than this since the last attestation is unchanged. */
+const ATTEST_UNCHANGED_TOLERANCE = 0.005;
 
 interface PendingLargeChange { targetRaw: string; count: number; firstSeen: number }
 interface LastAttested { balanceRaw: string; externalRaw: string; at: number }
@@ -80,6 +90,10 @@ export interface AttestResult {
   attestationAgeMin?: number;
   /** How many attestations the transaction carried (more than one means a stepped catch-up). */
   steps?: number;
+  /** Nothing was sent because the figure on chain is still right and still fresh. Not a failure. */
+  skipped?: boolean;
+  /** Attestations the signer's gas still covers. */
+  gasRunway?: number;
 }
 
 export async function attestExternalNav(
@@ -206,8 +220,29 @@ export async function attestExternalNav(
 
     const gasBudget = ATTEST_GAS_BASE + ATTEST_GAS_PER_STEP * path.length;
     const gas = await suiClient.getBalance({ owner: cronSigner });
+    const gasRunway = attestationsLeft(gas.totalBalance);
+    const runway = gasRunwayLevel(gasRunway);
+    if (runway !== 'ok') {
+      // Said while there is still time: the freeze of 2026-10-06 was only reported once it had happened.
+      await notifyDiscord(
+        `Pool signer is low on gas: about ${gasRunway} attestations left. Send SUI to ${cronSigner} and keep the wallet under 1 SUI in total.`,
+        runway === 'urgent' ? 'ERROR' : 'WARN',
+        { chain: 'sui', signer: cronSigner, balanceSui: (Number(gas.totalBalance) / 1e9).toFixed(6), attestationsLeft: gasRunway },
+      ).catch(() => {});
+    }
     if (BigInt(gas.totalBalance) < BigInt(gasBudget)) {
-      return { pushed: false, attestationAgeMin, error: `insufficient gas: signer holds ${(Number(gas.totalBalance) / 1e9).toFixed(4)} SUI, attestation needs ${(gasBudget / 1e9).toFixed(4)}` };
+      return { pushed: false, attestationAgeMin, gasRunway, error: `insufficient gas: signer holds ${(Number(gas.totalBalance) / 1e9).toFixed(4)} SUI, attestation needs ${(gasBudget / 1e9).toFixed(4)}` };
+    }
+
+    // The figure on chain is still right and still fresh: sending it again
+    // only spends gas. A change in the pool balance always goes through, since
+    // USDC that moved between pool and outside must not be counted twice.
+    if (path.length === 1 && attestationAgeMin !== undefined && attestationAgeMin < ATTEST_HEARTBEAT_MIN && priorRaw > 0n) {
+      const last = await getCronStateOr<LastAttested | null>(LAST_KEY, null);
+      const moved = Math.abs(externalNavRaw - Number(priorRaw)) / Number(priorRaw);
+      if (last && last.balanceRaw === String(balanceRaw) && moved <= ATTEST_UNCHANGED_TOLERANCE) {
+        return { pushed: false, skipped: true, attestationAgeMin, gasRunway };
+      }
     }
 
     const tx = new Transaction();
@@ -250,7 +285,7 @@ export async function attestExternalNav(
           { chain: 'sui', txDigest: result.digest, steps: path.length },
         ).catch(() => {});
       }
-      return { pushed: true, externalNavUsd: Number(attestedRaw) / 1e6, txDigest: result.digest, attestationAgeMin, steps: path.length };
+      return { pushed: true, externalNavUsd: Number(attestedRaw) / 1e6, txDigest: result.digest, attestationAgeMin, steps: path.length, gasRunway };
     }
     const errStr = result.effects?.status?.error || 'unknown';
     // E_EXTERNAL_NAV_CHANGE_TOO_LARGE is an expected reversion (anti-

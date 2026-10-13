@@ -418,6 +418,90 @@ async function checkTvlHeadroom(): Promise<Component & { totalDepositedUsdc?: nu
 }
 
 /**
+ * Whether the pool contract is accepting deposits and withdrawals, read from
+ * chain. `navFreshness` reads the database snapshot, which stays fresh while
+ * the on-chain attestation goes stale: from 2026-10-06 the pool refused users
+ * for six days with every component here green.
+ *
+ * A blocked pool is reported as `warn` with `blocked: true`, not `down`: `down`
+ * turns the whole endpoint into a 503 that pages read and is never cached.
+ */
+async function checkAttestation(): Promise<Component & { blocked?: boolean; ageMin?: number; attestationsLeft?: number }> {
+  try {
+    const network = (process.env.SUI_NETWORK || 'mainnet').trim() as 'mainnet' | 'testnet';
+    const { SUI_USDC_POOL_CONFIG } = await import('@/lib/types/sui-pool-types');
+    const poolStateId = SUI_USDC_POOL_CONFIG[network].poolStateId;
+    if (!poolStateId) return { status: 'ok', detail: 'no pool configured' };
+
+    const { createFailoverSuiClient } = await import('@/lib/services/sui/sui-failover-transport');
+    const { attestationStatus, attestationsLeft, gasRunwayLevel, ATTESTATION_MAX_AGE_MIN } = await import('@/lib/services/sui/attestation-status');
+    const client = createFailoverSuiClient(network);
+    const field = async (key: string): Promise<unknown> => {
+      const res = await client.getDynamicFieldObject({ parentId: poolStateId, name: { type: 'vector<u8>', value: Array.from(Buffer.from(key)) } });
+      if (res.error) {
+        if (res.error.code === 'dynamicFieldNotFound') return undefined;
+        throw new Error(`${key}: ${res.error.code}`);
+      }
+      return (res.data?.content as { fields?: { value?: unknown } } | undefined)?.fields?.value;
+    };
+    const [required, ts, pool] = await Promise.all([
+      field('external_nav_required'),
+      field('external_nav_ts_ms'),
+      client.getObject({ id: poolStateId, options: { showContent: true } }),
+    ]);
+    const s = attestationStatus({ required: required === true, tsMs: ts === undefined ? undefined : Number(ts), nowMs: Date.now() });
+    const ageMin = s.ageMin === undefined ? undefined : Math.round(s.ageMin);
+
+    // The treasury wallet signs the attestations; its gas is what keeps them coming.
+    const treasury = (pool.data?.content as { fields?: { treasury?: string } } | undefined)?.fields?.treasury;
+    let left: number | undefined;
+    if (treasury) left = attestationsLeft((await client.getBalance({ owner: treasury })).totalBalance);
+    const runway = left === undefined ? 'ok' : gasRunwayLevel(left);
+
+    const parts: string[] = [];
+    if (s.blocked) parts.push(`deposits and withdrawals are BLOCKED: attestation ${ageMin === undefined ? 'never made' : `${ageMin} min old`} (limit ${ATTESTATION_MAX_AGE_MIN})`);
+    else if (s.status === 'warn') parts.push(`attestation ${ageMin} min old; users are blocked at ${ATTESTATION_MAX_AGE_MIN}`);
+    if (runway !== 'ok') parts.push(`signer gas covers about ${left} attestations — refuel, keeping the wallet under 1 SUI`);
+
+    return {
+      status: s.status !== 'ok' || runway !== 'ok' ? 'warn' : 'ok',
+      blocked: s.blocked,
+      ...(ageMin !== undefined ? { ageMin } : {}),
+      ...(left !== undefined ? { attestationsLeft: left } : {}),
+      ...(parts.length ? { detail: parts.join('; ') } : {}),
+    };
+  } catch (e: unknown) {
+    // Unknown is not healthy: a failed read must not read as "accepting deposits".
+    return { status: 'warn', error: (e instanceof Error ? e.message : String(e)).slice(0, 100) };
+  }
+}
+
+/**
+ * Venue positions that nothing will close, as the venue health job last found
+ * them (it compares the venue with the active rows and the trader's record).
+ */
+async function checkUnmanagedPositions(): Promise<Component & { count?: number }> {
+  try {
+    const { UNMANAGED_KEY, UNMANAGED_ALERT_AFTER, describeUnmanaged } = await import('@/lib/services/sui/unmanaged-positions');
+    const r = await query<{ value: { at: number; positions: Array<Parameters<typeof describeUnmanaged>[0]> } | null }>(
+      'SELECT value FROM cron_state WHERE key = $1', [UNMANAGED_KEY],
+    );
+    const state = r[0]?.value;
+    if (!state) return { status: 'ok', detail: 'not checked yet' };
+    const ageSeconds = Math.round((Date.now() - state.at) / 1000);
+    const standing = state.positions.filter((p) => p.seen >= UNMANAGED_ALERT_AFTER);
+    if (standing.length > 0) {
+      return { status: 'warn', ageSeconds, count: standing.length, detail: `nothing will close: ${standing.map(describeUnmanaged).join(', ')}` };
+    }
+    // The job skips the check when a read fails, so an old finding means "unknown", not "none".
+    if (ageSeconds > 30 * 60) return { status: 'warn', ageSeconds, count: 0, detail: 'last successful check is over 30 min old' };
+    return { status: 'ok', ageSeconds, count: 0 };
+  } catch (e: unknown) {
+    return { status: 'warn', error: (e instanceof Error ? e.message : String(e)).slice(0, 100) };
+  }
+}
+
+/**
  * Autohedge halt duration — catches the peak-NAV deadlock class of bug.
  *
  * The 2026-07-30 → 2026-08-11 incident stayed hidden for ~12 days because
@@ -668,7 +752,7 @@ export async function GET(req: NextRequest) {
   // realized trade.
   const [
     db, navFreshness, suiPoolCron, traderCron, hedgeReconcileCron, bluefinHealthCron, bluefinDbReconcileCron,
-    poolNavMonitorCron, phantomRate, orphanRate, autohedgeHalt, traderActivity, tvlHeadroom, signalSupply, feedbackLoop,
+    poolNavMonitorCron, phantomRate, orphanRate, autohedgeHalt, traderActivity, tvlHeadroom, signalSupply, feedbackLoop, attestation, unmanagedPositions,
   ] = await Promise.all([
     withCheckTimeout(checkDb(), 'db'),
     withCheckTimeout(checkNavFreshness(), 'navFreshness'),
@@ -698,9 +782,11 @@ export async function GET(req: NextRequest) {
     withCheckTimeout(checkTvlHeadroom(), 'tvlHeadroom'),
     withCheckTimeout(checkSignalSupply(), 'signalSupply'),
     withCheckTimeout(checkFeedbackLoop(), 'feedbackLoop'),
+    withCheckTimeout(checkAttestation(), 'attestation'),
+    withCheckTimeout(checkUnmanagedPositions(), 'unmanagedPositions'),
   ]);
 
-  const components = { db, polymarket, suiRpc, bluefin, navFreshness, suiPoolCron, traderCron, hedgeReconcileCron, bluefinHealthCron, bluefinDbReconcileCron, poolNavMonitorCron, phantomRate, orphanRate, autohedgeHalt, traderActivity, tvlHeadroom, signalSupply, feedbackLoop };
+  const components = { db, polymarket, suiRpc, bluefin, navFreshness, suiPoolCron, traderCron, hedgeReconcileCron, bluefinHealthCron, bluefinDbReconcileCron, poolNavMonitorCron, phantomRate, orphanRate, autohedgeHalt, traderActivity, tvlHeadroom, signalSupply, feedbackLoop, attestation, unmanagedPositions };
   const overall = worstStatus(Object.values(components));
 
   const body = {

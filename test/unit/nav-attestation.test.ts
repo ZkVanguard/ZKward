@@ -84,7 +84,7 @@ beforeEach(() => {
   process.env.SUI_ADMIN_CAP_ID = CAP;
   delete process.env.SUI_ORACLE_CAP_ID;
   const signer = Ed25519Keypair.fromSecretKey(Buffer.from(SIGNER_KEY, 'hex')).toSuiAddress();
-  chain = { balanceRaw: '3157800', priorRaw: '7316909', tsMs: Date.now() - 5 * 60_000, gasMist: '19815161', capOwner: signer };
+  chain = { balanceRaw: '3157800', priorRaw: '7316909', tsMs: Date.now() - 5 * 60_000, gasMist: '500000000', capOwner: signer };
 });
 
 describe('what is attested', () => {
@@ -127,16 +127,71 @@ describe('what is attested', () => {
 
 describe('gas', () => {
   it('the budget fits the wallet that froze the pool (0.0198 SUI): the attestation goes through', async () => {
+    chain.gasMist = '19815161';
     expect((await attest(7.8422)).pushed).toBe(true);
     expect(built[0].budget!).toBeLessThan(Number(chain.gasMist));
   });
 
   it('a wallet that cannot cover the budget is reported with the numbers, and nothing is signed', async () => {
-    chain.gasMist = '1000000';
+    chain.gasMist = '500000';
     const r = await attest(7.8422);
     expect(r.pushed).toBe(false);
     expect(r.error).toMatch(/insufficient gas/);
     expect(signAndExecuteTransaction).not.toHaveBeenCalled();
+  });
+
+  it('the wallet of 2026-10-06 (2,963,961 MIST) can attest: the budget is sized from the real cost, not 3,000,000', async () => {
+    chain.gasMist = '2963961';
+    const r = await attest(7.8422);
+    expect(r.pushed).toBe(true);
+    expect(built[0].budget!).toBe(700_000);
+    expect(r.gasRunway).toBe(11);
+  });
+
+  it('says so while gas is running low, and urgently when it is nearly gone', async () => {
+    chain.gasMist = String(250_000 * 150);
+    await attest(7.8422);
+    expect(notifyDiscord.mock.calls.some((c) => c[1] === 'WARN' && /low on gas: about 150 attestations/.test(String(c[0])))).toBe(true);
+    notifyDiscord.mockClear();
+    chain.gasMist = String(250_000 * 12);
+    await attest(7.8422);
+    expect(notifyDiscord.mock.calls.some((c) => c[1] === 'ERROR' && /about 12 attestations/.test(String(c[0])))).toBe(true);
+    notifyDiscord.mockClear();
+    chain.gasMist = String(250_000 * 500);
+    await attest(7.8422);
+    expect(notifyDiscord).not.toHaveBeenCalled();
+  });
+});
+
+describe('an unchanged figure', () => {
+  const sameAsChain = 7.316909;
+  beforeEach(() => state.set(LAST, { balanceRaw: '3157800', externalRaw: '7316909', at: Date.now() }));
+
+  it('is not sent again while the attestation is fresh: no gas spent, and not an error', async () => {
+    const r = await attest(sameAsChain);
+    expect(r).toMatchObject({ pushed: false, skipped: true });
+    expect(r.error).toBeUndefined();
+    expect(signAndExecuteTransaction).not.toHaveBeenCalled();
+  });
+
+  it('is sent again once an hour, well inside the two hours the contract allows', async () => {
+    chain.tsMs = Date.now() - 61 * 60_000;
+    expect((await attest(sameAsChain)).pushed).toBe(true);
+  });
+
+  it('is sent at once when the pool balance changed, whatever the age', async () => {
+    chain.balanceRaw = '13157800';
+    expect((await attest(sameAsChain)).pushed).toBe(true);
+  });
+
+  it('is sent when the figure moved more than half a percent', async () => {
+    expect((await attest(sameAsChain * 1.006)).pushed).toBe(true);
+    expect((await attest(sameAsChain * 1.004)).skipped).toBe(true);
+  });
+
+  it('is sent when nothing records what was attested last', async () => {
+    state.delete(LAST);
+    expect((await attest(sameAsChain)).pushed).toBe(true);
   });
 
   it('reports how old the on-chain attestation is, so the caller can alert', async () => {

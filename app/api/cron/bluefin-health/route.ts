@@ -32,10 +32,45 @@ import { isPoolTradingEnabled } from '@/lib/services/sui/pool-trading-pause';
 import { verifyCronRequest } from '@/lib/qstash';
 import { errMsg } from '@/lib/utils/error-handler';
 import { BluefinService, type BluefinPosition } from '@/lib/services/sui/BluefinService';
-import { getCronStateOr, setCronState } from '@/lib/db/cron-state';
+import { getCronStateOr, getCronStateStrict, setCronState } from '@/lib/db/cron-state';
+import { getActiveHedges } from '@/lib/db/hedges';
+import { SUI_COMMUNITY_POOL_PORTFOLIO_ID } from '@/lib/constants';
+import { KEY_ACTIVE } from '@/app/api/cron/polymarket-edge-trader/handlers/config';
+import {
+  findUnmanagedPositions, describeUnmanaged, UNMANAGED_KEY, UNMANAGED_ALERT_AFTER, type UnmanagedState,
+} from '@/lib/services/sui/unmanaged-positions';
 import { notifyDiscord } from '@/lib/utils/discord-notify';
 
 const CRON_KEY_LAST_RUN = 'cron:lastRun:bluefin-health';
+
+/**
+ * Compare what the venue holds with what the system believes it is managing.
+ * Every read here is strict: a failed read throws and the check is skipped,
+ * because "no row" or "no active trade" from a failed read would raise a false
+ * alarm, and worse, could clear a true one.
+ */
+async function checkUnmanagedPositions(positions: BluefinPosition[]): Promise<void> {
+  const [rows, activeTrade, previous] = await Promise.all([
+    getActiveHedges(SUI_COMMUNITY_POOL_PORTFOLIO_ID, 'sui'),
+    getCronStateStrict<{ symbol?: string } | null>(KEY_ACTIVE),
+    getCronStateOr<UnmanagedState | null>(UNMANAGED_KEY, null),
+  ]);
+  const found = findUnmanagedPositions(
+    positions,
+    rows.map((r) => ({ market: r.market, side: r.side, order_id: r.order_id })),
+    activeTrade?.symbol ?? null,
+    previous?.positions ?? [],
+  );
+  await setCronState(UNMANAGED_KEY, { at: Date.now(), positions: found } satisfies UnmanagedState);
+  const standing = found.filter((p) => p.seen >= UNMANAGED_ALERT_AFTER);
+  if (standing.length > 0) {
+    await notifyDiscord(
+      `Venue holds ${standing.length} position(s) nothing will close: ${standing.map(describeUnmanaged).join(', ')}. Close by hand on the venue, or restore the trade record.`,
+      'ERROR',
+      { chain: 'sui', positions: standing.map(describeUnmanaged) },
+    );
+  }
+}
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -149,6 +184,14 @@ export async function GET(request: NextRequest): Promise<NextResponse<HealthResu
     }
   } catch (probeErr) {
     apiError = errMsg(probeErr);
+  }
+
+  // Only a successful position read can say a position is unmanaged; a failed
+  // read says nothing, and the previous finding is left as it was.
+  if (positionsCount !== null) {
+    await checkUnmanagedPositions(positions).catch((e) => {
+      logger.warn('[BlueFin Health] unmanaged-position check failed', { error: errMsg(e) });
+    });
   }
 
   const apiLatencyMs = Date.now() - start;
