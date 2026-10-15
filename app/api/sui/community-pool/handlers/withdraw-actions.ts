@@ -14,10 +14,9 @@ import { readMemberSharesStrict } from './member-shares';
 import type { ActionCtx } from './types';
 
 /**
- * Build withdraw transaction params. Runs the pool-liquidity preflight
- * (Move `withdraw` reverts on E_INSUFFICIENT_BALANCE if pool USDC balance
- * doesn't cover payout). Tops up via mini-hedge cycle when possible,
- * otherwise returns POOL_LIQUIDITY_INSUFFICIENT with a safe max-shares
+ * Build withdraw transaction params. Checks first that the pool's balance and
+ * its per-withdrawal cap cover the payout (Move `withdraw` reverts otherwise);
+ * when they do not, returns POOL_LIQUIDITY_INSUFFICIENT with a safe max-shares
  * suggestion so the frontend can auto-fill a retry.
  */
 export async function handleWithdraw(ctx: ActionCtx): Promise<NextResponse> {
@@ -46,12 +45,10 @@ export async function handleWithdraw(ctx: ActionCtx): Promise<NextResponse> {
   }
   const sharesNum = Number(sharesScaled) / 1e6;
 
-  // The preflight below can make the server unwind positions to fund the
-  // payout, so it is bounded to shares this wallet holds on chain. That stops
-  // a request for shares nobody owns. It does not prove the caller is that
-  // member: the wallet is a body field and member addresses are public, so
-  // a stranger can still trigger a real member's preflight. Closing that
-  // needs the wallet to sign the request. The lock below is per instance.
+  // Bounded to shares this wallet holds on chain, so a request for shares
+  // nobody owns stops here. It does not prove the caller is that member (the
+  // wallet is a body field), which is why the preparation below only reads.
+  // The lock below is per instance.
   let ownedShares: number;
   try {
     ownedShares = await readMemberSharesStrict(network, walletAddress);
@@ -75,169 +72,55 @@ export async function handleWithdraw(ctx: ActionCtx): Promise<NextResponse> {
 }
 
 async function prepareWithdraw(ctx: ActionCtx, sharesScaled: bigint, sharesNum: number): Promise<NextResponse> {
-  const { request, network } = ctx;
+  const { network } = ctx;
   const service = getSuiUsdcPoolService(network);
   await service.getPoolStats();
 
-  // Pool-liquidity preflight — see original inline comment block for the full
-  // reasoning; TL;DR: Move-side withdraw reverts if pool balance < payout, so
-  // we top up here before letting the client sign.
-  try {
-    const { readPoolLiquidityState, ensurePoolLiquidityForWithdraw } = await import('@/lib/services/sui/cron/pool-liquidity');
-    const liq = await readPoolLiquidityState(network);
-    if (liq && liq.totalSharesRaw > 0n) {
-      const expectedPayoutRaw = (sharesScaled * liq.totalNavRaw) / liq.totalSharesRaw;
-      const expectedPayoutUsdc = Number(expectedPayoutRaw) / 1e6;
-
-      const maxByCapUsdc = liq.totalNavUsdc * liq.maxSingleWithdrawalBps / 10000;
-      const sharePrice = liq.totalSharesRaw > 0n
-        ? Number(liq.totalNavRaw) / Number(liq.totalSharesRaw)
-        : 1;
-
-      // Safety margin — pool NAV / share price / admin balances drift between
-      // when the user sees an auto-filled max and when they hit retry
-      // (especially the external_nav re-attest, which can shift on-chain
-      // share price 20-30% in one tick). 20% covers a single attestation jump.
-      const SAFETY_MARGIN_BPS = 2000;
-      const applySafety = (v: number) => v * (10000 - SAFETY_MARGIN_BPS) / 10000;
-
-      // Cap-check upfront. Payout above maxByCapUsdc reverts on-chain
-      // (E_MAX_WITHDRAWAL_EXCEEDED) even if pool has enough balance.
-      if (expectedPayoutUsdc > maxByCapUsdc + 0.001) {
-        const safeMaxUsdc = applySafety(Math.min(maxByCapUsdc, liq.poolBalanceUsdc));
-        const capShares = safeMaxUsdc / sharePrice;
-        const capPct = (liq.maxSingleWithdrawalBps / 100).toFixed(1);
-        return NextResponse.json({
-          success: false,
-          error: `Withdrawal exceeds per-transaction cap: pool allows up to ${capPct}% of NAV per tx (${capShares.toFixed(4)} shares ≈ $${safeMaxUsdc.toFixed(2)}). Split into multiple withdrawals to fully unwind ${sharesNum.toFixed(4)} shares.`,
-          data: {
-            code: 'POOL_LIQUIDITY_INSUFFICIENT',
-            poolBalanceUsdc: liq.poolBalanceUsdc,
-            expectedPayoutUsdc,
-            maxWithdrawableUsdc: safeMaxUsdc,
-            maxWithdrawableShares: capShares,
-            maxSingleWithdrawalBps: liq.maxSingleWithdrawalBps,
-            sharePrice,
-          },
-          chain: 'sui',
-          network,
-        }, { status: 503 });
-      }
-
-      // At/under cap. Try to top up pool balance for THIS specific payout.
-      const topUpTarget = Math.min(expectedPayoutUsdc, maxByCapUsdc);
-      const topUp = await ensurePoolLiquidityForWithdraw(network, topUpTarget);
-      if (!topUp.success) {
-        const liq2 = await readPoolLiquidityState(network).catch(() => null);
-        const postBalance = liq2?.poolBalanceUsdc ?? liq.poolBalanceUsdc;
-
-        // Race safety net: top-up reported failure but pool balance now covers
-        // — a concurrent cron may have beaten us to the pool object. Let it
-        // through — Move re-validates at signing.
-        if (postBalance >= expectedPayoutUsdc + 0.001) {
-          logger.info('[SUI-API] Top-up reported failure but pool balance already covers payout — proceeding', {
-            expectedPayoutUsdc: expectedPayoutUsdc.toFixed(6),
-            postBalance: postBalance.toFixed(6),
-            topUpError: topUp.error,
-          });
-        } else {
-          const rawMaxUsdc = Math.min(postBalance, maxByCapUsdc);
-          const maxWithdrawableUsdc = applySafety(rawMaxUsdc);
-          const maxWithdrawableShares = sharePrice > 0 ? maxWithdrawableUsdc / sharePrice : 0;
-
-          let bluefinFreeUsdc: number | undefined;
-          try {
-            const healthRes = await fetch(`${new URL(request.url).origin}/api/health/production`, { cache: 'no-store' });
-            if (healthRes.ok) {
-              const health = await healthRes.json();
-              const free = health?.components?.bluefin?.freeCollateral;
-              if (typeof free === 'number' && free > 0) bluefinFreeUsdc = free;
-            }
-          } catch { /* non-critical */ }
-
-          logger.warn('[SUI-API] Withdraw preflight top-up failed', {
-            expectedPayoutUsdc: expectedPayoutUsdc.toFixed(6),
-            poolBalance: postBalance.toFixed(6),
-            rawMaxUsdc: rawMaxUsdc.toFixed(6),
-            maxWithdrawableUsdc: maxWithdrawableUsdc.toFixed(6),
-            bluefinFreeUsdc: bluefinFreeUsdc?.toFixed(6),
-            error: topUp.error,
-          });
-          const stuckHint = bluefinFreeUsdc && bluefinFreeUsdc > 1
-            ? ` Additional $${bluefinFreeUsdc.toFixed(2)} is currently held as free collateral on BlueFin and requires a manual withdrawFromMarginBank call to move back to the pool.`
-            : '';
-          const suggestion = maxWithdrawableShares > 0.001
-            ? ` You can withdraw up to ${maxWithdrawableShares.toFixed(4)} shares (~$${maxWithdrawableUsdc.toFixed(2)}) right now without waiting.${stuckHint}`
-            : ' Pool needs manual replenishment — please contact support.' + stuckHint;
-          return NextResponse.json({
-            success: false,
-            error: `Pool liquidity insufficient for withdrawal ($${expectedPayoutUsdc.toFixed(2)} needed, pool has $${postBalance.toFixed(2)}).${suggestion} ${topUp.error || ''}`.trim(),
-            data: {
-              code: 'POOL_LIQUIDITY_INSUFFICIENT',
-              poolBalanceUsdc: postBalance,
-              expectedPayoutUsdc,
-              maxWithdrawableUsdc,
-              maxWithdrawableShares,
-              maxSingleWithdrawalBps: liq.maxSingleWithdrawalBps,
-              sharePrice,
-              bluefinFreeUsdc,
-            },
-            chain: 'sui',
-            network,
-          }, { status: 503 });
-        }
-      }
-      if (topUp.toppedUpBy) {
-        logger.info('[SUI-API] Withdraw preflight topped up pool', {
-          toppedUpBy: topUp.toppedUpBy.toFixed(6),
-          openTx: topUp.openTxDigest,
-          closeTx: topUp.closeTxDigest,
-        });
-      }
-
-      // Even on top-up "success", re-verify pool balance vs exact expected
-      // payout — top-up allows partial bridging, which can leave a shortfall
-      // that Move would abort on.
-      const liqPost = await readPoolLiquidityState(network).catch(() => null);
-      const finalBalance = liqPost?.poolBalanceUsdc ?? liq.poolBalanceUsdc;
-      if (finalBalance + 0.001 < expectedPayoutUsdc) {
-        const rawMaxUsdc = Math.min(finalBalance, maxByCapUsdc);
-        const maxWithdrawableUsdc = applySafety(rawMaxUsdc);
-        const maxWithdrawableShares = sharePrice > 0 ? maxWithdrawableUsdc / sharePrice : 0;
-        let bluefinFreeUsdc: number | undefined;
-        try {
-          const healthRes = await fetch(`${new URL(request.url).origin}/api/health/production`, { cache: 'no-store' });
-          if (healthRes.ok) {
-            const health = await healthRes.json();
-            const free = health?.components?.bluefin?.freeCollateral;
-            if (typeof free === 'number' && free > 0) bluefinFreeUsdc = free;
-          }
-        } catch { /* non-critical */ }
-        const stuckHint = bluefinFreeUsdc && bluefinFreeUsdc > 1
-          ? ` Additional $${bluefinFreeUsdc.toFixed(2)} is on BlueFin as free collateral and needs a withdrawFromMarginBank call to reach the pool.`
-          : '';
-        return NextResponse.json({
-          success: false,
-          error: `Pool topped up to $${finalBalance.toFixed(2)} but full payout $${expectedPayoutUsdc.toFixed(2)} requires more. You can withdraw up to ${maxWithdrawableShares.toFixed(4)} shares (~$${maxWithdrawableUsdc.toFixed(2)}) right now.${stuckHint}`,
-          data: {
-            code: 'POOL_LIQUIDITY_INSUFFICIENT',
-            poolBalanceUsdc: finalBalance,
-            expectedPayoutUsdc,
-            maxWithdrawableUsdc,
-            maxWithdrawableShares,
-            maxSingleWithdrawalBps: liq.maxSingleWithdrawalBps,
-            sharePrice,
-            bluefinFreeUsdc,
-            partialTopUp: topUp.toppedUpBy,
-          },
-          chain: 'sui',
-          network,
-        }, { status: 503 });
-      }
+  // The payout comes from what the pool already holds. This request is not
+  // signed by the member, so it never makes the server move funds: a request
+  // anyone can send must not be able to unwind positions or move the pool's
+  // money. Bringing venue money back to the pool is the operator's job.
+  const { readPoolLiquidityState } = await import('@/lib/services/sui/cron/pool-liquidity');
+  const liq = await readPoolLiquidityState(network);
+  if (!liq) {
+    // Without the balance the transaction could abort on chain after the member paid gas for it.
+    return NextResponse.json(
+      { success: false, error: 'Could not read the pool balance right now. Please try again in a moment.', chain: 'sui', network },
+      { status: 503 },
+    );
+  }
+  if (liq.totalSharesRaw > 0n) {
+    const expectedPayoutUsdc = Number((sharesScaled * liq.totalNavRaw) / liq.totalSharesRaw) / 1e6;
+    const maxByCapUsdc = (liq.totalNavUsdc * liq.maxSingleWithdrawalBps) / 10000;
+    const payableUsdc = Math.min(maxByCapUsdc, liq.poolBalanceUsdc);
+    if (expectedPayoutUsdc > payableUsdc + 0.001) {
+      const sharePrice = Number(liq.totalNavRaw) / Number(liq.totalSharesRaw);
+      // The share price can move between this answer and the retry (an attestation has moved it 20-30%).
+      const maxWithdrawableUsdc = payableUsdc * 0.8;
+      const maxWithdrawableShares = sharePrice > 0 ? maxWithdrawableUsdc / sharePrice : 0;
+      const capBinds = maxByCapUsdc < liq.poolBalanceUsdc;
+      const reason = capBinds
+        ? `the pool pays out at most ${(liq.maxSingleWithdrawalBps / 100).toFixed(1)}% of its value in one withdrawal`
+        : `the pool has $${liq.poolBalanceUsdc.toFixed(2)} available to pay out right now`;
+      const next = maxWithdrawableShares > 0.001
+        ? ` You can withdraw up to ${maxWithdrawableShares.toFixed(4)} shares (about $${maxWithdrawableUsdc.toFixed(2)}) now${capBinds ? ' and the rest in further withdrawals' : ''}.`
+        : ' Please try again later.';
+      return NextResponse.json({
+        success: false,
+        error: `This withdrawal needs $${expectedPayoutUsdc.toFixed(2)}, and ${reason}.${next}`,
+        data: {
+          code: 'POOL_LIQUIDITY_INSUFFICIENT',
+          poolBalanceUsdc: liq.poolBalanceUsdc,
+          expectedPayoutUsdc,
+          maxWithdrawableUsdc,
+          maxWithdrawableShares,
+          maxSingleWithdrawalBps: liq.maxSingleWithdrawalBps,
+          sharePrice,
+        },
+        chain: 'sui',
+        network,
+      }, { status: 503 });
     }
-  } catch (preflightErr) {
-    logger.error('[SUI-API] Withdraw preflight threw', { error: preflightErr instanceof Error ? preflightErr.message : preflightErr });
-    // Fall through — let the on-chain revert surface if preflight itself broke.
   }
 
   const params = service.buildWithdrawParams(sharesNum);
