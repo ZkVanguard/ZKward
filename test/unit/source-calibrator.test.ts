@@ -29,7 +29,6 @@ import {
   normalizeSourceKey,
   recordSourceOutcome,
   getCalibratedHitRate,
-  getCalibratedMultiplier,
   hitRateToMultiplier,
   applyCalibrationToSources,
   _MIN_MULTIPLIER,
@@ -200,27 +199,6 @@ describe('hitRateToMultiplier', () => {
   });
 });
 
-describe('getCalibratedMultiplier', () => {
-  it('returns 1.0 for an unseen source (no data)', async () => {
-    const m = await getCalibratedMultiplier('unseen');
-    expect(m).toBe(1.0);
-  });
-  it('returns > 1 for a proven-good source (high hit rate)', async () => {
-    store['trader:source-cal:proven'] = { n: 100, wins: 80, updatedAt: 0, epoch: CALIBRATION_EPOCH };
-    const m = await getCalibratedMultiplier('proven');
-    expect(m).toBeGreaterThan(1.4);
-    expect(m).toBeLessThanOrEqual(_MAX_MULTIPLIER);
-  });
-  it('returns KILL_MULTIPLIER (0.05) for a proven-bad source once n >= KILL_MIN_TRADES', async () => {
-    // Post-2026-09-22: hard-cut fires when n >= 15 AND empirical < 0.40.
-    // The soft MIN_MULTIPLIER floor only applies to shrunken-but-not-killed
-    // sources (n < KILL_MIN_TRADES or empirical >= 0.40).
-    store['trader:source-cal:noisy'] = { n: 100, wins: 20, updatedAt: 0, epoch: CALIBRATION_EPOCH };
-    const m = await getCalibratedMultiplier('noisy');
-    expect(m).toBe(0.05);
-  });
-});
-
 describe('applyCalibrationToSources', () => {
   it('leaves weights unchanged when all sources are un-calibrated (multiplier = 1)', async () => {
     const inp = [
@@ -254,7 +232,6 @@ describe('calibration epoch — buckets from the wording era are ignored and res
   it('a bucket without the current epoch reads as no history', async () => {
     store['trader:source-cal:legacy'] = { n: 100, wins: 20, updatedAt: 0 };
     expect(await getCalibratedHitRate('legacy')).toBe(_NEUTRAL_HIT_RATE);
-    expect(await getCalibratedMultiplier('legacy')).toBe(1);
   });
   it('the next outcome restarts the bucket under the current epoch', async () => {
     store['trader:source-cal:legacy'] = { n: 100, wins: 20, updatedAt: 0 };

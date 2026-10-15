@@ -94,7 +94,6 @@ import {
   PAPER_STARTING_NAV,
   computeSignalScalar,
   computeMaxHoldMinutes,
-  computeCalibrationBoost,
   PAPER_ASSET_VOL_MULT,
   PAPER_MAX_HOLD_MIN,
 } from '@/lib/services/paper-trader/PaperTrader';
@@ -649,33 +648,6 @@ describe('computeSignalScalar — confidence weighting', () => {
 
   it('never returns below 0.4 even for sub-gate inputs (defense-in-depth)', () => {
     expect(computeSignalScalar(30, 20)).toBe(0.4);
-  });
-});
-
-describe('computeCalibrationBoost — source-calibrator wiring', () => {
-  // No calibrator mock; the real getCalibratedMultiplier will bail on the
-  // cron_state read (mocked to return null → NEUTRAL 1.0 default), so
-  // these tests validate the boundary + defensive branches.
-  it('returns 1.0 when sources array is empty', async () => {
-    const result = await computeCalibrationBoost([]);
-    expect(result).toBe(1.0);
-  });
-
-  it('returns 1.0 when total weight is 0 (defensive)', async () => {
-    const result = await computeCalibrationBoost([
-      { name: 'x', weight: 0 },
-      { name: 'y', weight: 0 },
-    ]);
-    expect(result).toBe(1.0);
-  });
-
-  it('produces a result in [0.5, 1.5] for real inputs', async () => {
-    const result = await computeCalibrationBoost([
-      { name: 'src1', weight: 1 },
-      { name: 'src2', weight: 1 },
-    ]);
-    expect(result).toBeGreaterThanOrEqual(0.5);
-    expect(result).toBeLessThanOrEqual(1.5);
   });
 });
 

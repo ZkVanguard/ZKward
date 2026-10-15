@@ -199,7 +199,7 @@ export const PAPER_PROBE_STAKE_MULT = Math.min(
 
 /**
  * Max stake per trade as a fraction of NAV, applied AFTER all sizing
- * multipliers (signalScalar × volMult × calibrationBoost).
+ * multipliers (volMult × regime × evidence tier).
  *
  * Was missing until 2026-09-22. Live Polymarket-edge-trader has a
  * $500 hard cap (POLYMARKET_EDGE_MAX_STAKE_USD); paper had no

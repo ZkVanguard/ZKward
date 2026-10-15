@@ -243,14 +243,6 @@ function multiplierFromBucket(bucket: SourceCalibrationBucket | null): number {
   return hitRateToMultiplier(hitRateFromBucket(bucket));
 }
 
-export async function getCalibratedMultiplier(sourceKey: string): Promise<number> {
-  try {
-    return multiplierFromBucket(liveBucket(await getCronState<SourceCalibrationBucket>(stateKey(sourceKey))));
-  } catch {
-    return hitRateToMultiplier(NEUTRAL_HIT_RATE);
-  }
-}
-
 /**
  * Fix H — hard-filter check. Returns true if this source has ENOUGH DATA
  * (n >= HARD_FILTER_MIN_TRADES) AND its empirical hit rate is BELOW the
