@@ -110,6 +110,11 @@
         "protectedDesc": "Tutti i dati sensibili sono crittografati. Le prove ZK garantiscono che le tue posizioni rimangano private ma comunque verificabili on-chain."
       }
     },
+    "poolStatus": {
+      "pausedTitle": "Depositi e prelievi sono in pausa",
+      "pausedBody": "Il valore del pool non è stato confermato on-chain da {hours} ore, quindi il contratto non accetta depositi né prelievi. Le tue quote sono invariate. Questo avviso scompare quando il pool riapre.",
+      "pausedBodyNoAge": "Il valore del pool non è stato confermato on-chain, quindi il contratto non accetta depositi né prelievi. Le tue quote sono invariate. Questo avviso scompare quando il pool riapre."
+    },
     "marketBoard": {
       "title": "Tendenza del mercato",
       "subtitle": "Dove pendono i segnali per ciascun asset e quali mercati lo dicono",

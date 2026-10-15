@@ -127,6 +127,23 @@ async function handleGet(request: NextRequest) {
       service.clearCaches();
     }
     
+    // Whether the contract accepts deposits and withdrawals right now. Short
+    // cache and outside the shared cache: a page must not show "open" for long
+    // after the pool closed, or "closed" after it reopened.
+    if (action === 'availability') {
+      try {
+        const { readPoolAttestation } = await import('@/lib/services/sui/attestation-read');
+        const a = await readPoolAttestation(network);
+        return NextResponse.json(
+          { success: true, data: { blocked: a?.blocked ?? false, ageMin: a?.ageMin === undefined ? null : Math.round(a.ageMin) }, chain: 'sui', network },
+          { headers: { 'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=60' } },
+        );
+      } catch (err) {
+        logger.warn('[SUI-API] Pool availability read failed', { error: err instanceof Error ? err.message : String(err) });
+        return NextResponse.json({ success: false, error: 'Could not read whether the pool is open', chain: 'sui', network }, { status: 502 });
+      }
+    }
+
     // Get BlueFin aggregator swap quote
     if (action === 'swap-quote') {
       const asset = (url.searchParams.get('asset') || 'BTC').toUpperCase() as PoolAsset;
