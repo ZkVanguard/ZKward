@@ -55,8 +55,7 @@ const getUserSharesFromDb = jest.fn(async (_a: unknown, _b: unknown) => null as 
 jest.mock('@/lib/db/community-pool', () => ({ txHashExists, saveUserSharesToDb, deleteUserSharesFromDb, addPoolTransactionToDb, getUserSharesFromDb }));
 
 const readPoolLiquidityState = jest.fn<(n: string) => Promise<unknown>>();
-const ensurePoolLiquidityForWithdraw = jest.fn<(n: string, usdc: number) => Promise<{ success: boolean }>>();
-jest.mock('@/lib/services/sui/cron/pool-liquidity', () => ({ readPoolLiquidityState, ensurePoolLiquidityForWithdraw }));
+jest.mock('@/lib/services/sui/cron/pool-liquidity', () => ({ readPoolLiquidityState }));
 
 jest.mock('@/lib/qstash', () => ({ verifyCronRequest: jest.fn(async () => true) }));
 jest.mock('@/lib/utils/logger', () => ({ logger: { info: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn() } }));
@@ -92,7 +91,6 @@ const noFundsMoved = () => {
   expect(executeRebalance).not.toHaveBeenCalled();
   expect(planRebalanceSwaps).not.toHaveBeenCalled();
   expect(executeSwap).not.toHaveBeenCalled();
-  expect(ensurePoolLiquidityForWithdraw).not.toHaveBeenCalled();
 };
 
 beforeEach(() => {
@@ -257,19 +255,49 @@ describe('withdraw preflight', () => {
     noFundsMoved();
   });
 
-  it('a member withdrawing shares they hold gets the preflight and the transaction parameters', async () => {
+  it('a member withdrawing shares the pool can pay gets the transaction parameters', async () => {
     memberOnChain('67304454');
-    readPoolLiquidityState.mockResolvedValue(liquid);
-    ensurePoolLiquidityForWithdraw.mockResolvedValue({ success: true });
-    readPoolLiquidityState.mockResolvedValueOnce(liquid).mockResolvedValueOnce({ ...liquid, poolBalanceUsdc: 60 });
+    readPoolLiquidityState.mockResolvedValue({ ...liquid, poolBalanceUsdc: 60 });
     const res = await handleWithdraw(ctx({ shares: '67304454', walletAddress: MEMBER }));
     expect(res.status).toBe(200);
     const json = (await res.json()) as { success: boolean; data: { sharesScaled: string } };
     expect(json.success).toBe(true);
     expect(json.data.sharesScaled).toBe('67304454');
-    expect(ensurePoolLiquidityForWithdraw).toHaveBeenCalledTimes(1);
-    // topped up for this member's payout and no more
-    expect(ensurePoolLiquidityForWithdraw.mock.calls[0][1]).toBeCloseTo(67.304454 * 0.68, 4);
+    noFundsMoved();
+  });
+
+  it('when the pool holds less than the payout, it says how much can be withdrawn now and moves nothing', async () => {
+    memberOnChain('67304454');
+    readPoolLiquidityState.mockResolvedValue(liquid); // $2 in the pool against a $45.77 payout
+    const res = await handleWithdraw(ctx({ shares: '67304454', walletAddress: MEMBER }));
+    expect(res.status).toBe(503);
+    const json = (await res.json()) as { success: boolean; error: string; data: { code: string; maxWithdrawableUsdc: number; maxWithdrawableShares: number } };
+    expect(json.data.code).toBe('POOL_LIQUIDITY_INSUFFICIENT');
+    expect(json.data.maxWithdrawableUsdc).toBeCloseTo(2 * 0.8, 6);
+    expect(json.data.maxWithdrawableShares).toBeCloseTo((2 * 0.8) / 0.68, 4);
+    expect(json.error).toMatch(/has \$2\.00 available/);
+    noFundsMoved();
+  });
+
+  it('the per-withdrawal cap is named when it is what binds', async () => {
+    memberOnChain('67304454');
+    readPoolLiquidityState.mockResolvedValue({ ...liquid, poolBalanceUsdc: 60, maxSingleWithdrawalBps: 2500 });
+    const res = await handleWithdraw(ctx({ shares: '67304454', walletAddress: MEMBER }));
+    expect(res.status).toBe(503);
+    const json = (await res.json()) as { error: string };
+    expect(json.error).toMatch(/at most 25\.0% of its value/);
+    noFundsMoved();
+  });
+
+  it('an unreadable pool balance refuses instead of handing out a transaction that may abort', async () => {
+    memberOnChain('67304454');
+    readPoolLiquidityState.mockResolvedValue(null);
+    const res = await handleWithdraw(ctx({ shares: '67304454', walletAddress: MEMBER }));
+    expect(res.status).toBe(503);
+    const json = (await res.json()) as { success: boolean; data?: unknown };
+    expect(json.success).toBe(false);
+    expect(json.data).toBeUndefined();
+    noFundsMoved();
   });
 });
 

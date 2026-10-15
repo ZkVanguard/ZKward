@@ -114,7 +114,7 @@ describe('pool trading pause', () => {
     expect(snap.totalValue).not.toBeCloseTo(9.47, 2);
   });
 
-  it('the automatic closes in the other crons and the withdraw top-up obey it', () => {
+  it('the automatic closes in the other crons obey it', () => {
     const read = (p: string) => readFileSync(join(process.cwd(), p), 'utf8').replace(/\r\n/g, '\n');
     expect(read('app/api/cron/agent-signal-tick/route.ts')).toContain('if (adminKey && directionFlipped && isPoolTradingEnabled()) {');
     expect(read('app/api/cron/bluefin-health/route.ts')).toContain("if (status === 'HEALTHY' && isPoolTradingEnabled()) {");
@@ -123,14 +123,6 @@ describe('pool trading pause', () => {
       const close = src.indexOf('await bf.closeHedge({ symbol })');
       expect(close).toBeGreaterThan(-1);
       expect(src.slice(close - 80, close)).toContain('if (!isPoolTradingEnabled()) continue;');
-    }
-    const liq = read('lib/services/sui/cron/pool-liquidity.ts');
-    const fn = liq.indexOf('export async function ensurePoolLiquidityForWithdraw');
-    const gate = liq.indexOf('if (!isPoolTradingEnabled()) {', fn);
-    expect(gate).toBeGreaterThan(fn);
-    for (const signer of ['replenishAdminUsdc(', 'returnUsdcToPool(']) {
-      const at = liq.indexOf(signer, fn);
-      if (at !== -1) expect(at).toBeGreaterThan(gate);
     }
     // the operator's own route still closes
     expect(read('app/api/admin/close-bluefin-positions/route.ts')).not.toContain('isPoolTradingEnabled');

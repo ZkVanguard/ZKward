@@ -84,17 +84,18 @@ describe('browser-callable pool actions cannot move funds', () => {
     expect(body).not.toContain('body.sharesToBurn');
   });
 
-  it('the withdraw preflight checks on-chain ownership before the liquidity top-up', () => {
+  it('the withdraw preparation checks on-chain ownership first and never moves funds', () => {
     const src = read('app/api/sui/community-pool/handlers/withdraw-actions.ts');
     const owned = src.indexOf('readMemberSharesStrict(network, walletAddress)');
-    const topUp = src.indexOf('ensurePoolLiquidityForWithdraw(');
-    expect(owned).toBeGreaterThan(-1);
-    expect(topUp).toBeGreaterThan(owned);
-    // the top-up lives in the inner function, reachable only through the checked wrapper
     const inner = src.indexOf('async function prepareWithdraw(');
+    expect(owned).toBeGreaterThan(-1);
     expect(inner).toBeGreaterThan(owned);
-    expect(topUp).toBeGreaterThan(inner);
     expect(src).not.toContain('export async function prepareWithdraw');
+    // an unsigned request may read the pool, never sign with the admin key
+    const prepare = src.slice(inner, src.indexOf('export async function', inner));
+    for (const signer of ['ensurePoolLiquidityForWithdraw', 'replenishAdminUsdc', 'returnUsdcToPool', 'openHedge', 'closeHedge', 'SUI_POOL_ADMIN_KEY']) {
+      expect(prepare).not.toContain(signer);
+    }
   });
 
   it('admin swap actions keep their service credential', () => {
