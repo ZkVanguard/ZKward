@@ -11,7 +11,7 @@
  *   priceCandidate  — multi-source price validation. Returns markPrice
  *                     or a skip reason string.
  *
- *   sizeCandidate   — Kelly-scalar × vol-mult × source-calibration →
+ *   sizeCandidate   — base stake × vol-mult × regime × evidence tier →
  *                     notionalUsd. Pure math over the picked candidate.
  *
  * handleEntry itself is now a coordinator: risk-gates → select → price →
@@ -44,7 +44,7 @@ import { assetHoldPlan, getLedgerCells, getRecentLedgerCells, type LedgerCell } 
 import { getLoopState, resolveVerdict } from '@/lib/services/market-data/feedback-loop';
 import type { Side } from './simulated-executor';
 import { getMultiSourceValidatedPrice } from '@/lib/services/market-data/unified-price-provider';
-import { computeSignalScalar, computeCalibrationBoost } from './sizing';
+import { computeSignalScalar } from './sizing';
 import { getVolMultiplier } from './vol-autotune';
 import {
   signalQualityRejection,
@@ -78,9 +78,9 @@ export type PriceResult =
 export interface SizeResult {
   notionalUsd: number;
   stakeUsd: number;
+  /** Confidence and consensus as one scalar. It plans the hold in adaptive mode; it no longer sizes. */
   signalScalar: number;
   volMult: number;
-  calibrationBoost: number;
   regimeStakeMult: number;
   probeStakeMult: number;
   /** The ledger's verdict on the combined signal for this coin; it sets the size tier. */
@@ -398,10 +398,12 @@ export async function priceCandidate(asset: string): Promise<PriceResult> {
 // ── sizeCandidate ────────────────────────────────────────────────────
 
 /**
- * Kelly-scaled stake × vol multiplier × source-calibration boost →
- * notional dollars for the open. All three multipliers converge on 1.0
- * for a middling signal; sizing balloons for confident-consensus-strong
- * signals on historically-accurate sources.
+ * Base stake × vol multiplier × regime × evidence tier → notional dollars
+ * for the open. Confidence does not set the size, and neither do the
+ * per-trade source scores: on the ledger neither has measured any edge
+ * (confidence 70+ ran -0.2 ± 1.3 bp at 60 min), and the source scores grade
+ * a source by the exit's win rate. Scaling by them made the most confident
+ * calls the largest, so a stop on one cost two to four times a normal trade.
  */
 export async function sizeCandidate(
   picked: PickedCandidate,
@@ -412,25 +414,13 @@ export async function sizeCandidate(
   const cons = (picked.prediction as { consensus?: number }).consensus ?? 0;
   const signalScalar = computeSignalScalar(conf, cons);
   const volMult = await getVolMultiplier(picked.asset, now);
-  const rawSourcesForCal = (picked.prediction.sources ?? []) as Array<{
-    name: string;
-    type?: string;
-    weight?: number;
-  }>;
-  const calibrationBoost = await computeCalibrationBoost(
-    rawSourcesForCal.map((s) => ({
-      name: s.name,
-      type: s.type,
-      weight: s.weight ?? 1,
-    })),
-  );
   const regimeStakeMult = picked.regime === 'CHOP' ? PAPER_CHOP_STAKE_MULT : 1;
   // An unreadable verdict store reads as unproven: the smaller size.
   const loop = await getLoopState().catch(() => null);
   const evidence: SignalEvidence = resolveVerdict(loop, 'aggregate', picked.asset).verdict;
   const probeStakeMult = evidenceStakeMult(evidence, !!picked.probe);
   const rawStake =
-    nav * PAPER_STAKE_PCT * signalScalar * volMult * calibrationBoost * regimeStakeMult * probeStakeMult;
+    nav * PAPER_STAKE_PCT * volMult * regimeStakeMult * probeStakeMult;
   // Hard cap on stake (was missing — paper had unbounded stake vs live's
   // $500 cap). Applied AFTER all multipliers so any combined boost still
   // respects the NAV-fraction ceiling.
@@ -438,5 +428,5 @@ export async function sizeCandidate(
   const maxStake = nav * PAPER_MAX_STAKE_PCT;
   const stakeUsd = Math.min(rawStake, maxStake);
   const notionalUsd = stakeUsd * PAPER_LEVERAGE;
-  return { notionalUsd, stakeUsd, signalScalar, volMult, calibrationBoost, regimeStakeMult, probeStakeMult, evidence };
+  return { notionalUsd, stakeUsd, signalScalar, volMult, regimeStakeMult, probeStakeMult, evidence };
 }

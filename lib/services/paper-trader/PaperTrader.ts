@@ -85,7 +85,6 @@ export {
 export {
   computeSignalScalar,
   computeMaxHoldMinutes,
-  computeCalibrationBoost,
 } from './sizing';
 
 import {
@@ -131,7 +130,6 @@ import {
   computeMaxHoldMinutes,
   holdPlanTag,
   holdPlanMeta,
-  computeCalibrationBoost,
 } from './sizing';
 
 // ── Types ─────────────────────────────────────────────────────────────────
@@ -730,9 +728,9 @@ export class PaperTrader {
     }
     const markPrice = priceResult.markPrice;
 
-    // 4. Sizing: base stake × confidence × vol × source-calibration.
+    // 4. Sizing: base stake × vol × regime × the ledger's evidence tier.
     const sized = await sizeCandidate(picked, nav, now);
-    const { notionalUsd, signalScalar, volMult, calibrationBoost } = sized;
+    const { notionalUsd, signalScalar, volMult } = sized;
     if (notionalUsd < 1) {
       return { action: 'skipped', reason: `notional too small ($${notionalUsd.toFixed(2)}, signal ${sized.evidence})`, nav };
     }
@@ -758,7 +756,6 @@ export class PaperTrader {
     logger.info('[PaperTrader] entry sized', {
       asset, side,
       volMult: volMult.toFixed(2),
-      calibrationBoost: calibrationBoost.toFixed(2),
       execution: PAPER_EXECUTION,
     });
     if (PAPER_EXECUTION === 'resting') {

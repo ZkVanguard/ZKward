@@ -8,10 +8,6 @@ import { describe, it, expect, jest } from '@jest/globals';
 jest.mock('@/lib/services/paper-trader/vol-autotune', () => ({
   getVolMultiplier: jest.fn(async () => 1),
 }));
-jest.mock('@/lib/services/paper-trader/sizing', () => {
-  const actual = jest.requireActual('@/lib/services/paper-trader/sizing') as object;
-  return { ...actual, computeCalibrationBoost: jest.fn(async () => 1) };
-});
 
 // The ledger's verdict on the combined signal sets the size tier; the older
 // tests below run with it proven so they keep measuring their own multiplier.
@@ -37,15 +33,29 @@ import {
 } from '@/lib/services/paper-trader/config';
 
 const NAV = 100_000;
-const pick = (regime: PickedCandidate['regime'], probe: string | null = null): PickedCandidate =>
+const pick = (regime: PickedCandidate['regime'], probe: string | null = null, confidence = 72, consensus = 60): PickedCandidate =>
   ({
     asset: 'BTC',
     side: 'LONG',
     score: 1,
     regime,
     probe,
-    prediction: { confidence: 72, consensus: 60, sources: [] },
+    prediction: { confidence, consensus, sources: [{ name: 'Polymarket 5-Min BTC', weight: 1 }] },
   }) as unknown as PickedCandidate;
+
+describe('the size does not follow confidence', () => {
+  it('a 95-confidence call and a 56-confidence call get the same stake', async () => {
+    const sure = await sizeCandidate(pick('TRENDING_UP', null, 95, 95), NAV, 1);
+    const unsure = await sizeCandidate(pick('TRENDING_UP', null, 56, 51), NAV, 1);
+    expect(sure.signalScalar).toBeGreaterThan(3 * unsure.signalScalar);
+    expect(sure.stakeUsd).toBe(unsure.stakeUsd);
+  });
+
+  it('the stake is the base stake × regime × evidence tier, capped', async () => {
+    const r = await sizeCandidate(pick('TRENDING_UP', null, 95, 95), NAV, 1);
+    expect(r.stakeUsd).toBeCloseTo(Math.min(NAV * PAPER_STAKE_PCT, NAV * PAPER_MAX_STAKE_PCT), 6);
+  });
+});
 
 describe('chop-regime sizing', () => {
   it('defaults: no full halt, quarter stake in CHOP', () => {
@@ -58,7 +68,7 @@ describe('chop-regime sizing', () => {
     const chop = await sizeCandidate(pick('CHOP'), NAV, 1);
     expect(trend.regimeStakeMult).toBe(1);
     expect(chop.regimeStakeMult).toBe(0.25);
-    const expected = Math.min(NAV * PAPER_STAKE_PCT * chop.signalScalar * 0.25, NAV * PAPER_MAX_STAKE_PCT);
+    const expected = Math.min(NAV * PAPER_STAKE_PCT * 0.25, NAV * PAPER_MAX_STAKE_PCT);
     expect(chop.stakeUsd).toBeCloseTo(expected, 6);
     expect(chop.stakeUsd).toBeLessThan(trend.stakeUsd);
   });
@@ -71,8 +81,7 @@ describe('chop-regime sizing', () => {
 });
 
 describe('probe sizing (blacklisted pair / STRONG signal)', () => {
-  const capped = (mult: number, signalScalar: number) =>
-    Math.min(NAV * PAPER_STAKE_PCT * signalScalar * mult, NAV * PAPER_MAX_STAKE_PCT);
+  const capped = (mult: number) => Math.min(NAV * PAPER_STAKE_PCT * mult, NAV * PAPER_MAX_STAKE_PCT);
 
   it('a blacklisted pair trades at probe stake instead of being blocked', async () => {
     expect(PAPER_PROBE_STAKE_MULT).toBe(0.25);
@@ -80,13 +89,13 @@ describe('probe sizing (blacklisted pair / STRONG signal)', () => {
     const probe = await sizeCandidate(pick('TRENDING_UP', 'asset-side-blacklist: BTC LONG'), NAV, 1);
     expect(full.probeStakeMult).toBe(1);
     expect(probe.probeStakeMult).toBe(0.25);
-    expect(probe.stakeUsd).toBeCloseTo(capped(0.25, probe.signalScalar), 6);
+    expect(probe.stakeUsd).toBeCloseTo(capped(0.25), 6);
     expect(probe.stakeUsd).toBeGreaterThan(0);
   });
 
   it('probe and chop stack', async () => {
     const both = await sizeCandidate(pick('CHOP', 'asset-side-blacklist: BTC SHORT'), NAV, 1);
-    expect(both.stakeUsd).toBeCloseTo(capped(0.25 * 0.25, both.signalScalar), 6);
+    expect(both.stakeUsd).toBeCloseTo(capped(0.25 * 0.25), 6);
   });
 });
 
