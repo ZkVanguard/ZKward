@@ -76,4 +76,11 @@ export async function runStep9LogDecision(input: Step9Input): Promise<void> {
   } catch (txErr) {
     logger.warn('[SUI Cron] Transaction log failed (non-critical)', { error: txErr });
   }
+  // Decision rows are a log, not money: kept 30 days. The prune rides the writes (about one in fifty).
+  // Deposits and withdrawals in the same table are never touched.
+  if (Math.random() < 0.02) {
+    const { query } = await import('@/lib/db/postgres');
+    await query(`DELETE FROM community_pool_transactions WHERE type = 'AI_DECISION' AND created_at < NOW() - INTERVAL '30 days'`)
+      .catch((e) => logger.warn('[SUI Cron] decision log prune failed', { error: e instanceof Error ? e.message : String(e) }));
+  }
 }

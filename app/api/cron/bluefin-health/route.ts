@@ -168,6 +168,27 @@ export async function GET(request: NextRequest): Promise<NextResponse<HealthResu
       canTrade = true;
     }
 
+    // Once a day: the venue account against the records (venue-capital-check.ts).
+    if (freeCollateralUsdc !== null) {
+      try {
+        const { tryClaimCronRun } = await import('@/lib/db/cron-state');
+        if ((await tryClaimCronRun('venue-capital-check', 23 * 3600_000, Date.now())).claimed) {
+          const { checkVenueCapital } = await import('@/lib/services/sui/venue-capital-check');
+          const v = await checkVenueCapital(await bf.getAccountValue());
+          if (v && !v.ok) {
+            await notifyDiscord(
+              `Venue account does not match the records: holds $${v.accountValueUsd.toFixed(2)}, records explain $${v.expectedUsd.toFixed(2)} (gap $${v.gapUsd.toFixed(2)}). Money moved that no row records: check venue deposits and withdrawals and the last closes.`,
+              'ERROR',
+              { chain: 'sui', ...v.parts, gapUsd: v.gapUsd },
+            );
+          }
+          logger.info('[BluefinHealth] venue capital check', v ?? { skipped: 'no baseline' });
+        }
+      } catch (e) {
+        logger.warn('[BluefinHealth] venue capital check could not run', { error: errMsg(e) });
+      }
+    }
+
     // Refresh the shared cache via the centralized helper, which also
     // maintains the `bluefin:consecutiveEmptyReads` counter that pages
     // Discord at 3+ consecutive empty reads (≈15 min) — distinguishes
