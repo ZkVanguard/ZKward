@@ -265,13 +265,13 @@ export async function GET(request: NextRequest): Promise<NextResponse<ReconcileR
           size: Number(h.size ?? 0),
         });
         try {
-          // Use last-known current_pnl (refreshed each tick by the live-sync
-          // block below from venue's unrealizedPnl) as the realized estimate.
-          // Writing 0 was under-counting closed-hedge performance across the
-          // entire history — same failure mode as close-hedge-impl.ts before
-          // its unrealizedPnl fallback fix.
-          const estRealized = Number(h.current_pnl ?? 0);
-          await closeHedge(h.order_id, estRealized, 'closed', RECONCILED_CLOSE);
+          // The position closed off our path, so no fill says what it made.
+          // realized_pnl is venue-settled only: the last mark would also be
+          // credited to the treasury as if it were settled money. Log it instead.
+          logger.warn('[bluefin-db-reconcile] closing a row the venue no longer holds; realized left at 0', {
+            id: h.id, orderId: h.order_id, lastMark: Number(h.current_pnl ?? 0),
+          });
+          await closeHedge(h.order_id, 0, 'closed', RECONCILED_CLOSE);
           closedDbRowIds.push(h.id);
         } catch (e) {
           logger.warn('[bluefin-db-reconcile] failed to close phantom DB row', {

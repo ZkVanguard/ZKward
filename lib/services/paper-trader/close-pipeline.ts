@@ -115,8 +115,10 @@ export interface SettleHedgeRowArgs {
  * Returns false only when the row was ALREADY closed: two overlapping ticks
  * can both decide to close the same position, and the loser must not count
  * the trade again (five rows were settled twice by 2026-10-02, each adding a
- * phantom trade to the book's stats). A missing row or a DB error returns
- * true — the caller's own state is then the only record of the close.
+ * phantom trade to the book's stats). A missing row returns true: the
+ * caller's own state is then the only record of the close. A database error
+ * throws, so the caller keeps the position and retries it next tick instead
+ * of counting a close no row records.
  */
 export async function settleHedgeRow(args: SettleHedgeRowArgs): Promise<boolean> {
   const { orderId, pos, result, reason } = args;
@@ -181,10 +183,10 @@ export async function settleHedgeRow(args: SettleHedgeRowArgs): Promise<boolean>
     }
     return true;
   } catch (e) {
-    logger.warn('[close-pipeline] hedges settlement failed', {
+    logger.warn('[close-pipeline] hedges settlement failed; the position stays open for the next tick', {
       error: errMsg(e),
       orderId,
     });
-    return true;
+    throw e;
   }
 }

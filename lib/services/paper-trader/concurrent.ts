@@ -16,7 +16,7 @@
  * KEY_POSITION holds a single position and KEY_POSITIONS is empty, the
  * single position is promoted into the array and KEY_POSITION cleared.
  */
-import { getCronState, setCronState } from '@/lib/db/cron-state';
+import { getCronStateStrict, setCronState } from '@/lib/db/cron-state';
 import { logger } from '@/lib/utils/logger';
 import type { SimulatedPosition, Side } from './simulated-executor';
 import {
@@ -35,12 +35,12 @@ export interface ActivePosition {
 /** Read the current active-positions array, migrating any legacy single
  *  position into the array on first read. Idempotent. */
 export async function loadActivePositions(): Promise<ActivePosition[]> {
-  const arr = (await getCronState<ActivePosition[]>(KEY_POSITIONS)) ?? [];
+  const arr = (await getCronStateStrict<ActivePosition[]>(KEY_POSITIONS)) ?? [];
   if (arr.length > 0) return arr;
 
   // Migrate legacy single-position storage into the array shape.
-  const legacyPos = await getCronState<SimulatedPosition>(KEY_POSITION);
-  const legacyOrderId = await getCronState<string>(KEY_ORDER_ID);
+  const legacyPos = await getCronStateStrict<SimulatedPosition>(KEY_POSITION);
+  const legacyOrderId = await getCronStateStrict<string>(KEY_ORDER_ID);
   if (legacyPos && legacyOrderId) {
     const migrated: ActivePosition[] = [{ orderId: legacyOrderId, position: legacyPos }];
     await setCronState(KEY_POSITIONS, migrated).catch(() => undefined);
@@ -125,8 +125,8 @@ export async function positionUpdate(
     await updateActivePosition(orderId, updater);
     return;
   }
-  const { getCronState, setCronState } = await import('@/lib/db/cron-state');
-  const pos = await getCronState<SimulatedPosition>(KEY_POSITION);
+  const { getCronStateStrict, setCronState } = await import('@/lib/db/cron-state');
+  const pos = await getCronStateStrict<SimulatedPosition>(KEY_POSITION);
   if (pos) await setCronState(KEY_POSITION, updater(pos));
 }
 

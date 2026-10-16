@@ -9,7 +9,7 @@ import { describe, it, expect, beforeEach, jest } from '@jest/globals';
 
 const state = new Map<string, unknown>();
 jest.mock('@/lib/db/cron-state', () => ({
-  getCronState: jest.fn(async (k: string) => (state.has(k) ? state.get(k) : null)),
+  getCronStateStrict: jest.fn(async (k: string) => (state.has(k) ? state.get(k) : null)),
   setCronState: jest.fn(async (k: string, v: unknown) => { state.set(k, v); }),
 }));
 const query = jest.fn<(sql: string, params: unknown[]) => Promise<unknown[]>>();
@@ -230,5 +230,18 @@ describe('isolation', () => {
     query.mockRejectedValueOnce(new Error('db down'));
     const s = await LeadTrader.runTick(NOW);
     expect(s).toMatchObject({ placed: 0, active: 1 });
+  });
+});
+
+describe('a failed state read', () => {
+  it('throws and writes nothing back, instead of saving an empty book over the real one', async () => {
+    const { getCronStateStrict, setCronState } = jest.requireMock('@/lib/db/cron-state') as {
+      getCronStateStrict: jest.Mock; setCronState: jest.Mock;
+    };
+    state.set(POSITIONS, [{ orderId: 'keep-me' }]);
+    getCronStateStrict.mockImplementationOnce(async () => { throw new Error('store down'); });
+    await expect(LeadTrader.runTick(NOW)).rejects.toThrow('store down');
+    expect(setCronState).not.toHaveBeenCalled();
+    expect(state.get(POSITIONS)).toEqual([{ orderId: 'keep-me' }]);
   });
 });

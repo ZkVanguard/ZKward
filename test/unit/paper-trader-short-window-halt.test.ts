@@ -15,7 +15,7 @@ const cronState = new Map<string, unknown>();
 const mockQuery: jest.MockedFunction<QueryFn> = jest.fn();
 
 jest.mock('../../lib/db/cron-state', () => ({
-  getCronState: jest.fn(async <T,>(key: string): Promise<T | null> => (cronState.get(key) as T | null) ?? null),
+  getCronStateStrict: jest.fn(async <T,>(key: string): Promise<T | null> => (cronState.get(key) as T | null) ?? null),
   setCronState: jest.fn(async (key: string, value: unknown) => { cronState.set(key, value); }),
 }));
 

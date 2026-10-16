@@ -22,7 +22,7 @@ import {
   getMultiSourceValidatedPrice,
 } from '@/lib/services/market-data/unified-price-provider';
 import { PredictionAggregatorService } from '@/lib/services/market-data/PredictionAggregatorService';
-import { getCronState, setCronState } from '@/lib/db/cron-state';
+import { getCronStateStrict, setCronState } from '@/lib/db/cron-state';
 import { positionOpen, positionUpdate, positionClose } from './concurrent';
 import { selectCandidate, priceCandidate, sizeCandidate } from './entry-helpers';
 import { createHedge } from '@/lib/db/hedges';
@@ -163,7 +163,7 @@ function recommendationToSide(rec: string): Side | null {
 }
 
 async function pushNavSample(ts: number, nav: number): Promise<void> {
-  const series = ((await getCronState<Array<{ ts: number; nav: number }>>(KEY_NAV_SERIES)) ?? []);
+  const series = ((await getCronStateStrict<Array<{ ts: number; nav: number }>>(KEY_NAV_SERIES)) ?? []);
   series.push({ ts, nav });
   const trimmed = series.length > NAV_SERIES_MAX ? series.slice(-NAV_SERIES_MAX) : series;
   await setCronState(KEY_NAV_SERIES, trimmed);
@@ -179,7 +179,7 @@ function utcDateStr(ts: number): string {
  * staying halted forever after a bad day.
  */
 async function loadStats(nav: number, now: number): Promise<PaperStats> {
-  const stats = (await getCronState<PaperStats>(KEY_STATS)) ?? {
+  const stats = (await getCronStateStrict<PaperStats>(KEY_STATS)) ?? {
     trades: 0,
     wins: 0,
     losses: 0,
@@ -263,7 +263,7 @@ export class PaperTrader {
         } catch { /* non-fatal */ }
       })();
 
-      const nav = (await getCronState<number>(KEY_NAV)) ?? PAPER_STARTING_NAV;
+      const nav = (await getCronStateStrict<number>(KEY_NAV)) ?? PAPER_STARTING_NAV;
 
       // Concurrent-mode branch: PAPER_MAX_CONCURRENT > 1 unlocks the
       // array-based active-positions storage + correlation gates. Legacy
@@ -275,8 +275,8 @@ export class PaperTrader {
         return result;
       }
 
-      const activePos = await getCronState<SimulatedPosition>(KEY_POSITION);
-      const activeOrderId = await getCronState<string>(KEY_ORDER_ID);
+      const activePos = await getCronStateStrict<SimulatedPosition>(KEY_POSITION);
+      const activeOrderId = await getCronStateStrict<string>(KEY_ORDER_ID);
       result = activePos
         ? await PaperTrader.handleActive(activePos, nav, now, activeOrderId ?? undefined)
         : entryHalt
@@ -911,12 +911,12 @@ export class PaperTrader {
     const CHECK_KEY = 'paper-trader:rolling-dd-last-check';
     const HALT_KEY = 'paper-trader:rolling-dd-halt-until';
     try {
-      const haltUntil = (await getCronState<number>(HALT_KEY)) ?? 0;
+      const haltUntil = (await getCronStateStrict<number>(HALT_KEY)) ?? 0;
       if (haltUntil > now) {
         const minsLeft = Math.round((haltUntil - now) / 60_000);
         return `rolling-drawdown halt (${minsLeft}min remaining)`;
       }
-      const lastCheck = (await getCronState<number>(CHECK_KEY)) ?? 0;
+      const lastCheck = (await getCronStateStrict<number>(CHECK_KEY)) ?? 0;
       if (now - lastCheck < 60 * 60_000) return null; // check once per hour
       await setCronState(CHECK_KEY, now);
 
@@ -924,7 +924,7 @@ export class PaperTrader {
       // A session reset only resets NAV/stats in cron_state — hedges rows keep
       // the same portfolio_id — so without the bound, pre-reset losses halt a
       // freshly reset book that has made no trades at all.
-      const sessionStart = (await getCronState<number>(KEY_SESSION_STARTED_AT)) ?? 0;
+      const sessionStart = (await getCronStateStrict<number>(KEY_SESSION_STARTED_AT)) ?? 0;
       const rows = await query<{ recent: string; prior: string }>(
         `SELECT
            COALESCE(SUM(realized_pnl) FILTER (WHERE closed_at > NOW() - INTERVAL '7 days'), 0) AS recent,
@@ -976,12 +976,12 @@ export class PaperTrader {
     const CHECK_KEY = 'paper-trader:short-window-loss-last-check';
     const HALT_KEY = 'paper-trader:short-window-loss-halt-until';
     try {
-      const haltUntil = (await getCronState<number>(HALT_KEY)) ?? 0;
+      const haltUntil = (await getCronStateStrict<number>(HALT_KEY)) ?? 0;
       if (haltUntil > now) {
         const minsLeft = Math.round((haltUntil - now) / 60_000);
         return `short-window-loss halt (${minsLeft}min remaining)`;
       }
-      const lastCheck = (await getCronState<number>(CHECK_KEY)) ?? 0;
+      const lastCheck = (await getCronStateStrict<number>(CHECK_KEY)) ?? 0;
       // Re-check every 5 min so a fresh bad streak trips within one tick,
       // not up to an hour later like the 7-day check.
       if (now - lastCheck < 5 * 60_000) return null;
@@ -1062,7 +1062,9 @@ export class PaperTrader {
     // 2026-09-18: without this fallback, closeAtMark in concurrent mode
     // skipped the DB UPDATE and left rows status='active' after closing
     // in memory (observed on paper_XRP_1789759203).
-    const orderId = passedOrderId ?? (await getCronState<string>(KEY_ORDER_ID)) ?? undefined;
+    const orderId = passedOrderId ?? (await getCronStateStrict<string>(KEY_ORDER_ID)) ?? undefined;
+    // Read before settling: a failed read after it would lose this close from the counter.
+    const stats = await loadStats(newNav, now);
 
     // Settle the hedges row FIRST via the shared pipeline (single atomic
     // UPDATE, MFE/MAE + attribution analytics): it decides which of two
@@ -1074,7 +1076,7 @@ export class PaperTrader {
       return {
         action: 'skipped',
         reason: 'already closed by an overlapping tick',
-        nav: (await getCronState<number>(KEY_NAV)) ?? nav,
+        nav: (await getCronStateStrict<number>(KEY_NAV)) ?? nav,
       };
     }
 
@@ -1087,8 +1089,7 @@ export class PaperTrader {
     if (orderId) await positionClose(orderId);
     await setCronState(KEY_NAV, newNav);
 
-    // Update stats — reuse loadStats so daily-peak + halt-reset stay in sync.
-    const stats = await loadStats(newNav, now);
+    // Update stats — loadStats (read above) keeps daily-peak + halt-reset in sync.
     stats.trades += 1;
     if (result.realizedPnlUsd > 0) {
       stats.wins += 1;
