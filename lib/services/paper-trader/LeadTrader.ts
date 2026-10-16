@@ -29,7 +29,7 @@
  */
 
 import { query } from '@/lib/db/postgres';
-import { getCronState, setCronState } from '@/lib/db/cron-state';
+import { getCronStateStrict, setCronState } from '@/lib/db/cron-state';
 import { createHedge } from '@/lib/db/hedges';
 import { logger } from '@/lib/utils/logger';
 import { errMsg } from '@/lib/utils/error-handler';
@@ -137,9 +137,9 @@ export class LeadTrader {
     const summary: LeadTickSummary = { placed: 0, filled: 0, cancelled: 0, closed: 0, active: 0, resting: 0 };
     if (DISABLED) return summary;
 
-    let positions = ((await getCronState<LeadPosition[]>(KEY_POSITIONS)) ?? []).filter(Boolean);
-    let resting = ((await getCronState<RestingLeadEntry[]>(KEY_RESTING)) ?? []).filter(Boolean);
-    const stats = { ...emptyStats(), ...((await getCronState<LeadStats>(KEY_STATS)) ?? {}) };
+    let positions = ((await getCronStateStrict<LeadPosition[]>(KEY_POSITIONS)) ?? []).filter(Boolean);
+    let resting = ((await getCronStateStrict<RestingLeadEntry[]>(KEY_RESTING)) ?? []).filter(Boolean);
+    const stats = { ...emptyStats(), ...((await getCronStateStrict<LeadStats>(KEY_STATS)) ?? {}) };
     let statsChanged = false;
 
     // ── Close: horizon reached → market order at the validated mark ──
@@ -220,7 +220,7 @@ export class LeadTrader {
 
     // ── New readings since the watermark ──
     try {
-      const watermark = Number((await getCronState<number>(KEY_WATERMARK)) ?? 0) || now - MAX_READING_AGE_MS;
+      const watermark = Number((await getCronStateStrict<number>(KEY_WATERMARK)) ?? 0) || now - MAX_READING_AGE_MS;
       const rows = await query<LeadReading>(
         `SELECT source, asset, direction, entry_price::float8 AS entry_price,
                 (window_end_time - horizon_min * 60000)::float8 AS reading_at_ms

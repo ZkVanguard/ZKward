@@ -54,6 +54,7 @@ const mockQuery = jest.fn<any>().mockResolvedValue([]);
 
 jest.mock('@/lib/db/cron-state', () => ({
   getCronState: (...args: any[]) => mockGetCronState(...args),
+  getCronStateStrict: (...args: any[]) => mockGetCronState(...args),
   setCronState: (...args: any[]) => mockSetCronState(...args),
 }));
 jest.mock('@/lib/services/market-data/unified-price-provider', () => ({

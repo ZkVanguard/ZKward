@@ -30,7 +30,7 @@
  */
 import { getLivePrice, getMultiSourceValidatedPrice } from '@/lib/services/market-data/unified-price-provider';
 import { PredictionAggregatorService } from '@/lib/services/market-data/PredictionAggregatorService';
-import { getCronState, setCronState } from '@/lib/db/cron-state';
+import { getCronStateStrict, setCronState } from '@/lib/db/cron-state';
 import { createHedge, closeHedge } from '@/lib/db/hedges';
 import { query } from '@/lib/db/postgres';
 import { logger } from '@/lib/utils/logger';
@@ -92,7 +92,7 @@ function recToSide(rec: string): Side | null {
 }
 
 async function loadStats(nav: number): Promise<Stats> {
-  const s = (await getCronState<Stats>(KEY_STATS)) ?? {
+  const s = (await getCronStateStrict<Stats>(KEY_STATS)) ?? {
     trades: 0, wins: 0, losses: 0, cumRealizedUsd: 0,
     peakNavUsd: nav, lastRealizedUsd: 0, gateBlocks: 0,
   };
@@ -109,9 +109,9 @@ export class PaperGatedTrader {
   static async runTick(now: number = Date.now()): Promise<TickResult> {
     let result: TickResult = { action: 'skipped', reason: 'unset' };
     try {
-      const nav = (await getCronState<number>(KEY_NAV)) ?? PAPER_STARTING_NAV;
-      const active = await getCronState<SimulatedPosition>(KEY_POSITION);
-      const orderId = await getCronState<string>(KEY_ORDER_ID);
+      const nav = (await getCronStateStrict<number>(KEY_NAV)) ?? PAPER_STARTING_NAV;
+      const active = await getCronStateStrict<SimulatedPosition>(KEY_POSITION);
+      const orderId = await getCronStateStrict<string>(KEY_ORDER_ID);
 
       result = active
         ? await PaperGatedTrader.handleActive(active, nav, now, orderId ?? undefined)
@@ -494,17 +494,19 @@ export class PaperGatedTrader {
     // of two overlapping ticks closed the position; the loser counts nothing.
     // Unification note (2026-09-29): gated's old inline UPDATE never wrote
     // funding_paid; the pipeline settles it like every other book.
+    // Read before settling: a failed read after it would lose this close from the counter.
+    const stats = await loadStats(priorNav);
     if (orderId && (await settleHedgeRow({ orderId, pos, result: closeResult, reason, nav: priorNav })) === false) {
       // Clear the slot only if it still holds this position: the tick that
       // closed it may already have opened the next one.
-      if ((await getCronState<string>(KEY_ORDER_ID)) === orderId) {
+      if ((await getCronStateStrict<string>(KEY_ORDER_ID)) === orderId) {
         await setCronState(KEY_POSITION, null);
         await setCronState(KEY_ORDER_ID, null);
       }
       return {
         action: 'skipped',
         reason: 'already closed by an overlapping tick',
-        nav: (await getCronState<number>(KEY_NAV)) ?? priorNav,
+        nav: (await getCronStateStrict<number>(KEY_NAV)) ?? priorNav,
       };
     }
 
@@ -513,7 +515,6 @@ export class PaperGatedTrader {
     });
 
     // Update state.
-    const stats = await loadStats(priorNav);
     stats.trades += 1;
     stats.cumRealizedUsd += realizedPnl;
     stats.lastRealizedUsd = realizedPnl;

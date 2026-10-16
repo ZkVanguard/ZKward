@@ -8,6 +8,7 @@ import { describe, it, expect, beforeEach, jest } from '@jest/globals';
 const state = new Map<string, unknown>();
 jest.mock('@/lib/db/cron-state', () => ({
   getCronState: jest.fn(async (k: string) => state.get(k) ?? null),
+  getCronStateStrict: jest.fn(async (k: string) => state.get(k) ?? null),
   setCronState: jest.fn(async (k: string, v: unknown) => void state.set(k, v)),
 }));
 

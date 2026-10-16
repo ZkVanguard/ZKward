@@ -122,11 +122,11 @@ describe('settleHedgeRow', () => {
     expect(params[5]).toBe('horizon-expiry');
   });
 
-  it('DB failure is swallowed (settlement must not throw into tick)', async () => {
+  it('a database error throws, so the book keeps the position instead of counting an unrecorded close', async () => {
     queryMock.mockRejectedValueOnce(new Error('boom'));
     await expect(
       settleHedgeRow({ orderId: 'oid-3', pos: pos(), result: result(), reason: 'x' }),
-    ).resolves.toBe(true);
+    ).rejects.toThrow('boom');
   });
 
   it('reports false when an overlapping tick already closed the row', async () => {

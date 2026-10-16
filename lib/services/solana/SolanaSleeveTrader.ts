@@ -22,7 +22,7 @@
  * does not depend on the sleeve, and the day a coin is proven the sleeve
  * starts on it without a deploy. This is the gate a live executor inherits.
  */
-import { getCronState, setCronState } from '@/lib/db/cron-state';
+import { getCronStateStrict, setCronState } from '@/lib/db/cron-state';
 import { logger } from '@/lib/utils/logger';
 import { errMsg } from '@/lib/utils/error-handler';
 import { SOLANA_POOL_PORTFOLIO_ID } from '@/lib/constants';
@@ -130,7 +130,7 @@ export async function runSolanaSleeveTick(
     return { action: 'disabled' };
   }
 
-  const state = await getCronState<SleevePositionState>(KEY_POSITION);
+  const state = await getCronStateStrict<SleevePositionState>(KEY_POSITION);
 
   // ── Manage the open position ──
   if (state?.position) {
@@ -185,6 +185,12 @@ export async function runSolanaSleeveTick(
       }
       result = { ...simulateClose(pos, live.exitPrice, now), realizedPnlUsd: live.realizedUsd };
     }
+    // Read before settling: a failed read after it would lose this close from the counter.
+    const stats = (await getCronStateStrict<SleeveStats>(KEY_STATS)) ?? {
+      trades: 0,
+      wins: 0,
+      cumRealizedUsd: 0,
+    };
     // Settle first: it decides which of two overlapping ticks closed the
     // position. The loser counts nothing.
     const settled = await settleHedgeRow({
@@ -195,7 +201,7 @@ export async function runSolanaSleeveTick(
       nav: poolNavUsd ?? 0,
     });
     if (settled === false) {
-      const current = await getCronState<SleevePositionState>(KEY_POSITION);
+      const current = await getCronStateStrict<SleevePositionState>(KEY_POSITION);
       if (current?.orderId === state.orderId) await setCronState(KEY_POSITION, null);
       return { action: 'idle', detail: 'position already closed by an overlapping tick' };
     }
@@ -203,11 +209,6 @@ export async function runSolanaSleeveTick(
       calibratorNamespace: 'solana',
     });
 
-    const stats = (await getCronState<SleeveStats>(KEY_STATS)) ?? {
-      trades: 0,
-      wins: 0,
-      cumRealizedUsd: 0,
-    };
     stats.trades += 1;
     if (result.realizedPnlUsd > 0) stats.wins += 1;
     stats.cumRealizedUsd += result.realizedPnlUsd;
@@ -410,12 +411,12 @@ export async function getSleeveStatus(): Promise<{
   /** Whether entries go to a real venue, and on which of its networks. */
   live: { enabled: boolean; network: string };
 }> {
-  const stats = (await getCronState<SleeveStats>(KEY_STATS)) ?? {
+  const stats = (await getCronStateStrict<SleeveStats>(KEY_STATS)) ?? {
     trades: 0,
     wins: 0,
     cumRealizedUsd: 0,
   };
-  const state = await getCronState<SleevePositionState>(KEY_POSITION);
+  const state = await getCronStateStrict<SleevePositionState>(KEY_POSITION);
   const evidence = await sleeveEvidence();
   const live = liveStatus();
   if (!state?.position) return { stats, position: null, evidence, live };

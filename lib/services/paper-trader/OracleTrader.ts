@@ -27,7 +27,7 @@
 
 import { createHash } from 'node:crypto';
 import { query } from '@/lib/db/postgres';
-import { getCronState, setCronState } from '@/lib/db/cron-state';
+import { getCronStateStrict, setCronState } from '@/lib/db/cron-state';
 import { createHedge } from '@/lib/db/hedges';
 import { logger } from '@/lib/utils/logger';
 import { errMsg } from '@/lib/utils/error-handler';
@@ -154,7 +154,7 @@ export class OracleTrader {
     const summary: OracleTickSummary = { opened: 0, closed: 0, active: 0 };
     if (DISABLED) return summary;
 
-    let positions = ((await getCronState<OraclePosition[]>(KEY_POSITIONS)) ?? []).filter(Boolean);
+    let positions = ((await getCronStateStrict<OraclePosition[]>(KEY_POSITIONS)) ?? []).filter(Boolean);
 
     // ── Close phase: horizon_end reached → close at validated mark ──
     const due = positions.filter((p) => now >= p.closeAtMs);
@@ -171,6 +171,12 @@ export class OracleTrader {
           });
           if (!v.price || v.price <= 0) continue; // retry next tick
           const result = simulateClose(pos.position, v.price, now);
+          // Read before settling: a failed read after it would lose this close from the counter.
+          const stats = (await getCronStateStrict<OracleStats>(KEY_STATS)) ?? {
+            trades: 0,
+            wins: 0,
+            cumRealizedUsd: 0,
+          };
           const { settleHedgeRow } = await import('./close-pipeline');
           const settled = await settleHedgeRow({
             orderId: pos.orderId,
@@ -185,11 +191,6 @@ export class OracleTrader {
             positions = positions.filter((p) => p.orderId !== pos.orderId);
             continue;
           }
-          const stats = (await getCronState<OracleStats>(KEY_STATS)) ?? {
-            trades: 0,
-            wins: 0,
-            cumRealizedUsd: 0,
-          };
           stats.trades += 1;
           if (result.realizedPnlUsd > 0) stats.wins += 1;
           stats.cumRealizedUsd += result.realizedPnlUsd;
@@ -213,7 +214,7 @@ export class OracleTrader {
 
     // ── Open phase: fresh model interpretations since the watermark ──
     try {
-      const watermark = (await getCronState<string>(KEY_WATERMARK)) ?? '2026-09-28T00:00:00Z';
+      const watermark = (await getCronStateStrict<string>(KEY_WATERMARK)) ?? '2026-09-28T00:00:00Z';
       const rows = await query<InterpRow>(
         `SELECT slug, title, asset, direction, threshold::float, entry_price_usd::float,
                 yes_price::float, horizon_end, interpreted_at

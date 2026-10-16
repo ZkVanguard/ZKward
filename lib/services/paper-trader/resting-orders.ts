@@ -19,7 +19,7 @@
  * This does not create edge: it removes most of the execution cost. The
  * average trade still equals entry edge minus what is left of that cost.
  */
-import { getCronState, setCronState } from '@/lib/db/cron-state';
+import { getCronStateStrict, setCronState } from '@/lib/db/cron-state';
 import { restingFilled, type Side, type SourceSnapshot } from './simulated-executor';
 import { PAPER_RESTING_ENTRY_WAIT_MIN } from './config';
 
@@ -67,7 +67,7 @@ export async function checkRestingEntry(
   now: number,
   getMark: (asset: string) => Promise<number | null>,
 ): Promise<RestingEntryState> {
-  const entry = await getCronState<RestingEntry>(key);
+  const entry = await getCronStateStrict<RestingEntry>(key);
   if (!entry?.plan) return { state: 'none' };
   if (now >= entry.expiresAt) {
     await setCronState(key, null);

@@ -128,6 +128,12 @@ describe('callers that act on positions use the strict read', () => {
     expect(src).not.toMatch(/getPositions\(\)\.catch\(\(\) => \[\]/);
   });
 
+  it('a row the venue no longer holds closes with realized 0, never the last mark (which closeHedge would credit to the treasury)', () => {
+    const src = read('app/api/cron/bluefin-db-reconcile/route.ts');
+    expect(src).toContain("await closeHedge(h.order_id, 0, 'closed', RECONCILED_CLOSE);");
+    expect(src).not.toMatch(/closeHedge\(h\.order_id, [a-zA-Z]/);
+  });
+
   it('the live trader leaves its trade alone when the venue is unreadable instead of booking a loss', () => {
     const src = read('app/api/cron/polymarket-edge-trader/handlers/reconcile-active-trade.ts');
     const strict = src.indexOf('positions = await bf.getPositionsStrict();');
