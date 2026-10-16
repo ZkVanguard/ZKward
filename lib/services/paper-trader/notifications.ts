@@ -72,12 +72,15 @@ const sideMark = (side: string): string => (side === 'LONG' ? '🟢 LONG' : '�
 /** Move from `from` to `to` in bp, counted in the position's favour. */
 const favourBp = (side: string, from: number, to: number): number => (from > 0 ? ((to - from) / from) * 10_000 * (side === 'LONG' ? 1 : -1) : 0);
 
-/** `12 trades · 83% wins · avg −3.1 bp` plus the exit mix on a second line. */
+/**
+ * `avg −3.1 bp a trade · 12 trades · 83% wins` plus the exit mix on a second
+ * line. The average after costs is the result; the exits set the win rate.
+ */
 export function statsLine(s: BookRowStats): string {
   if (s.trades === 0) return 'no closed trades';
   const other = s.trades - s.takeProfits - s.stops - s.timeLimits;
   const exits = `${s.takeProfits} target / ${s.stops} stop / ${s.timeLimits} time${other > 0 ? ` / ${other} other` : ''}`;
-  return `${s.trades} trade${s.trades === 1 ? '' : 's'} · ${Math.round((100 * s.wins) / s.trades)}% wins · avg ${signed(s.avgBp, 1)} bp\nexits: ${exits}`;
+  return `avg ${signed(s.avgBp, 1)} bp a trade · ${s.trades} trade${s.trades === 1 ? '' : 's'} · ${Math.round((100 * s.wins) / s.trades)}% wins\nexits: ${exits}`;
 }
 
 /** Profit first, then the record behind it. */

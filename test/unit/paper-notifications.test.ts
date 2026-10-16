@@ -140,7 +140,7 @@ describe('a close', () => {
     expect(field(e, 'Exit')).toBe('take-profit');
     expect(field(e, 'Held')).toBe('69 min');
     expect(field(e, 'Price')).toBe('$84,173.25 → $84,383.68');
-    expect(field(e, 'PaperGated · last 24 h')).toBe('🔴 **−$4.20**\n12 trades · 83% wins · avg −3.1 bp\nexits: 10 target / 1 stop / 1 time');
+    expect(field(e, 'PaperGated · last 24 h')).toBe('🔴 **−$4.20**\navg −3.1 bp a trade · 12 trades · 83% wins\nexits: 10 target / 1 stop / 1 time');
   });
 
   it('a loss is a red card and reads the same way', () => {
@@ -157,8 +157,8 @@ describe('a close', () => {
     expect(mockStats).toHaveBeenCalledWith(-3, NOW - 24 * HOUR);
   });
 
-  it('the stats line never shows a win rate without the average trade', () => {
-    expect(statsLine(stats())).toMatch(/83% wins · avg −3\.1 bp/);
+  it('the stats line leads with the average trade, and never shows a win rate without it', () => {
+    expect(statsLine(stats())).toMatch(/^avg −3\.1 bp a trade · 12 trades · 83% wins/);
     expect(statsLine(stats({ trades: 0 }))).toBe('no closed trades');
     expect(statsLine(stats({ trades: 13 }))).toContain('/ 1 other');
   });
@@ -226,8 +226,8 @@ describe('scoreboard', () => {
 
   it('shows each book profit first, the longer window, and why a flat book is flat', () => {
     const e = scoreboardEmbed(board({ open: [] }), NOW);
-    expect(field(e, 'PaperTrader · 24 h')).toBe('🟢 **+$12.50**\n12 trades · 83% wins · avg −3.1 bp\nexits: 10 target / 1 stop / 1 time');
-    expect(field(e, 'PaperTrader · since 2026-09-27')).toContain('🔴 **−$26.51**\n49 trades · 39% wins · avg −11.8 bp');
+    expect(field(e, 'PaperTrader · 24 h')).toBe('🟢 **+$12.50**\navg −3.1 bp a trade · 12 trades · 83% wins\nexits: 10 target / 1 stop / 1 time');
+    expect(field(e, 'PaperTrader · since 2026-09-27')).toContain('🔴 **−$26.51**\navg −11.8 bp a trade · 49 trades · 39% wins');
     expect(field(e, 'PaperGated · 24 h')).toBe('no closed trades\nflat · last skip 7 min ago: no edge above gates');
   });
 
