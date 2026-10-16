@@ -8,6 +8,8 @@ import type { PoolSummary, UserPosition, ChainKey, TxStatus } from './types';
 import { getDepositTokenInfo } from '@/lib/contracts/community-pool-config';
 import { OldPoolWithdraw } from './OldPoolWithdraw';
 import { ChainLogo } from '@/components/wallet/ChainLogo';
+import { useTranslations } from 'next-intl';
+import { usePoolAvailability } from '@/lib/hooks/usePoolAvailability';
 
 interface DepositWithdrawActionsProps {
   selectedChain: ChainKey;
@@ -54,6 +56,18 @@ interface DepositWithdrawActionsProps {
   onSuiWithdraw: () => void;
 }
 
+function PoolPausedNotice({ ageMin }: { ageMin: number | null }) {
+  const t = useTranslations('dashboard.poolStatus');
+  return (
+    <div role="status" className="mb-3 rounded-xl border border-orange-700/20 bg-orange-700/5 p-3 text-sm">
+      <p className="font-semibold text-orange-700">{t('pausedTitle')}</p>
+      <p className="mt-1 text-label-secondary">
+        {ageMin === null ? t('pausedBodyNoAge') : t('pausedBody', { hours: Math.max(2, Math.floor(ageMin / 60)) })}
+      </p>
+    </div>
+  );
+}
+
 export const DepositWithdrawActions = memo(function DepositWithdrawActions({
   selectedChain,
   poolData,
@@ -92,6 +106,9 @@ export const DepositWithdrawActions = memo(function DepositWithdrawActions({
   onSuiWithdraw,
 }: DepositWithdrawActionsProps) {
   const isSui = selectedChain === 'sui';
+  // A failed read leaves this undefined, and the buttons behave as before: the contract still refuses on its own.
+  const availability = usePoolAvailability(isSui ? suiNetwork : null);
+  const suiPaused = isSui && availability.data?.blocked === true;
   const minDeposit = isFirstDeposit ? 100 : 10;
 
   const effectiveAddress = address;
@@ -184,6 +201,8 @@ export const DepositWithdrawActions = memo(function DepositWithdrawActions({
             )}
           </div>
 
+          {suiPaused && <PoolPausedNotice ageMin={availability.data?.ageMin ?? null} />}
+
           {/* Wrong Network Warning */}
           {suiIsConnected && suiIsWrongNetwork && (
             <div className="p-3 sm:p-4 bg-amber-50 dark:bg-amber-900/20 rounded-xl sm:rounded-lg border border-amber-200 dark:border-amber-700 min-w-0">
@@ -209,7 +228,7 @@ export const DepositWithdrawActions = memo(function DepositWithdrawActions({
           <div className="flex gap-2 sm:gap-3">
             <button
               onClick={() => { onShowDeposit(!showDeposit); }}
-              disabled={!suiIsConnected || actionLoading || suiIsWrongNetwork}
+              disabled={!suiIsConnected || actionLoading || suiIsWrongNetwork || suiPaused}
               className="flex-1 min-w-0 flex items-center justify-center gap-2 h-11 sm:h-auto px-3 sm:px-4 py-2 text-sm sm:text-base bg-green-600 hover:bg-green-700 active:scale-[0.98] disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded-xl sm:rounded-lg transition-all"
             >
               <Plus className="w-4 h-4 flex-shrink-0" />
@@ -217,7 +236,7 @@ export const DepositWithdrawActions = memo(function DepositWithdrawActions({
             </button>
             <button
               onClick={() => { onShowWithdraw(!showWithdraw); }}
-              disabled={!suiIsConnected || !userPosition?.isMember || actionLoading || suiIsWrongNetwork}
+              disabled={!suiIsConnected || !userPosition?.isMember || actionLoading || suiIsWrongNetwork || suiPaused}
               className="flex-1 min-w-0 flex items-center justify-center gap-2 h-11 sm:h-auto px-3 sm:px-4 py-2 text-sm sm:text-base bg-red-600 hover:bg-red-700 active:scale-[0.98] disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded-xl sm:rounded-lg transition-all"
             >
               <Minus className="w-4 h-4 flex-shrink-0" />
@@ -247,7 +266,7 @@ export const DepositWithdrawActions = memo(function DepositWithdrawActions({
                   />
                   <button
                     onClick={onSuiDeposit}
-                    disabled={actionLoading || !suiDepositAmount}
+                    disabled={actionLoading || !suiDepositAmount || suiPaused}
                     className="h-11 px-4 py-2 bg-cyan-600 hover:bg-cyan-700 disabled:bg-gray-400 active:scale-[0.98] text-white rounded-lg transition-all flex items-center justify-center gap-2 w-full sm:w-auto flex-shrink-0"
                   >
                     {actionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
@@ -297,7 +316,7 @@ export const DepositWithdrawActions = memo(function DepositWithdrawActions({
                   </button>
                   <button
                     onClick={onSuiWithdraw}
-                    disabled={actionLoading || !suiWithdrawShares}
+                    disabled={actionLoading || !suiWithdrawShares || suiPaused}
                     className="h-11 px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-gray-400 active:scale-[0.98] text-white rounded-lg transition-all flex items-center justify-center gap-2 flex-1 sm:flex-none"
                   >
                     {actionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Minus className="w-4 h-4" />}

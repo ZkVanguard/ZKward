@@ -110,6 +110,11 @@
         "protectedDesc": "Toutes les données sensibles sont chiffrées. Les preuves ZK garantissent que vos positions restent privées tout en étant vérifiables sur la chaîne."
       }
     },
+    "poolStatus": {
+      "pausedTitle": "Les dépôts et retraits sont suspendus",
+      "pausedBody": "La valeur du pool n'a pas été confirmée sur la chaîne depuis {hours} heures ; le contrat n'accepte donc ni dépôts ni retraits. Vos parts sont inchangées. Ce message disparaît à la réouverture du pool.",
+      "pausedBodyNoAge": "La valeur du pool n'a pas été confirmée sur la chaîne ; le contrat n'accepte donc ni dépôts ni retraits. Vos parts sont inchangées. Ce message disparaît à la réouverture du pool."
+    },
     "marketBoard": {
       "title": "Tendance du marché",
       "subtitle": "Dans quel sens penchent les signaux pour chaque actif, et quels marchés le disent",

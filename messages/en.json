@@ -408,6 +408,11 @@
         "protectedDesc": "All sensitive data is encrypted. ZK proofs ensure your positions remain private while still being verifiable on-chain."
       }
     },
+    "poolStatus": {
+      "pausedTitle": "Deposits and withdrawals are paused",
+      "pausedBody": "The pool's value has not been confirmed on chain for {hours} hours, so the contract is not accepting deposits or withdrawals. Your shares are unchanged. This notice disappears when the pool reopens.",
+      "pausedBodyNoAge": "The pool's value has not been confirmed on chain, so the contract is not accepting deposits or withdrawals. Your shares are unchanged. This notice disappears when the pool reopens."
+    },
     "marketBoard": {
       "title": "Market lean",
       "subtitle": "Which way the signal stack leans for each asset, and which markets say so",

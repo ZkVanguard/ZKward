@@ -429,33 +429,18 @@ async function checkTvlHeadroom(): Promise<Component & { totalDepositedUsdc?: nu
 async function checkAttestation(): Promise<Component & { blocked?: boolean; ageMin?: number; attestationsLeft?: number }> {
   try {
     const network = (process.env.SUI_NETWORK || 'mainnet').trim() as 'mainnet' | 'testnet';
-    const { SUI_USDC_POOL_CONFIG } = await import('@/lib/types/sui-pool-types');
-    const poolStateId = SUI_USDC_POOL_CONFIG[network].poolStateId;
-    if (!poolStateId) return { status: 'ok', detail: 'no pool configured' };
-
-    const { createFailoverSuiClient } = await import('@/lib/services/sui/sui-failover-transport');
-    const { attestationStatus, attestationsLeft, gasRunwayLevel, ATTESTATION_MAX_AGE_MIN } = await import('@/lib/services/sui/attestation-status');
-    const client = createFailoverSuiClient(network);
-    const field = async (key: string): Promise<unknown> => {
-      const res = await client.getDynamicFieldObject({ parentId: poolStateId, name: { type: 'vector<u8>', value: Array.from(Buffer.from(key)) } });
-      if (res.error) {
-        if (res.error.code === 'dynamicFieldNotFound') return undefined;
-        throw new Error(`${key}: ${res.error.code}`);
-      }
-      return (res.data?.content as { fields?: { value?: unknown } } | undefined)?.fields?.value;
-    };
-    const [required, ts, pool] = await Promise.all([
-      field('external_nav_required'),
-      field('external_nav_ts_ms'),
-      client.getObject({ id: poolStateId, options: { showContent: true } }),
-    ]);
-    const s = attestationStatus({ required: required === true, tsMs: ts === undefined ? undefined : Number(ts), nowMs: Date.now() });
+    const { readPoolAttestation } = await import('@/lib/services/sui/attestation-read');
+    const { attestationsLeft, gasRunwayLevel, ATTESTATION_MAX_AGE_MIN } = await import('@/lib/services/sui/attestation-status');
+    const s = await readPoolAttestation(network);
+    if (!s) return { status: 'ok', detail: 'no pool configured' };
     const ageMin = s.ageMin === undefined ? undefined : Math.round(s.ageMin);
 
     // The treasury wallet signs the attestations; its gas is what keeps them coming.
-    const treasury = (pool.data?.content as { fields?: { treasury?: string } } | undefined)?.fields?.treasury;
     let left: number | undefined;
-    if (treasury) left = attestationsLeft((await client.getBalance({ owner: treasury })).totalBalance);
+    if (s.treasury) {
+      const { createFailoverSuiClient } = await import('@/lib/services/sui/sui-failover-transport');
+      left = attestationsLeft((await createFailoverSuiClient(network).getBalance({ owner: s.treasury })).totalBalance);
+    }
     const runway = left === undefined ? 'ok' : gasRunwayLevel(left);
 
     const parts: string[] = [];

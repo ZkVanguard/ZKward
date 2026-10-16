@@ -110,6 +110,11 @@
         "protectedDesc": "Todos los datos sensibles están cifrados. Las pruebas ZK aseguran que tus posiciones sigan siendo privadas y verificables en cadena."
       }
     },
+    "poolStatus": {
+      "pausedTitle": "Los depósitos y retiros están en pausa",
+      "pausedBody": "El valor del pool no se ha confirmado en cadena desde hace {hours} horas, así que el contrato no acepta depósitos ni retiros. Tus participaciones no han cambiado. Este aviso desaparece cuando el pool vuelve a abrir.",
+      "pausedBodyNoAge": "El valor del pool no se ha confirmado en cadena, así que el contrato no acepta depósitos ni retiros. Tus participaciones no han cambiado. Este aviso desaparece cuando el pool vuelve a abrir."
+    },
     "marketBoard": {
       "title": "Sesgo del mercado",
       "subtitle": "Hacia dónde se inclinan las señales por activo y qué mercados lo dicen",

@@ -110,6 +110,11 @@
         "protectedDesc": "Todos os dados sensíveis são criptografados. As provas ZK garantem que suas posições permaneçam privadas e ainda assim verificáveis on-chain."
       }
     },
+    "poolStatus": {
+      "pausedTitle": "Depósitos e saques estão pausados",
+      "pausedBody": "O valor do pool não é confirmado na blockchain há {hours} horas, então o contrato não aceita depósitos nem saques. Suas cotas não mudaram. Este aviso desaparece quando o pool reabrir.",
+      "pausedBodyNoAge": "O valor do pool não foi confirmado na blockchain, então o contrato não aceita depósitos nem saques. Suas cotas não mudaram. Este aviso desaparece quando o pool reabrir."
+    },
     "marketBoard": {
       "title": "Viés do mercado",
       "subtitle": "Para onde os sinais pendem em cada ativo e quais mercados dizem isso",

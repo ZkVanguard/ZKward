@@ -110,6 +110,11 @@
         "protectedDesc": "Alle sensiblen Daten sind verschlüsselt. ZK-Beweise stellen sicher, dass Ihre Positionen privat bleiben und dennoch on-chain überprüfbar sind."
       }
     },
+    "poolStatus": {
+      "pausedTitle": "Ein- und Auszahlungen sind pausiert",
+      "pausedBody": "Der Wert des Pools wurde seit {hours} Stunden nicht on-chain bestätigt, daher nimmt der Vertrag keine Ein- oder Auszahlungen an. Ihre Anteile sind unverändert. Dieser Hinweis verschwindet, sobald der Pool wieder öffnet.",
+      "pausedBodyNoAge": "Der Wert des Pools wurde nicht on-chain bestätigt, daher nimmt der Vertrag keine Ein- oder Auszahlungen an. Ihre Anteile sind unverändert. Dieser Hinweis verschwindet, sobald der Pool wieder öffnet."
+    },
     "marketBoard": {
       "title": "Markttendenz",
       "subtitle": "Wohin die Signale je Asset tendieren – und welche Märkte das sagen",
