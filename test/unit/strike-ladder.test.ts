@@ -34,12 +34,14 @@ describe('readLadder', () => {
     expect(wild.width).toBeGreaterThan(2.5 * calm.width);
   });
 
-  it('lists the strikes under the middle, nearest first, with the chance of ending below each', () => {
-    const r = readLadder(ladder(83_700, 0.03, BTC_STRIKES))!;
-    // 78,000 and under are priced as all but certain, so they are decided and not listed.
-    expect(r.downside.map((d) => d.price)).toEqual([82_000, 80_000]);
-    expect(r.downside[0].chance).toBeCloseTo(1 - normalCdf(Math.log(83_700 / 82_000) / 0.03), 6);
-    expect(r.downside[0].chance).toBeGreaterThan(r.downside[1].chance);
+  it('lists the undecided strikes, lowest first, with the market\'s own chance of ending above each', () => {
+    const priced = ladder(83_700, 0.03, BTC_STRIKES);
+    const r = readLadder(priced)!;
+    // Strikes priced as all but certain either way are decided and not listed.
+    const undecided = priced.filter((s) => s.yes >= 0.03 && s.yes <= 0.97);
+    expect(r.ladder).toEqual(undecided.map((s) => ({ price: s.strike, above: s.yes })));
+    expect(r.ladder.map((s) => s.price)).toEqual([...r.ladder.map((s) => s.price)].sort((a, b) => a - b));
+    expect(r.ladder[0].above).toBeGreaterThan(r.ladder[r.ladder.length - 1].above);
   });
 
   it('does not depend on the order the strikes arrive in', () => {
@@ -98,8 +100,8 @@ describe('getExpectedMove', () => {
     const move = await getExpectedMove('BTC', NOW);
     expect(move.resolvesAt).toBe(new Date(NOW + 33 * HOUR).toISOString());
     expect(move.movePct).toBeCloseTo(2.1, 1);
-    expect(move.downside[0]).toEqual({ price: 82_000, chancePct: expect.any(Number) });
-    expect(move.downside[0].chancePct).toBeGreaterThan(10);
+    const at84 = move.ladder.find((s) => s.price === 84_000);
+    expect(at84?.abovePct).toBeCloseTo(100 * normalCdf(Math.log(83_700 / 84_000) / 0.021), 1);
     expect(move.strikes).toBeGreaterThanOrEqual(3);
   });
 
@@ -145,9 +147,9 @@ describe('the priced move on the dashboard', () => {
     expect(locales.length).toBeGreaterThanOrEqual(13);
     for (const f of locales) {
       const board = JSON.parse(fs.readFileSync(path.join(root, 'messages', f), 'utf8')).dashboard.marketBoard;
-      const missing = ['pricedMove', 'pricedBy', 'chanceBelow', 'pricedSource', 'pricedFooter'].filter((k) => typeof board[k] !== 'string' || !board[k]);
+      const missing = ['pricedMove', 'pricedBy', 'chanceAboveTitle', 'pricedSource', 'pricedFooter'].filter((k) => typeof board[k] !== 'string' || !board[k]);
       expect({ locale: f, missing }).toEqual({ locale: f, missing: [] });
-      for (const [key, slot] of [['pricedMove', '{pct}'], ['pricedBy', '{when}'], ['chanceBelow', '{pct}'], ['chanceBelow', '{price}']]) {
+      for (const [key, slot] of [['pricedMove', '{pct}'], ['pricedBy', '{when}'], ['chanceAboveTitle', '{when}']]) {
         expect({ locale: f, key, has: String(board[key]).includes(slot) }).toEqual({ locale: f, key, has: true });
       }
     }

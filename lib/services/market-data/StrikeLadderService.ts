@@ -36,10 +36,10 @@ export interface LadderReading {
   width: number;
   /** The price the ladder treats as even odds. */
   middle: number;
-  /** Undecided strikes under the middle, nearest first, with the chance the ladder gives of ending below each. */
-  downside: Array<{ price: number; chance: number }>;
   /** Undecided strikes the width was read from. */
   strikes: number;
+  /** The undecided strikes as the market prices them, lowest first: its own chance of ending above each, unfitted. */
+  ladder: Array<{ price: number; above: number }>;
 }
 
 /**
@@ -74,11 +74,7 @@ export function readLadder(input: LadderStrike[]): LadderReading | null {
   const middle = Math.exp(-alpha / beta);
   if (!(width > 0.002 && width < 0.4) || !Number.isFinite(middle)) return null;
 
-  const downside = live
-    .filter((s) => s.strike < middle)
-    .map((s) => ({ price: s.strike, chance: 1 - s.yes }))
-    .reverse();
-  return { width, middle, downside, strikes: live.length };
+  return { width, middle, strikes: live.length, ladder: live.map((s) => ({ price: s.strike, above: s.yes })) };
 }
 
 /**
@@ -139,8 +135,8 @@ export async function getExpectedMove(asset: string, now: number = Date.now()): 
     return {
       resolvesAt: new Date(ladder.resolvesAtMs).toISOString(),
       movePct: round(reading.width * 100, 2),
-      downside: reading.downside.map((d) => ({ price: d.price, chancePct: round(d.chance * 100, 1) })),
       strikes: reading.strikes,
+      ladder: reading.ladder.map((s) => ({ price: s.price, abovePct: round(s.above * 100, 1) })),
     };
   }
   throw new Error(`strike ladder ${asset}: not readable`);

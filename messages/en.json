@@ -433,7 +433,7 @@
       "footer": "A lean is the weighted vote of the sources listed. The signal ledger scores every source against the price that followed; a lean is not a forecast.",
       "pricedMove": "Priced to move about ±{pct}%",
       "pricedBy": "by {when}",
-      "chanceBelow": "{pct}% chance of ending below {price}",
+      "chanceAboveTitle": "The market's chance of ending above each price by {when}",
       "pricedSource": "daily price ladder",
       "pricedFooter": "The priced move is one standard deviation, read from a ladder of daily price markets. It has tracked how far a coin moved, not which way.",
       "overall": {

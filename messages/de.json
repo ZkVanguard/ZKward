@@ -135,7 +135,7 @@
       "footer": "Die Tendenz ist das gewichtete Votum der gelisteten Quellen. Das Signal-Ledger bewertet jede Quelle am anschließenden Kurs; eine Tendenz ist keine Prognose.",
       "pricedMove": "Eingepreiste Bewegung etwa ±{pct} %",
       "pricedBy": "bis {when}",
-      "chanceBelow": "{pct} % Chance, unter {price} zu schließen",
+      "chanceAboveTitle": "Die Chance laut Markt, bis {when} über jedem Preis zu schließen",
       "pricedSource": "tägliche Preisleiter",
       "pricedFooter": "Die eingepreiste Bewegung ist eine Standardabweichung, abgelesen aus einer Leiter täglicher Preismärkte. Sie hat angezeigt, wie weit sich ein Coin bewegt hat, nicht in welche Richtung.",
       "overall": {

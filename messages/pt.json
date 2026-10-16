@@ -135,7 +135,7 @@
       "footer": "O viés é o voto ponderado das fontes listadas. O registro de sinais avalia cada fonte contra o preço que se seguiu; um viés não é uma previsão.",
       "pricedMove": "Movimento precificado de cerca de ±{pct}%",
       "pricedBy": "até {when}",
-      "chanceBelow": "{pct}% de chance de fechar abaixo de {price}",
+      "chanceAboveTitle": "A chance, segundo o mercado, de terminar acima de cada preço até {when}",
       "pricedSource": "escada diária de preços",
       "pricedFooter": "O movimento precificado é um desvio padrão, lido de uma escada de mercados de preço diários. Ele indicou o quanto um ativo se moveu, não em que direção.",
       "overall": {

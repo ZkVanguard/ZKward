@@ -135,7 +135,7 @@
       "footer": "La tendenza è il voto ponderato delle fonti elencate. Il registro dei segnali valuta ogni fonte rispetto al prezzo successivo; una tendenza non è una previsione.",
       "pricedMove": "Movimento prezzato di circa ±{pct}%",
       "pricedBy": "entro {when}",
-      "chanceBelow": "{pct}% di probabilità di chiudere sotto {price}",
+      "chanceAboveTitle": "La probabilità secondo il mercato di chiudere sopra ogni prezzo entro {when}",
       "pricedSource": "scala giornaliera dei prezzi",
       "pricedFooter": "Il movimento prezzato è una deviazione standard, letta da una scala di mercati di prezzo giornalieri. Ha indicato quanto si è mosso un asset, non in quale direzione.",
       "overall": {
