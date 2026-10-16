@@ -294,6 +294,17 @@ export class BluefinTreasuryService {
       logger.info('[BluefinTreasury] deposit result', {
         amount, ok, txDigest, before, after, status, error: result.effects?.status?.error,
       });
+      // The money has moved; a failed record must not undo the result, but it must be seen.
+      if (ok) {
+        try {
+          const { recordVenueCapital } = await import('@/lib/db/venue-capital');
+          await recordVenueCapital('deposit', amount, txDigest);
+        } catch (e) {
+          logger.error('[BluefinTreasury] deposit landed but was not recorded in venue_capital', {
+            amount, txDigest, error: e instanceof Error ? e.message : String(e),
+          });
+        }
+      }
 
       return {
         ok,
