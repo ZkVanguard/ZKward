@@ -139,6 +139,17 @@ async function runStages(): Promise<Record<string, string>> {
     logger.warn('[PaperFastTick] floor tick failed (non-fatal)', { error: errMsg(e) });
   }
 
+  // Open positions marked on their rows, after every book has run its exits.
+  try {
+    const { markOpenPaperPositions } = await import('@/lib/services/paper-trader/open-marks');
+    const { getLivePrice } = await import('@/lib/services/market-data/unified-price-provider');
+    const s = await markOpenPaperPositions(getLivePrice);
+    results.marks = `marked ${s.marked}${s.overdue.length ? `, ${s.overdue.length} past their exit` : ''}`;
+  } catch (e) {
+    results.marks = `error: ${errMsg(e).slice(0, 80)}`;
+    logger.warn('[PaperFastTick] open-position marks failed (non-fatal)', { error: errMsg(e) });
+  }
+
   return results;
 }
 
