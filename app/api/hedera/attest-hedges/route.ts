@@ -109,6 +109,30 @@ export async function POST(request: NextRequest): Promise<NextResponse<AttestRes
     });
   }
 
+  // The browser builds the basket: hold it to the server's own prices, then
+  // take the one slot per interval that every caller shares.
+  const { basketProblem, ATTEST_MIN_INTERVAL_MS } = await import('@/lib/services/hedera/attest-basket');
+  const livePrice: Record<string, number> = {};
+  try {
+    const { getLivePrice } = await import('@/lib/services/market-data/unified-price-provider');
+    for (const sym of new Set(positions.map((p) => String(p.symbol)))) {
+      if (sym === 'BTC' || sym === 'ETH' || sym === 'SUI') livePrice[sym] = await getLivePrice(sym);
+    }
+  } catch (e) {
+    logger.warn('[attest-hedges] price check unavailable', { error: e instanceof Error ? e.message : String(e) });
+    return NextResponse.json({ attested: false, reason: 'price check unavailable; try again shortly' }, { status: 503 });
+  }
+  const problem = basketProblem(positions, nav, livePrice);
+  if (problem) return badRequest(problem);
+  const { tryClaimCronRun } = await import('@/lib/db/cron-state');
+  const slot = await tryClaimCronRun('hedera-attest-hedges', ATTEST_MIN_INTERVAL_MS);
+  if (!slot.claimed) {
+    return NextResponse.json(
+      { attested: false, reason: slot.reason === 'rate-limit' ? 'one attestation per 5 minutes; try again later' : 'could not reserve an attestation slot' },
+      { status: 429 },
+    );
+  }
+
   const message = JSON.stringify({
     v: 1,
     kind: 'hedge-projection',

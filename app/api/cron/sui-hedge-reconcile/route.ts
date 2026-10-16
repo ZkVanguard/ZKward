@@ -41,7 +41,7 @@ import { errMsg } from '@/lib/utils/error-handler';
 import { SUI_USDC_POOL_CONFIG, SUI_USDC_COIN_TYPE } from '@/lib/types/sui-pool-types';
 import { BluefinService, type BluefinPosition } from '@/lib/services/sui/BluefinService';
 import { notifyDiscord } from '@/lib/utils/discord-notify';
-import { getCronStateOr, setCronState } from '@/lib/db/cron-state';
+import { getCronStateOr, getCronStateStrict, setCronState, tryClaimCronRun } from '@/lib/db/cron-state';
 // Static so Graphify sees the stale-hedge dispatch. Left the 3 @mysten/sui
 // SDK dynamic imports alone (cold-start defers, low graph value).
 import { detectStaleHedges } from '@/lib/services/sui/StaleHedgeDetector';
@@ -81,6 +81,14 @@ interface ReconcileResult {
  */
 const SUPPORTED_SYMBOLS = ['BTC-PERP', 'ETH-PERP', 'SUI-PERP'] as const;
 
+// Hourly. A window just under that lets each firing through and refuses a
+// retry or a second instance inside the same hour.
+const CLAIM_ID = 'sui-hedge-reconcile';
+const CLAIM_MS = 50 * 60_000;
+/** A reset needs the drift on this run and on the one before it, no older than this. */
+const KEY_DRIFT_SEEN = 'sui-hedge-reconcile:drift-seen-at';
+const DRIFT_CONFIRM_MS = 2 * 60 * 60_000;
+
 export async function GET(request: NextRequest): Promise<NextResponse<ReconcileResult>> {
   const ranAt = new Date().toISOString();
   const network: 'mainnet' | 'testnet' =
@@ -93,8 +101,13 @@ export async function GET(request: NextRequest): Promise<NextResponse<ReconcileR
       { status: 401 },
     );
   }
-  // Heartbeat for the production health check: an authenticated run started.
-  void setCronState('cron:lastRun:sui-hedge-reconcile', Date.now()).catch(() => {});
+  // One run per window across every instance. The claim writes this job's
+  // heartbeat (same key) and fails closed: on a state-store error the run is
+  // skipped, because the reset below changes on-chain state.
+  const claim = await tryClaimCronRun(CLAIM_ID, CLAIM_MS, Date.now());
+  if (!claim.claimed) {
+    return NextResponse.json({ success: true, ranAt, network, attempted: false, reason: `run not claimed (${claim.reason ?? 'unknown'})` });
+  }
 
   // Piggyback silent-drift watchdog on this hourly cron — the pool is at
   // its 10-slot QStash schedule cap and this pair (deploy-drift + state-
@@ -346,6 +359,7 @@ export async function GET(request: NextRequest): Promise<NextResponse<ReconcileR
     const driftDetected = COUNT_DRIFT || VALUE_DRIFT;
 
     if (!driftDetected) {
+      await setCronState(KEY_DRIFT_SEEN, null);
       return NextResponse.json({
         success: true,
         ranAt,
@@ -372,6 +386,26 @@ export async function GET(request: NextRequest): Promise<NextResponse<ReconcileR
       'WARN',
       { network, onChainCount, liveCount, deltaUsdc: deltaUsdc.toFixed(4) },
     );
+
+    // One reading can be a venue blip between a close and its record. Reset
+    // only when the previous run saw drift too; a failed read throws and skips.
+    const seenAt = Number((await getCronStateStrict<number>(KEY_DRIFT_SEEN)) ?? 0);
+    const confirmed = seenAt > 0 && Date.now() - seenAt <= DRIFT_CONFIRM_MS;
+    await setCronState(KEY_DRIFT_SEEN, confirmed ? null : Date.now());
+    if (!confirmed) {
+      return NextResponse.json({
+        success: true,
+        ranAt,
+        network,
+        attempted: true,
+        onChainHedges: onChainCount,
+        liveBluefinPositions: liveCount,
+        driftDetected: true,
+        driftDetails: { onChainHedgesUsdc: onChainHedgedUsdc, liveMarginUsdc, deltaUsdc },
+        resetExecuted: false,
+        reason: 'drift seen once — reset only if the next run sees it too',
+      });
+    }
 
     // 4. Attempt reset (only if AdminCap is held by cron signer)
     if (!adminCapId) {
