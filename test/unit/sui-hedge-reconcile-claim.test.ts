@@ -31,4 +31,9 @@ describe('sui-hedge-reconcile', () => {
     const inSync = at('if (!driftDetected) {');
     expect(src.slice(inSync, inSync + 120)).toContain('setCronState(KEY_DRIFT_SEEN, null)');
   });
+
+  it('the stale-hedge alert says it will not close while pool trading is paused', () => {
+    expect(src).toContain("const label = !autoClose ? 'log-only' : isPoolTradingEnabled() ? 'auto-closing' : 'not closing: pool trading is paused, close by hand';");
+    expect(src).toContain('stale hedge(s) detected [${label}]');
+  });
 });

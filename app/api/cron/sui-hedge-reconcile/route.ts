@@ -242,11 +242,14 @@ export async function GET(request: NextRequest): Promise<NextResponse<ReconcileR
         });
         if (stale.length > 0) {
           const autoClose = envFlagOnByDefault('STALE_HEDGE_AUTO_CLOSE');
+          // Say what will happen: with pool trading paused the close below is skipped,
+          // and an alert that keeps promising an auto-close hides that a person must act.
+          const label = !autoClose ? 'log-only' : isPoolTradingEnabled() ? 'auto-closing' : 'not closing: pool trading is paused, close by hand';
           logger.warn('[SuiHedgeReconcile] stale hedges detected', {
             autoClose, count: stale.length, stale,
           });
           await notifyDiscord(
-            `🕰️ ${stale.length} stale hedge(s) detected [${autoClose ? 'auto-closing' : 'log-only'}]: ${stale.map((s) => `#${s.id} ${s.asset} ${s.side} age=${s.ageDays}d`).join(', ')}`,
+            `🕰️ ${stale.length} stale hedge(s) detected [${label}]: ${stale.map((s) => `#${s.id} ${s.asset} ${s.side} age=${s.ageDays}d`).join(', ')}`,
             'WARN',
             { stale, autoClose },
           ).catch(() => {});
