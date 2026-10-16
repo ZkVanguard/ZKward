@@ -135,7 +135,7 @@
       "footer": "기울기는 나열된 소스의 가중 투표입니다. 시그널 원장은 각 소스를 이후 가격으로 평가합니다. 기울기는 예측이 아닙니다.",
       "pricedMove": "반영된 변동폭 약 ±{pct}%",
       "pricedBy": "{when}까지",
-      "chanceBelow": "{price} 아래로 마감할 확률 {pct}%",
+      "chanceAboveTitle": "{when}까지 각 가격보다 높게 끝날 시장의 확률",
       "pricedSource": "일일 가격 사다리",
       "pricedFooter": "반영된 변동폭은 1 표준편차이며, 일일 가격 시장의 사다리에서 읽습니다. 코인이 얼마나 움직였는지를 나타냈을 뿐, 방향은 나타내지 않았습니다.",
       "overall": {

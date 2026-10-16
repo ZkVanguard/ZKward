@@ -93,22 +93,39 @@ function Lean({ direction, confidence }: { direction: PerAssetSignal['direction'
   );
 }
 
-/** The move the market prices and the nearest strike it gives real odds of ending under. A near coin flip is left out: it restates the middle. */
+/** Strikes shown: the ones nearest even odds, where the market is still deciding. */
+const LADDER_ROWS = 7;
+
+/** The move the market prices, and its own chance of ending above each undecided price. */
 function PricedMove({ move }: { move: ExpectedMove }) {
   const t = useTranslations('dashboard.marketBoard');
   const locale = useLocale();
   const when = new Intl.DateTimeFormat(locale, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }).format(new Date(move.resolvesAt));
-  const tail = move.downside.find((d) => d.chancePct < 40);
+  const rows = [...move.ladder]
+    .sort((a, b) => Math.abs(a.abovePct - 50) - Math.abs(b.abovePct - 50))
+    .slice(0, LADDER_ROWS)
+    .sort((a, b) => b.price - a.price);
   return (
     <div className="mt-3 pt-3 border-t border-label-primary/[0.06] text-xs">
       <p className="text-label-secondary">
         <span className="font-semibold text-label-primary tabular-nums">{t('pricedMove', { pct: move.movePct.toFixed(1) })}</span>
         {' '}{t('pricedBy', { when })}
       </p>
-      {tail && (
-        <p className="mt-1 text-label-tertiary tabular-nums">
-          {t('chanceBelow', { pct: Math.round(tail.chancePct), price: wholeDollars(tail.price) })}
-        </p>
+      {rows.length > 0 && (
+        <div className="mt-2">
+          <p className="text-[11px] text-label-tertiary">{t('chanceAboveTitle', { when })}</p>
+          <ul className="mt-1 space-y-0.5 tabular-nums">
+            {rows.map((r) => (
+              <li key={r.price} className="flex items-center gap-2">
+                <span className="w-20 text-label-secondary">{wholeDollars(r.price)}</span>
+                <span className="h-1.5 flex-1 rounded-full bg-label-primary/[0.06] overflow-hidden" aria-hidden="true">
+                  <span className="block h-full rounded-full bg-blue-600/60" style={{ width: `${r.abovePct}%` }} />
+                </span>
+                <span className="w-10 text-right text-label-primary">{Math.round(r.abovePct)}%</span>
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
       <p className="mt-1.5 flex items-center gap-1.5 text-[11px] text-label-tertiary">
         <ProviderLogo sourceName="Polymarket" size={10} />

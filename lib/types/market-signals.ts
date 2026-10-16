@@ -117,8 +117,8 @@ export interface ExpectedMove {
   resolvesAt: string;
   /** One standard deviation of the priced move, in percent of price. */
   movePct: number;
-  /** Undecided strikes under the ladder's middle, nearest first, with the chance it gives of ending below each, in percent. */
-  downside: Array<{ price: number; chancePct: number }>;
   /** Undecided strikes the move was read from. */
   strikes: number;
+  /** The undecided strikes, lowest first, with the market's own chance of ending above each, in percent. */
+  ladder: Array<{ price: number; abovePct: number }>;
 }
