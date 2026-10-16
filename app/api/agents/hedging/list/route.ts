@@ -38,7 +38,9 @@ export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
     const portfolioId = searchParams.get('portfolioId');
-    const walletAddress = searchParams.get('walletAddress');
+    // A wallet-signed caller sees its own hedges only; internal callers see any.
+    const ownWallet = authResult.method === 'wallet' ? authResult.identity : null;
+    const walletAddress = ownWallet ?? searchParams.get('walletAddress');
     const status = searchParams.get('status') || 'all';
     const limit = Math.min(parseInt(searchParams.get('limit') || '50', 10), 200);
 

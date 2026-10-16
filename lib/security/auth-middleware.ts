@@ -79,7 +79,9 @@ export function verifyInternalAuth(request: NextRequest): boolean {
  * Expects headers:
  *   x-wallet-address: <address>
  *   x-wallet-signature: <signature>
- *   x-wallet-message: <message> (should include timestamp for replay protection)
+ *   x-wallet-message: <message> — must start with "ZKward ", name the wallet
+ *     ("Wallet: <address>") and carry "timestamp:<unix seconds>" within 5 min.
+ *     A signature made for another site, another wallet or long ago is refused.
  * 
  * Or body fields: walletAddress, signature, signedMessage
  */
@@ -118,17 +120,13 @@ export async function verifyWalletAuth(
     return { authenticated: false };
   }
 
+  const problem = walletMessageProblem(message, walletAddress, Math.floor(Date.now() / 1000));
+  if (problem) {
+    logger.warn('[Auth] Wallet message refused', { walletAddress, problem });
+    return { authenticated: false };
+  }
+
   try {
-    // Verify the message contains a recent timestamp (within 5 minutes)
-    const timestampMatch = message.match(/timestamp:(\d+)/);
-    if (timestampMatch) {
-      const msgTimestamp = parseInt(timestampMatch[1], 10);
-      const now = Math.floor(Date.now() / 1000);
-      if (Math.abs(now - msgTimestamp) > 300) {
-        logger.warn('[Auth] Wallet signature expired', { walletAddress });
-        return { authenticated: false };
-      }
-    }
 
     const recoveredAddress = ethers.verifyMessage(message, signature).toLowerCase();
     if (recoveredAddress === walletAddress) {
@@ -147,6 +145,17 @@ export async function verifyWalletAuth(
     });
     return { authenticated: false };
   }
+}
+
+/** Null when a signed message may authenticate `walletAddress` at `nowSec`, else why not. */
+export function walletMessageProblem(message: string, walletAddress: string, nowSec: number): string | null {
+  if (!message.startsWith('ZKward ')) return 'not a ZKward message';
+  const wallet = message.match(/^Wallet: (\S+)$/m)?.[1];
+  if (!wallet || wallet.toLowerCase() !== walletAddress.toLowerCase()) return 'message names another wallet';
+  const ts = message.match(/^timestamp:(\d+)$/m)?.[1];
+  if (!ts) return 'no timestamp';
+  if (Math.abs(nowSec - Number(ts)) > 300) return 'expired';
+  return null;
 }
 
 // ─── 3. Combined Auth Check ─────────────────────────────────────────

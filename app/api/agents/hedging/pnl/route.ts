@@ -37,7 +37,9 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const orderId = searchParams.get('orderId');
     const portfolioId = searchParams.get('portfolioId');
-    const walletAddress = searchParams.get('walletAddress');
+    // A wallet-signed caller sees its own hedges only; internal callers see any.
+    const ownWallet = authResult.method === 'wallet' ? authResult.identity : null;
+    const walletAddress = ownWallet ?? searchParams.get('walletAddress');
     const summary = searchParams.get('summary') === 'true';
 
     logger.info('📊 Fetching hedge PnL', { orderId, portfolioId, walletAddress, summary });
@@ -46,7 +48,7 @@ export async function GET(request: NextRequest) {
     if (orderId) {
       const hedge = await getHedgeByOrderId(orderId);
       
-      if (!hedge) {
+      if (!hedge || (ownWallet && hedge.wallet_address?.toLowerCase() !== ownWallet.toLowerCase())) {
         return NextResponse.json(
           { success: false, error: 'Hedge not found' },
           { status: 404 }
