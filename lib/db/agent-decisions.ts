@@ -3,12 +3,12 @@
  * makes is recorded here, along with whether it was acted on and the eventual
  * outcome. Foundation for accuracy tracking + (later) self-improvement.
  *
- * The table is intentionally append-only — `outcome_pnl_usd` is filled
- * in via a follow-up UPDATE once the corresponding hedge closes. No agent
- * decision is ever deleted.
+ * The table is append-only and no agent decision is ever deleted. Outcomes
+ * are read from the decision's closed hedge row, not stored here.
  */
 
 import { query } from './postgres';
+import { TRADE_OUTCOME_SQL } from './hedges';
 import { logger } from '@/lib/utils/logger';
 
 export interface AgentDecisionRow {
@@ -99,34 +99,6 @@ export async function recordAgentDecision(p: RecordAgentDecisionParams): Promise
 }
 
 /**
- * Settle a recorded decision once the corresponding hedge closes — links
- * the agent's call to the realised PnL outcome. Called by the reconciler
- * after a close event lands.
- */
-export async function settleAgentDecision(
-  hedgeOrderId: string,
-  realizedPnlUsd: number,
-): Promise<boolean> {
-  try {
-    await ensureTable();
-    const res = await query(
-      `UPDATE agent_decisions
-          SET outcome_pnl_usd = $1,
-              outcome_settled_at = NOW()
-        WHERE hedge_order_id = $2
-          AND outcome_settled_at IS NULL`,
-      [realizedPnlUsd, hedgeOrderId],
-    );
-    return (res as unknown as { rowCount?: number }).rowCount !== undefined
-      ? ((res as unknown as { rowCount?: number }).rowCount ?? 0) > 0
-      : true;
-  } catch (e) {
-    logger.warn('[AgentDecisions] settleAgentDecision failed (non-fatal)', { error: String(e).slice(0, 200), hedgeOrderId });
-    return false;
-  }
-}
-
-/**
  * Roll-up of agent accuracy over a recent window.
  * — approved_count: agent said go, hedge was opened, outcome settled
  * — net_pnl_usd: sum of outcomes for approved decisions
@@ -151,30 +123,36 @@ export async function getRecentAgentScorecard(chain: string, days = 7): Promise<
       acted: string; settled: string; net_pnl: string | null;
       wins: string;
     }>(
+      // Outcomes come from the decision's closed hedge row, counted like every
+      // other trade reader (TRADE_OUTCOME_SQL): a reconciled close is not a result.
       `SELECT
          COUNT(*)::int                                                         AS total,
-         COUNT(*) FILTER (WHERE agent_approved)::int                           AS approved,
-         COUNT(*) FILTER (WHERE NOT agent_approved)::int                       AS rejected,
-         COUNT(*) FILTER (WHERE was_acted_on)::int                             AS acted,
-         COUNT(*) FILTER (WHERE outcome_settled_at IS NOT NULL)::int           AS settled,
-         COALESCE(SUM(outcome_pnl_usd) FILTER (WHERE was_acted_on AND outcome_settled_at IS NOT NULL), 0)::numeric AS net_pnl,
-         COUNT(*) FILTER (WHERE was_acted_on AND outcome_pnl_usd > 0)::int     AS wins
-       FROM agent_decisions
-       WHERE chain = $1
-         AND created_at > NOW() - ($2::int || ' days')::interval`,
+         COUNT(*) FILTER (WHERE d.agent_approved)::int                         AS approved,
+         COUNT(*) FILTER (WHERE NOT d.agent_approved)::int                     AS rejected,
+         COUNT(*) FILTER (WHERE d.was_acted_on)::int                           AS acted,
+         COUNT(h.order_id) FILTER (WHERE d.was_acted_on)::int                  AS settled,
+         COALESCE(SUM(h.realized_pnl) FILTER (WHERE d.was_acted_on), 0)::numeric AS net_pnl,
+         COUNT(*) FILTER (WHERE d.was_acted_on AND h.realized_pnl > 0)::int    AS wins
+       FROM agent_decisions d
+       LEFT JOIN (
+         SELECT order_id, realized_pnl FROM hedges
+          WHERE status IN ('closed', 'liquidated') AND ${TRADE_OUTCOME_SQL}
+       ) h ON h.order_id = d.hedge_order_id
+       WHERE d.chain = $1
+         AND d.created_at > NOW() - ($2::int || ' days')::interval`,
       [chain, days],
     );
     const r = rows[0];
-    const acted = Number(r?.acted ?? 0);
+    const settled = Number(r?.settled ?? 0);
     const wins = Number(r?.wins ?? 0);
     return {
       totalDecisions: Number(r?.total ?? 0),
       approvedCount: Number(r?.approved ?? 0),
       rejectedCount: Number(r?.rejected ?? 0),
-      actedOnCount: acted,
-      settledCount: Number(r?.settled ?? 0),
+      actedOnCount: Number(r?.acted ?? 0),
+      settledCount: settled,
       netPnlUsd: Number(r?.net_pnl ?? 0),
-      winRate: acted > 0 ? wins / acted : null,
+      winRate: settled > 0 ? wins / settled : null,
     };
   } catch (e) {
     logger.warn('[AgentDecisions] getRecentAgentScorecard failed', { error: String(e).slice(0, 200) });

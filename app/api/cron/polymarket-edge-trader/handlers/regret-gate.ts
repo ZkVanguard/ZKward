@@ -16,6 +16,7 @@
  */
 import { query } from '@/lib/db/postgres';
 import { HEDGES_REAL_ONLY_SQL } from '@/lib/db/hedges-scope';
+import { TRADE_OUTCOME_SQL } from '@/lib/db/hedges';
 import { computeSizeMultiplier, computeRegretScore } from '@/lib/services/ai/regret-tracker';
 import { regretBasedHalt } from '@/lib/services/trading/trade-quality-gates';
 import { envFlag } from '@/lib/utils/env-flag';
@@ -57,6 +58,7 @@ export async function computeRegretGate(): Promise<RegretGateResult> {
          FROM hedges
          WHERE status='closed'
            AND ${HEDGES_REAL_ONLY_SQL}
+           AND ${TRADE_OUTCOME_SQL}
            AND created_at > NOW() - INTERVAL '30 days'
          ORDER BY created_at DESC LIMIT 200`
       ).catch(() => []);

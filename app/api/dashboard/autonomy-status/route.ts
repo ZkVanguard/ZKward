@@ -17,6 +17,7 @@
 import { NextResponse } from 'next/server';
 import { getCronStateByPrefix, getCronStateOr } from '@/lib/db/cron-state';
 import { query } from '@/lib/db/postgres';
+import { TRADE_OUTCOME_SQL } from '@/lib/db/hedges';
 import { logger } from '@/lib/utils/logger';
 import { isLiveJob, staleLimitMin } from '@/lib/services/alerting/cron-cadence';
 import { withOriginCache } from '@/lib/utils/origin-cache';
@@ -117,7 +118,7 @@ async function handleGet() {
       query<{ count: string; sum: string }>(
         `SELECT COUNT(*)::text AS count,
                 COALESCE(SUM(realized_pnl), 0)::text AS sum
-         FROM hedges WHERE chain='sui' AND status='closed'`,
+         FROM hedges WHERE chain='sui' AND status IN ('closed', 'liquidated') AND ${TRADE_OUTCOME_SQL}`,
       ),
     ]);
 

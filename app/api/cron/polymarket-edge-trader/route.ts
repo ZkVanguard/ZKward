@@ -993,7 +993,8 @@ export async function GET(request: NextRequest): Promise<NextResponse<EdgeResult
         chain: 'sui', asset,
         intendedSide: side as 'LONG' | 'SHORT',
         notionalUsd,
-        orderId: open.orderId ?? null,
+        // The row's id, not the venue's order hash: the agent scorecard joins on it.
+        orderId: clientOrderId,
         success: !!open.success,
         error: open.error,
       });
