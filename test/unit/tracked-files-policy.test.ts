@@ -36,7 +36,6 @@ const DOCS_ALLOWED = new Set([
   'docs/MSAFE_ADMINCAP_MIGRATION.md',
   'docs/NEXT_SESSION_CHECKLIST.md',
   'docs/PAPER_TO_MAINNET_READINESS.md',
-  'docs/PAPER_TRADER_HORIZON_ALIGNMENT.md',
   'docs/README.md',
   'docs/ROADMAP.md',
   'docs/SECURITY.md',
