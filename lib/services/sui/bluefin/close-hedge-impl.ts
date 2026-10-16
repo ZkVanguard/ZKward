@@ -28,6 +28,7 @@ export interface CloseHedgeContext {
     path: string,
     body: unknown,
     apiType?: 'exchange' | 'trade',
+    maxAttempts?: number,
   ): Promise<T>;
   getPositions(): Promise<BluefinPosition[]>;
   getMarketData(symbol: string): Promise<{ price: number; fundingRate: number } | null>;
@@ -133,7 +134,7 @@ export async function performCloseHedge(
       clientOrderId: hedgeId,
       type: 'MARKET',
       reduceOnly: false,
-    }, 'trade');
+    }, 'trade', 1); // sent once: never resend a signed order
 
     if (!orderResponse?.orderHash) {
       throw new Error('BlueFin returned no orderHash — close not accepted');

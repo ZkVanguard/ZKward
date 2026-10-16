@@ -571,9 +571,15 @@ export class BluefinService {
     method: 'GET' | 'POST' | 'PUT' | 'DELETE',
     path: string,
     body?: Record<string, unknown>,
-    apiType: 'trade' | 'exchange' = 'trade'
+    apiType: 'trade' | 'exchange' = 'trade',
+    /**
+     * 1 for a signed order: a retry resends the same signature, which the venue
+     * refuses once it is a minute old, and a timed-out attempt may already have
+     * been placed. The caller signs a fresh order on its next run instead.
+     */
+    maxAttempts: number = 3,
   ): Promise<T> {
-    const MAX_RETRIES = 3;
+    const MAX_RETRIES = maxAttempts;
     let lastError: Error | null = null;
     const rateLimitKey = `${apiType}:${path.split('?')[0]}`;
 

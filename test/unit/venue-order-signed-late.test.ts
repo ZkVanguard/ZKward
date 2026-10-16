@@ -24,6 +24,11 @@ describe.each([
     expect(between.match(/await /g)).toEqual(['await ']);
     expect(between).toMatch(/await ctx\.apiRequest</);
   });
+
+  it('sends the signed order once: a retry would resend a stale signature, or place it twice', () => {
+    const sent = src.indexOf("'POST', '/api/v1/trade/orders'");
+    expect(src.slice(sent, sent + 400)).toContain("}, 'trade', 1);");
+  });
 });
 
 describe('a close follows the position margin mode', () => {

@@ -27,6 +27,7 @@ export interface OpenHedgeContext {
     path: string,
     body: unknown,
     apiType: 'exchange' | 'trade',
+    maxAttempts?: number,
   ): Promise<T>;
   getPositions(): Promise<BluefinPosition[]>;
   getMarketData(symbol: string): Promise<{
@@ -293,7 +294,7 @@ export async function performOpenHedge(
       clientOrderId: hedgeId,
       type: 'MARKET',
       reduceOnly: false,
-    }, 'trade');
+    }, 'trade', 1); // sent once: never resend a signed order
 
     if (!orderResponse?.orderHash) {
       throw new Error('BlueFin returned no orderHash — open not accepted');
