@@ -451,8 +451,9 @@ export async function txHashExists(txHash: string): Promise<boolean> {
     );
     return !!result;
   } catch (error) {
+    // Throw: "not recorded" on a failed read would let one transaction be credited twice.
     logger.error('[CommunityPool DB] Failed to check txHash', error);
-    return false; // Err on the side of allowing (on-chain is authoritative anyway)
+    throw error;
   }
 }
 
