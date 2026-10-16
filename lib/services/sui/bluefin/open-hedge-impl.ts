@@ -243,6 +243,13 @@ export async function performOpenHedge(
       }
     }
 
+    // Reads first, then sign and send at once: the venue refuses an order signed
+    // more than a minute before it arrives, and a slow account read between the
+    // two made closes fail that way (2026-10-16, while the venue was slow).
+    const accountBefore = await readAccountSnapshot(ctx);
+    // Snapshot pre-open so we can verify the order took effect.
+    const preOpenPositions = await ctx.getPositions();
+
     // Build signed fields (BlueFin uses e9 scaling).
     const quantityE9 = Math.floor(params.size * 1e9).toString();
     const leverageE9 = Math.floor(params.leverage * 1e9).toString();
@@ -269,10 +276,6 @@ export async function performOpenHedge(
     };
 
     const signature = await ctx.signOrder(signedFields);
-
-    const accountBefore = await readAccountSnapshot(ctx);
-    // Snapshot pre-open so we can verify the order took effect.
-    const preOpenPositions = await ctx.getPositions();
     const prePos = preOpenPositions.find((p) => p.symbol === params.symbol);
     const preOpenSize = prePos?.size ?? 0;
     const preOpenSameSideSize = prePos?.side === params.side ? preOpenSize : 0;

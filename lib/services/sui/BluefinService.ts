@@ -169,6 +169,8 @@ export interface BluefinPosition {
   unrealizedPnl: number;
   margin: number;
   marginRatio: number;
+  /** Margin mode the venue holds the position in; absent means isolated. */
+  isIsolated?: boolean;
 }
 
 // Order interface

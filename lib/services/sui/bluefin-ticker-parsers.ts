@@ -77,6 +77,8 @@ export interface AccountPositionFields {
   unrealizedPnl: number;
   margin: number;
   marginRatio: number;
+  /** Margin mode the venue holds the position in. Positions from before isolated-only orders are cross. */
+  isIsolated: boolean;
 }
 
 /**
@@ -113,5 +115,6 @@ export function parseAccountPosition(p: Record<string, unknown>): AccountPositio
     unrealizedPnl: e9(p.unrealizedPnlE9),
     margin,
     marginRatio: margin > 0 ? maintMargin / margin : 0,
+    isIsolated: p.isIsolated !== false,
   };
 }
