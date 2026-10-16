@@ -30,10 +30,12 @@ export interface Step9Input {
     recommendations?: string[];
   };
   rebalanceSwaps: unknown;
+  /** Swaps that actually executed this run; the row says REBALANCE only when one did. */
+  swapsExecuted: number;
 }
 
 export async function runStep9LogDecision(input: Step9Input): Promise<void> {
-  const { navUsd, sharePriceUsd, poolStats, pricesUSD, aiResult, enhancedContext, rebalanceSwaps } = input;
+  const { navUsd, sharePriceUsd, poolStats, pricesUSD, aiResult, enhancedContext, rebalanceSwaps, swapsExecuted } = input;
   try {
     const decisionId = `sui_ai_${Date.now()}_${randomBytes(4).toString('hex')}`;
     await addPoolTransactionToDb({
@@ -44,7 +46,10 @@ export async function runStep9LogDecision(input: Step9Input): Promise<void> {
         chain: 'sui',
         agent: 'SuiPoolAgent',
         enhanced: Object.keys(enhancedContext).length > 0,
-        action: aiResult.shouldRebalance ? 'REBALANCE' : 'HOLD',
+        // What ran, not what the agent proposed: a paused pool once logged 170 REBALANCE rows a day with no swap.
+        action: swapsExecuted > 0 ? 'REBALANCE' : 'HOLD',
+        executed: swapsExecuted > 0,
+        proposed: aiResult.shouldRebalance ? 'REBALANCE' : 'HOLD',
         allocations: aiResult.allocations,
         confidence: aiResult.confidence,
         reasoning: aiResult.reasoning,

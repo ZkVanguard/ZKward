@@ -485,9 +485,10 @@ export async function GET(request: NextRequest): Promise<NextResponse<SuiCronRes
     // Step 9: Log AI decision to transaction history
     // ═══════════════════════════════════════════════════════════════
     // Extracted to lib/services/sui/cron/step-9-log-decision.ts.
+    const swapsExecuted = rebalanceSwaps?.executed ?? 0;
     await runStep9LogDecision({
       navUsd, sharePriceUsd, poolStats, pricesUSD, aiResult,
-      enhancedContext, rebalanceSwaps,
+      enhancedContext, rebalanceSwaps, swapsExecuted,
     });
 
 
@@ -503,7 +504,7 @@ export async function GET(request: NextRequest): Promise<NextResponse<SuiCronRes
         allocations: aiResult.allocations,
       },
       aiDecision: {
-        action: aiResult.shouldRebalance ? 'REBALANCE' : 'HOLD',
+        action: swapsExecuted > 0 ? 'REBALANCE' : 'HOLD',
         allocations: aiResult.allocations,
         confidence: aiResult.confidence,
         reasoning: aiResult.reasoning,
