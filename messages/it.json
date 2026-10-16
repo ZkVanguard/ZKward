@@ -138,6 +138,12 @@
       "chanceAboveTitle": "La probabilità secondo il mercato di chiudere sopra ogni prezzo entro {when}",
       "pricedSource": "scala giornaliera dei prezzi",
       "pricedFooter": "Il movimento prezzato è una deviazione standard, letta da una scala di mercati di prezzo giornalieri. Ha indicato quanto si è mosso un asset, non in quale direzione.",
+      "scorecardTitle": "Come sono andate le probabilità della scala",
+      "scorecardEmpty": "I risultati compaiono dopo la risoluzione della prossima scala: ogni giorno le probabilità vengono registrate circa un giorno prima e poi confrontate con quanto accaduto.",
+      "scorecardSummary": "{forecasts} previsioni su {ladders} scale risolte",
+      "scorecardBand": "Indicato {from}–{to}%",
+      "scorecardHappened": "{pct}% chiuso sopra",
+      "scorecardCount": "({n})",
       "overall": {
         "up": "Mercato in tendenza rialzista",
         "down": "Mercato in tendenza ribassista",

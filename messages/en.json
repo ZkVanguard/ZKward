@@ -436,6 +436,12 @@
       "chanceAboveTitle": "The market's chance of ending above each price by {when}",
       "pricedSource": "daily price ladder",
       "pricedFooter": "The priced move is one standard deviation, read from a ladder of daily price markets. It has tracked how far a coin moved, not which way.",
+      "scorecardTitle": "How the ladder’s chances turned out",
+      "scorecardEmpty": "Results appear after the next ladder resolves: each day the chances are recorded about a day ahead, then checked against what happened.",
+      "scorecardSummary": "{forecasts} forecasts across {ladders} resolved ladders",
+      "scorecardBand": "Said {from}–{to}%",
+      "scorecardHappened": "{pct}% ended above",
+      "scorecardCount": "({n})",
       "overall": {
         "up": "Market leaning up",
         "down": "Market leaning down",

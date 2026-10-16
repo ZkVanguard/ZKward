@@ -138,6 +138,12 @@
       "chanceAboveTitle": "A chance, segundo o mercado, de terminar acima de cada preço até {when}",
       "pricedSource": "escada diária de preços",
       "pricedFooter": "O movimento precificado é um desvio padrão, lido de uma escada de mercados de preço diários. Ele indicou o quanto um ativo se moveu, não em que direção.",
+      "scorecardTitle": "Como as chances da escada se saíram",
+      "scorecardEmpty": "Os resultados aparecem após a resolução da próxima escada: todo dia as chances são registradas cerca de um dia antes e depois comparadas com o que aconteceu.",
+      "scorecardSummary": "{forecasts} previsões em {ladders} escadas resolvidas",
+      "scorecardBand": "Disse {from}–{to}%",
+      "scorecardHappened": "{pct}% terminaram acima",
+      "scorecardCount": "({n})",
       "overall": {
         "up": "Mercado com viés de alta",
         "down": "Mercado com viés de baixa",

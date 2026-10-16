@@ -19,7 +19,7 @@ import Image from 'next/image';
 import { useLocale, useTranslations } from 'next-intl';
 import { ChevronDown, RefreshCw, TrendingDown, TrendingUp, Minus } from 'lucide-react';
 import { fetchSpotPrices } from '@/lib/api/market-signals';
-import { useExpectedMoves, usePerAssetSignals } from '@/lib/hooks/useLiveSignals';
+import { useExpectedMoves, useLadderScorecard, usePerAssetSignals } from '@/lib/hooks/useLiveSignals';
 import type { ExpectedMove, PerAssetSignal } from '@/lib/types/market-signals';
 import { logoPath, providerForSource } from '@/lib/api/signal-providers';
 
@@ -90,6 +90,35 @@ function Lean({ direction, confidence }: { direction: PerAssetSignal['direction'
       <Minus className="w-4 h-4" strokeWidth={2.5} />
       {t('noLean')}
     </span>
+  );
+}
+
+/** How the ladder's chances turned out: each band of forecasts against how often it ended above. */
+function LadderScorecard() {
+  const t = useTranslations('dashboard.marketBoard');
+  const q = useLadderScorecard();
+  if (!q.data) return null;
+  const s = q.data;
+  return (
+    <div className="mt-4 rounded-2xl border border-label-primary/[0.06] p-3 sm:p-4 text-xs">
+      <p className="font-semibold text-label-primary">{t('scorecardTitle')}</p>
+      {s.forecasts === 0 ? (
+        <p className="mt-1 text-label-tertiary">{t('scorecardEmpty')}</p>
+      ) : (
+        <>
+          <p className="mt-1 text-label-tertiary">{t('scorecardSummary', { forecasts: s.forecasts, ladders: s.ladders })}</p>
+          <ul className="mt-2 space-y-0.5 tabular-nums">
+            {s.buckets.map((b) => (
+              <li key={b.fromPct} className="flex flex-wrap gap-x-2 text-label-secondary">
+                <span className="w-24">{t('scorecardBand', { from: b.fromPct, to: b.fromPct + 10 })}</span>
+                <span className="text-label-primary">{t('scorecardHappened', { pct: Math.round(b.endedAbovePct) })}</span>
+                <span className="text-label-tertiary">{t('scorecardCount', { n: b.forecasts })}</span>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+    </div>
   );
 }
 
@@ -288,6 +317,7 @@ export function MarketLeanBoard() {
         {error && data && <p className="mt-3 text-xs text-red-700">{t('staleAfterError')}</p>}
         <p className="mt-4 text-[11px] text-label-tertiary">{t('footer')}</p>
         {movesQ.data && <p className="mt-1 text-[11px] text-label-tertiary">{t('pricedFooter')}</p>}
+        {movesQ.data && <LadderScorecard />}
       </div>
     </section>
   );

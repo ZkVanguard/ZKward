@@ -9,7 +9,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { fetchExpectedMoves, fetchPerAssetSignals } from '@/lib/api/market-signals';
-import type { PerAssetSignal } from '@/lib/types/market-signals';
+import type { PerAssetSignal, Scorecard } from '@/lib/types/market-signals';
 
 type SignalsMap = Record<string, PerAssetSignal>;
 
@@ -29,6 +29,21 @@ export function useExpectedMoves() {
     queryFn: () => fetchExpectedMoves(),
     staleTime: 60_000,
     refetchInterval: 5 * 60_000,
+  });
+}
+
+/** The daily ladder's forecasts against what happened. New results arrive once a day. */
+export function useLadderScorecard() {
+  return useQuery({
+    queryKey: ['ladder-scorecard'],
+    queryFn: async (): Promise<Scorecard> => {
+      const res = await fetch('/api/predictions/ladder-scorecard');
+      if (!res.ok) throw new Error(`ladder scorecard returned ${res.status}`);
+      const json = (await res.json()) as { success?: boolean; scorecard?: Scorecard };
+      if (!json.success || !json.scorecard) throw new Error('ladder scorecard unavailable');
+      return json.scorecard;
+    },
+    staleTime: 10 * 60_000,
   });
 }
 

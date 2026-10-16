@@ -138,6 +138,12 @@
       "chanceAboveTitle": "La probabilidad que da el mercado de terminar por encima de cada precio para {when}",
       "pricedSource": "escalera diaria de precios",
       "pricedFooter": "El movimiento descontado es una desviación estándar, leída de una escalera de mercados de precios diarios. Ha reflejado cuánto se movió una moneda, no en qué dirección.",
+      "scorecardTitle": "Cómo resultaron las probabilidades de la escalera",
+      "scorecardEmpty": "Los resultados aparecen cuando se resuelva la próxima escalera: cada día las probabilidades se registran con un día de antelación y luego se comparan con lo ocurrido.",
+      "scorecardSummary": "{forecasts} pronósticos en {ladders} escaleras resueltas",
+      "scorecardBand": "Dijo {from}–{to}%",
+      "scorecardHappened": "{pct}% terminó por encima",
+      "scorecardCount": "({n})",
       "overall": {
         "up": "Mercado con sesgo alcista",
         "down": "Mercado con sesgo bajista",

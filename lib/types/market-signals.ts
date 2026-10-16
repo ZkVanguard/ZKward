@@ -122,3 +122,22 @@ export interface ExpectedMove {
   /** The undecided strikes, lowest first, with the market's own chance of ending above each, in percent. */
   ladder: Array<{ price: number; abovePct: number }>;
 }
+
+/** The daily ladder's forecasts against what happened (GET /api/predictions/ladder-scorecard). */
+export interface ScorecardBucket {
+  /** Lower edge of the forecast band, in percent (0, 10, … 90). */
+  fromPct: number;
+  forecasts: number;
+  /** Mean chance the market gave in this band, in percent. */
+  meanForecastPct: number;
+  /** Share that ended above, in percent. */
+  endedAbovePct: number;
+}
+
+export interface Scorecard {
+  forecasts: number;
+  ladders: number;
+  /** Mean squared error of the chances against the results; 0.25 is a coin flip's. */
+  brier: number | null;
+  buckets: ScorecardBucket[];
+}

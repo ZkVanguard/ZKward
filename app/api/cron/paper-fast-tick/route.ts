@@ -139,6 +139,18 @@ async function runStages(): Promise<Record<string, string>> {
     logger.warn('[PaperFastTick] floor tick failed (non-fatal)', { error: errMsg(e) });
   }
 
+  // The daily ladder's forecasts and their results, for the public scorecard.
+  try {
+    const { claimed } = await tryClaimCronRun('ladder-forecasts', 10 * 60_000, Date.now());
+    if (claimed) {
+      const { recordLadderForecasts, settleLadderForecasts } = await import('@/lib/services/market-data/ladder-scorecard');
+      results.ladder = `recorded ${await recordLadderForecasts()}, settled ${await settleLadderForecasts()}`;
+    }
+  } catch (e) {
+    results.ladder = `error: ${errMsg(e).slice(0, 80)}`;
+    logger.warn('[PaperFastTick] ladder forecasts failed (non-fatal)', { error: errMsg(e) });
+  }
+
   // Open positions marked on their rows, after every book has run its exits.
   try {
     const { markOpenPaperPositions } = await import('@/lib/services/paper-trader/open-marks');

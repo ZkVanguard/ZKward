@@ -138,6 +138,12 @@
       "chanceAboveTitle": "市场给出的到 {when} 收于各价格之上的概率",
       "pricedSource": "每日价格阶梯",
       "pricedFooter": "计入的波动为一个标准差，读取自每日价格市场的阶梯。它反映的是币价波动的幅度，而不是方向。",
+      "scorecardTitle": "价格阶梯概率的实际结果",
+      "scorecardEmpty": "下一个阶梯结算后显示结果：每天提前约一天记录概率，然后与实际结果对照。",
+      "scorecardSummary": "{ladders} 个已结算阶梯中的 {forecasts} 个预测",
+      "scorecardBand": "给出 {from}–{to}%",
+      "scorecardHappened": "{pct}% 收于其上",
+      "scorecardCount": "({n})",
       "overall": {
         "up": "市场偏多",
         "down": "市场偏空",

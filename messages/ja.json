@@ -138,6 +138,12 @@
       "chanceAboveTitle": "{when}までに各価格を上回って終わる市場の確率",
       "pricedSource": "日次の価格ラダー",
       "pricedFooter": "織り込み変動幅は1標準偏差で、日次の価格市場のラダーから読み取ります。示してきたのは値動きの大きさであり、方向ではありません。",
+      "scorecardTitle": "ラダーの確率はどうなったか",
+      "scorecardEmpty": "次のラダーが確定すると結果が表示されます。毎日、確率を約1日前に記録し、その後の結果と照合します。",
+      "scorecardSummary": "確定した{ladders}本のラダーで{forecasts}件の予測",
+      "scorecardBand": "予想 {from}–{to}%",
+      "scorecardHappened": "{pct}% が上回って終了",
+      "scorecardCount": "({n})",
       "overall": {
         "up": "マーケットは上向き",
         "down": "マーケットは下向き",

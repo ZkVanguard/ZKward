@@ -138,6 +138,12 @@
       "chanceAboveTitle": "{when}까지 각 가격보다 높게 끝날 시장의 확률",
       "pricedSource": "일일 가격 사다리",
       "pricedFooter": "반영된 변동폭은 1 표준편차이며, 일일 가격 시장의 사다리에서 읽습니다. 코인이 얼마나 움직였는지를 나타냈을 뿐, 방향은 나타내지 않았습니다.",
+      "scorecardTitle": "래더 확률의 실제 결과",
+      "scorecardEmpty": "다음 래더가 확정되면 결과가 표시됩니다. 매일 약 하루 전에 확률을 기록하고 이후 실제 결과와 비교합니다.",
+      "scorecardSummary": "확정된 래더 {ladders}개에서 예측 {forecasts}건",
+      "scorecardBand": "예측 {from}–{to}%",
+      "scorecardHappened": "{pct}%가 위에서 마감",
+      "scorecardCount": "({n})",
       "overall": {
         "up": "시장 상승 기울기",
         "down": "시장 하락 기울기",

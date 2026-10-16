@@ -138,6 +138,12 @@
       "chanceAboveTitle": "Die Chance laut Markt, bis {when} über jedem Preis zu schließen",
       "pricedSource": "tägliche Preisleiter",
       "pricedFooter": "Die eingepreiste Bewegung ist eine Standardabweichung, abgelesen aus einer Leiter täglicher Preismärkte. Sie hat angezeigt, wie weit sich ein Coin bewegt hat, nicht in welche Richtung.",
+      "scorecardTitle": "Wie die Chancen der Leiter ausgingen",
+      "scorecardEmpty": "Ergebnisse erscheinen, sobald die nächste Leiter aufgelöst ist: Die Chancen werden täglich etwa einen Tag vorher festgehalten und dann mit dem Ergebnis verglichen.",
+      "scorecardSummary": "{forecasts} Prognosen aus {ladders} aufgelösten Leitern",
+      "scorecardBand": "Angegeben {from}–{to}%",
+      "scorecardHappened": "{pct}% schlossen darüber",
+      "scorecardCount": "({n})",
       "overall": {
         "up": "Markt tendiert aufwärts",
         "down": "Markt tendiert abwärts",
