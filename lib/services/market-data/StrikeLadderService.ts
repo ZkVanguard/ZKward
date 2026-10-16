@@ -114,18 +114,26 @@ function toLadder(event: VenueEvent): { resolvesAtMs: number; strikes: LadderStr
 
 const round = (v: number, places: number) => Math.round(v * 10 ** places) / 10 ** places;
 
-/** The move the ladder prices for `asset`. Throws when it cannot be read: an unread ladder is not a calm market. */
-export async function getExpectedMove(asset: string, now: number = Date.now()): Promise<ExpectedMove> {
+/**
+ * The open ladders for `asset` (soonest first), or the closed ones (latest
+ * first), whose `yes` is then the settled result: 1 when the coin ended above.
+ * Throws on a failed read.
+ */
+export async function fetchLadders(asset: string, closed: boolean): Promise<Array<{ resolvesAtMs: number; strikes: LadderStrike[] }>> {
   const series = LADDER_SERIES[asset];
   if (!series) throw new Error(`no strike ladder for ${asset}`);
   const res = await fetch(
-    `${POLYMARKET_API}/events?series_id=${series}&closed=false&limit=20&order=endDate&ascending=true`,
+    `${POLYMARKET_API}/events?series_id=${series}&closed=${closed}&limit=20&order=endDate&ascending=${!closed}`,
     { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS), headers: { accept: 'application/json' } },
   );
   if (!res.ok) throw new Error(`strike ladder ${asset}: upstream ${res.status}`);
   const events = (await res.json()) as VenueEvent[];
-  const ladders = (Array.isArray(events) ? events : []).map(toLadder).filter((l): l is NonNullable<typeof l> => l !== null);
-  const candidates = ladderCandidates(ladders, now);
+  return (Array.isArray(events) ? events : []).map(toLadder).filter((l): l is NonNullable<typeof l> => l !== null);
+}
+
+/** The move the ladder prices for `asset`. Throws when it cannot be read: an unread ladder is not a calm market. */
+export async function getExpectedMove(asset: string, now: number = Date.now()): Promise<ExpectedMove> {
+  const candidates = ladderCandidates(await fetchLadders(asset, false), now);
   if (candidates.length === 0) {
     throw new Error(`strike ladder ${asset}: none resolves ${MIN_HOURS_AHEAD} to ${MAX_HOURS_AHEAD} hours ahead`);
   }

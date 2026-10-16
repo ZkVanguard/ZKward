@@ -138,6 +138,12 @@
       "chanceAboveTitle": "La probabilité, selon le marché, de finir au-dessus de chaque prix d’ici {when}",
       "pricedSource": "échelle de prix quotidienne",
       "pricedFooter": "Le mouvement anticipé correspond à un écart-type, lu sur une échelle de marchés de prix quotidiens. Il a indiqué l’ampleur du mouvement d’un actif, pas sa direction.",
+      "scorecardTitle": "Ce que sont devenues les probabilités de l’échelle",
+      "scorecardEmpty": "Les résultats apparaissent après la résolution de la prochaine échelle : chaque jour, les probabilités sont relevées environ un jour avant, puis comparées à ce qui s’est passé.",
+      "scorecardSummary": "{forecasts} prévisions sur {ladders} échelles résolues",
+      "scorecardBand": "Annoncé {from}–{to} %",
+      "scorecardHappened": "{pct} % ont fini au-dessus",
+      "scorecardCount": "({n})",
       "overall": {
         "up": "Marché à tendance haussière",
         "down": "Marché à tendance baissière",
