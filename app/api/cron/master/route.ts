@@ -148,7 +148,7 @@ export async function GET(request: NextRequest): Promise<NextResponse<MasterCron
     // still piggybacked from sui-community-pool at 30-min cadence for
     // redundancy; both writes are idempotent. Added 2026-09-21 during the
     // aggregator coverage bundle — bringing cadence from 30min → 5min
-    // gives the fine-tuned Signal Interpreter (~83% accurate) 6× more
+    // gives the fine-tuned Signal Interpreter 6× more
     // opportunities to label new markets, and keeps momentum history
     // snapshots fresh across the wider top-200 slot.
     { name: 'Polymarket Discover',      path: '/api/cron/poly-discover', timeoutMs: 60_000 },
