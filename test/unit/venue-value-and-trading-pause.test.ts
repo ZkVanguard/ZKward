@@ -94,7 +94,8 @@ describe('pool trading pause', () => {
   it('every capital-moving step of the pool cron takes the pause, and step 4 (NAV, attestation) does not', () => {
     const src = readFileSync(join(process.cwd(), 'app/api/cron/sui-community-pool/route.ts'), 'utf8').replace(/\r\n/g, '\n');
     expect(src).toContain('const tradingPaused = !isPoolTradingEnabled();');
-    expect(src).toContain('const skipCapitalSteps = aboveSafetyCeiling || tradingPaused;');
+    // a defense read that failed in step 4 also skips them: caps that were not applied are not caps
+    expect(src).toContain('const skipCapitalSteps = aboveSafetyCeiling || tradingPaused || defenseReadFailed;');
     for (const step of ['runStep65HedgeSettle', 'runStep66DriftRebalance', 'runStep7Rebalance', 'runStep8AutoHedge']) {
       const at = src.indexOf(`await ${step}({`);
       expect(at).toBeGreaterThan(-1);

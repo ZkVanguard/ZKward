@@ -169,8 +169,9 @@ async function appendAlertLog(entry: AlertLogEntry): Promise<void> {
     await appendAlertLogRedis(entry).catch(() => {});
     return;
   }
-  const { getCronState, setCronState } = await import('@/lib/db/cron-state');
-  const existing = (await getCronState<AlertLogEntry[]>(ALERT_LOG_KEY).catch(() => null)) || [];
+  const { getCronStateStrict, setCronState } = await import('@/lib/db/cron-state');
+  // Strict: on a failed read, writing [entry] would erase the log the response loop reads.
+  const existing = (await getCronStateStrict<AlertLogEntry[]>(ALERT_LOG_KEY)) ?? [];
   const trimmed = [...existing, entry].slice(-ALERT_LOG_MAX);
   await setCronState(ALERT_LOG_KEY, trimmed);
 }
@@ -180,6 +181,6 @@ export async function readAlertLog(): Promise<AlertLogEntry[]> {
     const { readAlertLogRedis } = await import('@/lib/db/cron-state-redis');
     return readAlertLogRedis<AlertLogEntry>();
   }
-  const { getCronState } = await import('@/lib/db/cron-state');
-  return (await getCronState<AlertLogEntry[]>(ALERT_LOG_KEY).catch(() => null)) || [];
+  const { getCronStateStrict } = await import('@/lib/db/cron-state');
+  return (await getCronStateStrict<AlertLogEntry[]>(ALERT_LOG_KEY)) ?? [];
 }

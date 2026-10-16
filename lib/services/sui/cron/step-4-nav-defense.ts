@@ -25,7 +25,7 @@
 import { logger } from '@/lib/utils/logger';
 import { notifyDiscord } from '@/lib/utils/discord-notify';
 import { query } from '@/lib/db/postgres';
-import { getCronStateOr, setCronState, CronKeys } from '@/lib/db/cron-state';
+import { getCronStateOr, getCronStateStrict, setCronState, CronKeys } from '@/lib/db/cron-state';
 import { BluefinService } from '@/lib/services/sui/BluefinService';
 import { resolveLeverage, hedgeRatioForNav } from '@/lib/services/sui/cron/hedge-sizing';
 import { clampAllocationsToHedgeable } from '@/lib/services/sui/cron/hedgeable-allocation';
@@ -61,6 +61,8 @@ export interface Step4Result {
   navUsd: number;
   sharePriceUsd: number;
   aboveSafetyCeiling: boolean;
+  /** A defense state read failed, so the caps were not applied: skip this run's capital steps. */
+  defenseReadFailed: boolean;
 }
 
 export async function runStep4NavDefense(input: Step4Input): Promise<Step4Result> {
@@ -78,6 +80,7 @@ export async function runStep4NavDefense(input: Step4Input): Promise<Step4Result
   // circuit breaker. Halt write-side actions (rebalance, hedge,
   // top-up) but still record snapshots so dashboards keep working.
   let aboveSafetyCeiling = false;
+  let defenseReadFailed = false;
   // Pre-halt warning at 80% so the team gets weeks of lead time to plan
   // the u128 Move redeploy + audit rather than scrambling at the wall.
   const NAV_SAFETY_WARN_PCT = Number(process.env.NAV_SAFETY_WARN_PCT) || 80;
@@ -180,7 +183,7 @@ export async function runStep4NavDefense(input: Step4Input): Promise<Step4Result
       // Peak derived from on-chain ATH share price × current shares — see
       // deriveEffectivePeakNav docstring for why this beats a static
       // cron-state peak (fixes the 2026-08-11 deposit-during-halt deadlock).
-      const cronStatePeak = await getCronStateOr<number>(CronKeys.poolNavPeak('community-pool'), navUsd);
+      const cronStatePeak = ((await getCronStateStrict<number>(CronKeys.poolNavPeak('community-pool'))) ?? navUsd);
       const peakNavForLock = deriveEffectivePeakNav(
         poolStats.allTimeHighNav || 0,  // ATH share price in USD (see SuiUsdcPoolService.ts:369)
         poolStats.totalShares,
@@ -205,7 +208,7 @@ export async function runStep4NavDefense(input: Step4Input): Promise<Step4Result
       // us in zero-risk until drawdown truly recovers (see PROFIT_LOCK_HYSTERESIS_PCT
       // in profit-lock-guard). Reused key: `profit-lock:zero-since` is already
       // tracked below for alert-response 24h UNWIND_ALL_SPOT.
-      const priorZeroSince = await getCronStateOr<number | null>('profit-lock:zero-since', null);
+      const priorZeroSince = await getCronStateStrict<number>('profit-lock:zero-since');
       const lockDecision = applyProfitLock(
         aiResult.allocations as Record<string, number>,
         navUsd,
@@ -237,9 +240,10 @@ export async function runStep4NavDefense(input: Step4Input): Promise<Step4Result
       // ── alert-response-loop force-cap override ─────────────────────
       // If alert-response-loop set an emergency risk cap (SHRINK_SPOT
       // or UNWIND_ALL_SPOT), apply the tighter of that + profit-lock.
-      try {
-        const override = await getCronStateOr<{ capPct: number; reason: string; expiresAtMs: number } | null>(
-          'alert-response:spot-target-risk-cap', null,
+      // A failed read throws to the guard's catch below: an emergency cap may be in force.
+      {
+        const override = await getCronStateStrict<{ capPct: number; reason: string; expiresAtMs: number }>(
+          'alert-response:spot-target-risk-cap',
         );
         if (override && override.expiresAtMs > Date.now()) {
           const currentRiskAlloc = ['BTC', 'ETH', 'SUI'].reduce((s, k) => s + (aiResult.allocations[k as keyof typeof aiResult.allocations] || 0), 0);
@@ -268,7 +272,7 @@ export async function runStep4NavDefense(input: Step4Input): Promise<Step4Result
           // Expired — clear it
           await setCronState('alert-response:spot-target-risk-cap', null).catch(() => {});
         }
-      } catch { /* best-effort */ }
+      }
 
       // Track continuous zero-risk-tier duration for alert-response-loop
       // Gap 8's UNWIND_ALL_SPOT rule triggers after > 24h at 0% risk cap.
@@ -281,7 +285,7 @@ export async function runStep4NavDefense(input: Step4Input): Promise<Step4Result
       // Both leak downstream. Now logs + alerts on write failure.
       try {
         if (lockDecision.active && lockDecision.riskAllocationCap === 0) {
-          const existing = await getCronStateOr<number | null>('profit-lock:zero-since', null);
+          const existing = await getCronStateStrict<number>('profit-lock:zero-since');
           if (!existing) {
             try {
               await setCronState('profit-lock:zero-since', Date.now());
@@ -446,7 +450,9 @@ export async function runStep4NavDefense(input: Step4Input): Promise<Step4Result
         });
       }
     } catch (lockErr) {
-      logger.warn('[SUI Cron] Profit-lock guard threw (non-critical)', {
+      // The caps above were not applied: skip this run's capital steps rather than trade uncapped.
+      defenseReadFailed = true;
+      logger.warn('[SUI Cron] Profit-lock guard failed — capital steps skipped this run', {
         error: lockErr instanceof Error ? lockErr.message : String(lockErr),
       });
     }
@@ -535,5 +541,5 @@ export async function runStep4NavDefense(input: Step4Input): Promise<Step4Result
 
   await recordPoolNavSnapshot({ sharePriceUsd, navUsd, poolStats, allocations: aiResult.allocations });
 
-  return { navUsd, sharePriceUsd, aboveSafetyCeiling };
+  return { navUsd, sharePriceUsd, aboveSafetyCeiling, defenseReadFailed };
 }
