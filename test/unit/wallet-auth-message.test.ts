@@ -39,3 +39,14 @@ describe('hedge reads for a wallet-signed caller', () => {
     expect(src).toContain('if (!hedge || (ownWallet && hedge.wallet_address?.toLowerCase() !== ownWallet.toLowerCase())) {');
   });
 });
+
+describe('profile names', () => {
+  it('the route sets a name only for the signing wallet, and the client signs', () => {
+    const route = fs.readFileSync(path.resolve(__dirname, '../../app/api/profile/route.ts'), 'utf8');
+    expect(route).toContain('const auth = await requireAuth(request);');
+    expect(route).toContain("if (auth.method === 'wallet' && auth.identity !== address) {");
+    const hook = fs.readFileSync(path.resolve(__dirname, '../../lib/hooks/useWalletProfile.ts'), 'utf8');
+    expect(hook).toContain("'x-wallet-signature': signature,");
+    expect(walletMessageProblem(`ZKward Profile\n\nWallet: ${W}\ntimestamp:${NOW}`, W, NOW)).toBeNull();
+  });
+});

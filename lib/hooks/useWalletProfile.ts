@@ -14,6 +14,7 @@
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useSignMessage } from '@/lib/evm-wallet/hooks';
 
 interface ProfileResponse {
   profiles?: Record<string, { displayName: string | null }>;
@@ -47,17 +48,26 @@ export function useWalletProfile(address: string | null | undefined) {
 }
 
 /**
- * Mutation to update the current user's display name. On success
- * invalidates the shared query key so every mounted useWalletProfile
+ * Mutation to update the current user's display name. The wallet signs the
+ * request: the server sets a name only for the wallet that signed. On
+ * success invalidates the shared query key so every mounted useWalletProfile
  * refetches automatically.
  */
 export function useSetWalletProfile() {
   const qc = useQueryClient();
+  const { signMessageAsync } = useSignMessage();
   return useMutation({
     mutationFn: async (args: { address: string; displayName: string }): Promise<{ ok: boolean; error?: string }> => {
+      const message = `ZKward Profile\n\nWallet: ${args.address}\ntimestamp:${Math.floor(Date.now() / 1000)}`;
+      const signature = await signMessageAsync({ message });
       const r = await fetch('/api/profile', {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
+        headers: {
+          'content-type': 'application/json',
+          'x-wallet-address': args.address,
+          'x-wallet-signature': signature,
+          'x-wallet-message': btoa(message),
+        },
         body: JSON.stringify(args),
       });
       const j = (await r.json()) as WriteResponse;
