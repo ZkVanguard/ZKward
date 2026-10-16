@@ -101,7 +101,8 @@ function PricedMove({ move }: { move: ExpectedMove }) {
   const t = useTranslations('dashboard.marketBoard');
   const locale = useLocale();
   const when = new Intl.DateTimeFormat(locale, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }).format(new Date(move.resolvesAt));
-  const rows = [...move.ladder]
+  // A payload cached before the ladder field existed has none: show the move without the list.
+  const rows = [...(move.ladder ?? [])]
     .sort((a, b) => Math.abs(a.abovePct - 50) - Math.abs(b.abovePct - 50))
     .slice(0, LADDER_ROWS)
     .sort((a, b) => b.price - a.price);

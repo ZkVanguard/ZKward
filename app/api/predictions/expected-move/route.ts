@@ -40,4 +40,5 @@ async function handleGet(req: NextRequest): Promise<NextResponse> {
   );
 }
 
-export const GET = withOriginCache({ name: 'expected-move', freshSec: 60 }, handleGet);
+// The name carries the payload's shape: a new field gets a new name, so the shared cache never serves the old shape to new code.
+export const GET = withOriginCache({ name: 'expected-move:v2', freshSec: 60 }, handleGet);
