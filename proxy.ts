@@ -116,7 +116,7 @@ export function proxy(request: NextRequest) {
     // hit them without an allowlist entry. Everything else stays strict.
     const isPublicReadSurface = pathname.startsWith('/api/subgraph/');
     const allow = isPublicReadSurface
-      ? (origin || '*')
+      ? '*'
       : (origin && ALLOWED_ORIGINS.has(origin) ? origin : null);
 
     // CORS preflight — respond before any other work

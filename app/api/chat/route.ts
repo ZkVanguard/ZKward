@@ -77,6 +77,12 @@ async function shouldUseAgents(message: string, walletAddress?: string): Promise
  * POST /api/chat
  * Generate LLM response for user message, routing through agents when appropriate
  */
+/** History is kept per signer: a conversation id alone ('default' for most) would be shared by everyone. */
+function historyKey(identity: string, conversationId: unknown): string {
+  const id = typeof conversationId === 'string' && conversationId ? conversationId.slice(0, 64) : 'default';
+  return `${identity}:${id}`;
+}
+
 export async function POST(request: NextRequest) {
   // Rate limit — distributed enforcement: chat is heavy (LLM + agents)
   const limited = await heavyLimiter.checkDistributed(request);
@@ -88,7 +94,8 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { message, conversationId = 'default', context, stream = false } = body;
+    const { message, context, stream = false } = body;
+    const conversationId = historyKey(authResult.identity, body.conversationId);
 
     if (!message || typeof message !== 'string') {
       return NextResponse.json(
@@ -378,9 +385,11 @@ function formatAgentResponse(report: AgentReport): { content: string } {
  * Clear conversation history
  */
 export async function DELETE(request: NextRequest) {
+  const authResult = await requireAuth(request);
+  if (authResult instanceof NextResponse) return authResult;
   try {
     const { searchParams } = new URL(request.url);
-    const conversationId = searchParams.get('conversationId') || 'default';
+    const conversationId = historyKey(authResult.identity, searchParams.get('conversationId'));
 
     llmProvider.clearHistory(conversationId);
 
@@ -402,9 +411,11 @@ export async function DELETE(request: NextRequest) {
  * Get conversation history
  */
 export async function GET(request: NextRequest) {
+  const authResult = await requireAuth(request);
+  if (authResult instanceof NextResponse) return authResult;
   try {
     const { searchParams } = new URL(request.url);
-    const conversationId = searchParams.get('conversationId') || 'default';
+    const conversationId = historyKey(authResult.identity, searchParams.get('conversationId'));
 
     const history = llmProvider.getHistory(conversationId);
 

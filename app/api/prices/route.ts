@@ -27,7 +27,12 @@ export async function GET(request: NextRequest) {
     const symbols = searchParams
       .get('symbols')
       ?.split(',')
-      .map((s) => s.trim());
+      .map((s) => s.trim())
+      .filter(Boolean);
+    // Each symbol fans out to upstream price calls: bound the list and its contents.
+    if (symbols && (symbols.length > 50 || symbols.some((s) => !/^[A-Za-z0-9]{1,15}$/.test(s)))) {
+      return NextResponse.json({ success: false, error: 'symbols: up to 50, letters and digits only' }, { status: 400 });
+    }
     const source = searchParams.get('source') || 'auto'; // 'auto', 'exchange', 'fallback'
 
     // Batch request
