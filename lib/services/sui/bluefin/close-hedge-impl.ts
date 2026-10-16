@@ -28,6 +28,7 @@ export interface CloseHedgeContext {
     path: string,
     body: unknown,
     apiType?: 'exchange' | 'trade',
+    maxAttempts?: number,
   ): Promise<T>;
   getPositions(): Promise<BluefinPosition[]>;
   getMarketData(symbol: string): Promise<{ price: number; fundingRate: number } | null>;
@@ -87,6 +88,10 @@ export async function performCloseHedge(
     // which required full notional as free margin (impossible for closes on
     // leveraged positions). Match-position-leverage lets the pre-trade risk
     // check see required margin = posted margin.
+    // Reads first, then sign and send at once: the venue refuses an order signed
+    // more than a minute before it arrives, and a slow account read between the
+    // two made closes fail that way (2026-10-16, while the venue was slow).
+    const accountBefore = await readAccountSnapshot(ctx);
     const closeLeverage = Math.max(1, position.leverage || 1);
     const quantityE9 = Math.floor(closeSize * 1e9).toString();
     const priceE9 = '0';                     // MARKET orders require price=0
@@ -103,13 +108,15 @@ export async function performCloseHedge(
       quantityE9,
       leverageE9,
       side: closeSide,
-      isIsolated: true,   // ISOLATED only — see openHedge writeup
+      // A close nets against the position only in the position's own margin mode.
+      // New positions are isolated; two leftovers are cross, and an isolated close
+      // of a cross position is accepted and then dropped (2026-10-16).
+      isIsolated: position.isIsolated !== false,
       expiresAtMillis: expiresAt,
       salt,
       signedAtMillis,
     };
     const signature = await ctx.signOrder(signedFields);
-    const accountBefore = await readAccountSnapshot(ctx);
 
     // NOTE: BlueFin deprecated reduceOnly. Setting reduceOnly:true returns
     // orderHash but matching engine drops it (observed 2026-05-30/31).
@@ -127,7 +134,7 @@ export async function performCloseHedge(
       clientOrderId: hedgeId,
       type: 'MARKET',
       reduceOnly: false,
-    }, 'trade');
+    }, 'trade', 1); // sent once: never resend a signed order
 
     if (!orderResponse?.orderHash) {
       throw new Error('BlueFin returned no orderHash — close not accepted');
