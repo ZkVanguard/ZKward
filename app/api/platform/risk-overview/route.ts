@@ -25,6 +25,7 @@ import { logger } from '@/lib/utils/logger';
 import { safeErrorResponse } from '@/lib/security/safe-error';
 import { readLimiter } from '@/lib/security/rate-limiter';
 import { query } from '@/lib/db/postgres';
+import { TRADE_OUTCOME_SQL } from '@/lib/db/hedges';
 import { withOriginCache } from '@/lib/utils/origin-cache';
 
 export const runtime = 'nodejs';
@@ -596,11 +597,9 @@ async function getCompositionSection(): Promise<RiskOverviewResponse['compositio
 }
 
 /**
- * Track record of SETTLED hedges — those with non-zero PnL. The DB has
- * 200+ closed rows total but ~190 are reconciler-adopted / phantom
- * closes (current_pnl = realized_pnl = 0) that would drown the actual
- * trading track record. Filtering to non-zero PnL shows the honest
- * ~45% win rate at break-even on 22 real closes.
+ * Track record of the pool's trades. Re-adopted and reconciled rows hold a
+ * mark, not a result (TRADE_OUTCOME_SQL), and a row at exactly 0 closed with
+ * no figure; neither is a trade.
  */
 async function getHedgeHistorySection(): Promise<RiskOverviewResponse['hedgeHistory']> {
   const empty: RiskOverviewResponse['hedgeHistory'] = {
@@ -611,24 +610,26 @@ async function getHedgeHistorySection(): Promise<RiskOverviewResponse['hedgeHist
       query<{ total: number; wins: number; losses: number; pnl_sum: number }>(
         `SELECT
            COUNT(*)::int as total,
-           COUNT(*) FILTER (WHERE current_pnl::float > 0)::int as wins,
-           COUNT(*) FILTER (WHERE current_pnl::float < 0)::int as losses,
-           COALESCE(SUM(current_pnl::float), 0)::float as pnl_sum
+           COUNT(*) FILTER (WHERE realized_pnl::float > 0)::int as wins,
+           COUNT(*) FILTER (WHERE realized_pnl::float < 0)::int as losses,
+           COALESCE(SUM(realized_pnl::float), 0)::float as pnl_sum
          FROM hedges
-         WHERE chain='sui' AND status='closed'
+         WHERE chain='sui' AND status IN ('closed', 'liquidated')
            AND notional_value::float >= 1
-           AND current_pnl::float != 0`,
+           AND realized_pnl::float != 0
+           AND ${TRADE_OUTCOME_SQL}`,
       ),
       query<{ id: number; market: string; side: string; notional: number; pnl: number; closed_at: Date; duration_hours: number }>(
         `SELECT id, market, side,
            notional_value::float as notional,
-           current_pnl::float as pnl,
+           realized_pnl::float as pnl,
            closed_at,
            EXTRACT(EPOCH FROM (closed_at - created_at))/3600 as duration_hours
          FROM hedges
-         WHERE chain='sui' AND status='closed'
+         WHERE chain='sui' AND status IN ('closed', 'liquidated')
            AND notional_value::float >= 1
-           AND current_pnl::float != 0
+           AND realized_pnl::float != 0
+           AND ${TRADE_OUTCOME_SQL}
            AND closed_at IS NOT NULL
          ORDER BY closed_at DESC LIMIT 10`,
       ),
