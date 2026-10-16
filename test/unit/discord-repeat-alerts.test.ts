@@ -11,6 +11,7 @@ const mockGet = jest.fn<any>(async (k: string) => store[k] ?? null);
 const mockSet = jest.fn<any>(async (k: string, v: unknown) => { store[k] = v; });
 jest.mock('@/lib/db/cron-state', () => ({
   getCronState: (...a: any[]) => mockGet(...a),
+  getCronStateStrict: (...a: any[]) => mockGet(...a),
   setCronState: (...a: any[]) => mockSet(...a),
 }));
 

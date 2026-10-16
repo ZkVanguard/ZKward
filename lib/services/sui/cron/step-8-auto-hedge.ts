@@ -25,7 +25,7 @@ import { envFlag } from '@/lib/utils/env-flag';
 import { isChainAutoHedgeDisabled } from '@/lib/utils/chain-halt';
 import { notifyDiscord } from '@/lib/utils/discord-notify';
 import { query } from '@/lib/db/postgres';
-import { getCronStateOr, getCronHalt, setCronHalt, deleteCronState, endOfUtcDayMs, CronKeys } from '@/lib/db/cron-state';
+import { getCronStateStrict, getCronHalt, setCronHalt, deleteCronState, endOfUtcDayMs, CronKeys } from '@/lib/db/cron-state';
 import { evaluateHaltRecovery } from '@/lib/services/sui/cron/halt-recovery';
 import { getAutoHedgeConfigs } from '@/lib/storage/auto-hedge-storage';
 import { BluefinService } from '@/lib/services/sui/BluefinService';
@@ -110,7 +110,7 @@ export async function runStep8AutoHedge(input: Step8Input): Promise<Step8Result>
       // is to clear the halt as soon as the reason no longer holds.
       // Never touches non-drawdown halts (manual, phantom-rate, etc.)
       // — see halt-recovery.ts for the decision rules.
-      const peakNav = await getCronStateOr<number>(CronKeys.poolNavPeak('community-pool'), navUsd);
+      const peakNav = ((await getCronStateStrict<number>(CronKeys.poolNavPeak('community-pool'))) ?? navUsd);
       const recovery = evaluateHaltRecovery({
         haltReason: existingHalt.reason,
         currentNavUsd: navUsd,
@@ -146,7 +146,7 @@ export async function runStep8AutoHedge(input: Step8Input): Promise<Step8Result>
     } else {
       // Derived peak scales with deposits (see deriveEffectivePeakNav docstring)
       // so a fresh deposit unhalts the drawdown gate without a manual reset.
-      const cronStatePeak = await getCronStateOr<number>(CronKeys.poolNavPeak('community-pool'), navUsd);
+      const cronStatePeak = ((await getCronStateStrict<number>(CronKeys.poolNavPeak('community-pool'))) ?? navUsd);
       const peakNav = deriveEffectivePeakNav(
         poolStats.allTimeHighNav || 0,
         poolStats.totalShares,
@@ -170,7 +170,9 @@ export async function runStep8AutoHedge(input: Step8Input): Promise<Step8Result>
       }
     }
   } catch (haltErr) {
-    logger.warn('[SUI Cron] Drawdown halt check threw — failing open', { error: haltErr });
+    // Unknown drawdown is not "no drawdown": no new hedge this tick; the next one checks again.
+    drawdownHalted = true;
+    logger.warn('[SUI Cron] Drawdown halt check failed — auto-hedge skipped this tick', { error: haltErr });
   }
 
   if (HEDGE_DISABLED) {

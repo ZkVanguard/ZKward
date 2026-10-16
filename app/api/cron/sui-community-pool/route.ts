@@ -402,7 +402,7 @@ export async function GET(request: NextRequest): Promise<NextResponse<SuiCronRes
     // alert-response override + PortfolioDriver corrective unwind +
     // external NAV attest + NAV snapshot persist. aiResult.allocations
     // is mutated in-place, matching the inline block's behavior.
-    const { navUsd, sharePriceUsd, aboveSafetyCeiling } = await runStep4NavDefense({
+    const { navUsd, sharePriceUsd, aboveSafetyCeiling, defenseReadFailed } = await runStep4NavDefense({
       poolStats, pricesUSD, aiResult,
       navSafetyCeilingUsdc: NAV_SAFETY_CEILING_USDC,
       network,
@@ -427,7 +427,7 @@ export async function GET(request: NextRequest): Promise<NextResponse<SuiCronRes
     // the pause rides the same switch. Step 4 above (NAV, attestation,
     // snapshot) always runs.
     const tradingPaused = !isPoolTradingEnabled();
-    const skipCapitalSteps = aboveSafetyCeiling || tradingPaused;
+    const skipCapitalSteps = aboveSafetyCeiling || tradingPaused || defenseReadFailed;
     if (tradingPaused) logger.info('[SUI Cron] Trading paused (SUI_POOL_TRADING_ENABLED is not set) — skipping settle, rebalance and hedge');
 
     // Step 6.5: Settle PREVIOUS cycle's hedges

@@ -21,7 +21,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyCronRequest } from '@/lib/qstash';
-import { tryClaimCronRun, getCronState, setCronState, getCronStateOr, CronKeys } from '@/lib/db/cron-state';
+import { tryClaimCronRun, getCronState, getCronStateStrict, setCronState, CronKeys } from '@/lib/db/cron-state';
 import { logger } from '@/lib/utils/logger';
 import { isPoolTradingEnabled } from '@/lib/services/sui/pool-trading-pause';
 // Static so Graphify sees the signal-tick → defense-dispatch chain.
@@ -177,7 +177,7 @@ async function handle(request: NextRequest): Promise<NextResponse> {
             SUI:  navUsd * ((alloc.SUI || 0) / 100),
           };
           const spotSum = Object.values(spotUsd).reduce((s, v) => s + v, 0);
-          const peakNav = await getCronStateOr<number>(CronKeys.poolNavPeak('community-pool'), navUsd);
+          const peakNav = ((await getCronStateStrict<number>(CronKeys.poolNavPeak('community-pool'))) ?? navUsd);
           const snapshot = {
             idleUsdc: Math.max(0, navUsd - spotSum),
             spot: spotUsd,

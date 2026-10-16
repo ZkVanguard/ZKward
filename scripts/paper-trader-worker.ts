@@ -84,9 +84,10 @@ async function main() {
   // position seconds apart and count the trade twice. It takes over only
   // when the cron has gone quiet.
   const standbyMs = Number(process.env.PAPER_WORKER_STANDBY_MS) || 3 * 60_000;
-  const { getCronState } = await import('@/lib/db/cron-state');
-  const lastFastTick = Number(await getCronState<number>('cron:lastRun:paper-fast-tick').catch(() => 0)) || 0;
-  if (Date.now() - lastFastTick < standbyMs) {
+  const { getCronStateStrict } = await import('@/lib/db/cron-state');
+  // An unreadable heartbeat is not a quiet cron: both driving the books would count closes twice.
+  const lastFastTick = await getCronStateStrict<number>('cron:lastRun:paper-fast-tick').then((v) => Number(v) || 0, () => Infinity);
+  if (lastFastTick === Infinity || Date.now() - lastFastTick < standbyMs) {
     logger.info('[worker] standby: fast tick is alive', {
       lastFastTickAgoSec: Math.round((Date.now() - lastFastTick) / 1000),
     });
