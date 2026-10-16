@@ -15,6 +15,7 @@
  * Used by app/api/admin/hedera-pool/quorum-action/route.ts.
  */
 
+import { createHash } from 'crypto';
 import { logger } from '@/lib/utils/logger';
 import { getPrivyAppId, getPrivyAppSecret, getPrivyAdminAllowlist, getPrivyAdminQuorum } from '@/lib/evm-wallet/privy-config';
 
@@ -82,6 +83,15 @@ const QUORUM_TTL_MS = 15 * 60 * 1000;
 interface QuorumRecord {
   approvers: string[];
   createdAt: number;
+  /** Hash of what the first approver approved; every later approval must match it. */
+  subjectHash?: string;
+}
+
+/** Stable hash of an action and its parameters (keys sorted, so order does not matter). */
+export function quorumSubjectHash(action: string, params: Record<string, unknown> | undefined): string {
+  const p = params ?? {};
+  const canonical = JSON.stringify({ action, params: Object.fromEntries(Object.keys(p).sort().map((k) => [k, p[k]])) });
+  return createHash('sha256').update(canonical).digest('hex');
 }
 
 // In-memory fallback so the module works without Redis (unit tests, local
@@ -133,15 +143,22 @@ export async function requireAdminUser(token: string): Promise<AdminAuthResult> 
  * Record an approval for `actionId`. Returns whether quorum is now
  * reached (i.e. the caller can proceed with the destructive action).
  * Idempotent: duplicate approvals from the same user don't double-count.
+ * An approval for a different action or different parameters under the same
+ * id is refused (`conflict`): approvers must approve the same thing.
  */
 export async function recordApprovalAndCheckQuorum(
   actionId: string,
   approverUserId: string,
-): Promise<{ reached: boolean; approvers: string[]; required: number }> {
+  subjectHash: string,
+): Promise<{ reached: boolean; approvers: string[]; required: number; conflict?: true }> {
   const rec = await readQuorum(actionId);
+  const required = getPrivyAdminQuorum();
+  if (rec.approvers.length > 0 && rec.subjectHash !== subjectHash) {
+    return { reached: false, approvers: rec.approvers, required, conflict: true };
+  }
+  rec.subjectHash = subjectHash;
   if (!rec.approvers.includes(approverUserId)) rec.approvers.push(approverUserId);
   await writeQuorum(actionId, rec);
-  const required = getPrivyAdminQuorum();
   return { reached: rec.approvers.length >= required, approvers: rec.approvers, required };
 }
 
@@ -161,8 +178,8 @@ export async function readQuorumState(
   };
 }
 
-/** Test-only: wipe a quorum bucket (both Redis and memory). */
-export async function _resetQuorumForTest(actionId: string): Promise<void> {
+/** Spend a reached quorum: one set of approvals executes the action once. */
+export async function consumeQuorum(actionId: string): Promise<void> {
   const key = `${QUORUM_KEY_PREFIX}${actionId}`;
   quorumMem.delete(key);
   try {

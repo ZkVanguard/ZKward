@@ -32,7 +32,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { logger } from '@/lib/utils/logger';
 import { readLimiter } from '@/lib/security/rate-limiter';
-import { requireAdminUser, recordApprovalAndCheckQuorum, readQuorumState } from '@/lib/services/privy/admin-auth';
+import { requireAdminUser, recordApprovalAndCheckQuorum, readQuorumState, quorumSubjectHash, consumeQuorum } from '@/lib/services/privy/admin-auth';
 import { getPrivyAdminAllowlist, getPrivyAdminQuorum } from '@/lib/evm-wallet/privy-config';
 
 export const runtime = 'nodejs';
@@ -129,7 +129,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   }
 
   // 4. Record approval + check quorum.
-  const quorum = await recordApprovalAndCheckQuorum(body.actionId, auth.userId!);
+  const quorum = await recordApprovalAndCheckQuorum(body.actionId, auth.userId!, quorumSubjectHash(body.action, body.params));
+  if (quorum.conflict) {
+    return NextResponse.json(
+      { error: 'this action id is already being approved for a different action or parameters', actionId: body.actionId },
+      { status: 409 },
+    );
+  }
   logger.info('[quorum-action] approval recorded', {
     action: body.action, actionId: body.actionId,
     userId: auth.userId, email: auth.email,
@@ -153,6 +159,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   //    secret ever leaks. Only raise-tvl-cap is wired for the demo; the
   //    other actions (pause / sweep) return a receipt without executing
   //    until their downstream endpoints exist.
+  // Spent before executing: a retry or a second request cannot run it again on the same approvals.
+  await consumeQuorum(body.actionId);
   const executed = await executeAction(body, request);
 
   return NextResponse.json({
