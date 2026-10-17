@@ -468,7 +468,7 @@
     },
     "howItWorks": {
       "heading": "Comment ça marche, simplement",
-      "body1": "Vous mettez des USDC. Une petite équipe de programmes lit sur quoi les gens parient sur les marchés de prédiction (comme Polymarket) et enchaîne des trades crypto en fonction. Quand il trade, il produit aussi un petit reçu cryptographique que n'importe qui peut vérifier. Le reçu prouve que le trade a suivi les règles. Sans révéler votre position.",
+      "body1": "Vous déposez des USDC. Une petite équipe de programmes lit ce sur quoi les gens parient sur les marchés de prédiction et mesure chaque signal par rapport à ce qui se passe réellement. L'argent ne suit un signal qu'une fois qu'il a fait ses preuves. Les règles peuvent être vérifiées par une preuve à divulgation nulle de connaissance : un reçu cryptographique qui montre qu'une opération reste dans ses limites, sans la révéler. Vous pouvez en créer une vous-même sur la page des preuves dès aujourd'hui ; en joindre une à chaque opération est la prochaine étape.",
       "body2": "Voyez ça comme un pilote automatique avec boîte noire. Sauf que la boîte est publique, et le pilote ne décolle pas par mauvais temps."
     },
     "whereStarted": {

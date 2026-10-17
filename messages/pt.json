@@ -468,7 +468,7 @@
     },
     "howItWorks": {
       "heading": "Como funciona, simplesmente",
-      "body1": "Põe USDC. Uma pequena equipa de programas lê no que as pessoas apostam em prediction markets (como o Polymarket) e alinha operações em cripto com base nisso. Quando opera, também produz um pequeno recibo criptográfico que qualquer um pode verificar. O recibo prova que a operação seguiu as regras. Sem revelar a sua posição.",
+      "body1": "Colocas USDC. Uma pequena equipa de programas lê no que as pessoas apostam nos mercados de previsão e mede cada sinal contra o que realmente acontece. O dinheiro só segue um sinal depois de ele se provar. As regras podem ser verificadas com uma prova de conhecimento zero: um recibo criptográfico que mostra que uma operação fica dentro dos seus limites, sem a revelar. Hoje podes gerar uma tu mesmo na página das provas; anexar uma a cada operação é o próximo passo.",
       "body2": "Pense nele como um piloto automático com caixa negra. Só que a caixa é pública, e o piloto não descola com mau tempo."
     },
     "whereStarted": {

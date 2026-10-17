@@ -468,7 +468,7 @@
     },
     "howItWorks": {
       "heading": "Come funziona, in modo semplice",
-      "body1": "Metti USDC. Una piccola crew di programmi legge su cosa scommettono le persone nei prediction market (come Polymarket) e allinea operazioni in crypto in base a questo. Quando opera, produce anche una piccola ricevuta crittografica che chiunque può controllare. La ricevuta prova che l'operazione ha seguito le regole. Senza rivelare la tua posizione.",
+      "body1": "Metti USDC. Una piccola squadra di programmi legge su cosa scommettono le persone nei mercati predittivi e misura ogni segnale rispetto a ciò che accade davvero. Il denaro segue un segnale solo dopo che si è dimostrato valido. Le regole si possono verificare con una prova a conoscenza zero: una ricevuta crittografica che mostra che un'operazione resta nei suoi limiti, senza rivelarla. Oggi puoi crearne una tu stesso nella pagina delle prove; allegarne una a ogni operazione è il prossimo passo.",
       "body2": "Pensalo come un pilota automatico con scatola nera. Solo che la scatola è pubblica, e il pilota automatico non decolla con brutto tempo."
     },
     "whereStarted": {

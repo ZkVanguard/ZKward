@@ -468,7 +468,7 @@
     },
     "howItWorks": {
       "heading": "Wie es funktioniert, schlicht",
-      "body1": "Du zahlst USDC ein. Eine kleine Crew von Programmen liest, worauf Leute in Prediction Markets (wie Polymarket) wetten, und stellt darauf basierend Krypto-Trades an. Wenn gehandelt wird, entsteht auch eine kleine kryptografische Quittung, die jeder prüfen kann. Die Quittung beweist, dass der Trade die Regeln eingehalten hat. Ohne deine Position preiszugeben.",
+      "body1": "Du zahlst USDC ein. Eine kleine Crew von Programmen liest, worauf Leute in Prognosemärkten wetten, und misst jedes Signal an dem, was tatsächlich passiert. Geld folgt einem Signal erst, wenn es sich bewährt hat. Die Regeln lassen sich mit einem Zero-Knowledge-Beweis prüfen: einer kryptografischen Quittung, die zeigt, dass ein Trade in seinen Grenzen bleibt, ohne ihn offenzulegen. Auf der Beweis-Seite kannst du heute selbst einen erzeugen; jeden Trade damit zu versehen, ist der nächste Schritt.",
       "body2": "Stell es dir wie einen Autopiloten mit Flugschreiber vor. Nur ist der Schreiber öffentlich, und der Autopilot hebt bei schlechtem Wetter nicht ab."
     },
     "whereStarted": {
