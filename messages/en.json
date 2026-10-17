@@ -208,7 +208,7 @@
     },
     "howItWorks": {
       "heading": "How it works, plainly",
-      "body1": "You put in USDC. A small crew of computer programs reads what people are betting on in prediction markets (like Polymarket) and lines up trades on crypto based on that. When it makes a trade, it also produces a little cryptographic receipt that anyone can check. The receipt proves the trade followed the rules. Without revealing your position.",
+      "body1": "You put in USDC. A small crew of computer programs reads what people are betting on in prediction markets and measures every signal against what actually happens. Money only follows a signal once it has proven itself. The rules can be checked with a zero-knowledge proof: a cryptographic receipt that shows a trade stays within its limits, without revealing it. You can make one yourself on the proof page today; attaching one to every trade is the next step.",
       "body2": "Think of it as an autopilot with a black box flight recorder. Except the recorder is public, and the autopilot won't take off in bad weather."
     },
     "whereStarted": {
