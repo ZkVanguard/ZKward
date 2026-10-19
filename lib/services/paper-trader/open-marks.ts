@@ -12,7 +12,7 @@ import { getCronStateStrict, setCronState } from '@/lib/db/cron-state';
 import { logger } from '@/lib/utils/logger';
 import { PAPER_TARGET_MAX_HOLD_MIN } from './config';
 
-const MARKED_BOOKS = [-3, -4, -5, -7, -8];
+const MARKED_BOOKS = [-3, -4, -5, -7, -8, -9];
 /** Books with a stop and a time limit. The others close at a horizon or by a rule. */
 const STRATEGY_BOOKS = new Set([-3, -4]);
 const KEY_OVERDUE = 'paper-open-marks:overdue';

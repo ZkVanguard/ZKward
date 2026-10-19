@@ -354,7 +354,7 @@ export async function postPaperScoreboardIfDue(now: number = Date.now()): Promis
     const loop = await import('@/lib/services/market-data/feedback-loop').then((m) => m.getLoopState()).catch(() => null);
     const evidence = loop ? evidenceLine(loop) : null;
     const floor = await import('./floor-proof')
-      .then(async (m) => { const p = await m.readFloorProof(market.marks, now); return p ? m.floorProofLine(p) : null; })
+      .then((m) => m.floorScoreboardText(market.marks, now))
       .catch(() => null);
     await notifyPaper('Paper books scoreboard', 'INFO', {}, scoreboardEmbed({ market: market.rows, open, books, longLabel, evidence, floor }, now));
   } catch (e) {
