@@ -56,15 +56,27 @@ export function floorProof(state: FloorStateView, marks: ReadonlyMap<string, num
 
 const pct = (v: number) => `${v >= 0 ? '+' : '−'}${Math.abs(v).toFixed(1)} %`;
 
-/** One scoreboard line: `−1.1 % vs holding −3.4 % (BTC −1.9 %, ETH −4.8 %) · avoided 67 % of the fall · worst fall 1.9 % · day 6`. */
+/** One scoreboard line: `−1.1 % vs holding −3.4 % (BTC −1.9 %, ETH −4.8 %) · avoided 68 % of the fall · worst fall 1.9 % · day 7`. */
 export function floorProofLine(p: FloorProof): string {
   const coins = ASSETS.map((a) => `${a} ${pct(p.coinPct[a])}`).join(', ');
   const avoided = p.avoidedShare === null ? '' : ` · avoided ${Math.round(100 * p.avoidedShare)} % of the fall`;
   return `${pct(p.bookPct)} vs holding ${pct(p.holdPct)} (${coins})${avoided}\nworst fall ${p.worstFallPct.toFixed(1)} % · holds $${Math.round(p.exposureUsd).toLocaleString('en-US')} in coins · day ${Math.floor(p.days) + 1}`;
 }
 
-/** The live figures; null before the book's first tick or without marks. Throws on a failed read. */
-export async function readFloorProof(marks: ReadonlyMap<string, number>, nowMs: number = Date.now()): Promise<FloorProof | null> {
-  const state = await getCronStateStrict<FloorStateView>('floor-trader:state');
+/** The live figures for one floor book's state key; null before its first tick or without marks. Throws on a failed read. */
+export async function readFloorProof(marks: ReadonlyMap<string, number>, nowMs: number = Date.now(), stateKey = 'floor-trader:state'): Promise<FloorProof | null> {
+  const state = await getCronStateStrict<FloorStateView>(stateKey);
   return state ? floorProof(state, marks, nowMs) : null;
+}
+
+/** The scoreboard's floor field: the plain book, and its ladder-sized twin once it has started. */
+export async function floorScoreboardText(marks: ReadonlyMap<string, number>, nowMs: number = Date.now()): Promise<string | null> {
+  const [plain, twin] = await Promise.all([
+    readFloorProof(marks, nowMs, 'floor-trader:state'),
+    readFloorProof(marks, nowMs, 'floor-ladder-trader:state'),
+  ]);
+  const parts: string[] = [];
+  if (plain) parts.push(`**Plain (×3):** ${floorProofLine(plain)}`);
+  if (twin) parts.push(`**Ladder-sized twin:** ${floorProofLine(twin)}`);
+  return parts.length ? parts.join('\n') : null;
 }

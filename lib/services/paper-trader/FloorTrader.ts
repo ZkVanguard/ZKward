@@ -26,6 +26,10 @@
  *   • Rows only: no signal, no gates, no learning writes, no messages.
  *   • Same isolation as the other paper books: own portfolio id, own
  *     cron_state key, simulationMode rows.
+ *
+ * The tick is runFloorBook(config), so a twin book can run the same rule with
+ * a different multiplier (FloorLadderTrader.ts, portfolio -9). This book's
+ * config is fixed: multiplier 3, as replayed.
  */
 
 import { query } from '@/lib/db/postgres';
@@ -42,7 +46,24 @@ export const FLOOR_START_USD = 100_000;
 const CHAIN = 'hedera-testnet';
 const ASSETS = ['BTC', 'ETH'] as const;
 const DISABLED = /^(1|true|yes|on)$/i.test((process.env.FLOOR_TRADER_DISABLE || '').trim());
-const KEY_STATE = 'floor-trader:state';
+
+/** What makes one floor book differ from another: everything else is the same rule and the same code. */
+export interface FloorBookConfig {
+  portfolioId: number;
+  stateKey: string;
+  orderPrefix: string;
+  disabled: boolean;
+  /** The multiplier for this tick, and what the book keeps to choose it next time (stored in its state). */
+  sizing(stored: Record<string, unknown> | undefined, now: number): Promise<{ multiplier: number; sizing?: Record<string, unknown> }>;
+}
+
+const PLAIN: FloorBookConfig = {
+  portfolioId: FLOOR_PORTFOLIO_ID,
+  stateKey: 'floor-trader:state',
+  orderPrefix: 'floor',
+  disabled: DISABLED,
+  sizing: async () => ({ multiplier: FLOOR_RULE.multiplier }),
+};
 
 interface FloorState {
   startedAtMs: number;
@@ -56,6 +77,10 @@ interface FloorState {
   valueUsd: number;
   exposureUsd: number;
   updatedAtMs: number;
+  /** The book's own sizing memory (the twin's ladder readings); absent for the plain book. */
+  sizing?: Record<string, unknown>;
+  /** The multiplier the last tick used. */
+  multiplier?: number;
 }
 
 interface Lot {
@@ -81,7 +106,7 @@ async function markPrice(asset: string): Promise<number | null> {
 }
 
 /** Open lots, oldest first. The position is rebuilt from the row, so the row is the only record a lot needs. */
-async function openLots(now: number): Promise<Lot[]> {
+async function openLots(portfolioId: number, now: number): Promise<Lot[]> {
   const rows = await query<{ order_id: string; asset: string; entry: number; notional: number; held_ms: number }>(
     // Age is a difference of two database clocks: created_at is the server's local wall time, not UTC.
     `SELECT order_id, asset, entry_price::float8 AS entry, notional_value::float8 AS notional,
@@ -89,7 +114,7 @@ async function openLots(now: number): Promise<Lot[]> {
        FROM hedges
       WHERE portfolio_id = $1 AND status = 'active'
       ORDER BY created_at, order_id`,
-    [FLOOR_PORTFOLIO_ID],
+    [portfolioId],
   );
   return rows.map((r) => ({
     orderId: r.order_id,
@@ -100,22 +125,22 @@ async function openLots(now: number): Promise<Lot[]> {
   }));
 }
 
-async function realizedUsd(sinceMs: number): Promise<number> {
+async function realizedUsd(portfolioId: number, sinceMs: number): Promise<number> {
   const rows = await query<{ realized: number }>(
     `SELECT COALESCE(SUM(realized_pnl), 0)::float8 AS realized
        FROM hedges
       WHERE portfolio_id = $1 AND status = 'closed' AND created_at >= to_timestamp($2 / 1000.0)`,
-    [FLOOR_PORTFOLIO_ID, sinceMs],
+    [portfolioId, sinceMs],
   );
   const realized = Number(rows[0]?.realized);
   if (!Number.isFinite(realized)) throw new Error('realized P&L did not read as a number');
   return realized;
 }
 
-export class FloorTrader {
-  static async runTick(now: number = Date.now()): Promise<FloorTickSummary> {
+/** One tick of a floor book. */
+export async function runFloorBook(cfg: FloorBookConfig, now: number = Date.now()): Promise<FloorTickSummary> {
     const summary: FloorTickSummary = { bought: 0, sold: 0, lots: 0, valueUsd: 0, floorUsd: 0, exposureUsd: 0 };
-    if (DISABLED) return { ...summary, skipped: 'disabled' };
+    if (cfg.disabled) return { ...summary, skipped: 'disabled' };
 
     const marks: Record<string, number> = {};
     for (const asset of ASSETS) {
@@ -125,7 +150,7 @@ export class FloorTrader {
     }
 
     // Strict: a store that did not answer must not look like a book that has not started.
-    const stored = await getCronStateStrict<FloorState>(KEY_STATE);
+    const stored = await getCronStateStrict<FloorState>(cfg.stateKey);
     const state: FloorState = stored ?? {
       startedAtMs: now,
       peakUsd: FLOOR_START_USD,
@@ -137,15 +162,16 @@ export class FloorTrader {
       updatedAtMs: now,
     };
 
-    let lots = await openLots(now);
+    let lots = await openLots(cfg.portfolioId, now);
     const valueUsd =
       FLOOR_START_USD +
-      (await realizedUsd(state.startedAtMs)) +
+      (await realizedUsd(cfg.portfolioId, state.startedAtMs)) +
       lots.reduce((sum, l) => sum + markToMarket(l.position, marks[l.position.asset], now).unrealizedPnlUsd, 0);
     const heldUsd: Record<string, number> = {};
     for (const l of lots) heldUsd[l.position.asset] = (heldUsd[l.position.asset] ?? 0) + l.position.size * marks[l.position.asset];
 
-    const plan = planFloorRebalance({ valueUsd, peakUsd: state.peakUsd, heldUsd, assets: ASSETS });
+    const { multiplier, sizing } = await cfg.sizing(state.sizing, now);
+    const plan = planFloorRebalance({ valueUsd, peakUsd: state.peakUsd, heldUsd, assets: ASSETS, rule: { ...FLOOR_RULE, multiplier } });
 
     // ── Sell: oldest lots first, settled before anything is counted ──
     for (const asset of ASSETS) {
@@ -178,11 +204,11 @@ export class FloorTrader {
           { asset, side: 'LONG', notionalUsd: FLOOR_RULE.lotUsd, leverage: 1, entryPrice: marks[asset] },
           now,
         );
-        const orderId = `floor_${asset}_${Math.floor(now / 1000)}_${i}`;
+        const orderId = `${cfg.orderPrefix}_${asset}_${Math.floor(now / 1000)}_${i}`;
         try {
           await createHedge({
             orderId,
-            portfolioId: FLOOR_PORTFOLIO_ID,
+            portfolioId: cfg.portfolioId,
             asset,
             market: `${asset}-PERP`,
             side: 'LONG',
@@ -208,8 +234,10 @@ export class FloorTrader {
     summary.floorUsd = plan.floorUsd;
     summary.exposureUsd = lots.reduce((sum, l) => sum + l.position.size * marks[l.position.asset], 0);
 
-    await setCronState<FloorState>(KEY_STATE, {
+    await setCronState<FloorState>(cfg.stateKey, {
       ...state,
+      ...(sizing ? { sizing } : {}),
+      multiplier,
       peakUsd: plan.peakUsd,
       lowUsd: Math.min(state.lowUsd, valueUsd),
       maxDrawdown: Math.max(state.maxDrawdown, 1 - valueUsd / plan.peakUsd),
@@ -218,7 +246,12 @@ export class FloorTrader {
       updatedAtMs: now,
     });
 
-    if (summary.bought + summary.sold > 0) logger.info('[FloorTrader] tick', { ...summary });
+    if (summary.bought + summary.sold > 0) logger.info('[FloorTrader] tick', { book: cfg.portfolioId, multiplier, ...summary });
     return summary;
+}
+
+export class FloorTrader {
+  static runTick(now: number = Date.now()): Promise<FloorTickSummary> {
+    return runFloorBook(PLAIN, now);
   }
 }
