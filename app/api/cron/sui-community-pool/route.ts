@@ -39,6 +39,7 @@ import { runStep7Rebalance } from '@/lib/services/sui/cron/step-7-rebalance';
 import { runStep65HedgeSettle } from '@/lib/services/sui/cron/step-6-5-hedge-settle';
 import { runStep66DriftRebalance } from '@/lib/services/sui/cron/step-6-6-drift-rebalance';
 import { runStep9LogDecision } from '@/lib/services/sui/cron/step-9-log-decision';
+import { runPoolFloorWatch, type PoolFloorWatch } from '@/lib/services/sui/cron/pool-floor-watch';
 import { runPolyDiscoverTick } from '@/lib/services/market-data/poly-discover-tick';
 import { getAgentOrchestrator } from '@/lib/services/agent-orchestrator';
 
@@ -98,6 +99,8 @@ interface SuiCronResult {
   };
   riskScore?: number;
   pricesUSD?: Record<string, number>;
+  /** What the floor rule would hold for this pool (watch-only; pool-floor-watch.ts). */
+  floorWatch?: PoolFloorWatch | null;
   autoHedge?: {
     triggered: boolean;
     hedges?: Array<{
@@ -422,6 +425,15 @@ export async function GET(request: NextRequest): Promise<NextResponse<SuiCronRes
       pricesUSD,
     });
 
+    // Watch-only: what the floor rule would hold for this pool. Places no order;
+    // its reading is kept in this run's response (docs/_ops/TODO_POOL_FLOOR_STRATEGY_2026-10-19.md).
+    let floorWatch: PoolFloorWatch | null = null;
+    try {
+      floorWatch = await runPoolFloorWatch({ navUsd, pricesUSD });
+    } catch (e) {
+      logger.warn('[SUI Cron] floor watch skipped', { error: e instanceof Error ? e.message : String(e) });
+    }
+
     // Capital-moving steps run only when trading is enabled (see
     // pool-trading-pause.ts). They already skip on `aboveSafetyCeiling`, so
     // the pause rides the same switch. Step 4 above (NAV, attestation,
@@ -496,6 +508,7 @@ export async function GET(request: NextRequest): Promise<NextResponse<SuiCronRes
     const result: SuiCronResult = {
       success: true,
       chain: 'sui',
+      floorWatch,
       poolStats: {
         totalNAV_USDC: navUsd.toFixed(2),
         totalShares: poolStats.totalShares.toFixed(4),
