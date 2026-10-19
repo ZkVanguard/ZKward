@@ -38,7 +38,7 @@ import { notifyDiscord } from '@/lib/utils/discord-notify';
 import { BluefinService, BLUEFIN_PAIRS } from '@/lib/services/sui/BluefinService';
 import { classifyPosition } from '@/lib/services/sui/dust-manager';
 import { getActiveHedges, closeHedge, createHedge, isPaperHedge, RECONCILED_CLOSE, type Hedge } from '@/lib/db/hedges';
-import { getCronStateOr, setCronState } from '@/lib/db/cron-state';
+import { getCronStateOr, getCronStateStrict, setCronState } from '@/lib/db/cron-state';
 import { SUI_COMMUNITY_POOL_PORTFOLIO_ID } from '@/lib/constants';
 import { query } from '@/lib/db/postgres';
 
@@ -47,6 +47,10 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 30;
 
 const CRON_KEY_LAST_RUN = 'cron:lastRun:bluefin-db-reconcile';
+/** When the venue first answered [] with rows still open; cleared by any non-empty answer. */
+const KEY_VENUE_EMPTY_SINCE = 'bluefin-db-reconcile:venue-empty-since';
+/** Three 15-minute runs. */
+const EMPTY_CONFIRM_MS = 45 * 60_000;
 
 // T1-C: max-hold force-close. Perp positions ride indefinitely while AI
 // keeps the same direction; if the AI is stuck wrong for days the pool
@@ -137,13 +141,30 @@ export async function GET(request: NextRequest): Promise<NextResponse<ReconcileR
     // even though the positions are still live on BlueFin. Bail in that case
     // so the next 15-min tick can retry. We only bail when DB has SOME
     // notional-bearing rows — a genuinely empty pool is fine.
+    //
+    // Release path: a blip answers [] once; a venue that really holds nothing
+    // keeps answering [] (every position was closed on 2026-10-16 and two rows
+    // stayed "active" for days). Empty on every run for EMPTY_CONFIRM_MS, with
+    // no non-empty answer between, lets the rows close as reconciled.
     const dbNotionalCount = dbHedges.filter(h => Number(h.notional_value ?? 0) >= 1).length;
-    if (positions.length === 0 && dbNotionalCount > 0) {
+    let venueConfirmedEmpty = false;
+    if (positions.length > 0) {
+      await setCronState(KEY_VENUE_EMPTY_SINCE, null);
+    } else if (dbNotionalCount > 0) {
+      const emptySince = Number((await getCronStateStrict<number>(KEY_VENUE_EMPTY_SINCE)) ?? 0);
+      if (!emptySince) await setCronState(KEY_VENUE_EMPTY_SINCE, Date.now());
+      venueConfirmedEmpty = emptySince > 0 && Date.now() - emptySince >= EMPTY_CONFIRM_MS;
+    }
+    if (positions.length === 0 && dbNotionalCount > 0 && venueConfirmedEmpty) {
+      logger.warn('[bluefin-db-reconcile] venue empty on every run for the confirm window — closing rows it no longer holds', {
+        dbNotionalCount, confirmMin: EMPTY_CONFIRM_MS / 60_000,
+      });
+    } else if (positions.length === 0 && dbNotionalCount > 0) {
       logger.error('[bluefin-db-reconcile] safety-bail: BlueFin returned 0 positions but DB has active notional hedges — refusing to mass-close (likely venue API blip)', {
         dbNotionalCount, dbActiveTotal: dbHedges.length,
       });
       await notifyDiscord(
-        `bluefin-db-reconcile safety bail: BlueFin /positions returned [] while DB has ${dbNotionalCount} active notional-bearing hedge(s). Refusing to phantom-close. Will retry next tick.`,
+        `bluefin-db-reconcile safety bail: BlueFin /positions returned [] while DB has ${dbNotionalCount} active notional-bearing hedge(s). Refusing to phantom-close until the venue has read empty for ${EMPTY_CONFIRM_MS / 60_000} min.`,
         'WARN',
         { dbNotionalCount, dbActiveTotal: dbHedges.length },
       );
