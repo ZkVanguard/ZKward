@@ -29,6 +29,7 @@ import {
   runFeedbackLoopEvaluation,
   sourceFamily,
   survivesFalseDiscovery,
+  tradeVerdict,
   twoSidedP,
   type Evidence,
   type LoopState,
@@ -239,6 +240,25 @@ describe('resolveVerdict', () => {
 
   it('no state means nothing is proven', () => {
     expect(resolveVerdict(null, 'aggregate', 'BTC')).toEqual({ verdict: 'unproven', level: null });
+  });
+});
+
+describe('tradeVerdict', () => {
+  const at = (verdict: 'proven' | 'wrong-way', timingBp: number, seBp: number) => ({ verdict, timingBp, seBp, windows: 300 });
+  const cell = (v: ReturnType<typeof at>) => ({ cells: { [cellKey('aggregate', 'BTC')]: v }, families: {} });
+
+  it('a proven edge smaller than the round trip is not traded at full size', () => {
+    // +1.9 ± 0.8 bp: beats zero by two errors (the live BTC figure on 2026-10-19), loses against 13 bp of cost
+    expect(tradeVerdict(cell(at('proven', 1.9, 0.8)), 'aggregate', 'BTC', 13)).toBe('unproven');
+    // +20 ± 3 bp: its lower bound, 14 bp, still clears the cost
+    expect(tradeVerdict(cell(at('proven', 20, 3)), 'aggregate', 'BTC', 13)).toBe('proven');
+    expect(tradeVerdict(cell(at('proven', 18, 3)), 'aggregate', 'BTC', 13)).toBe('unproven');
+  });
+
+  it('reads a family verdict the same way, and leaves wrong-way and unproven as they are', () => {
+    expect(tradeVerdict({ cells: {}, families: { aggregate: at('proven', 20, 3) } }, 'aggregate', 'ETH', 13)).toBe('proven');
+    expect(tradeVerdict(cell(at('wrong-way', -30, 5)), 'aggregate', 'BTC', 13)).toBe('wrong-way');
+    expect(tradeVerdict(null, 'aggregate', 'BTC', 13)).toBe('unproven');
   });
 });
 

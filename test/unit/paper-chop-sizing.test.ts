@@ -11,14 +11,17 @@ jest.mock('@/lib/services/paper-trader/vol-autotune', () => ({
 
 // The ledger's verdict on the combined signal sets the size tier; the older
 // tests below run with it proven so they keep measuring their own multiplier.
-let verdict: 'proven' | 'unproven' | 'wrong-way' | 'unreadable' = 'proven';
+let verdict: 'proven' | 'proven-small' | 'unproven' | 'wrong-way' | 'unreadable' = 'proven';
 jest.mock('@/lib/services/market-data/feedback-loop', () => {
   const actual = jest.requireActual('@/lib/services/market-data/feedback-loop') as object;
   return {
     ...actual,
     getLoopState: jest.fn(async () => {
       if (verdict === 'unreadable') throw new Error('store down');
-      return verdict === 'unproven' ? { cells: {}, families: {} } : { cells: { 'aggregate|BTC': { verdict } }, families: {} };
+      if (verdict === 'unproven') return { cells: {}, families: {} };
+      // proven-small: beats zero by two errors, not the round trip (the live BTC figure on 2026-10-19)
+      const v = verdict === 'proven-small' ? { verdict: 'proven', timingBp: 1.9, seBp: 0.8 } : { verdict, timingBp: 30, seBp: 3 };
+      return { cells: { 'aggregate|BTC': { ...v, windows: 300 } }, families: {} };
     }),
   };
 });
@@ -117,6 +120,13 @@ describe('size follows the ledger verdict on the combined signal', () => {
     expect(probe.evidence).toBe('unproven');
     expect(probe.stakeUsd).toBeLessThan(full.stakeUsd);
     expect(probe.probeStakeMult).toBe(PAPER_PROBE_STAKE_MULT);
+  });
+
+  it('a proven edge smaller than a round trip trades at probe size, not full', async () => {
+    verdict = 'proven-small';
+    const r = await sizeCandidate(pick('TRENDING_UP'), NAV, 1);
+    expect(r.evidence).toBe('unproven');
+    expect(r.probeStakeMult).toBe(PAPER_PROBE_STAKE_MULT);
   });
 
   it('a wrong-way coin is not traded', async () => {

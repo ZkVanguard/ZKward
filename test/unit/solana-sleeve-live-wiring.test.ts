@@ -73,7 +73,7 @@ beforeEach(() => {
     untracked: [],
     block: null,
   });
-  state.set('feedback-loop:verdicts', { version: 1, cells: { 'aggregate|BTC': { verdict: 'proven' } }, families: {} });
+  state.set('feedback-loop:verdicts', { version: 1, cells: { 'aggregate|BTC': { verdict: 'proven', timingBp: 30, seBp: 3, windows: 300 } }, families: {} });
 });
 
 describe('live entry', () => {
