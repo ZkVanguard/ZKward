@@ -370,6 +370,25 @@ export function resolveVerdict(
   return { verdict: 'unproven', level: null };
 }
 
+/**
+ * The verdict a book may trade at full size on. A proven verdict beats zero
+ * by two standard errors, but every trade also pays its round trip: a +2 bp
+ * edge proven that way loses about 11 bp a trade at 13 bp of cost. So it
+ * stays proven only when its lower bound also clears `costBp`; otherwise it
+ * reads as unproven.
+ */
+export function tradeVerdict(
+  state: Pick<LoopState, 'cells' | 'families'> | null | undefined,
+  source: string,
+  asset: string,
+  costBp: number,
+): TimingVerdict {
+  const { verdict, level } = resolveVerdict(state, source, asset);
+  if (verdict !== 'proven' || !state) return verdict;
+  const v = level === 'cell' ? state.cells[cellKey(source, asset)] : state.families[sourceFamily(source)];
+  return v && v.timingBp - LEDGER_TIMING_SE * v.seBp > costBp ? 'proven' : 'unproven';
+}
+
 /** Weight a proven source carries against its base weight; the figure the current weighting uses. */
 export const LOOP_PROVEN_MULTIPLIER = (() => {
   const v = Number((process.env.SOURCE_LEDGER_PROVEN_MULTIPLIER || '').trim());

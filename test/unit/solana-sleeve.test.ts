@@ -45,7 +45,7 @@ import { PredictionAggregatorService } from '@/lib/services/market-data/Predicti
 const proven = (...coins: string[]) =>
   state.set('feedback-loop:verdicts', {
     version: 1,
-    cells: Object.fromEntries(coins.map((c) => [`aggregate|${c}`, { verdict: 'proven' }])),
+    cells: Object.fromEntries(coins.map((c) => [`aggregate|${c}`, { verdict: 'proven', timingBp: 30, seBp: 3, windows: 300 }])),
     families: {},
   });
 

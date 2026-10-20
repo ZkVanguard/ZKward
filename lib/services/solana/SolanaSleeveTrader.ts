@@ -33,6 +33,7 @@ import {
   type SimulatedPosition,
   type Side,
   type SourceSnapshot,
+  FEE_BPS_PER_SIDE,
 } from '@/lib/services/paper-trader/simulated-executor';
 import {
   recordCloseLearning,
@@ -117,9 +118,9 @@ export type SleeveEvidence = Record<string, 'proven' | 'unproven' | 'wrong-way'>
 
 /** The ledger's verdict on the combined signal for each coin the sleeve trades. An unreadable store reads as unproven. */
 export async function sleeveEvidence(): Promise<SleeveEvidence> {
-  const { getLoopState, resolveVerdict } = await import('@/lib/services/market-data/feedback-loop');
+  const { getLoopState, tradeVerdict } = await import('@/lib/services/market-data/feedback-loop');
   const loop = await getLoopState().catch(() => null);
-  return Object.fromEntries(ASSETS.map((a) => [a, resolveVerdict(loop, 'aggregate', a).verdict]));
+  return Object.fromEntries(ASSETS.map((a) => [a, tradeVerdict(loop, 'aggregate', a, 2 * FEE_BPS_PER_SIDE)]));
 }
 
 export async function runSolanaSleeveTick(
