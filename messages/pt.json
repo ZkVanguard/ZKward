@@ -480,7 +480,7 @@
       "heading": "O que enviamos hoje",
       "item1": "Um pool real na mainnet do SUI. Pequeno de propósito. O contrato em si limita depósitos a 10 000 $. Queríamos provar que funciona antes de escalar. Devagar é o ponto.",
       "item2": "Oito interruptores de segurança que podem pausar tudo se algo parecer estranho. Um disparou ontem, depois de um dia difícil de testes (mais abaixo).",
-      "item3": "Um loop de aprendizagem: a IA pontua as próprias operações, treina de novo à noite e tenta outra vez. Às vezes melhora. Às vezes descobre novas formas de falhar. Publicamos ambas.",
+      "item3": "Um ciclo de avaliação: cada sinal é medido pelo que o mercado fez a seguir, e só o que se sustenta depois dos custos pode operar. Até agora nada se sustentou. Também publicamos isso.",
       "item4": "Um registro on-chain de cada depósito, saque e transferência. Não uma captura de tela."
     },
     "whyWeTell": {

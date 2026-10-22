@@ -51,7 +51,7 @@ Along the way we won five hackathons, contributed to Tether's wallet toolkit, an
 ### What we ship today
 - A real pool on SUI mainnet. Small on purpose — the contract itself caps deposits at $10,000. We wanted to prove it works before scaling.
 - Eight safety switches that can pause the whole thing if something looks off.
-- A learning loop: the AI grades its own trades, retrains overnight, and tries again. We publish both wins and losses.
+- A grading loop: every signal is scored against what the market did next, and only what holds up after costs is allowed to trade. So far nothing has held up; we publish that too.
 - A cryptographic receipt for every trade. Not a screenshot. A proof.
 
 ### Why we tell you when it loses
