@@ -41,8 +41,8 @@ import {
   PAPER_LEDGER_GATE,
 } from './config';
 import { assetHoldPlan, getLedgerCells, getRecentLedgerCells, type LedgerCell } from '@/lib/services/market-data/ledger-cells';
-import { getLoopState, resolveVerdict } from '@/lib/services/market-data/feedback-loop';
-import type { Side } from './simulated-executor';
+import { getLoopState, tradeVerdict } from '@/lib/services/market-data/feedback-loop';
+import { FEE_BPS_PER_SIDE, type Side } from './simulated-executor';
 import { getMultiSourceValidatedPrice } from '@/lib/services/market-data/unified-price-provider';
 import { computeSignalScalar } from './sizing';
 import { getVolMultiplier } from './vol-autotune';
@@ -417,7 +417,8 @@ export async function sizeCandidate(
   const regimeStakeMult = picked.regime === 'CHOP' ? PAPER_CHOP_STAKE_MULT : 1;
   // An unreadable verdict store reads as unproven: the smaller size.
   const loop = await getLoopState().catch(() => null);
-  const evidence: SignalEvidence = resolveVerdict(loop, 'aggregate', picked.asset).verdict;
+  // At the market round trip: a resting entry costs less, but it may not fill and a stop closes at market.
+  const evidence: SignalEvidence = tradeVerdict(loop, 'aggregate', picked.asset, 2 * FEE_BPS_PER_SIDE);
   const probeStakeMult = evidenceStakeMult(evidence, !!picked.probe);
   const rawStake =
     nav * PAPER_STAKE_PCT * volMult * regimeStakeMult * probeStakeMult;
