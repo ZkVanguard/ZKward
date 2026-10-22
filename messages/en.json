@@ -220,7 +220,7 @@
       "heading": "What we ship today",
       "item1": "A real pool on SUI mainnet. Small on purpose. The contract itself caps deposits at $10,000. We wanted to prove it works before scaling. Slow is the point.",
       "item2": "Eight safety switches that can pause the whole thing if something looks off. One tripped yesterday, after a rough day of testing (more on that below).",
-      "item3": "A learning loop: the AI grades its own trades, retrains overnight, and tries again. Sometimes it gets better. Sometimes it finds new ways to fail. We publish both.",
+      "item3": "A grading loop: every signal is scored against what the market did next, and only what holds up after costs is allowed to trade. So far nothing has held up. We publish that too.",
       "item4": "An on-chain record of every deposit, withdrawal and transfer. Not a screenshot."
     },
     "whyWeTell": {
