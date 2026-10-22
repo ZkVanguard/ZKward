@@ -13,6 +13,7 @@
  *   -7  LeadTrader (LEAD_PORTFOLIO_ID in LeadTrader.ts)
  *   -8  FloorTrader (FLOOR_PORTFOLIO_ID in FloorTrader.ts)
  *   -9  FloorLadderTrader, the floor book sized by the priced move (FLOOR_LADDER_PORTFOLIO_ID in FloorLadderTrader.ts)
+ *  -10  TrendTrader, BTC and ETH held while above their 100-day average (TREND_PORTFOLIO_ID in TrendTrader.ts)
  */
 export const COMMUNITY_POOL_PORTFOLIO_ID = -1;
 export const SUI_COMMUNITY_POOL_PORTFOLIO_ID = -2;
