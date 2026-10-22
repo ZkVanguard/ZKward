@@ -18,7 +18,7 @@ export async function handleCollectFees(ctx: ActionCtx): Promise<NextResponse> {
   }
 
   const service = getSuiUsdcPoolService(network);
-  await service.getPoolStats();
+  await service.getPoolStateId();
 
   const treasuryInfo = await service.getTreasuryInfo();
   if (treasuryInfo.totalPendingFees <= 0) {
@@ -52,7 +52,7 @@ export async function handleSetTreasury(ctx: ActionCtx): Promise<NextResponse> {
   }
 
   const service = getSuiUsdcPoolService(network);
-  await service.getPoolStats();
+  await service.getPoolStateId();
 
   const params = service.buildSetTreasuryParams(newTreasury);
   return NextResponse.json({ success: true, data: params, chain: 'sui', network });

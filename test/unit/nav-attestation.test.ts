@@ -106,11 +106,32 @@ describe('what is attested', () => {
   it('the service builds that figure from one read: admin holdings plus the venue account', () => {
     const src = readFileSync(join(process.cwd(), 'lib/services/sui/SuiUsdcPoolService.ts'), 'utf8');
     expect(src).toContain('externalUsdc: offChainPoolCapital + bluefinValueUsdc');
-    expect(src).toContain('adminRead: usedAdminBalances');
+    expect(src).toContain('adminRead: adminHoldingsPriced');
     const step4 = readFileSync(join(process.cwd(), 'lib/services/sui/cron/step-4-nav-defense.ts'), 'utf8');
     expect(step4).toContain('externalUsd: basis.externalUsdc');
     expect(step4).toContain('!basis.adminRead');
     expect(step4).not.toMatch(/attestExternalNav\(network, navUsd\)/);
+  });
+
+  it('a NAV it cannot read is an error, never the recorded hedged value or another pool’s figures', () => {
+    const src = readFileSync(join(process.cwd(), 'lib/services/sui/SuiUsdcPoolService.ts'), 'utf8').replace(/\r\n/g, '\n');
+    const body = src.slice(src.indexOf('async getPoolStats()'), src.indexOf('private async getStatsFromFallback'));
+    // On 2026-10-22 an unreadable admin wallet was replaced by total_hedged_value and NAV read about 13% high.
+    expect(body).toContain('const offChainPoolCapital = adminUsdcInWallet + adminAssetValueUsdc;');
+    expect(body).not.toContain('hedgedUsdc');
+    expect(body).toContain("if (!usedAdminBalances) throw new Error('admin wallet holdings unreadable: pool NAV unknown');");
+    expect(body).toContain("if (!fields) throw new Error('pool object unavailable');");
+    expect(body).toContain("throw new Error('pool NAV failed the sanity check');");
+    // A failure used to answer with the retired SUI-native pool and a made-up allocation.
+    expect(body).toMatch(/logger\.error\('\[SuiUsdcPool\] Failed to fetch pool stats:', err\);\n\s*throw err;/);
+  });
+
+  it('deposit, withdraw and admin requests need only the pool id, not a NAV read', () => {
+    for (const f of ['deposit-actions', 'withdraw-actions', 'admin-actions']) {
+      const src = readFileSync(join(process.cwd(), `app/api/sui/community-pool/handlers/${f}.ts`), 'utf8');
+      expect(src).not.toContain('await service.getPoolStats();');
+      expect(src).toContain('await service.getPoolStateId();');
+    }
   });
 
   it('refuses a figure that is not a non-negative number', async () => {

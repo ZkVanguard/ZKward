@@ -152,7 +152,8 @@ describe('a held asset that cannot be priced', () => {
     // a few leftover base units must not stop the attestation when one price read fails
     expect(src).toContain('} else if (amount >= UNPRICED_DUST_UNITS) {');
     expect(src).toContain('const UNPRICED_DUST_UNITS = 1e-6;');
-    expect(src).toContain('adminRead: usedAdminBalances && adminHoldingsPriced,');
+    // an unread wallet throws before here, so the basis only has to carry the pricing
+    expect(src).toContain('adminRead: adminHoldingsPriced,');
     const step4 = readFileSync(join(process.cwd(), 'lib/services/sui/cron/step-4-nav-defense.ts'), 'utf8');
     expect(step4).toContain('!basis.adminRead');
   });
