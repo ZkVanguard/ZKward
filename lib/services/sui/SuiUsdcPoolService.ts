@@ -149,20 +149,13 @@ export class SuiUsdcPoolService {
       async () => {
         try {
           const fields = await this.fetchObjectFields(poolStateId);
-          if (!fields) return this.getStatsFromFallback();
+          if (!fields) throw new Error('pool object unavailable');
 
           const balanceValue =
             typeof fields.balance === 'string'
               ? fields.balance
               : fields.balance?.fields?.value || fields.balance?.value || '0';
           const balanceUsdc = Number(balanceValue) / Math.pow(10, USDC_DECIMALS);
-
-          // Include USDC transferred out for hedging/swapping in total NAV.
-          // On-chain hedge_state.total_hedged_value tracks collateral sent to admin (at cost basis).
-          // Additionally, estimate the current market value of non-USDC assets held by admin wallet.
-          // This ensures NAV reflects true economic value, not just the recorded collateral.
-          const hedgedRaw = fields.hedge_state?.fields?.total_hedged_value || '0';
-          const hedgedUsdc = Number(hedgedRaw) / Math.pow(10, USDC_DECIMALS);
 
           // Fetch admin wallet asset balances and price them at market rates.
           // The admin wallet holds pool capital that has been hedged/swapped out
@@ -261,15 +254,15 @@ export class SuiUsdcPoolService {
               logger.info('[SuiUsdcPool] Admin wallet pool-capital included in NAV', {
                 adminUsdcInWallet: adminUsdcInWallet.toFixed(4),
                 adminAssetValueUsdc: adminAssetValueUsdc.toFixed(4),
-                hedgedRecordedUsdc: hedgedUsdc.toFixed(4),
               });
             }
           } catch (adminErr) {
-            logger.warn(
-              '[SuiUsdcPool] Could not read admin wallet for NAV — falling back to recorded hedged value',
-              { error: adminErr }
-            );
+            logger.warn('[SuiUsdcPool] Could not read admin wallet for NAV', { error: adminErr });
           }
+          // Without the admin wallet the NAV is unknown. Putting the recorded
+          // total_hedged_value in its place read about 13% high on 2026-10-22
+          // (shown, stored in the NAV history and fed to the pool's defenses).
+          if (!usedAdminBalances) throw new Error('admin wallet holdings unreadable: pool NAV unknown');
 
           // BlueFin Pro margin bank balance + per-position locked margin + uPnL.
           // Once the cron deposits pool USDC into BlueFin to back perp legs, the
@@ -338,11 +331,7 @@ export class SuiUsdcPoolService {
             });
           }
 
-          // If we successfully read admin wallet, use real market value (admin USDC + admin assets).
-          // Otherwise fall back to recorded `hedged_value` (cost basis only).
-          const offChainPoolCapital = usedAdminBalances
-            ? adminUsdcInWallet + adminAssetValueUsdc
-            : hedgedUsdc;
+          const offChainPoolCapital = adminUsdcInWallet + adminAssetValueUsdc;
           const totalNAVUsdc = composeNavUsdc(balanceUsdc, offChainPoolCapital, bluefinValueUsdc);
 
           const totalShares = Number(fields.total_shares || 0) / Math.pow(10, USDC_DECIMALS);
@@ -356,7 +345,7 @@ export class SuiUsdcPoolService {
               totalShares,
               sharePriceUsdc,
             });
-            return this.getStatsFromFallback();
+            throw new Error('pool NAV failed the sanity check');
           }
 
           // Parse 4-asset allocation from on-chain (AI TARGET, used as fallback only),
@@ -393,13 +382,15 @@ export class SuiUsdcPoolService {
             navBasis: {
               poolBalanceUsdc: balanceUsdc,
               externalUsdc: offChainPoolCapital + bluefinValueUsdc,
-              adminRead: usedAdminBalances && adminHoldingsPriced,
+              adminRead: adminHoldingsPriced,
               venueSource: bfSnap.source,
             },
           };
         } catch (err) {
+          // A failed read is an error. The fallback here used to answer with the
+          // retired SUI-native pool's figures and a made-up allocation.
           logger.error('[SuiUsdcPool] Failed to fetch pool stats:', err);
-          return this.getStatsFromFallback();
+          throw err;
         }
       },
       SUI_STATS_TTL
