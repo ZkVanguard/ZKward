@@ -17,6 +17,7 @@
 
 import { logger } from '@/lib/utils/logger';
 import { BluefinService, BluefinHedgeResult, BLUEFIN_PAIRS } from './BluefinService';
+import { suiFetchWithTimeout } from './sui-rpc-utils';
 
 // ============================================
 // CONFIGURATION
@@ -47,19 +48,18 @@ const SUI_DEPLOYMENTS = {
     packageId: '0xb1442796d8593b552c7c27a072043639e3e6615a79ba11b87666d31b42fa283a',
     rwaManagerState: '0x65638c3c5a5af66c33bf06f57230f8d9972d3a5507138974dce11b1e46e85c97',
     hedgeExecutorState: '0xb6432f1ecc1f55a1f3f3c8c09d110c4bda9ed6536bd9ea4c9cb5e739c41cb41e',
-    rpcUrl: 'https://fullnode.testnet.sui.io:443',
   },
   mainnet: {
     packageId: process.env.NEXT_PUBLIC_SUI_PACKAGE_ID || '',
     rwaManagerState: process.env.NEXT_PUBLIC_SUI_RWA_MANAGER_STATE || '',
     hedgeExecutorState: '', // Populated after mainnet deployment
-    rpcUrl: process.env.SUI_MAINNET_RPC || 'https://fullnode.mainnet.sui.io:443',
   },
 } as const;
 
 // Active network based on env
 const SUI_NETWORK = ((process.env.SUI_NETWORK || 'mainnet').trim()) as keyof typeof SUI_DEPLOYMENTS;
 const SUI_CONTRACTS = SUI_DEPLOYMENTS[SUI_NETWORK] || SUI_DEPLOYMENTS.mainnet;
+const SUI_RPC_NETWORK = SUI_NETWORK === 'testnet' ? 'testnet' : 'mainnet';
 
 // ============================================
 // TYPES
@@ -127,10 +127,6 @@ export class SuiAutoHedgingAdapter {
 
   constructor() {
     this.bluefin = BluefinService.getInstance();
-    // Validate RPC URL is configured
-    if (!SUI_CONTRACTS.rpcUrl) {
-      logger.error('[SuiAutoHedge] RPC URL not configured — SUI_NETWORK or defaults missing');
-    }
   }
 
   // ============================================
@@ -549,7 +545,7 @@ export class SuiAutoHedgingAdapter {
   }>> {
     const suiPrice = await this.getSuiUsdPrice();
     try {
-      const response = await fetch(SUI_CONTRACTS.rpcUrl, {
+      const response = await suiFetchWithTimeout(SUI_RPC_NETWORK, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -566,8 +562,7 @@ export class SuiAutoHedgingAdapter {
             },
           ],
         }),
-        signal: AbortSignal.timeout(15000),
-      });
+      }, 15_000);
 
       const data = await response.json();
       const objects = data.result?.data || [];

@@ -15,6 +15,7 @@ import { composeNavUsdc, computeSharePrice, isNavSane } from '@/lib/services/sui
 import { parseTargetAllocation, computeLiveAllocation } from '@/lib/services/sui/pool-allocation';
 import {
   suiFetchWithTimeout,
+  suiRpcOrder,
   suiCachedFetch,
   invalidateSuiCache,
   SUI_STATS_TTL_MS as SUI_STATS_TTL,
@@ -97,7 +98,7 @@ export class SuiUsdcPoolService {
 
     // Search for UsdcPoolCreated event
     try {
-      const response = await suiFetchWithTimeout(this.config.rpcUrl, {
+      const response = await suiFetchWithTimeout(this.network, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -565,7 +566,7 @@ export class SuiUsdcPoolService {
     const expected = Number(fields.members?.fields?.size ?? 0);
 
     const rpc = async (method: string, params: unknown[]) => {
-      const res = await suiFetchWithTimeout(this.config.rpcUrl, {
+      const res = await suiFetchWithTimeout(this.network, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
@@ -693,7 +694,7 @@ export class SuiUsdcPoolService {
       poolStateId: this.cachedUsdcPoolStateId,
       usdcCoinType: this.config.usdcCoinType,
       network: this.network,
-      rpcUrl: this.config.rpcUrl,
+      rpcUrl: suiRpcOrder(this.network)[0],
       explorerUrl: this.config.explorerUrl,
       isUsdcPool: true,
     };

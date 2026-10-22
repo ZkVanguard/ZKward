@@ -41,7 +41,6 @@ interface ZkDeployment {
   zkHedgeCommitmentState: string;
   zkVerifierState: string;
   zkProxyVaultState: string;
-  rpcUrl: string;
   explorerUrl: string;
 }
 
@@ -50,7 +49,6 @@ const TESTNET_PRIVACY: ZkDeployment = {
   zkHedgeCommitmentState: '0x9c33f0df3d6a2e9a0f137581912aefb6aafcf0423d933fea298d44e222787b02',
   zkVerifierState: '0x6c75de60a47a9704625ecfb29c7bb05b49df215729133349345d0a15bec84be8',
   zkProxyVaultState: '0x5a0c81e3c95abe2b802e65d69439923ba786cdb87c528737e1680a0c791378a4',
-  rpcUrl: 'https://fullnode.testnet.sui.io:443',
   explorerUrl: 'https://suiscan.xyz/testnet',
 };
 
@@ -65,7 +63,6 @@ function loadMainnetPrivacy(): ZkDeployment {
     zkHedgeCommitmentState: readEnv('NEXT_PUBLIC_SUI_MAINNET_ZK_HEDGE_COMMITMENT_STATE'),
     zkVerifierState: readEnv('NEXT_PUBLIC_SUI_MAINNET_ZK_VERIFIER_STATE'),
     zkProxyVaultState: readEnv('NEXT_PUBLIC_SUI_MAINNET_ZK_PROXY_VAULT_STATE'),
-    rpcUrl: readEnv('SUI_MAINNET_RPC', 'https://fullnode.mainnet.sui.io:443'),
     explorerUrl: 'https://suiscan.xyz/mainnet',
   };
 }

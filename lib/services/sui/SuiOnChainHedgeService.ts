@@ -20,6 +20,7 @@
  */
 
 import { logger } from '@/lib/utils/logger';
+import { suiFetchWithTimeout } from '@/lib/services/sui/sui-rpc-utils';
 import * as crypto from 'crypto';
 
 // ============================================
@@ -33,7 +34,6 @@ const SUI_DEPLOYMENTS = {
     zkProxyVaultState: '0x5a0c81e3c95abe2b802e65d69439923ba786cdb87c528737e1680a0c791378a4',
     zkVerifierState: '0x6c75de60a47a9704625ecfb29c7bb05b49df215729133349345d0a15bec84be8',
     zkHedgeCommitmentState: '0x9c33f0df3d6a2e9a0f137581912aefb6aafcf0423d933fea298d44e222787b02',
-    rpcUrl: 'https://fullnode.testnet.sui.io:443',
     explorerUrl: 'https://suiscan.xyz/testnet',
   },
   mainnet: {
@@ -42,7 +42,6 @@ const SUI_DEPLOYMENTS = {
     zkProxyVaultState: '',
     zkVerifierState: '',
     zkHedgeCommitmentState: '',
-    rpcUrl: 'https://fullnode.mainnet.sui.io:443',
     explorerUrl: 'https://suiscan.xyz/mainnet',
   },
 } as const;
@@ -396,7 +395,7 @@ export class SuiOnChainHedgeService {
    */
   async getPositionsByOwner(ownerAddress: string): Promise<SuiHedgePosition[]> {
     try {
-      const response = await fetch(this.config.rpcUrl, {
+      const response = await suiFetchWithTimeout(this.network, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -413,8 +412,7 @@ export class SuiOnChainHedgeService {
             },
           ],
         }),
-        signal: AbortSignal.timeout(15000),
-      });
+      }, 15_000);
 
       const data = await response.json();
       const objects = data.result?.data || [];

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { readLimiter } from '@/lib/security/rate-limiter';
+import { suiRpcProviders } from '@/lib/services/sui/sui-rpc-utils';
 
 export const runtime = 'nodejs';
 export const maxDuration = 15;
@@ -27,17 +28,10 @@ const UPSTREAM_RPC_URLS: Record<string, string[]> = {
   plasma: [
     'https://plasma.drpc.org',
   ],
-  // SUI mainnet — matches server-side failover in sui-failover-transport.ts.
-  // fullnode.mainnet.sui.io killed JSON-RPC 2026-07 AND has no browser CORS.
-  sui: [
-    'https://sui-mainnet-endpoint.blockvision.org',
-    'https://sui-rpc.publicnode.com',
-    'https://sui-mainnet.nodeinfra.com',
-  ],
-  'sui-testnet': [
-    'https://sui-testnet-endpoint.blockvision.org',
-    'https://sui-testnet.publicnode.com',
-  ],
+  // SUI: the server's provider list (fullnode.mainnet.sui.io killed JSON-RPC
+  // 2026-07 and has no browser CORS).
+  sui: suiRpcProviders('mainnet'),
+  'sui-testnet': suiRpcProviders('testnet'),
 };
 
 // Allowed chains to prevent SSRF via arbitrary chain names

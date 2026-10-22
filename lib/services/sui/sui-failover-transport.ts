@@ -32,18 +32,7 @@ import {
 import { logger } from '@/lib/utils/logger';
 import { notifyDiscord } from '@/lib/utils/discord-notify';
 
-// Live providers verified 2026-07-29. Keep BlockVision first (best latency
-// from the functions' region); PublicNode and NodeInfra are backups that also
-// answer JSON-RPC for `sui_getObject`.
-const DEFAULT_MAINNET_URLS = [
-  'https://sui-mainnet-endpoint.blockvision.org',
-  'https://sui-rpc.publicnode.com',
-  'https://sui-mainnet.nodeinfra.com',
-];
-const DEFAULT_TESTNET_URLS = [
-  'https://sui-testnet-endpoint.blockvision.org',
-  'https://sui-testnet.publicnode.com',
-];
+import { __resetSuiRpcOrderForTests, markSuiRpcWorking, suiRpcOrder } from '@/lib/services/sui/sui-rpc-utils';
 
 // Alert dedupe — one Discord message per (fromUrl → toUrl) rotation per
 // process lifetime. Cold starts reset. Good enough — Vercel Lambdas cycle
@@ -72,25 +61,6 @@ export function getFailoverStats(): Readonly<FailoverStats> {
   return { ...stats };
 }
 
-// Parse `SUI_MAINNET_RPC_LIST=https://a.com,https://b.com` if set,
-// otherwise fall back to single `SUI_MAINNET_RPC` for backwards compat,
-// then to the hard-coded default list.
-function providersFor(network: 'mainnet' | 'testnet'): string[] {
-  const listVar = network === 'mainnet' ? 'SUI_MAINNET_RPC_LIST' : 'SUI_TESTNET_RPC_LIST';
-  const singleVar = network === 'mainnet' ? 'SUI_MAINNET_RPC' : 'SUI_TESTNET_RPC';
-  const list = (process.env[listVar] || '').trim();
-  if (list) {
-    const parsed = list.split(',').map(s => s.trim()).filter(Boolean);
-    if (parsed.length) return parsed;
-  }
-  const single = (process.env[singleVar] || '').trim();
-  const defaults = network === 'mainnet' ? DEFAULT_MAINNET_URLS : DEFAULT_TESTNET_URLS;
-  // If the single var is set, use it as the primary but keep the default
-  // list as backup providers behind it. That way ops can pin their paid
-  // endpoint without losing free-tier failover.
-  return single ? [single, ...defaults.filter(u => u !== single)] : defaults;
-}
-
 const HARD_FAIL_TIMEOUT_MS = 10_000;
 
 /** Errors that mean the provider itself is broken, not the request. */
@@ -98,11 +68,14 @@ function isProviderDead(err: unknown): boolean {
   if (!err) return false;
   const msg = err instanceof Error ? err.message : String(err);
   return (
+    // postJsonRpc throws "HTTP <status>" for any non-2xx: a request error comes
+    // back as 200 with a JSON-RPC error, so a 404 (JSON-RPC dropped), 429 or
+    // 5xx is the provider's fault. A first provider's 404 was not rotated on
+    // and took every server-side read down on 2026-10-22.
+    /^HTTP \d{3}\b/.test(msg) ||
     msg.includes('has been deprecated') ||        // Sui public fullnode 2026-07
     msg.includes('Method not found') ||            // -32601 for standard methods
-    msg.includes('429') ||                         // rate limit
-    msg.includes('502') || msg.includes('503') ||  // upstream errors
-    msg.includes('504') ||                         // gateway timeout
+    (err instanceof Error && err.name === 'AbortError') ||
     msg.includes('ETIMEDOUT') ||
     msg.includes('ECONNREFUSED') ||
     msg.includes('ENOTFOUND') ||
@@ -149,19 +122,17 @@ async function rotateAndAlert(
  * pinned. Rotates immediately on any hard failure.
  */
 class FailoverSuiTransport implements SuiTransport {
-  private urls: string[];
-  private activeIdx = 0;
   private network: 'mainnet' | 'testnet';
 
   constructor(network: 'mainnet' | 'testnet') {
     this.network = network;
-    this.urls = providersFor(network);
-    if (this.urls.length === 0) {
+    const first = suiRpcOrder(network)[0];
+    if (!first) {
       throw new Error(`No SUI RPC providers configured for ${network}`);
     }
-    stats.activeUrl = this.urls[0];
-    if (stats.providerHistory[stats.providerHistory.length - 1] !== this.urls[0]) {
-      stats.providerHistory.push(this.urls[0]);
+    stats.activeUrl = first;
+    if (stats.providerHistory[stats.providerHistory.length - 1] !== first) {
+      stats.providerHistory.push(first);
     }
   }
 
@@ -200,17 +171,18 @@ class FailoverSuiTransport implements SuiTransport {
       params: input.params,
     });
 
-    // Try each provider once, starting from the current active index.
+    // Try each provider once, starting from the last one that answered in
+    // this process (shared with the raw JSON-RPC helper).
+    const order = suiRpcOrder(this.network);
     let lastErr: unknown = null;
-    for (let attempt = 0; attempt < this.urls.length; attempt++) {
-      const idx = (this.activeIdx + attempt) % this.urls.length;
-      const url = this.urls[idx];
+    for (let idx = 0; idx < order.length; idx++) {
+      const url = order[idx];
       try {
         const result = await this.postJsonRpc(url, body, input.signal);
-        // Success — pin this provider if we rotated.
-        if (idx !== this.activeIdx) {
-          const fromUrl = this.urls[this.activeIdx];
-          this.activeIdx = idx;
+        markSuiRpcWorking(this.network, url);
+        // Success — report it if we rotated.
+        if (idx !== 0) {
+          const fromUrl = order[0];
           stats.activeUrl = url;
           stats.providerHistory.push(url);
           if (stats.providerHistory.length > 20) stats.providerHistory.shift();
@@ -253,6 +225,7 @@ export function createFailoverSuiClient(network: 'mainnet' | 'testnet' = 'mainne
 /** Test hook — reset dedupe + stats. Not called at runtime. */
 export function __resetFailoverStateForTests(): void {
   rotationAlertsSent.clear();
+  __resetSuiRpcOrderForTests();
   stats.activeUrl = '';
   stats.providerHistory = [];
   stats.rotationCount = 0;

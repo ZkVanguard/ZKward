@@ -47,7 +47,6 @@ import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
 export const BLUEFIN_NETWORKS = {
   mainnet: {
     name: 'SUI Mainnet',
-    rpcUrl: 'https://fullnode.mainnet.sui.io:443',
     // Auth API for JWT tokens (30 RPM)
     authApiUrl: 'https://auth.api.sui-prod.bluefin.io',
     // Exchange API for market data (300 RPM) - uses /v1/exchange/ paths
@@ -64,7 +63,6 @@ export const BLUEFIN_NETWORKS = {
   },
   testnet: {
     name: 'SUI Testnet',
-    rpcUrl: 'https://fullnode.testnet.sui.io:443',
     // Staging/testnet endpoints
     authApiUrl: 'https://auth.api.sui-staging.bluefin.io',
     exchangeApiUrl: 'https://api.sui-staging.bluefin.io',

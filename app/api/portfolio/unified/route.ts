@@ -170,9 +170,8 @@ async function getPrivatePortfolios(wallet: string): Promise<{
       ''
     ).trim();
     if (!packageId) return { position: null, warning: null };
-    const rpcUrl = (process.env.SUI_MAINNET_RPC || 'https://fullnode.mainnet.sui.io:443').trim();
-
-    const response = await fetch(rpcUrl, {
+    const { suiFetchWithTimeout } = await import('@/lib/services/sui/sui-rpc-utils');
+    const response = await suiFetchWithTimeout('mainnet', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -187,8 +186,7 @@ async function getPrivatePortfolios(wallet: string): Promise<{
           },
         ],
       }),
-      signal: AbortSignal.timeout(10000),
-    });
+    }, 10_000);
     if (!response.ok) {
       return { position: null, warning: `Private portfolio RPC returned HTTP ${response.status}` };
     }
