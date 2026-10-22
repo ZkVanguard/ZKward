@@ -12,11 +12,14 @@
  * exhausted the SUI RPC quota during the 2026-05-30 incident). Anchor
  * the exact rules here.
  */
-import { describe, it, expect, beforeEach } from '@jest/globals';
+import { describe, it, expect, beforeEach, afterEach } from '@jest/globals';
 import {
   suiRpcCircuitBreaker,
   suiCachedFetch,
   invalidateSuiCache,
+  suiFetchWithTimeout,
+  suiRpcProviders,
+  __resetSuiRpcOrderForTests,
 } from '@/lib/services/sui/sui-rpc-utils';
 
 describe('suiRpcCircuitBreaker state machine', () => {
@@ -142,5 +145,58 @@ describe('suiCachedFetch dedup + caching', () => {
     await suiCachedFetch('inv-1', fetcher, 5000); // should refetch
     await suiCachedFetch('inv-2', fetcher, 5000); // should refetch
     expect(count).toBe(4);
+  });
+});
+
+describe('suiFetchWithTimeout: one provider list, rotated', () => {
+  const origFetch = globalThis.fetch;
+  const origEnv = process.env;
+  const ok = (body: unknown) => new Response(JSON.stringify(body), { status: 200 });
+  const call = () => suiFetchWithTimeout('mainnet', { method: 'POST', body: '{}' }, 1000);
+
+  beforeEach(() => {
+    process.env = { ...origEnv, SUI_MAINNET_RPC_LIST: 'https://a.test,https://b.test' };
+    __resetSuiRpcOrderForTests();
+    suiRpcCircuitBreaker.recordSuccess();
+  });
+  afterEach(() => {
+    globalThis.fetch = origFetch;
+    process.env = origEnv;
+  });
+
+  it('moves past a provider that answers 404, and starts at the working one next time', async () => {
+    const seen: string[] = [];
+    globalThis.fetch = (async (url: string) => {
+      seen.push(url);
+      return url === 'https://a.test' ? new Response('gone', { status: 404 }) : ok({ result: 1 });
+    }) as typeof fetch;
+    expect(await (await call()).json()).toEqual({ result: 1 });
+    await call();
+    expect(seen).toEqual(['https://a.test', 'https://b.test', 'https://b.test']);
+  });
+
+  it('a 200 that only says JSON-RPC is deprecated counts as a dead provider', async () => {
+    globalThis.fetch = (async (url: string) =>
+      url === 'https://a.test'
+        ? ok({ jsonrpc: '2.0', error: { code: -32000, message: 'Sui JSON-RPC endpoint has been deprecated.' } })
+        : ok({ result: 2 })) as typeof fetch;
+    expect(await (await call()).json()).toEqual({ result: 2 });
+  });
+
+  it('a request error (HTTP 200 with a JSON-RPC error) is returned, not rotated past', async () => {
+    const seen: string[] = [];
+    globalThis.fetch = (async (url: string) => {
+      seen.push(url);
+      return ok({ jsonrpc: '2.0', error: { code: -32602, message: 'Invalid params' } });
+    }) as typeof fetch;
+    expect((await (await call()).json()).error.code).toBe(-32602);
+    expect(seen).toEqual(['https://a.test']);
+  });
+
+  it('the mainnet defaults hold no provider that has dropped JSON-RPC', () => {
+    process.env = { ...origEnv, SUI_MAINNET_RPC_LIST: '', SUI_MAINNET_RPC: '' };
+    const list = suiRpcProviders('mainnet');
+    expect(list.length).toBeGreaterThanOrEqual(2);
+    for (const dead of ['blockvision', 'nodeinfra', 'fullnode.mainnet.sui.io']) expect(list.join(',')).not.toContain(dead);
   });
 });

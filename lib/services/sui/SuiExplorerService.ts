@@ -9,6 +9,7 @@
  */
 
 import { logger } from '@/lib/utils/logger';
+import { suiFetchWithTimeout } from '@/lib/services/sui/sui-rpc-utils';
 
 // ============================================
 // CONFIGURATION
@@ -16,12 +17,10 @@ import { logger } from '@/lib/utils/logger';
 
 const SUI_EXPLORER_CONFIG = {
   testnet: {
-    rpcUrl: 'https://fullnode.testnet.sui.io:443',
     explorerUrl: 'https://suiscan.xyz/testnet',
     faucetUrl: 'https://faucet.testnet.sui.io/v1/gas',
   },
   mainnet: {
-    rpcUrl: 'https://fullnode.mainnet.sui.io:443',
     explorerUrl: 'https://suiscan.xyz/mainnet',
     faucetUrl: '',
   },
@@ -481,45 +480,19 @@ export class SuiExplorerService {
   // HELPERS
   // ============================================
 
-  /**
-   * Generic SUI JSON-RPC call with timeout and retry
-   */
+  /** One SUI JSON-RPC call through the shared providers, which own rotation, timeout and retry. */
   private async rpc<T>(method: string, params: unknown[]): Promise<T> {
-    let lastError: unknown;
-    const maxRetries = 2;
-
-    for (let attempt = 0; attempt <= maxRetries; attempt++) {
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 10000);
-      try {
-        const response = await fetch(this.config.rpcUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
-          signal: controller.signal,
-        });
-        clearTimeout(timer);
-
-        const data = await response.json() as { result?: T; error?: { message?: string } };
-        if (data.error) {
-          logger.error('[SuiExplorer] RPC error', { method, error: data.error });
-          throw new Error(`SUI RPC: ${data.error.message || JSON.stringify(data.error)}`);
-        }
-        return data.result as T;
-      } catch (error) {
-        clearTimeout(timer);
-        lastError = error;
-        if (attempt < maxRetries) {
-          const delay = Math.min(1000 * Math.pow(2, attempt), 4000);
-          logger.warn(`[SuiExplorer] RPC attempt ${attempt + 1} failed, retrying in ${delay}ms`, {
-            method,
-            error: error instanceof Error ? error.message : String(error),
-          });
-          await new Promise(r => setTimeout(r, delay));
-        }
-      }
+    const response = await suiFetchWithTimeout(this.network, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
+    });
+    const data = await response.json() as { result?: T; error?: { message?: string } };
+    if (data.error) {
+      logger.error('[SuiExplorer] RPC error', { method, error: data.error });
+      throw new Error(`SUI RPC: ${data.error.message || JSON.stringify(data.error)}`);
     }
-    throw lastError;
+    return data.result as T;
   }
 
   /**

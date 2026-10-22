@@ -102,23 +102,30 @@ export async function GET(request: NextRequest) {
         // is derived from on-chain balance + the cron-attested external NAV
         // dynamic field — the same values getPoolStats uses for the "no
         // BlueFin, no admin balances" fallback path.
-        const rpcUrl = (process.env.SUI_MAINNET_RPC || 'https://fullnode.mainnet.sui.io:443').trim();
-        const rpcCall = (method: string, params: unknown[]) => fetch(rpcUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
-        }).then(r => r.json());
+        // A failed read throws: a pool, NAV or balance read as empty would be
+        // shown and cached as a wallet holding nothing.
+        const { suiFetchWithTimeout } = await import('@/lib/services/sui/sui-rpc-utils');
+        const rpcCall = async (method: string, params: unknown[]) => {
+          const r = await suiFetchWithTimeout('mainnet', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
+          });
+          if (!r.ok) throw new Error(`SUI RPC ${method}: HTTP ${r.status}`);
+          const j = await r.json() as { result?: unknown; error?: { message?: string } };
+          if (j.error) throw new Error(`SUI RPC ${method}: ${j.error.message ?? 'error'}`);
+          return j;
+        };
 
         const poolStateId = poolConfig.poolStateId;
         const poolStateP = poolStateId
-          ? rpcCall('sui_getObject', [poolStateId, { showContent: true }]).catch(() => null)
+          ? rpcCall('sui_getObject', [poolStateId, { showContent: true }])
           : Promise.resolve(null);
         const externalNavP = poolStateId
-          ? rpcCall('suix_getDynamicFieldObject', [poolStateId, { type: 'vector<u8>', value: Array.from(Buffer.from('external_nav_usdc')) }]).catch(() => null)
+          ? rpcCall('suix_getDynamicFieldObject', [poolStateId, { type: 'vector<u8>', value: Array.from(Buffer.from('external_nav_usdc')) }])
           : Promise.resolve(null);
         const balancesP = rpcCall('suix_getAllBalances', [address])
-          .then(j => (j.result as Array<{ coinType: string; totalBalance: string }>) || [])
-          .catch(() => [] as Array<{ coinType: string; totalBalance: string }>);
+          .then(j => (j.result as Array<{ coinType: string; totalBalance: string }>) || []);
 
         const [poolStateRes, externalNavRes, balances, pBtc, pEth, pSui] = await Promise.all([
           poolStateP,
@@ -153,19 +160,18 @@ export async function GET(request: NextRequest) {
         let memberDepositedUsdc = 0;
         let memberJoinedAt = 0;
         if (membersTableId) {
-          try {
-            const memberRes = await rpcCall('suix_getDynamicFieldObject', [membersTableId, { type: 'address', value: address }]);
-            const mf = ((memberRes as { result?: { data?: { content?: { fields?: { value?: { fields?: Record<string, unknown> }; fields?: Record<string, unknown> } } } } })
-              ?.result?.data?.content?.fields?.value?.fields
-              || (memberRes as { result?: { data?: { content?: { fields?: Record<string, unknown> } } } })
-              ?.result?.data?.content?.fields
-              || {}) as Record<string, unknown>;
-            memberSharesRaw = BigInt(mf.shares as string || '0');
-            memberDepositedUsdc = Number(mf.deposited_usdc || 0) / 1e6;
-            memberJoinedAt = Number(mf.joined_at || 0);
-          } catch {
-            // Member not in table — treat as non-member.
-          }
+          // A wallet that is not a member comes back as a result with
+          // `error.code = dynamicFieldNotFound` and no data, so it reads as 0
+          // shares here; a failed read throws and is not taken for a non-member.
+          const memberRes = await rpcCall('suix_getDynamicFieldObject', [membersTableId, { type: 'address', value: address }]);
+          const mf = ((memberRes as { result?: { data?: { content?: { fields?: { value?: { fields?: Record<string, unknown> }; fields?: Record<string, unknown> } } } } })
+            ?.result?.data?.content?.fields?.value?.fields
+            || (memberRes as { result?: { data?: { content?: { fields?: Record<string, unknown> } } } })
+            ?.result?.data?.content?.fields
+            || {}) as Record<string, unknown>;
+          memberSharesRaw = BigInt(mf.shares as string || '0');
+          memberDepositedUsdc = Number(mf.deposited_usdc || 0) / 1e6;
+          memberJoinedAt = Number(mf.joined_at || 0);
         }
         const shares = Number(memberSharesRaw) / 1e6;
         const shareValueUsd = shares * sharePrice;
@@ -253,13 +259,7 @@ export async function GET(request: NextRequest) {
         return NextResponse.json(payload);
       } catch (err) {
         logger.warn('[Positions API] SUI position lookup failed', { error: err instanceof Error ? err.message : String(err) });
-        return NextResponse.json({
-          address,
-          totalValue: 0,
-          positions: [],
-          lastUpdated: Date.now(),
-          chain: 'sui',
-        });
+        return NextResponse.json({ error: 'SUI positions unavailable', chain: 'sui' }, { status: 502 });
       }
     }
 

@@ -104,6 +104,35 @@ describe('FailoverJsonRpcTransport', () => {
     expect(getFailoverStats().activeUrl).toBe('https://provider-b.test');
   });
 
+  it('rotates on HTTP 404, a provider that has dropped JSON-RPC (2026-10-22)', async () => {
+    globalThis.fetch = (async (url: string) => {
+      if (url === 'https://provider-a.test') {
+        return new Response('{"error":{"code":-32601,"message":"Sui JSON-RPC has been deprecated."}}', { status: 404, statusText: 'Not Found' });
+      }
+      return new Response(JSON.stringify({ jsonrpc: '2.0', id: 1, result: { ok: true } }), { status: 200 });
+    }) as typeof fetch;
+
+    const client = createFailoverSuiClient('mainnet') as { getObject: (a: unknown) => Promise<unknown> };
+    await client.getObject({ id: '0x0', options: {} });
+
+    expect(getFailoverStats().activeUrl).toBe('https://provider-b.test');
+  });
+
+  it('a new client starts at the provider that last answered, not the dead first one', async () => {
+    const seenUrls: string[] = [];
+    globalThis.fetch = (async (url: string) => {
+      seenUrls.push(url);
+      if (url === 'https://provider-a.test') return new Response('gone', { status: 404, statusText: 'Not Found' });
+      return new Response(JSON.stringify({ jsonrpc: '2.0', id: 1, result: { ok: true } }), { status: 200 });
+    }) as typeof fetch;
+
+    type C = { getObject: (a: unknown) => Promise<unknown> };
+    await (createFailoverSuiClient('mainnet') as C).getObject({ id: '0x0', options: {} });
+    await (createFailoverSuiClient('mainnet') as C).getObject({ id: '0x0', options: {} });
+
+    expect(seenUrls).toEqual(['https://provider-a.test', 'https://provider-b.test', 'https://provider-b.test']);
+  });
+
   it('rotates through all providers and rethrows when everyone is dead', async () => {
     globalThis.fetch = (async (_url: string) => {
       return new Response('Bad Gateway', { status: 502, statusText: 'Bad Gateway' });

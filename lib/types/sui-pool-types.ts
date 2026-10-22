@@ -15,7 +15,6 @@ export const SUI_POOL_CONFIG = {
     adminCapId: '0xef6d5702f58c020ff4b04e081ddb13c6e493715156ddb1d8123d502655d0e6e6',
     feeManagerCapId: '0x705d008ef94b9efdb6ed5a5c1e02e93a4e638fffe6714c1924537ac653c97af6',
     moduleName: 'community_pool',
-    rpcUrl: process.env.SUI_TESTNET_RPC || 'https://fullnode.testnet.sui.io:443',
     explorerUrl: 'https://suiscan.xyz/testnet',
     poolStateId: '0xb9b9c58c8c023723f631455c95c21ad3d3b00ba0fef91e42a90c9f648fa68f56' as string | null,
   },
@@ -24,7 +23,6 @@ export const SUI_POOL_CONFIG = {
     adminCapId: (process.env.NEXT_PUBLIC_SUI_MAINNET_ADMIN_CAP || process.env.NEXT_PUBLIC_SUI_ADMIN_CAP || '').trim(),
     feeManagerCapId: (process.env.NEXT_PUBLIC_SUI_MAINNET_FEE_MANAGER_CAP || process.env.NEXT_PUBLIC_SUI_FEE_MANAGER_CAP || '').trim(),
     moduleName: 'community_pool',
-    rpcUrl: process.env.SUI_MAINNET_RPC || 'https://fullnode.mainnet.sui.io:443',
     explorerUrl: 'https://suiscan.xyz/mainnet',
     poolStateId: (process.env.NEXT_PUBLIC_SUI_MAINNET_COMMUNITY_POOL_STATE || process.env.NEXT_PUBLIC_SUI_COMMUNITY_POOL_STATE || '').trim() || null as string | null,
     treasuryAddress: (process.env.SUI_MSAFE_ADDRESS || '').trim() || null as string | null,
@@ -45,7 +43,6 @@ export const SUI_USDC_POOL_CONFIG = {
     packageId: (process.env.NEXT_PUBLIC_SUI_USDC_POOL_PACKAGE_ID || '').trim()
       || '0xcac1e7de082a92ec3db4a4f0766f1a73e9f8c22e50a3dafed6d81dc043bd0ac9',
     moduleName: 'community_pool_usdc',
-    rpcUrl: process.env.SUI_TESTNET_RPC || 'https://fullnode.testnet.sui.io:443',
     explorerUrl: 'https://suiscan.xyz/testnet',
     poolStateId: (process.env.NEXT_PUBLIC_SUI_USDC_POOL_STATE_TESTNET || '').trim()
       || '0x9f77819f91d75833f86259025068da493bb1c7215ed84f39d5ad0f5bc1b40971' as string | null,
@@ -55,7 +52,6 @@ export const SUI_USDC_POOL_CONFIG = {
   mainnet: {
     packageId: (process.env.NEXT_PUBLIC_SUI_MAINNET_USDC_POOL_PACKAGE_ID || process.env.NEXT_PUBLIC_SUI_USDC_POOL_PACKAGE_ID || '').trim(),
     moduleName: 'community_pool_usdc',
-    rpcUrl: process.env.SUI_MAINNET_RPC || 'https://fullnode.mainnet.sui.io:443',
     explorerUrl: 'https://suiscan.xyz/mainnet',
     poolStateId: (process.env.NEXT_PUBLIC_SUI_MAINNET_USDC_POOL_STATE || process.env.NEXT_PUBLIC_SUI_USDC_POOL_STATE || '').trim() || null as string | null,
     usdcCoinType: SUI_USDC_COIN_TYPE.mainnet,

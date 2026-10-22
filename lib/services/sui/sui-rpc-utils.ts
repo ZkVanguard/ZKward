@@ -35,24 +35,58 @@ export const SUI_STATS_TTL_MS = envNumber('SUI_STATS_TTL_MS', 60_000);
 export const SUI_MEMBER_TTL_MS = envNumber('SUI_MEMBER_TTL_MS', 30_000);
 export const SUI_MEMBERS_TTL_MS = envNumber('SUI_MEMBERS_TTL_MS', 120_000);
 
-// ── RPC + circuit breaker defaults (env-overridable) ───────────────────────
-// The official public fullnode `fullnode.mainnet.sui.io` deprecated its
-// JSON-RPC surface in 2026-07 — every `sui_getObject` / `sui_getBalance`
-// call now returns `-32601 Method not found. JSON-RPC on public fullnodes
-// has been deprecated`. We default to BlockVision's free public RPC, which
-// still speaks JSON-RPC. Set SUI_MAINNET_RPC / SUI_TESTNET_RPC to override
-// (paid providers: BlockVision paid, Alchemy, Ankr, Triton).
-const SUI_MAINNET_DEFAULT_RPC = 'https://sui-mainnet-endpoint.blockvision.org';
-const SUI_TESTNET_DEFAULT_RPC = 'https://sui-testnet-endpoint.blockvision.org';
+// ── Providers: one list for every SUI JSON-RPC path ────────────────────────
+// Providers are retiring JSON-RPC for gRPC one by one: the official fullnode
+// in 2026-07, and two of the three earlier defaults by 2026-10-22 (HTTP 404
+// with a deprecation body). These two still answered `sui_getObject` on
+// mainnet that day; no testnet provider tested that day still served it.
+export type SuiRpcNetwork = 'mainnet' | 'testnet';
+const DEFAULT_PROVIDERS: Record<SuiRpcNetwork, readonly string[]> = {
+  mainnet: ['https://sui-rpc.publicnode.com', 'https://mainnet.suiet.app'],
+  testnet: ['https://sui-testnet-rpc.publicnode.com'],
+};
 
-export function mainnetRpcUrl(): string {
-  return (process.env.SUI_MAINNET_RPC || SUI_MAINNET_DEFAULT_RPC).trim();
+/**
+ * The providers for a network, in order: `SUI_<NET>_RPC_LIST` when set,
+ * else `SUI_<NET>_RPC` (a pinned paid endpoint) ahead of the defaults.
+ */
+export function suiRpcProviders(network: SuiRpcNetwork): string[] {
+  const NET = network === 'mainnet' ? 'MAINNET' : 'TESTNET';
+  const list = (process.env[`SUI_${NET}_RPC_LIST`] || '').split(',').map((s) => s.trim()).filter(Boolean);
+  if (list.length) return list;
+  const single = (process.env[`SUI_${NET}_RPC`] || '').trim();
+  const defaults = DEFAULT_PROVIDERS[network];
+  return single ? [single, ...defaults.filter((u) => u !== single)] : [...defaults];
 }
-export function testnetRpcUrl(): string {
-  return (process.env.SUI_TESTNET_RPC || SUI_TESTNET_DEFAULT_RPC).trim();
+
+// The provider that last answered, per network and process: every client and
+// raw call starts there, so a dead provider costs one request per process,
+// not one per call.
+const lastWorking: Partial<Record<SuiRpcNetwork, string>> = {};
+
+/** The providers in the order to try them now: the last one that answered first. */
+export function suiRpcOrder(network: SuiRpcNetwork): string[] {
+  const all = suiRpcProviders(network);
+  const pinned = lastWorking[network];
+  return pinned && all.includes(pinned) ? [pinned, ...all.filter((u) => u !== pinned)] : all;
 }
-export function suiRpcUrlForNetwork(network: string): string {
-  return network === 'mainnet' ? mainnetRpcUrl() : testnetRpcUrl();
+
+export function markSuiRpcWorking(network: SuiRpcNetwork, url: string): void {
+  lastWorking[network] = url;
+}
+
+/** Test hook. */
+export function __resetSuiRpcOrderForTests(): void {
+  delete lastWorking.mainnet;
+  delete lastWorking.testnet;
+}
+
+/**
+ * A request error comes back as HTTP 200 with a JSON-RPC error, so any other
+ * status is the provider's fault: 404 when it has dropped JSON-RPC, 429, 5xx.
+ */
+export function isSuiProviderFaultStatus(status: number): boolean {
+  return status < 200 || status >= 300;
 }
 
 export const SUI_RPC_TIMEOUT_MS = envNumber('SUI_RPC_TIMEOUT_MS', 10_000);
@@ -108,9 +142,26 @@ export const suiRpcCircuitBreaker = {
   },
 };
 
-/** Fetch with AbortController timeout, retry with backoff, and circuit breaker */
+/** A 200 whose only content is "JSON-RPC is deprecated here" is a dead provider too. */
+function isDeprecationBody(text: string): boolean {
+  try {
+    const j = JSON.parse(text) as { result?: unknown; error?: { message?: string } };
+    return j.result === undefined && /deprecated/i.test(j.error?.message ?? '');
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * POST one JSON-RPC body to the network's providers, starting from the last
+ * one that answered and moving on from any that is down, refuses JSON-RPC or
+ * rate-limits. Each full pass is retried with backoff; a circuit breaker
+ * stops the calls after repeated total failure. When no provider answers,
+ * the last provider's error response is returned, or the last network error
+ * is thrown.
+ */
 export async function suiFetchWithTimeout(
-  url: string,
+  network: SuiRpcNetwork,
   init: RequestInit,
   timeoutMs = SUI_RPC_TIMEOUT_MS,
 ): Promise<Response> {
@@ -127,27 +178,39 @@ export async function suiFetchWithTimeout(
   }
 
   let lastError: unknown;
+  let lastRefusal: Response | null = null;
   for (let attempt = 0; attempt <= SUI_RPC_MAX_RETRIES; attempt++) {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeoutMs);
-    try {
-      const response = await fetch(url, { ...init, signal: controller.signal });
-      clearTimeout(timer);
-      suiRpcCircuitBreaker.recordSuccess();
-      return response;
-    } catch (error) {
-      clearTimeout(timer);
-      lastError = error;
-      if (attempt < SUI_RPC_MAX_RETRIES) {
-        const delay = Math.min(1000 * Math.pow(2, attempt), 4000);
-        logger.warn(`[SUI-RPC] Attempt ${attempt + 1} failed, retrying in ${delay}ms`, {
-          error: error instanceof Error ? error.message : String(error),
-        });
-        await new Promise((r) => setTimeout(r, delay));
+    for (const url of suiRpcOrder(network)) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), timeoutMs);
+      try {
+        const response = await fetch(url, { ...init, signal: controller.signal });
+        const text = await response.text();
+        const copy = new Response(text, { status: response.status, statusText: response.statusText, headers: response.headers });
+        if (isSuiProviderFaultStatus(response.status) || isDeprecationBody(text)) {
+          lastRefusal = copy;
+          logger.warn('[SUI-RPC] Provider refused; trying the next', { url, status: response.status });
+          continue;
+        }
+        markSuiRpcWorking(network, url);
+        suiRpcCircuitBreaker.recordSuccess();
+        return copy;
+      } catch (error) {
+        lastError = error;
+      } finally {
+        clearTimeout(timer);
       }
+    }
+    if (attempt < SUI_RPC_MAX_RETRIES) {
+      const delay = Math.min(1000 * Math.pow(2, attempt), 4000);
+      logger.warn(`[SUI-RPC] Every provider failed on attempt ${attempt + 1}, retrying in ${delay}ms`, {
+        error: lastError instanceof Error ? lastError.message : String(lastError ?? lastRefusal?.status),
+      });
+      await new Promise((r) => setTimeout(r, delay));
     }
   }
   suiRpcCircuitBreaker.recordFailure();
+  if (lastRefusal) return lastRefusal;
   throw lastError;
 }
 

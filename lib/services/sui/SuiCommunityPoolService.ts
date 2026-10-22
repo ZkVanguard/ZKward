@@ -18,6 +18,7 @@ import { logger } from '@/lib/utils/logger';
 import { getMarketDataService } from '../market-data/RealMarketDataService';
 import {
   suiFetchWithTimeout,
+  suiRpcOrder,
   suiCachedFetch,
   invalidateSuiCache,
   SUI_STATS_TTL_MS as SUI_STATS_TTL,
@@ -116,7 +117,7 @@ export class SuiCommunityPoolService {
 
     // Search for PoolCreated event
     try {
-      const response = await suiFetchWithTimeout(this.config.rpcUrl, {
+      const response = await suiFetchWithTimeout(this.network, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -287,7 +288,7 @@ export class SuiCommunityPoolService {
           }
 
           // Query dynamic field for this address
-          const response = await suiFetchWithTimeout(this.config.rpcUrl, {
+          const response = await suiFetchWithTimeout(this.network, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -363,7 +364,7 @@ export class SuiCommunityPoolService {
           if (!membersTableId) return [];
 
           // Get all dynamic fields (members)
-          const response = await suiFetchWithTimeout(this.config.rpcUrl, {
+          const response = await suiFetchWithTimeout(this.network, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -446,7 +447,7 @@ export class SuiCommunityPoolService {
               // Fallback: fetch individually for this batch
               for (const memberAddress of batchAddrs) {
                 try {
-                  const memberRes = await suiFetchWithTimeout(this.config.rpcUrl, {
+                  const memberRes = await suiFetchWithTimeout(this.network, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -782,7 +783,7 @@ export class SuiCommunityPoolService {
       adminCapId: this.config.adminCapId,
       feeManagerCapId: this.config.feeManagerCapId,
       network: this.network,
-      rpcUrl: this.config.rpcUrl,
+      rpcUrl: suiRpcOrder(this.network)[0],
       explorerUrl: this.config.explorerUrl,
     };
   }
