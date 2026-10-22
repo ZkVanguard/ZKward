@@ -74,7 +74,7 @@ export async function handleWithdraw(ctx: ActionCtx): Promise<NextResponse> {
 async function prepareWithdraw(ctx: ActionCtx, sharesScaled: bigint, sharesNum: number): Promise<NextResponse> {
   const { network } = ctx;
   const service = getSuiUsdcPoolService(network);
-  await service.getPoolStats();
+  await service.getPoolStateId();
 
   // The payout comes from what the pool already holds. This request is not
   // signed by the member, so it never makes the server move funds: a request

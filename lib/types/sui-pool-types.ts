@@ -100,7 +100,7 @@ export interface SuiNavBasis {
   poolBalanceUsdc: number;
   /** Everything outside the pool object: admin wallet holdings plus the venue account. */
   externalUsdc: number;
-  /** False when the admin wallet could not be read and a recorded cost basis was substituted. */
+  /** False when an asset held in the admin wallet could not be priced, so the NAV has a hole in it. */
   adminRead: boolean;
   /** Where the venue figure came from; only 'live' is fresh. */
   venueSource: 'live' | 'cache' | 'unknown';

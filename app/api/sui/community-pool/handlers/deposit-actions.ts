@@ -36,7 +36,7 @@ export async function handleDeposit(ctx: ActionCtx): Promise<NextResponse> {
   }
 
   const service = getSuiUsdcPoolService(network);
-  await service.getPoolStats();
+  await service.getPoolStateId();
 
   const amountUsdc = Number(amountRaw) / 1_000_000;
   const params = service.buildDepositParams(amountUsdc);
