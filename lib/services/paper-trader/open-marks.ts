@@ -11,9 +11,11 @@ import { query } from '@/lib/db/postgres';
 import { getCronStateStrict, setCronState } from '@/lib/db/cron-state';
 import { logger } from '@/lib/utils/logger';
 import { PAPER_TARGET_MAX_HOLD_MIN } from './config';
-import { FEE_BPS_PER_SIDE, MAKER_FEE_BPS_PER_SIDE, computeFeeUsd, computeGrossPnl, computeSlippageUsd, fundingForHold } from './simulated-executor';
+import { FEE_BPS_PER_SIDE, MAKER_FEE_BPS_PER_SIDE, SPOT_FEE_BPS_PER_SIDE, computeFeeUsd, computeGrossPnl, computeSlippageUsd, fundingForHold } from './simulated-executor';
 
-const MARKED_BOOKS = [-3, -4, -5, -7, -8, -9];
+const MARKED_BOOKS = [-3, -4, -5, -7, -8, -9, -10];
+/** Books that hold the coin itself: a swap fee, no slippage on top, no funding. */
+const SPOT_BOOKS = new Set([-10]);
 /** Books with a stop and a time limit. The others close at a horizon or by a rule. */
 const STRATEGY_BOOKS = new Set([-3, -4]);
 const KEY_OVERDUE = 'paper-open-marks:overdue';
@@ -53,8 +55,11 @@ export function markOpenRow(row: OpenRow, mark: number, nowMs: number): OpenMark
   const markBp = ((long ? mark / entry : entry / mark) - 1) * 10_000;
   const notional = Number(row.notional_value);
   const resting = /^resting/.test(row.execution ?? '');
-  const openCost = computeFeeUsd(notional, resting ? MAKER_FEE_BPS_PER_SIDE : FEE_BPS_PER_SIDE) + (resting ? 0 : computeSlippageUsd(notional, row.asset));
-  const funding = fundingForHold(notional, row.asset, long ? 'LONG' : 'SHORT', row.created_at.getTime(), nowMs);
+  const spot = SPOT_BOOKS.has(row.portfolio_id);
+  const openCost = spot
+    ? computeFeeUsd(notional, SPOT_FEE_BPS_PER_SIDE)
+    : computeFeeUsd(notional, resting ? MAKER_FEE_BPS_PER_SIDE : FEE_BPS_PER_SIDE) + (resting ? 0 : computeSlippageUsd(notional, row.asset));
+  const funding = spot ? 0 : fundingForHold(notional, row.asset, long ? 'LONG' : 'SHORT', row.created_at.getTime(), nowMs);
   const markUsd = computeGrossPnl(long ? 'LONG' : 'SHORT', entry, mark, notional) - openCost + funding;
   let overdue: string | null = null;
   if (STRATEGY_BOOKS.has(row.portfolio_id)) {

@@ -164,6 +164,18 @@ async function runStages(): Promise<Record<string, string>> {
     logger.warn('[PaperFastTick] floor twin tick failed (non-fatal)', { error: errMsg(e) });
   }
 
+  // The slow trend book (portfolio -10): holds a coin while it is above its 100-day average.
+  try {
+    const { TrendTrader } = await import('@/lib/services/paper-trader/TrendTrader');
+    const s = await TrendTrader.runTick(Date.now());
+    results.trend = s.skipped
+      ? `skipped — ${s.skipped}`
+      : `value ${s.valueUsd.toFixed(0)}, exposure ${s.exposureUsd.toFixed(0)} in ${s.lots} lots, bought ${s.bought}, sold ${s.sold}${s.decided ? `; decided ${s.decided}` : ''}`;
+  } catch (e) {
+    results.trend = `error: ${errMsg(e).slice(0, 80)}`;
+    logger.warn('[PaperFastTick] trend tick failed (non-fatal)', { error: errMsg(e) });
+  }
+
   // The daily ladder's forecasts and their results, for the public scorecard.
   try {
     const { claimed } = await tryClaimCronRun('ladder-forecasts', 10 * 60_000, Date.now());
