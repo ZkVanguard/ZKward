@@ -44,32 +44,14 @@ export const config: VercelConfig = {
   // route-aware. Leaving this empty avoids duplication.
   headers: [],
 
-  // ──────────────────────────────────────────────────────────────────
-  // Vercel Cron — QStash alternative
-  // ──────────────────────────────────────────────────────────────────
-  // The Upstash QStash schedule quota is 10/10 used. Adding a new
-  // cron there requires either upgrading the plan or dropping an
-  // existing schedule. Vercel Cron is native to the platform, has no
-  // schedule-count cap on Pro, and triggers routes via a signed
-  // Bearer token (CRON_SECRET). See verifyCronRequest() — it already
-  // accepts both QStash-signed and CRON_SECRET-bearer requests, so
-  // routes work under either scheduler without code changes.
-  //
-  // Rollout: enable one route at a time here. Every route must:
-  //   (1) call verifyCronRequest(request, '<RouteName>') at top,
-  //   (2) use tryClaimCronRun() to survive double-fire (QStash + Vercel
-  //       both wired = zero-downtime cutover),
-  //   (3) heartbeat via setCronState('cron:lastRun:<route>', now).
-  //
-  // Once Vercel Cron owns a schedule, delete the QStash entry to
-  // reclaim the quota slot.
+  // The platform owns the schedule so the jobs stop when only a self-hosted
+  // box dies. Vercel Cron sends `Authorization: Bearer $CRON_SECRET`, which
+  // verifyCronRequest accepts. A second scheduler firing the same routes is
+  // safe: each sub-route claims its own run (tryClaimCronRun).
   crons: [
-    // Uncomment as we cut each schedule over. Currently empty — all
-    // schedules still live in Upstash QStash. First candidate is
-    // pool-nav-monitor once Substreams push is scaffolded.
-    //
-    // { path: '/api/cron/pool-nav-monitor', schedule: '*/15 * * * *' },
-    // { path: '/api/cron/bluefin-health', schedule: '*/5 * * * *' },
+    { path: '/api/cron/paper-fast-tick', schedule: '* * * * *' },
+    { path: '/api/cron/solana-pool', schedule: '* * * * *' },
+    { path: '/api/cron/master', schedule: '*/5 * * * *' },
   ],
 };
 
