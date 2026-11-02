@@ -53,6 +53,71 @@ export const queryRecentInterpretations: AgentTool<
   },
 };
 
+const PAPER_BOOKS = [
+  { id: -3, name: 'PaperTrader', tests: 'the full signal strategy; opens only signals the ledger has proven' },
+  { id: -4, name: 'PaperGated', tests: 'the same strategy with entry gates removed one at a time' },
+  { id: -5, name: 'Oracle', tests: 'every fresh model interpretation at its own horizon; switched off since 2026-10-19' },
+  { id: -6, name: 'Solana sleeve', tests: 'a sleeve sized off the Solana test pool' },
+  { id: -7, name: 'LeadTrader', tests: 'one ledger source (Kalshi, BTC and ETH) held to its 240-minute horizon' },
+  { id: -8, name: 'FloorTrader', tests: 'long BTC and ETH sized to keep the book above 90% of its peak; no signal' },
+  { id: -9, name: 'FloorLadderTrader', tests: 'the floor rule sized by the move the strike ladder prices' },
+  { id: -10, name: 'TrendTrader', tests: 'BTC and ETH held while above their 100-day average' },
+] as const;
+
+export const getPaperBooks: AgentTool<
+  { hours?: number },
+  Array<{
+    portfolioId: number;
+    name: string;
+    tests: string;
+    closed: { trades: number; wins: number; realizedUsd: number; avgBp: number };
+    open: { positions: number; notionalUsd: number; openPnlUsd: number };
+  }>
+> = {
+  name: 'get_paper_books',
+  description:
+    'Simulated (paper) books: for each one, what it tests, its closed trades over the lookback (count, wins, realized USD, average trade in bp of notional) and its open positions marked to market, all net of fees, slippage and funding, read from its rows. These are simulations, never real returns. A win rate means nothing without the average trade.',
+  parameters: {
+    type: 'object',
+    properties: {
+      hours: { type: 'number', description: 'Lookback for closed trades in hours. Default 720 (30d), max 8760.' },
+    },
+    additionalProperties: false,
+  },
+  async execute({ hours = 720 }) {
+    const [{ query }, { bookRowStats }] = await Promise.all([
+      import('@/lib/db/postgres'),
+      import('@/lib/db/book-row-stats'),
+    ]);
+    const sinceMs = Date.now() - Math.min(Math.max(1, hours), 8760) * 60 * 60 * 1000;
+    const ids = PAPER_BOOKS.map((b) => b.id);
+    const [open, stats] = await Promise.all([
+      query<{ portfolio_id: number; n: number; notional: number; pnl: number }>(
+        `SELECT portfolio_id, COUNT(*)::int AS n,
+                COALESCE(SUM(notional_value), 0)::float8 AS notional,
+                COALESCE(SUM(current_pnl), 0)::float8 AS pnl
+           FROM hedges
+          WHERE portfolio_id = ANY($1) AND status = 'active'
+          GROUP BY portfolio_id`,
+        [ids],
+      ),
+      Promise.all(ids.map((id) => bookRowStats(id, sinceMs))),
+    ]);
+    return PAPER_BOOKS.map((b, i) => {
+      const s = stats[i];
+      if (!s) throw new Error(`could not read the closed trades of book ${b.id}`);
+      const o = open.find((r) => Number(r.portfolio_id) === b.id);
+      return {
+        portfolioId: b.id,
+        name: b.name,
+        tests: b.tests,
+        closed: { trades: s.trades, wins: s.wins, realizedUsd: s.realizedUsd, avgBp: s.avgBp },
+        open: { positions: o?.n ?? 0, notionalUsd: o?.notional ?? 0, openPnlUsd: o?.pnl ?? 0 },
+      };
+    });
+  },
+};
+
 export const queryHedgeHistory: AgentTool<
   { asset?: string; hours?: number; status?: 'active' | 'closed'; limit?: number },
   Array<{

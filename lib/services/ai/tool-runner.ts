@@ -7,16 +7,20 @@
  *   2. If model returns tool_calls, execute each, append observations
  *   3. Loop until finish_reason=stop or maxIterations
  *
- * ## Provider chain (ASI-only — this stack has no OpenAI dependency)
+ * ## Provider chain (this stack has no OpenAI dependency)
  *
  *   1. Injected client (tests)
- *   2. ASI:One — Fetch.ai's LLM, OpenAI-compat API. Tool-use capable.
+ *   2. Meta Model API — Muse Spark, OpenAI-compat chat completions with
+ *      tool use (only tool_choice "auto" is accepted).
+ *      ENV: META_API_KEY. Model: META_MODEL (default muse-spark-1.3).
+ *      URL: META_API_URL (default https://api.meta.ai/v1).
+ *   3. ASI:One — Fetch.ai's LLM, OpenAI-compat API. Tool-use capable.
  *      ENV: ASI_API_KEY. Model: ASI_MODEL (default asi1-mini).
  *      URL: ASI_API_URL (default https://api.asi1.ai/v1).
- *   3. No-op — key not set, callers get empty finalText.
+ *   4. No-op — no key set, callers get empty finalText.
  *
- * The `openai` npm package is used as a THIN CLIENT for ASI's OpenAI-
- * compat API (custom baseURL). We never call api.openai.com.
+ * The `openai` npm package is used as a THIN CLIENT for these OpenAI-
+ * compat APIs (custom baseURL). We never call api.openai.com.
  *
  * ## Why not the fine-tuned Qwen 2.5 7B
  *
@@ -53,11 +57,18 @@ interface ResolvedProvider {
   name: string;
 }
 
-/** Resolve provider from env. ASI-only — this stack does NOT use OpenAI. */
-async function resolveProvider(): Promise<ResolvedProvider | null> {
+/** Resolve provider from env: Meta when its key is set, else ASI. Never OpenAI. */
+export async function resolveProvider(): Promise<ResolvedProvider | null> {
+  const metaKey = (process.env.META_API_KEY || '').trim();
   const asiKey = (process.env.ASI_API_KEY || '').trim();
-  if (!asiKey) return null;
+  if (!metaKey && !asiKey) return null;
   const OpenAI = (await import('openai')).default;
+  if (metaKey) {
+    const metaUrl = (process.env.META_API_URL || 'https://api.meta.ai/v1').trim();
+    const metaModel = (process.env.META_MODEL || 'muse-spark-1.3').trim();
+    const raw = new OpenAI({ apiKey: metaKey, baseURL: metaUrl });
+    return { client: raw as unknown as ChatClient, model: metaModel, name: 'meta' };
+  }
   const asiUrl = (process.env.ASI_API_URL || 'https://api.asi1.ai/v1').trim();
   const asiModel = (process.env.ASI_MODEL || 'asi1-mini').trim();
   const raw = new OpenAI({ apiKey: asiKey, baseURL: asiUrl });
@@ -186,7 +197,7 @@ export async function runWithTools(opts: RunWithToolsOptions): Promise<RunWithTo
   } else {
     const resolved = await resolveProvider();
     if (!resolved) {
-      logger.warn('[ToolRunner] ASI_API_KEY unset — tool-use disabled, returning no-op');
+      logger.warn('[ToolRunner] META_API_KEY and ASI_API_KEY unset — tool-use disabled, returning no-op');
       return {
         finalText: '',
         invocations: [],
@@ -340,7 +351,7 @@ export async function* runWithToolsStream(
 
   const resolved = await resolveProvider();
   if (!resolved) {
-    logger.warn('[ToolRunner:stream] ASI_API_KEY unset — no-op stream');
+    logger.warn('[ToolRunner:stream] META_API_KEY and ASI_API_KEY unset — no-op stream');
     yield {
       type: 'done',
       elapsedMs: Date.now() - started,

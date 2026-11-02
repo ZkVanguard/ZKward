@@ -24,6 +24,7 @@ export type ChatIntent =
   | 'historical'     // "BTC last week" / "ETH from ATH" / "SOL 30-day"
   | 'onchain'        // "gas fees" / "L2 TVL" / "which chain"
   | 'options'        // "IV" / "put call ratio" / "options market"
+  | 'paper_books'    // "how are the paper books" / "floor book" / "paper trading"
   | 'other';
 
 export type DeterministicRoute =
@@ -96,6 +97,9 @@ const PROTOCOLS = new Set([
 // Intent keyword clusters — regex-hit order matters, earlier wins.
 // More specific patterns MUST come first to avoid stealing broader ones.
 const INTENT_PATTERNS: Array<{ intent: ChatIntent; re: RegExp }> = [
+  // Paper books — first, so "why did the floor book lose" reaches the only
+  // tool that can see simulated rows (query_hedge_history excludes them).
+  { intent: 'paper_books', re: /\b(paper\s*(books?|trad\w*|results?)|simulat\w*\s+(books?|trad\w*)|(floor|ladder|lead|trend|oracle|gated)\s*(books?|trader)|the\s+books)\b/i },
   // Options — very specific, must come before generic 'market'
   // "implied vol" / "implied volatility" — vol\w* so "volatility" also matches
   // (previously \bvol\b required a word boundary after "vol" which "volatility"
@@ -248,6 +252,9 @@ export function analyzeMessage(text: string): MessageAnalysis {
       // get_asset_context (which has no IV) and tells the user the tool
       // is unavailable. Narrowing forces the correct call.
       suggestedTools.push('get_options_data');
+      break;
+    case 'paper_books':
+      suggestedTools.push('get_paper_books', 'get_asset_context');
       break;
     case 'diagnose_move':
       // Multi-tool chain: context + news + funding for causal narrative

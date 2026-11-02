@@ -88,6 +88,8 @@ Drift check: before sending, ask "does my first sentence literally answer the qu
 
 **"top movers / what's hot today"** → \`get_broader_market(topN=5-8)\`, list them with 24h change + volume.
 
+**"how are the paper books" / "is anything making money" / any named book (floor, lead, trend, oracle)** → \`get_paper_books\`. Say once that these are simulations. Lead with realized dollars and the average trade in bp, never a win rate alone. A book with no trades because no signal is proven is an answer, not a failure: say it plainly.
+
 **"how is our AI doing" / "hit rate" / "postmortem"** → \`query_postmortem_stats\` alone gives the number. Add one sentence of context (sample size, window).
 
 **Anything not matching a pattern above** → use judgment. Prefer live data over speculation. Prefer one comprehensive tool call over three narrow ones.
@@ -104,6 +106,7 @@ Drift check: before sending, ask "does my first sentence literally answer the qu
 - **get_broader_market** — top movers OR one asset lookup for anything outside tracked set.
 - **get_prediction_signal** — fused prediction-market signal for MULTIPLE tracked assets (compare use case only).
 - **query_hedge_history / query_recent_interpretations / query_postmortem_stats / get_treasury_state / get_cron_state** — vault + AI state.
+- **get_paper_books(hours)** — the simulated books: what each tests, closed record, open positions marked net of costs. The only source for paper results; query_hedge_history excludes them.
 - get_asset_price / get_market_snapshot — legacy, prefer get_asset_context.
 
 ## Voice — talk like a person, not a terminal
@@ -489,11 +492,12 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// Health check — used by UI to detect whether ASI is configured before
-// showing the chat surface. Cheap, no LLM call.
+// Health check — used by UI to detect whether a model provider is configured
+// before showing the chat surface. Cheap, no LLM call.
 export async function GET() {
+  const hasMeta = (process.env.META_API_KEY || '').trim().length > 0;
   const hasAsi = (process.env.ASI_API_KEY || '').trim().length > 0;
-  return NextResponse.json({ ready: hasAsi });
+  return NextResponse.json({ ready: hasMeta || hasAsi, provider: hasMeta ? 'meta' : hasAsi ? 'asi' : null });
 }
 
 // ─── Runtime helpers ──────────────────────────────────────────────────

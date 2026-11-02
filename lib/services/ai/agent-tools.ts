@@ -37,6 +37,7 @@ import {
   getCronStateSnapshot,
   queryPostmortemStats,
   getTreasuryStateTool,
+  getPaperBooks,
 } from './tools/db-tools';
 import {
   getAssetPrice,
@@ -69,6 +70,7 @@ export const DEFAULT_AGENT_TOOLS: AgentTool[] = [
   getCronStateSnapshot,
   queryPostmortemStats,
   getTreasuryStateTool,
+  getPaperBooks,            // simulated books: record + open positions from rows
   getBroaderMarket,
   getDefiLlamaTvl,
   getFearGreedIndex,
