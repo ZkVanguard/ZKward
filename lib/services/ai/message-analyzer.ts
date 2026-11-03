@@ -116,7 +116,7 @@ const INTENT_PATTERNS: Array<{ intent: ChatIntent; re: RegExp }> = [
   { intent: 'news', re: /\b(news|trending|hot\s+right\s+now|what.s\s+trending|any\s+news|breaking\s+news|new\s+(coin|launch|listing))\b/i },
   // Diagnose asset move — specific, must come before generic 'diagnose'
   { intent: 'diagnose_move', re: /\b(why\s+is\s+\w+\s+(pumping|dumping|up|down|rising|falling|moving|mooning|crashing|rallying)|what.s\s+(moving|driving|pushing)\s+\w+|catalyst\s+for)\b/i },
-  { intent: 'advise', re: /\b(should\s+(i|we)|worth\s+(buying|selling)|good\s+(time|move)|time\s+to\s+(buy|sell|enter|exit))\b/i },
+  { intent: 'advise', re: /\b(should\s+(i|we)|worth\s+(buying|selling)|good\s+(time|move|buy|sell)|(a\s+)?(buy|sell)\s+(now|today|this\s+week)|time\s+to\s+(buy|sell|enter|exit)|long\s+or\s+short|short\s+or\s+long|bullish\s+or\s+bearish)\b/i },
   { intent: 'diagnose', re: /\b(why\s+(did|is|are|has|does)|what\s+went\s+wrong|what\s+happened|explain\s+the\s+(loss|drop|dip|crash|move))\b/i },
   { intent: 'compare', re: /\b(compare|vs\.?|versus|better|stronger|weaker|between\s+\w+\s+and)\b/i },
   { intent: 'defi', re: /\b(tvl|total\s+value\s+locked|defi|protocol|yield|apy|apr)\b/i },
@@ -223,7 +223,8 @@ export function analyzeMessage(text: string): MessageAnalysis {
       suggestedTools.push('query_hedge_history', 'get_asset_context', 'query_recent_interpretations', 'get_cron_state');
       break;
     case 'advise':
-      suggestedTools.push('get_asset_context', 'get_prediction_signal', 'query_postmortem_stats');
+      // The books are the evidence on whether trading a signal pays; advice questions get them, never a call.
+      suggestedTools.push('get_asset_context', 'get_prediction_signal', 'query_postmortem_stats', 'get_paper_books');
       break;
     case 'explain':
       // Concept questions rarely need tools; leave empty so LLM leans on knowledge

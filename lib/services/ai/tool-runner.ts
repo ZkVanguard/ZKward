@@ -194,7 +194,7 @@ export function isPromiseToAct(text: string, toolsOffered: number): boolean {
 
 /** Main entry point. Returns text + everything the agent looked up. */
 export async function runWithTools(opts: RunWithToolsOptions): Promise<RunWithToolsResult> {
-  const tools = opts.tools ?? DEFAULT_AGENT_TOOLS;
+  let tools = opts.tools ?? DEFAULT_AGENT_TOOLS;
   const maxIterations = opts.maxIterations ?? DEFAULT_MAX_ITERATIONS;
 
   let client: ChatClient;
@@ -230,7 +230,7 @@ export async function runWithTools(opts: RunWithToolsOptions): Promise<RunWithTo
     { role: 'user', content: opts.userPrompt },
   ];
 
-  const openAiTools = toolsToOpenAiSchema(tools);
+  let openAiTools = toolsToOpenAiSchema(tools);
   const invocations: ToolInvocation[] = [];
   let finishedNormally = false;
   let finalText = '';
@@ -259,7 +259,10 @@ export async function runWithTools(opts: RunWithToolsOptions): Promise<RunWithTo
       if (!nudged && !msg.tool_calls?.length && isPromiseToAct(msg.content ?? '', tools.length)) {
         nudged = true;
         limit++;
-        messages.push({ role: 'user', content: NUDGE_TO_ACT });
+        messages.push({ role: 'user', content: NUDGE_TO_ACT });
+        // It may have promised a tool the router did not offer; offer every read-only tool.
+        tools = [...tools, ...DEFAULT_AGENT_TOOLS.filter((t) => !tools.some((o) => o.name === t.name))];
+        openAiTools = toolsToOpenAiSchema(tools);
         continue;
       }
       finalText = msg.content ?? '';
@@ -364,7 +367,7 @@ export async function* runWithToolsStream(
   opts: RunWithToolsOptions,
 ): AsyncGenerator<StreamEvent, void, void> {
   const started = Date.now();
-  const tools = opts.tools ?? DEFAULT_AGENT_TOOLS;
+  let tools = opts.tools ?? DEFAULT_AGENT_TOOLS;
   const maxIterations = opts.maxIterations ?? DEFAULT_MAX_ITERATIONS;
 
   const resolved = await resolveProvider();
@@ -389,7 +392,7 @@ export async function* runWithToolsStream(
     ...(opts.priorMessages ?? []).map((m) => ({ role: m.role, content: m.content })),
     { role: 'user', content: opts.userPrompt },
   ];
-  const openAiTools = toolsToOpenAiSchema(tools);
+  let openAiTools = toolsToOpenAiSchema(tools);
   let finalText = '';
   let limit = maxIterations;
   let nudged = false;
@@ -469,7 +472,10 @@ export async function* runWithToolsStream(
       if (!nudged && toolCalls.length === 0 && isPromiseToAct(assistantContent, tools.length)) {
         nudged = true;
         limit++;
-        messages.push({ role: 'user', content: NUDGE_TO_ACT });
+        messages.push({ role: 'user', content: NUDGE_TO_ACT });
+        // It may have promised a tool the router did not offer; offer every read-only tool.
+        tools = [...tools, ...DEFAULT_AGENT_TOOLS.filter((t) => !tools.some((o) => o.name === t.name))];
+        openAiTools = toolsToOpenAiSchema(tools);
         continue;
       }
       finalText = assistantContent;

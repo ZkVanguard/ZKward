@@ -75,6 +75,13 @@ describe('paper-book questions', () => {
     expect(a.suggestedTools).toContain('get_paper_books');
   });
 
+  it('gives advice questions the paper books as evidence', async () => {
+    const { analyzeMessage } = await import('@/lib/services/ai/message-analyzer');
+    for (const q of ['should I buy BTC now?', 'Is ETH a good buy this week?', 'Long or short SOL?']) {
+      expect(analyzeMessage(q).suggestedTools).toContain('get_paper_books');
+    }
+  });
+
   it('leaves order-book questions to the market tools', async () => {
     const { analyzeMessage } = await import('@/lib/services/ai/message-analyzer');
     expect(analyzeMessage('what does the BTC order book look like').intent).not.toBe('paper_books');
