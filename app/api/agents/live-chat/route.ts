@@ -526,15 +526,15 @@ export async function POST(request: NextRequest) {
 export async function GET() {
   const hasMeta = (process.env.META_API_KEY || '').trim().length > 0;
   const hasAsi = (process.env.ASI_API_KEY || '').trim().length > 0;
-  return NextResponse.json({ ready: hasMeta || hasAsi, provider: hasMeta ? 'meta' : hasAsi ? 'asi' : null });
+  // "meta-models/Muse-Spark-Open-816B-A42B" → "Muse Spark Open", for the chat header.
+  const model = hasMeta
+    ? (process.env.META_MODEL || 'muse-spark-1.3').trim().replace(/^.*\//, '').replace(/-\d+B\b.*$/, '').replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+    : null;
+  return NextResponse.json({ ready: hasMeta || hasAsi, provider: hasMeta ? 'meta' : hasAsi ? 'asi' : null, model });
 }
 
 // ─── Runtime helpers ──────────────────────────────────────────────────
 
-/**
- * Narrow the tool list to what the message analyzer suggests. Empty
- * suggestion → expose all tools (fall-through).
- */
 /** `caught`: the figures the first answer had that no data supports, when the checker had them removed. */
 type VerifyEvent = { type: 'verify'; corrected: boolean; caught: Figure[] } & FigureCheck;
 
@@ -570,6 +570,10 @@ async function checkFigures(text: string, sources: FactSource[]): Promise<{ text
   return { text, check, corrected: false, caught: [] };
 }
 
+/**
+ * Narrow the tool list to what the message analyzer suggests. Empty
+ * suggestion → expose all tools (fall-through).
+ */
 function pickToolSubset(all: AgentTool[], names: string[]): AgentTool[] {
   if (!names || names.length === 0) return all;
   const set = new Set(names);

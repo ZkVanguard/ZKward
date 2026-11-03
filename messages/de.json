@@ -424,7 +424,7 @@
     "chat": {
       "title": "Frag zu Krypto, Märkten oder dem Vault",
       "readOnly": "Nur lesen",
-      "subtitle": "Live-Preise. Live-Signale. Live-Vault-Zustand.",
+      "subtitle": "Live-Bücher, Pools und Signale. Jede Zahl wird mit den Daten geprüft.",
       "tryOneOfThese": "Probier eine davon:",
       "thinking": "denke nach…",
       "placeholder": "Stell eine Marktfrage oder eine Vault-Frage…",
@@ -455,7 +455,8 @@
         "corrected": "vom Prüfer korrigiert",
         "notFound": "nicht in den Daten",
         "removed": "entfernt: nicht in den Daten"
-      }
+      },
+      "poweredBy": "läuft auf {model} von Meta"
     }
   },
   "story": {

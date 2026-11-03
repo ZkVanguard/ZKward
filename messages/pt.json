@@ -424,7 +424,7 @@
     "chat": {
       "title": "Pergunte sobre cripto, mercados ou o cofre",
       "readOnly": "Somente leitura",
-      "subtitle": "Preços ao vivo. Sinais ao vivo. Estado do cofre ao vivo.",
+      "subtitle": "Carteiras, pools e sinais ao vivo. Cada número conferido com os dados.",
       "tryOneOfThese": "Experimente uma destas:",
       "thinking": "a pensar…",
       "placeholder": "Faça uma pergunta de mercado ou de cofre…",
@@ -455,7 +455,8 @@
         "corrected": "corrigido pelo verificador",
         "notFound": "não está nos dados",
         "removed": "removido: não está nos dados"
-      }
+      },
+      "poweredBy": "roda no {model} da Meta"
     }
   },
   "story": {

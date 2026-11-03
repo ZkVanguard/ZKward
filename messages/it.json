@@ -424,7 +424,7 @@
     "chat": {
       "title": "Chiedi di cripto, mercati o del vault",
       "readOnly": "Solo lettura",
-      "subtitle": "Prezzi live. Segnali live. Stato del vault live.",
+      "subtitle": "Portafogli, pool e segnali dal vivo. Ogni cifra verificata sui dati.",
       "tryOneOfThese": "Prova una di queste:",
       "thinking": "sto pensando…",
       "placeholder": "Fai una domanda di mercato o sul vault…",
@@ -455,7 +455,8 @@
         "corrected": "corretto dal verificatore",
         "notFound": "non presente nei dati",
         "removed": "rimosso: non presente nei dati"
-      }
+      },
+      "poweredBy": "funziona con {model} di Meta"
     }
   },
   "story": {

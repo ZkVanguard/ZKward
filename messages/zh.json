@@ -424,7 +424,7 @@
     "chat": {
       "title": "问问加密货币、市场，或金库",
       "readOnly": "只读",
-      "subtitle": "实时价格。实时信号。实时金库状态。",
+      "subtitle": "实时账本、资金池和信号。每个数字都与数据核对。",
       "tryOneOfThese": "试试这些：",
       "thinking": "思考中…",
       "placeholder": "问一个市场问题或金库问题…",
@@ -455,7 +455,8 @@
         "corrected": "已由校验器更正",
         "notFound": "不在数据中",
         "removed": "已删除：不在数据中"
-      }
+      },
+      "poweredBy": "由 Meta 的 {model} 驱动"
     }
   },
   "story": {

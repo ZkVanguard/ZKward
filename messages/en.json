@@ -94,7 +94,7 @@
     "chat": {
       "title": "Ask about crypto, markets, or the vault",
       "readOnly": "Read-only",
-      "subtitle": "Live prices. Live signals. Live vault state.",
+      "subtitle": "Live books, pools and signals. Every figure checked against the data.",
       "tryOneOfThese": "Try one of these:",
       "thinking": "thinking…",
       "placeholder": "Ask a market question or a vault question…",
@@ -125,7 +125,8 @@
         "corrected": "corrected by the checker",
         "notFound": "not in the data",
         "removed": "removed: not in the data"
-      }
+      },
+      "poweredBy": "runs on {model} by Meta"
     },
     "architecture": "Architecture",
     "architectureBody": "All agents talk through a central <bus>MessageBus</bus> and extend a common <base>BaseAgent</base>. Each concern owns one file. Nothing shares state through globals.",

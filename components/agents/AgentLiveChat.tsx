@@ -157,13 +157,14 @@ export function AgentLiveChat() {
   const [input, setInput] = useState('');
   const [pending, setPending] = useState(false);
   const [ready, setReady] = useState<boolean | null>(null);
+  const [model, setModel] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     fetch('/api/agents/live-chat')
       .then(r => r.json())
-      .then(j => setReady(!!j.ready))
+      .then(j => { setReady(!!j.ready); setModel(typeof j.model === 'string' ? j.model : null); })
       .catch(() => setReady(false));
   }, []);
 
@@ -443,6 +444,7 @@ export function AgentLiveChat() {
         </div>
         <p className="text-caption-1 sm:text-footnote text-label-tertiary mt-1">
           {t('subtitle')}
+          {model && <span className="text-ios-blue"> · {t('poweredBy', { model })}</span>}
         </p>
       </div>
 

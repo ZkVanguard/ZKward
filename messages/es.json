@@ -424,7 +424,7 @@
     "chat": {
       "title": "Pregunta sobre cripto, mercados o la bóveda",
       "readOnly": "Solo lectura",
-      "subtitle": "Precios en vivo. Señales en vivo. Estado de bóveda en vivo.",
+      "subtitle": "Libros, pools y señales en vivo. Cada cifra se verifica con los datos.",
       "tryOneOfThese": "Prueba una de estas:",
       "thinking": "pensando…",
       "placeholder": "Haz una pregunta sobre el mercado o la bóveda…",
@@ -455,7 +455,8 @@
         "corrected": "corregido por el verificador",
         "notFound": "no está en los datos",
         "removed": "eliminado: no está en los datos"
-      }
+      },
+      "poweredBy": "funciona con {model} de Meta"
     }
   },
   "story": {
