@@ -37,6 +37,30 @@ describe('provider choice', () => {
   });
 });
 
+describe('a turn that only promises to act', () => {
+  it('is nudged once, so the model calls the tool and answers', async () => {
+    const { runWithTools } = await import('@/lib/services/ai/tool-runner');
+    const replies = [
+      { finish_reason: 'stop', message: { content: "I'll pull the paper records now." } },
+      { finish_reason: 'tool_calls', message: { content: '', tool_calls: [{ id: 'c1', type: 'function' as const, function: { name: 'echo', arguments: '{}' } }] } },
+      { finish_reason: 'stop', message: { content: 'Every book lost money.' } },
+    ];
+    const sent: unknown[][] = [];
+    const client = { chat: { completions: { create: async (p: { messages: unknown[] }) => { sent.push([...p.messages]); return { choices: [replies.shift()!] }; } } } };
+    const tool = { name: 'echo', description: 'test', parameters: { type: 'object', properties: {} }, execute: async () => ({ ok: 1 }) };
+    const r = await runWithTools({ systemPrompt: 's', userPrompt: 'how are the books', tools: [tool as never], maxIterations: 2, client: client as never });
+    expect(r.finalText).toBe('Every book lost money.');
+    expect(r.invocations.map((i) => i.tool)).toEqual(['echo']);
+    expect(JSON.stringify(sent[1])).toContain('Do it now');
+  });
+
+  it('is left alone when no tools were offered', async () => {
+    const { isPromiseToAct } = await import('@/lib/services/ai/tool-runner');
+    expect(isPromiseToAct("I'll check that.", 0)).toBe(false);
+    expect(isPromiseToAct('Every book lost money after costs.', 3)).toBe(false);
+  });
+});
+
 describe('paper-book questions', () => {
   it.each([
     'how are the paper books doing?',

@@ -6,10 +6,15 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useTranslations } from 'next-intl';
-import { Send, Bot, User, Loader2, Wrench, AlertCircle, ChevronDown } from 'lucide-react';
+import { Send, Bot, User, Loader2, Wrench, AlertCircle, ChevronDown, ShieldCheck } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { ThinkingIndicator } from '@/components/chat/ThinkingIndicator';
+
+interface CheckedFigure {
+  text: string;
+  source?: string;
+}
 
 interface ToolCall {
   tool: string;
@@ -24,6 +29,8 @@ interface Message {
   role: 'user' | 'assistant';
   content: string;
   toolCalls?: ToolCall[];
+  /** The server's check of every money figure against the data the model read. */
+  check?: { verified: CheckedFigure[]; unverified: CheckedFigure[]; corrected: boolean; caught: CheckedFigure[] };
   elapsedMs?: number;
   error?: boolean;
   streaming?: boolean;
@@ -306,6 +313,10 @@ export function AgentLiveChat() {
             elapsedMs?: number;
             finalText?: string;
             message?: string;
+            verified?: CheckedFigure[];
+            unverified?: CheckedFigure[];
+            corrected?: boolean;
+            caught?: CheckedFigure[];
           };
           try {
             event = JSON.parse(line);
@@ -342,6 +353,9 @@ export function AgentLiveChat() {
               }
               return { ...msg, toolCalls: list };
             });
+          } else if (event.type === 'verify') {
+            const check = { verified: event.verified ?? [], unverified: event.unverified ?? [], corrected: !!event.corrected, caught: event.caught ?? [] };
+            patch(msg => ({ ...msg, check }));
           } else if (event.type === 'done') {
             // The model may narrate before a tool call; the answer is the last turn's text.
             const finalText = event.finalText;
@@ -491,6 +505,38 @@ export function AgentLiveChat() {
                   m.content
                 )}
               </div>
+              {m.check && m.check.verified.length + m.check.unverified.length + (m.check.caught?.length ?? 0) > 0 && (() => {
+                const total = m.check.verified.length + m.check.unverified.length;
+                const bad = m.check.unverified.length;
+                const label = [bad ? t('check.some', { bad, total }) : total ? t('check.all', { total }) : '', m.check.corrected ? t('check.corrected') : '']
+                  .filter(Boolean).join(' · ');
+                return (
+                  <details className="mt-2 text-caption-1 group">
+                    <summary className={`inline-flex items-center gap-1 cursor-pointer select-none list-none ${bad ? 'text-orange-700' : 'text-ios-green'}`}>
+                      {bad ? <AlertCircle className="w-3 h-3" /> : <ShieldCheck className="w-3 h-3" />}
+                      <span>{label}</span>
+                      <ChevronDown className="w-3 h-3 group-open:rotate-180 transition-transform" />
+                    </summary>
+                    <ul className="mt-1.5 pl-4 space-y-0.5 text-label-tertiary">
+                      {m.check.verified.map((f, i) => (
+                        <li key={`v${i}`} className="break-words">
+                          <span className="font-mono text-ios-green">{f.text}</span> ← <span className="font-mono">{f.source}</span>
+                        </li>
+                      ))}
+                      {m.check.unverified.map((f, i) => (
+                        <li key={`u${i}`} className="break-words text-orange-700">
+                          <span className="font-mono">{f.text}</span> · {t('check.notFound')}
+                        </li>
+                      ))}
+                      {(m.check.caught ?? []).map((f, i) => (
+                        <li key={`c${i}`} className="break-words text-orange-700">
+                          <s className="font-mono">{f.text}</s> · {t('check.removed')}
+                        </li>
+                      ))}
+                    </ul>
+                  </details>
+                );
+              })()}
               {m.toolCalls && m.toolCalls.length > 0 && (
                 <details className="mt-2 text-caption-1 text-label-tertiary group" open={m.streaming}>
                   <summary className="inline-flex items-center gap-1 cursor-pointer hover:text-label-secondary select-none list-none">

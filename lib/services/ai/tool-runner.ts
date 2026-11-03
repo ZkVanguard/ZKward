@@ -145,7 +145,8 @@ export type StreamEvent =
   | { type: 'iteration'; n: number }
   | { type: 'token'; delta: string }
   | { type: 'tool_start'; tool: string; argsPreview: string }
-  | { type: 'tool_end'; tool: string; ok: boolean; latencyMs: number; error?: string }
+  // `result` is for the server (the figure check); the chat route strips it before streaming.
+  | { type: 'tool_end'; tool: string; ok: boolean; latencyMs: number; error?: string; result?: unknown }
   | { type: 'done'; elapsedMs: number; iterations: number; finalText: string }
   | { type: 'error'; message: string };
 
@@ -180,6 +181,15 @@ interface AccumulatedToolCall {
   id: string;
   name: string;
   argumentsJson: string;
+}
+
+// Muse Spark sometimes ends a turn with "I'll pull the records…" and no tool
+// call. One nudge makes it act; a second such turn is taken as the answer.
+// ponytail: phrase match, not a classifier; widen the pattern if a provider words it differently.
+const PROMISE_TO_ACT = /\b(I'll|I will|let me|pulling|checking|fetching|looking up)\b/i;
+export const NUDGE_TO_ACT = 'Do it now: call the tool you need, then answer from its result.';
+export function isPromiseToAct(text: string, toolsOffered: number): boolean {
+  return toolsOffered > 0 && text.length < 300 && PROMISE_TO_ACT.test(text);
 }
 
 /** Main entry point. Returns text + everything the agent looked up. */
@@ -224,8 +234,10 @@ export async function runWithTools(opts: RunWithToolsOptions): Promise<RunWithTo
   const invocations: ToolInvocation[] = [];
   let finishedNormally = false;
   let finalText = '';
+  let limit = maxIterations;
+  let nudged = false;
 
-  for (let iter = 1; iter <= maxIterations; iter++) {
+  for (let iter = 1; iter <= limit; iter++) {
     const resp = await client.chat.completions.create({
       model,
       messages,
@@ -244,6 +256,12 @@ export async function runWithTools(opts: RunWithToolsOptions): Promise<RunWithTo
     });
 
     if (choice.finish_reason === 'stop' || !msg.tool_calls || msg.tool_calls.length === 0) {
+      if (!nudged && !msg.tool_calls?.length && isPromiseToAct(msg.content ?? '', tools.length)) {
+        nudged = true;
+        limit++;
+        messages.push({ role: 'user', content: NUDGE_TO_ACT });
+        continue;
+      }
       finalText = msg.content ?? '';
       finishedNormally = true;
       return { finalText, invocations, iterations: iter, finishedNormally };
@@ -373,8 +391,10 @@ export async function* runWithToolsStream(
   ];
   const openAiTools = toolsToOpenAiSchema(tools);
   let finalText = '';
+  let limit = maxIterations;
+  let nudged = false;
 
-  for (let iter = 1; iter <= maxIterations; iter++) {
+  for (let iter = 1; iter <= limit; iter++) {
     yield { type: 'iteration', n: iter };
 
     let stream;
@@ -446,6 +466,12 @@ export async function* runWithToolsStream(
     });
 
     if (toolCalls.length === 0 || finishReason === 'stop') {
+      if (!nudged && toolCalls.length === 0 && isPromiseToAct(assistantContent, tools.length)) {
+        nudged = true;
+        limit++;
+        messages.push({ role: 'user', content: NUDGE_TO_ACT });
+        continue;
+      }
       finalText = assistantContent;
       yield {
         type: 'done',
@@ -522,7 +548,7 @@ export async function* runWithToolsStream(
       const latencyMs = Date.now() - t0;
 
       if (result.ok) {
-        yield { type: 'tool_end', tool: tool.name, ok: true, latencyMs };
+        yield { type: 'tool_end', tool: tool.name, ok: true, latencyMs, result: result.result };
         messages.push({
           role: 'tool',
           tool_call_id: call.id,

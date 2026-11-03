@@ -440,15 +440,22 @@
         "p1": "¿Cómo va BTC ahora mismo?",
         "p2": "Snapshot del mercado — BTC, ETH, SOL, SUI",
         "p3": "¿Qué piensa el mercado de predicción sobre ETH?",
-        "p4": "Explica las funding rates en dos frases",
-        "p5": "¿Qué hizo nuestra bóveda en las últimas 24 h?",
+        "p4": "¿Cómo van los libros de papel?",
+        "p5": "¿Cómo va el pool?",
         "p6": "¿Está acertando nuestra IA esta semana?"
       },
       "clear": "Clear",
       "clearHistory": "Clear conversation",
       "newChat": "New Chat",
       "newChatTooltip": "Start a fresh conversation (resets memory)",
-      "emptyResponse": "No se recibio respuesta - el servicio puede haberse estado actualizando. Intentalo de nuevo."
+      "emptyResponse": "No se recibio respuesta - el servicio puede haberse estado actualizando. Intentalo de nuevo.",
+      "check": {
+        "all": "{total, plural, =1 {# cifra coincide} other {Las # cifras coinciden}} con los datos en vivo",
+        "some": "{bad} de {total} cifras no están en los datos",
+        "corrected": "corregido por el verificador",
+        "notFound": "no está en los datos",
+        "removed": "eliminado: no está en los datos"
+      }
     }
   },
   "story": {

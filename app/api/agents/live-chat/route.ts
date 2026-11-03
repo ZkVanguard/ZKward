@@ -19,7 +19,8 @@ import { NextRequest, NextResponse, after } from 'next/server';
 import { logger } from '@/lib/utils/logger';
 import { heavyLimiter } from '@/lib/security/rate-limiter';
 import { safeErrorResponse } from '@/lib/security/safe-error';
-import { runWithToolsStream, type HistoryTurn, type StreamEvent } from '@/lib/services/ai/tool-runner';
+import { runWithTools, runWithToolsStream, type HistoryTurn, type StreamEvent } from '@/lib/services/ai/tool-runner';
+import { verifyFigures, extractFigures, type FactSource, type Figure, type FigureCheck } from '@/lib/services/ai/verify-figures';
 import { logChatTurn, isValidSessionId } from '@/lib/db/ai-chat-logs';
 import { analyzeMessage } from '@/lib/services/ai/message-analyzer';
 import { DEFAULT_AGENT_TOOLS, toolByName, type AgentTool } from '@/lib/services/ai/agent-tools';
@@ -382,7 +383,7 @@ export async function POST(request: NextRequest) {
     const stream = new ReadableStream<Uint8Array>({
       async start(controller) {
         const encoder = new TextEncoder();
-        const emit = (event: StreamEvent) => {
+        const emit = (event: StreamEvent | VerifyEvent) => {
           controller.enqueue(encoder.encode(JSON.stringify(event) + '\n'));
         };
         try {
@@ -390,6 +391,12 @@ export async function POST(request: NextRequest) {
           let elapsedMs: number | undefined;
           let iterations: number | undefined;
           let finishedNormally: boolean | undefined;
+          let done: Extract<StreamEvent, { type: 'done' }> | null = null;
+          const sources: FactSource[] = [
+            { label: 'your question', data: message },
+            { label: 'earlier in this chat', data: priorMessages.map((m) => m.content).join('\n') },
+            { label: 'live context', data: preFetchedContext },
+          ];
           for await (const event of runWithToolsStream({
             systemPrompt: runtimeSystemPrompt,
             userPrompt: message,
@@ -406,6 +413,10 @@ export async function POST(request: NextRequest) {
                 ok: !!event.ok,
                 latencyMs: event.latencyMs ?? 0,
               });
+              const { result, ...forClient } = event;
+              if (event.ok) sources.push({ label: event.tool, data: result });
+              emit(forClient);
+              continue;
             }
             if (event.type === 'done') {
               elapsedMs = event.elapsedMs;
@@ -413,8 +424,22 @@ export async function POST(request: NextRequest) {
               finishedNormally = true;
               // Tokens include any narration before a tool call; log and cache only the answer.
               if (event.finalText) assistantContent = event.finalText;
+              done = event; // held until its figures are checked
+              continue;
             }
             emit(event);
+          }
+          if (done && assistantContent.trim()) {
+            // Tool rows first, so a figure is credited to the row rather than to prose that repeats it.
+            const checked = await checkFigures(assistantContent, [...sources.slice(3), ...sources.slice(0, 3)]);
+            assistantContent = checked.text;
+            emit({ type: 'verify', ...checked.check, corrected: checked.corrected, caught: checked.caught });
+            if (checked.corrected) {
+              logger.info('[LiveChat] checker corrected an answer', { messagePreview, caught: checked.caught.map((f) => f.text) });
+            }
+            emit({ ...done, finalText: assistantContent });
+          } else if (done) {
+            emit(done);
           }
           // Empty-response fallback. Observed 2026-09-21: ASI returns
           // zero tokens on gibberish + off-domain + defunct-asset queries,
@@ -510,6 +535,41 @@ export async function GET() {
  * Narrow the tool list to what the message analyzer suggests. Empty
  * suggestion → expose all tools (fall-through).
  */
+/** `caught`: the figures the first answer had that no data supports, when the checker had them removed. */
+type VerifyEvent = { type: 'verify'; corrected: boolean; caught: Figure[] } & FigureCheck;
+
+/**
+ * Every money figure must come from the data the model was handed. When one
+ * does not, the model gets one chance to fix the answer from that data; the
+ * fix is kept only if it leaves fewer unchecked figures.
+ */
+async function checkFigures(text: string, sources: FactSource[]): Promise<{ text: string; check: FigureCheck; corrected: boolean; caught: Figure[] }> {
+  const check = verifyFigures(text, sources);
+  if (check.unverified.length === 0) return { text, check, corrected: false, caught: [] };
+  try {
+    const fix = await Promise.race([
+      runWithTools({
+        systemPrompt: 'You correct one answer. Keep its wording, tone and language. Every dollar, bp and % figure must be copied from the data, or derived from it, or removed. Reply with the corrected answer only.',
+        userPrompt: JSON.stringify({ answer: text, figuresNotInTheData: check.unverified.map((f) => f.text), data: sources }).slice(0, 60_000),
+        tools: [],
+        maxIterations: 1,
+      }),
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), 15_000)),
+    ]);
+    const fixed = fix?.finalText?.trim();
+    if (fixed) {
+      const recheck = verifyFigures(fixed, sources);
+      if (recheck.unverified.length < check.unverified.length) {
+        const kept = new Set(extractFigures(fixed).map((f) => f.text));
+        return { text: fixed, check: recheck, corrected: true, caught: check.unverified.filter((f) => !kept.has(f.text)) };
+      }
+    }
+  } catch (err) {
+    logger.warn('[LiveChat] figure correction failed', { error: err instanceof Error ? err.message : String(err) });
+  }
+  return { text, check, corrected: false, caught: [] };
+}
+
 function pickToolSubset(all: AgentTool[], names: string[]): AgentTool[] {
   if (!names || names.length === 0) return all;
   const set = new Set(names);

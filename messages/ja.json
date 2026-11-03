@@ -440,15 +440,22 @@
         "p1": "BTC は今どう？",
         "p2": "マーケットスナップショット — BTC、ETH、SOL、SUI",
         "p3": "予測市場は ETH をどう見ている？",
-        "p4": "ファンディングレートを 2 文で説明して",
-        "p5": "この 24 時間で金庫は何をした？",
+        "p4": "ペーパーブックの成績は？",
+        "p5": "プールの状況は？",
         "p6": "今週 AI の予測は当たっている？"
       },
       "clear": "Clear",
       "clearHistory": "Clear conversation",
       "newChat": "New Chat",
       "newChatTooltip": "Start a fresh conversation (resets memory)",
-      "emptyResponse": "応答がありませんでした。サービスが更新中だった可能性があります。もう一度お試しください。"
+      "emptyResponse": "応答がありませんでした。サービスが更新中だった可能性があります。もう一度お試しください。",
+      "check": {
+        "all": "{total}件の数値がすべてライブデータと一致",
+        "some": "{total}件中{bad}件の数値がデータにありません",
+        "corrected": "チェッカーが修正",
+        "notFound": "データにありません",
+        "removed": "削除: データにありません"
+      }
     }
   },
   "story": {
