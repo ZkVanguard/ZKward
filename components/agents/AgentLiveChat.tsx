@@ -304,6 +304,7 @@ export function AgentLiveChat() {
             argsPreview?: string;
             error?: string;
             elapsedMs?: number;
+            finalText?: string;
             message?: string;
           };
           try {
@@ -342,7 +343,9 @@ export function AgentLiveChat() {
               return { ...msg, toolCalls: list };
             });
           } else if (event.type === 'done') {
-            patch(msg => ({ ...msg, elapsedMs: event.elapsedMs, streaming: false }));
+            // The model may narrate before a tool call; the answer is the last turn's text.
+            const finalText = event.finalText;
+            patch(msg => ({ ...msg, content: finalText || msg.content, elapsedMs: event.elapsedMs, streaming: false }));
           } else if (event.type === 'error') {
             const errMessage = event.message || 'stream error';
             patch(msg => ({

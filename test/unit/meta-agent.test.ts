@@ -43,11 +43,17 @@ describe('paper-book questions', () => {
     'why did the floor book lose money',
     'is paper trading making anything',
     'what is the lead trader holding',
+    'which book should I copy to make money?',
   ])('"%s" reaches get_paper_books', async (q) => {
     const { analyzeMessage } = await import('@/lib/services/ai/message-analyzer');
     const a = analyzeMessage(q);
     expect(a.intent).toBe('paper_books');
     expect(a.suggestedTools).toContain('get_paper_books');
+  });
+
+  it('leaves order-book questions to the market tools', async () => {
+    const { analyzeMessage } = await import('@/lib/services/ai/message-analyzer');
+    expect(analyzeMessage('what does the BTC order book look like').intent).not.toBe('paper_books');
   });
 
   it('is never served from the response cache', async () => {
@@ -70,6 +76,35 @@ describe('get_paper_books', () => {
     expect(floor?.open).toEqual({ positions: 25, notionalUsd: 25000, openPnlUsd: -1992.58 });
     expect(floor?.closed.avgBp).toBe(-6);
     expect(books.find((b) => b.portfolioId === -3)?.open.positions).toBe(0);
+  });
+
+  it.each([
+    'how is the pool doing?',
+    'what is the state of the SUI pool',
+    'how much is in the community pool',
+    'what is the pool share price',
+  ])('"%s" reaches get_pools, not a coin lookup', async (q) => {
+    const { analyzeMessage } = await import('@/lib/services/ai/message-analyzer');
+    expect(analyzeMessage(q).suggestedTools[0]).toBe('get_pools');
+  });
+
+  it('get_pools reads both pools and fails loudly when a snapshot is missing', async () => {
+    const row = { at: '2026-11-03T16:56:57Z', sp: 0.2724, nav: 20.18, members: 3 };
+    jest.doMock('@/lib/db/postgres', () => ({
+      query: async (sql: string) =>
+        sql.includes('community_pool_shares') ? [{ usd: 60.8 }]
+          : sql.includes('solana') ? [{ ...row, sp: 0.9994, nav: 10.37 }] : [row],
+    }));
+    const { getPools } = await import('@/lib/services/ai/tools/db-tools');
+    const pools = await getPools.execute({});
+    expect(pools.map((p) => [p.network, p.now.navUsd])).toEqual([['SUI mainnet', 20.18], ['Solana devnet', 10.37]]);
+    expect(pools[0].membersPaidInUsd).toBe(60.8);
+    expect(pools[1].money).toMatch(/no real money/);
+
+    jest.resetModules();
+    jest.doMock('@/lib/db/postgres', () => ({ query: async () => [] }));
+    const fresh = await import('@/lib/services/ai/tools/db-tools');
+    await expect(fresh.getPools.execute({})).rejects.toThrow(/could not read the SUI pool/);
   });
 
   it('throws when a book cannot be read, never reports it empty', async () => {

@@ -99,7 +99,9 @@ const PROTOCOLS = new Set([
 const INTENT_PATTERNS: Array<{ intent: ChatIntent; re: RegExp }> = [
   // Paper books — first, so "why did the floor book lose" reaches the only
   // tool that can see simulated rows (query_hedge_history excludes them).
-  { intent: 'paper_books', re: /\b(paper\s*(books?|trad\w*|results?)|simulat\w*\s+(books?|trad\w*)|(floor|ladder|lead|trend|oracle|gated)\s*(books?|trader)|the\s+books)\b/i },
+  { intent: 'paper_books', re: /\b(paper\s*(books?|trad\w*|results?)|simulat\w*\s+(books?|trad\w*)|(floor|ladder|lead|trend|oracle|gated)\s*(books?|trader)|the\s+books|(?<!order\s)books?)\b/i },
+  // Deposit pools — before 'lookup', so "how is the SUI pool" reads our pool, not the coin.
+  { intent: 'vault_state', re: /\b((our|the|sui|solana|usdc|community|deposit|test)\s+pools?|pool\s+(nav|tvl|value|balance|share\s*price|members?))\b/i },
   // Options — very specific, must come before generic 'market'
   // "implied vol" / "implied volatility" — vol\w* so "volatility" also matches
   // (previously \bvol\b required a word boundary after "vol" which "volatility"
@@ -230,7 +232,7 @@ export function analyzeMessage(text: string): MessageAnalysis {
       suggestedTools.push('get_broader_market', 'get_fear_greed_index', 'get_market_snapshot');
       break;
     case 'vault_state':
-      suggestedTools.push('query_hedge_history', 'get_treasury_state', 'query_postmortem_stats', 'get_asset_context');
+      suggestedTools.push('get_pools', 'query_hedge_history', 'get_treasury_state', 'query_postmortem_stats', 'get_asset_context');
       break;
     case 'sentiment':
       suggestedTools.push('get_fear_greed_index', 'get_prediction_signal', 'get_broader_market');

@@ -90,6 +90,8 @@ Drift check: before sending, ask "does my first sentence literally answer the qu
 
 **"how are the paper books" / "is anything making money" / any named book (floor, lead, trend, oracle)** → \`get_paper_books\`. Say once that these are simulations. Lead with realized dollars and the average trade in bp, never a win rate alone. A book with no trades because no signal is proven is an answer, not a failure: say it plainly.
 
+**"how is the pool" / NAV / share price / the SUI or Solana pool** → \`get_pools\`. Say which network and whether it is real money. Give NAV and share price with the snapshot time and, for the SUI pool, what members paid in against what it is worth now. Never say where the money sits beyond what the tool says.
+
 **"how is our AI doing" / "hit rate" / "postmortem"** → \`query_postmortem_stats\` alone gives the number. Add one sentence of context (sample size, window).
 
 **Anything not matching a pattern above** → use judgment. Prefer live data over speculation. Prefer one comprehensive tool call over three narrow ones.
@@ -107,6 +109,7 @@ Drift check: before sending, ask "does my first sentence literally answer the qu
 - **get_prediction_signal** — fused prediction-market signal for MULTIPLE tracked assets (compare use case only).
 - **query_hedge_history / query_recent_interpretations / query_postmortem_stats / get_treasury_state / get_cron_state** — vault + AI state.
 - **get_paper_books(hours)** — the simulated books: what each tests, closed record net of costs, open positions marked before exit costs. The only source for paper results; query_hedge_history excludes them.
+- **get_pools()** — the deposit pools (SUI mainnet, real USDC; Solana devnet, test tokens): NAV, share price, members, snapshot time, what SUI members paid in. The only source for pool NAV.
 - get_asset_price / get_market_snapshot — legacy, prefer get_asset_context.
 
 ## Voice — talk like a person, not a terminal
@@ -408,7 +411,8 @@ export async function POST(request: NextRequest) {
               elapsedMs = event.elapsedMs;
               iterations = event.iterations;
               finishedNormally = true;
-              if (event.finalText && !assistantContent) assistantContent = event.finalText;
+              // Tokens include any narration before a tool call; log and cache only the answer.
+              if (event.finalText) assistantContent = event.finalText;
             }
             emit(event);
           }

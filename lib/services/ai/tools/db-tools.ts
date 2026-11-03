@@ -61,7 +61,7 @@ const PAPER_BOOKS = [
   { id: -7, name: 'LeadTrader', tests: 'one ledger source (Kalshi, BTC and ETH) held to its 240-minute horizon' },
   { id: -8, name: 'FloorTrader', tests: 'long BTC and ETH sized to keep the book above 90% of its peak; no signal' },
   { id: -9, name: 'FloorLadderTrader', tests: 'the floor rule sized by the move the strike ladder prices' },
-  { id: -10, name: 'TrendTrader', tests: 'BTC and ETH held while above their 100-day average' },
+  { id: -10, name: 'TrendTrader', tests: 'BTC and ETH held while above their 100-day average; not started yet, so it has no trades' },
 ] as const;
 
 export const getPaperBooks: AgentTool<
@@ -115,6 +115,67 @@ export const getPaperBooks: AgentTool<
         open: { positions: o?.n ?? 0, notionalUsd: o?.notional ?? 0, openPnlUsd: o?.pnl ?? 0 },
       };
     });
+  },
+};
+
+type PoolSnap = { at: string; sharePrice: number; navUsd: number };
+
+export const getPools: AgentTool<
+  Record<string, never>,
+  Array<{
+    pool: string;
+    network: string;
+    money: string;
+    now: PoolSnap & { members?: number };
+    membersPaidInUsd?: number;
+    tradingEnabled?: boolean;
+  }>
+> = {
+  name: 'get_pools',
+  description:
+    'The deposit pools: for each, its network, whether it holds real money, and the latest NAV and share price with the snapshot time. For the SUI pool also what its members paid in (cost basis): NAV below that is what the members have lost. NAV counts the pool contract, the admin wallet and the trading venue account. Read from the NAV snapshots and member rows.',
+  parameters: { type: 'object', properties: {}, additionalProperties: false },
+  async execute() {
+    const [{ query }, { isPoolTradingEnabled }] = await Promise.all([
+      import('@/lib/db/postgres'),
+      import('@/lib/services/sui/pool-trading-pause'),
+    ]);
+    type Row = { at: Date | string; sp: number; nav: number; members?: number };
+    // No history comparison: SUI snapshots from 2026-10-01 to 10-06 carry a wrong share price.
+    const [[sui], [sol], [basis]] = await Promise.all([
+      query<Row>(
+        `SELECT timestamp AS at, share_price::float8 AS sp, total_nav::float8 AS nav, member_count AS members
+           FROM community_pool_nav_history WHERE chain = 'sui' ORDER BY timestamp DESC LIMIT 1`,
+      ),
+      query<Row>(
+        `SELECT recorded_at AS at, share_price AS sp, nav_usd AS nav
+           FROM solana_pool_nav_history WHERE cluster = 'devnet' AND nav_usd IS NOT NULL
+          ORDER BY recorded_at DESC LIMIT 1`,
+      ),
+      query<{ usd: number | null }>(
+        `SELECT SUM(cost_basis_usd)::float8 AS usd FROM community_pool_shares WHERE chain = 'sui' AND shares > 0`,
+      ),
+    ]);
+    if (!sui) throw new Error('could not read the SUI pool NAV');
+    if (!sol) throw new Error('could not read the Solana pool NAV');
+    if (basis?.usd == null) throw new Error('could not read the SUI pool members');
+    const snap = (r: Row): PoolSnap => ({ at: new Date(r.at).toISOString(), sharePrice: Number(r.sp), navUsd: Number(r.nav) });
+    return [
+      {
+        pool: 'SUI USDC pool',
+        network: 'SUI mainnet',
+        money: 'real USDC, deposits capped at $10K by the contract',
+        now: { ...snap(sui), members: Number(sui.members) },
+        membersPaidInUsd: Number(basis.usd),
+        tradingEnabled: isPoolTradingEnabled(),
+      },
+      {
+        pool: 'Solana test pool',
+        network: 'Solana devnet',
+        money: 'test tokens only, no real money',
+        now: snap(sol),
+      },
+    ];
   },
 };
 
