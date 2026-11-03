@@ -76,7 +76,7 @@ export const getPaperBooks: AgentTool<
 > = {
   name: 'get_paper_books',
   description:
-    'Simulated (paper) books: for each one, what it tests, its closed trades over the lookback (count, wins, realized USD, average trade in bp of notional) and its open positions marked to market, all net of fees, slippage and funding, read from its rows. These are simulations, never real returns. A win rate means nothing without the average trade.',
+    'Simulated (paper) books: for each one, what it tests, its closed trades over the lookback (count, wins, realized USD, average trade in bp of notional) net of fees, slippage and funding, and its open positions marked to market before exit costs, read from its rows. These are simulations, never real returns. A win rate means nothing without the average trade.',
   parameters: {
     type: 'object',
     properties: {

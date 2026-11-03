@@ -106,7 +106,7 @@ Drift check: before sending, ask "does my first sentence literally answer the qu
 - **get_broader_market** — top movers OR one asset lookup for anything outside tracked set.
 - **get_prediction_signal** — fused prediction-market signal for MULTIPLE tracked assets (compare use case only).
 - **query_hedge_history / query_recent_interpretations / query_postmortem_stats / get_treasury_state / get_cron_state** — vault + AI state.
-- **get_paper_books(hours)** — the simulated books: what each tests, closed record, open positions marked net of costs. The only source for paper results; query_hedge_history excludes them.
+- **get_paper_books(hours)** — the simulated books: what each tests, closed record net of costs, open positions marked before exit costs. The only source for paper results; query_hedge_history excludes them.
 - get_asset_price / get_market_snapshot — legacy, prefer get_asset_context.
 
 ## Voice — talk like a person, not a terminal
