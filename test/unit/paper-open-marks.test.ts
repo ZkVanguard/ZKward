@@ -33,9 +33,14 @@ beforeEach(() => {
 });
 
 describe('markOpenRow', () => {
-  it('marks a long and a short in bp and dollars of notional', () => {
-    expect(markOpenRow(row(), 3800, NOW)).toMatchObject({ markBp: expect.closeTo(-500, 6), markUsd: expect.closeTo(-50, 6) });
+  it('marks a long and a short in bp, and in dollars net of the opening costs and funding, as the books value it', () => {
+    // -500 bp on $1,000 = -$50; opening fee 6.5 bp ($0.65) and ETH slippage 1 bp ($0.10); an hour of funding at 11% a year ($0.0126)
+    expect(markOpenRow(row(), 3800, NOW)).toMatchObject({ markBp: expect.closeTo(-500, 6), markUsd: expect.closeTo(-50 - 0.65 - 0.1 - 1000 * 0.11 / 8760, 6) });
     expect(markOpenRow(row({ side: 'SHORT', stop_loss: '4080' }), 3800, NOW).markBp).toBeGreaterThan(0);
+  });
+
+  it('a resting entry paid the maker fee and no slippage', () => {
+    expect(markOpenRow(row({ execution: 'resting' }), 4000, NOW).markUsd).toBeCloseTo(-0.1 - 1000 * 0.11 / 8760, 6);
   });
 
   it('a strategy book past its stop or its time limit is overdue; inside both it is not', () => {
@@ -59,7 +64,7 @@ describe('markOpenPaperPositions', () => {
     expect((await markOpenPaperPositions(price, NOW)).overdue).toEqual([]);
     expect(notifyDiscord).toHaveBeenCalledTimes(1);
     const update = query.mock.calls.find(([sql]) => String(sql).includes('UPDATE hedges'));
-    expect(update?.[1]).toEqual([3800, expect.closeTo(-50, 6), 'paper_ETH_1']);
+    expect(update?.[1]).toEqual([3800, expect.closeTo(-50 - 0.65 - 0.1 - 1000 * 0.11 / 8760, 6), 'paper_ETH_1']);
   });
 
   it('no price: the row keeps its last mark and nothing is written for it', async () => {
