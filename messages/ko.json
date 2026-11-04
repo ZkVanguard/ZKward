@@ -424,7 +424,7 @@
     "chat": {
       "title": "크립토, 시장, 볼트에 대해 물어보기",
       "readOnly": "읽기 전용",
-      "subtitle": "실시간 가격. 실시간 신호. 실시간 볼트 상태.",
+      "subtitle": "실시간 북, 풀, 시그널. 모든 수치를 데이터와 대조합니다.",
       "tryOneOfThese": "이런 걸 시도해 보세요:",
       "thinking": "생각 중…",
       "placeholder": "시장 질문이나 볼트 질문을 하세요…",
@@ -440,15 +440,23 @@
         "p1": "BTC 지금 어때?",
         "p2": "시장 스냅샷 — BTC, ETH, SOL, SUI",
         "p3": "예측 시장은 ETH를 어떻게 보나?",
-        "p4": "펀딩 비율을 두 문장으로 설명해",
-        "p5": "지난 24시간 우리 볼트는 뭘 했나?",
+        "p4": "페이퍼 북 성과는 어때?",
+        "p5": "풀은 어떤 상황이야?",
         "p6": "우리 AI가 이번 주 잘 예측하고 있나?"
       },
       "clear": "Clear",
       "clearHistory": "Clear conversation",
       "newChat": "New Chat",
       "newChatTooltip": "Start a fresh conversation (resets memory)",
-      "emptyResponse": "응답을 받지 못했습니다. 서비스가 업데이트 중이었을 수 있습니다. 다시 시도해 주세요."
+      "emptyResponse": "응답을 받지 못했습니다. 서비스가 업데이트 중이었을 수 있습니다. 다시 시도해 주세요.",
+      "check": {
+        "all": "수치 {total}개 모두 실시간 데이터와 일치",
+        "some": "수치 {total}개 중 {bad}개가 데이터에 없음",
+        "corrected": "검사기가 수정함",
+        "notFound": "데이터에 없음",
+        "removed": "삭제됨: 데이터에 없음"
+      },
+      "poweredBy": "Meta의 {model}로 작동"
     }
   },
   "story": {

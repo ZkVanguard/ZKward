@@ -424,7 +424,7 @@
     "chat": {
       "title": "Poser une question sur la crypto, les marchés ou le coffre",
       "readOnly": "Lecture seule",
-      "subtitle": "Prix live. Signaux live. État du coffre live.",
+      "subtitle": "Portefeuilles, pools et signaux en direct. Chaque chiffre vérifié sur les données.",
       "tryOneOfThese": "Essayez-en une :",
       "thinking": "en train de réfléchir…",
       "placeholder": "Posez une question marché ou une question coffre…",
@@ -440,15 +440,23 @@
         "p1": "Comment va BTC en ce moment ?",
         "p2": "Snapshot du marché — BTC, ETH, SOL, SUI",
         "p3": "Que pense le marché de prédiction pour ETH ?",
-        "p4": "Explique les funding rates en deux phrases",
-        "p5": "Qu'a fait notre coffre ces 24 dernières heures ?",
+        "p4": "Comment vont les portefeuilles simulés ?",
+        "p5": "Comment va le pool ?",
         "p6": "Notre IA prédit-elle correctement cette semaine ?"
       },
       "clear": "Clear",
       "clearHistory": "Clear conversation",
       "newChat": "New Chat",
       "newChatTooltip": "Start a fresh conversation (resets memory)",
-      "emptyResponse": "Aucune reponse recue - le service etait peut-etre en cours de mise a jour. Veuillez reessayer."
+      "emptyResponse": "Aucune reponse recue - le service etait peut-etre en cours de mise a jour. Veuillez reessayer.",
+      "check": {
+        "all": "{total, plural, =1 {# chiffre correspond} other {Les # chiffres correspondent}} aux données en direct",
+        "some": "{bad} chiffres sur {total} absents des données",
+        "corrected": "corrigé par le vérificateur",
+        "notFound": "absent des données",
+        "removed": "retiré : absent des données"
+      },
+      "poweredBy": "propulsé par {model} de Meta"
     }
   },
   "story": {
