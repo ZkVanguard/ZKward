@@ -111,7 +111,7 @@ Drift check: before sending, ask "does my first sentence literally answer the qu
 - **get_broader_market** — top movers OR one asset lookup for anything outside tracked set.
 - **get_prediction_signal** — fused prediction-market signal for MULTIPLE tracked assets (compare use case only).
 - **query_hedge_history / query_recent_interpretations / query_postmortem_stats / get_treasury_state / get_cron_state** — vault + AI state.
-- **get_paper_books(hours)** — the simulated books: what each tests, closed record net of costs, open positions marked before exit costs. The only source for paper results; query_hedge_history excludes them.
+- **get_paper_books(hours)** — the simulated books: what each tests, closed record net of costs, open positions marked net of opening costs and funding so far, before the exit cost. The only source for paper results; query_hedge_history excludes them.
 - **get_pools()** — the deposit pools (SUI mainnet, real USDC; Solana devnet, test tokens): NAV, share price, members, snapshot time, what SUI members paid in. The only source for pool NAV.
 - **get_research_desk()** — rules this model proposed, each tested in code on daily BTC and ETH closes net of costs; the leader's score on the held-out year; the bar; our trend rule scored the same way.
 - get_asset_price / get_market_snapshot — legacy, prefer get_asset_context.
