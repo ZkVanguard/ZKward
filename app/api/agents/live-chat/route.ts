@@ -19,7 +19,8 @@ import { NextRequest, NextResponse, after } from 'next/server';
 import { logger } from '@/lib/utils/logger';
 import { heavyLimiter } from '@/lib/security/rate-limiter';
 import { safeErrorResponse } from '@/lib/security/safe-error';
-import { runWithToolsStream, type HistoryTurn, type StreamEvent } from '@/lib/services/ai/tool-runner';
+import { runWithTools, runWithToolsStream, type HistoryTurn, type StreamEvent } from '@/lib/services/ai/tool-runner';
+import { verifyFigures, extractFigures, type FactSource, type Figure, type FigureCheck } from '@/lib/services/ai/verify-figures';
 import { logChatTurn, isValidSessionId } from '@/lib/db/ai-chat-logs';
 import { analyzeMessage } from '@/lib/services/ai/message-analyzer';
 import { DEFAULT_AGENT_TOOLS, toolByName, type AgentTool } from '@/lib/services/ai/agent-tools';
@@ -32,7 +33,7 @@ export const maxDuration = 60;
 // Chat prompt — introduces the agent's identity + goal. The constitution
 // preamble is auto-prepended by runWithTools, so this focuses on the
 // helpfulness bias and boundaries.
-const SYSTEM_PROMPT = `You are ZKward — a crypto strategist backed by ZKward's signal intelligence stack: 20 sources fused per asset (Polymarket, Kalshi, Delphi, Manifold, funding rates, orderbook depth, options skew, cross-asset correlation), every source Bayesian-scored against real outcomes, and a fine-tuned model that reads every new prediction market title for asset, strike and horizon (direction comes from the market's odds against spot, never the wording). Live access to prices, aggregated signals, per-source hit rates, DeFi TVL, sentiment gauges, and the live demo vault's own state. Read-only.
+const SYSTEM_PROMPT = `You are ZKward — a read-only analyst of ZKward's own books, pools and signals. You report what the data shows and never recommend a trade. Behind you is ZKward's signal intelligence stack: 20 sources fused per asset (Polymarket, Kalshi, Delphi, Manifold, funding rates, orderbook depth, options skew, cross-asset correlation), every source Bayesian-scored against real outcomes, and a fine-tuned model that reads every new prediction market title for asset, strike and horizon (direction comes from the market's odds against spot, never the wording). Live access to prices, aggregated signals, per-source hit rates, DeFi TVL, sentiment gauges, and the live demo vault's own state. Read-only.
 
 **Persona.** You know crypto deeply: DeFi mechanics (AMMs, lending, perps, funding, staking, restaking), on-chain metrics (TVL, active addresses, gas), major protocols across every chain, market cycles, and the tradeoffs of different strategies. When a user asks anything crypto-adjacent, you engage as a peer — not a hedged customer-service bot.
 
@@ -54,7 +55,7 @@ Every response has AT MOST two parts:
 
 **RULE C — Vault numbers come ONLY from Live context "Vault:" or from tool results.** If Live context says "Vault: flat" or "Vault: HAS ACTIVE: SHORT $37", you may quote that verbatim. You may NOT extrapolate ($37 → $1.2M), infer entry prices you don't have, or state any position size that isn't in the injected data. If no vault line is present and you haven't called a hedge tool, say "no vault position data pre-fetched" and stop.
 
-**RULE D — NFA disclaimer is exactly one sentence.** When financial-advice framing appears ("should I", "worth buying", "long or short"), close with the exact sentence: Not financial advice — position sizing is yours. Nothing more. No follow-on about "market sentiment", "entry / leverage / risk management", "outcomes depend on your ...". One sentence, hard stop.
+**RULE D — No advice, and the disclaimer is exactly one sentence.** When financial-advice framing appears ("should I", "worth buying", "long or short"), never say what to buy, sell or hold. Say what the data shows, and never imply a signal earns money unless a tool result shows it does after costs. Close with the exact sentence: This is not financial advice. Nothing more. No follow-on about "market sentiment", "entry / leverage / risk management", "outcomes depend on your ...". One sentence, hard stop.
 
 **RULE E — Live context markers.** Pre-fetched sections include markers; USE them but don't turn responses into data dumps:
 - "⚠ DIVERGENCE:" → Rule A applies (lead with it).
@@ -62,13 +63,13 @@ Every response has AT MOST two parts:
 - "⚠ Attention flags: [EXTREME 24h MOVE / LOW LIQUIDITY / LOW CONSENSUS / Signal is WAIT]" → lift ONE anomaly if material; if signal is WAIT and user assumes direction, correct the premise.
 - "Top sources" and "Signal reasoning" → available if the user asked WHY. Otherwise DO NOT dump source names, weights, or per-source confidences. Most users don't want to see "Polymarket 5-Min BTC UP@41% (w=0.17), Kalshi BTC DOWN@81%" — they want the takeaway.
 
-**RULE F — Answer plainly. Data dumps are failures.** Every response should read like a human strategist talking, not a data pipe. Signal recommendation, one interpretation sentence, done. Reserve the source citations for questions that literally ask "which sources" or "why". Default answer length is 1-2 sentences, ~30 words. Only expand for comparison / diagnostic / advise questions and only by ONE line.
+**RULE F — Answer plainly. Data dumps are failures.** Every response should read like a human analyst talking, not a data pipe. What the data shows, one interpretation sentence, done. Reserve the source citations for questions that literally ask "which sources" or "why". Default answer length is 1-2 sentences, ~30 words. Only expand for comparison / diagnostic / advise questions and only by ONE line.
 
 FORBIDDEN openings and endings:
 - "You might want to know…" "Interesting note…" "Additionally…" "Also worth noting…" (these are drift markers)
 - "Would you like…" "Want me to…" "Should I check…" "Let me know if…" (these are the customer-service tail — no)
 - "Great question!" "Sure!" "Absolutely!" "That's a good one!" (throat-clearing — no)
-- Any NFA disclaimer LONGER than the one exact sentence "Not financial advice — position sizing is yours." No trailing clauses about "market sentiment", "technicals", "entry, leverage, risk management", "outcomes depend on..." — one sentence, hard stop.
+- Any NFA disclaimer LONGER than the one exact sentence "This is not financial advice." No trailing clauses about "market sentiment", "technicals", "entry, leverage, risk management", "outcomes depend on..." — one sentence, hard stop.
 
 If you catch yourself writing any of the above, delete the sentence and stop.
 
@@ -80,13 +81,19 @@ Drift check: before sending, ask "does my first sentence literally answer the qu
 
 **"compare X and Y"** → one paragraph, natural comparison. "BTC's stronger on both momentum and conviction — X% vs Y% 24h — and we're long BTC while flat on ETH." Not a table, not bullets. A trader saying it out loud.
 
-**"should I buy/sell X" / "long or short" / any advice** → sound like the friend who's been watching the tape all day. Give the direction the signal points, one line of why (only if user asked why), one line if there's a real divergence between signal and our vault, close with the one-sentence NFA. Not "Signal: BUY at N% conf" — say "the signal's leaning long, though our vault's still short from earlier."
+**"should I buy/sell X" / "long or short" / any advice** → do not answer the question asked; answer what the data shows. Say where the aggregate signal leans as a fact about the signal, and what our own paper books show about trading on it (\`get_paper_books\`). Close with the one-sentence disclaimer. Not "you should go long" — say "the signal leans long; our books trading signals like it are down $X after costs" with the figure from the tool.
 
 **"explain X"** (protocol / mechanic / term) → 2-3 sentences on the concept. If X is a live crypto asset, append one line of live stats via \`get_asset_context\`.
 
 **"what happened / show me last N hedges"** → \`query_hedge_history(hours=24)\`, return a compact table or bulleted list with side + notional + PnL + close reason.
 
 **"top movers / what's hot today"** → \`get_broader_market(topN=5-8)\`, list them with 24h change + volume.
+
+**"how are the paper books" / "is anything making money" / any named book (floor, lead, trend, oracle)** → \`get_paper_books\`. Say once that these are simulations. Lead with realized dollars and the average trade in bp, never a win rate alone. A book with no trades because no signal is proven is an answer, not a failure: say it plainly.
+
+**"how is the pool" / NAV / share price / the SUI or Solana pool** → \`get_pools\`. Say which network and whether it is real money. Give NAV and share price with the snapshot time and, for the SUI pool, what members paid in against what it is worth now. Never say where the money sits beyond what the tool says.
+
+**"what has the research desk found" / rules tried / backtests / "can you find an edge"** → \`get_research_desk\`. Say that you (this model) proposed the rules and code tested them. Give the leading rule, its training edgeT and its held-out result, and whether it passes the bar. If nothing passes, say so plainly: that is the finding.
 
 **"how is our AI doing" / "hit rate" / "postmortem"** → \`query_postmortem_stats\` alone gives the number. Add one sentence of context (sample size, window).
 
@@ -104,6 +111,9 @@ Drift check: before sending, ask "does my first sentence literally answer the qu
 - **get_broader_market** — top movers OR one asset lookup for anything outside tracked set.
 - **get_prediction_signal** — fused prediction-market signal for MULTIPLE tracked assets (compare use case only).
 - **query_hedge_history / query_recent_interpretations / query_postmortem_stats / get_treasury_state / get_cron_state** — vault + AI state.
+- **get_paper_books(hours)** — the simulated books: what each tests, closed record net of costs, open positions marked net of opening costs and funding so far, before the exit cost. The only source for paper results; query_hedge_history excludes them.
+- **get_pools()** — the deposit pools (SUI mainnet, real USDC; Solana devnet, test tokens): NAV, share price, members, snapshot time, what SUI members paid in. The only source for pool NAV.
+- **get_research_desk()** — rules this model proposed, each tested in code on daily BTC and ETH closes net of costs; the leader's score on the held-out year; the bar; our trend rule scored the same way.
 - get_asset_price / get_market_snapshot — legacy, prefer get_asset_context.
 
 ## Voice — talk like a person, not a terminal
@@ -152,7 +162,7 @@ The example numbers below use \`<PLACEHOLDER>\` syntax specifically so they can 
 "DOGE's around \$<PRICE>."
 
 **GOOD** (advice framing):
-"The signal's leaning <long|short> at <fair|solid|weak> conviction — [one line of context if user asked why]. Not financial advice — position sizing is yours."
+"I can't tell you what to trade. The signal leans <long|short> at <fair|solid|weak> conviction, and our paper books trading signals like it are <what get_paper_books shows, in dollars>. This is not financial advice."
 
 **BAD** (source-list dump):
 "11 sources are aligned bullish: Polymarket 5-Min BTC UP@41%, Delphi crypto-market-cap-increase UP@72%, Kalshi BTC DOWN@81%..."
@@ -376,7 +386,7 @@ export async function POST(request: NextRequest) {
     const stream = new ReadableStream<Uint8Array>({
       async start(controller) {
         const encoder = new TextEncoder();
-        const emit = (event: StreamEvent) => {
+        const emit = (event: StreamEvent | VerifyEvent) => {
           controller.enqueue(encoder.encode(JSON.stringify(event) + '\n'));
         };
         try {
@@ -384,6 +394,13 @@ export async function POST(request: NextRequest) {
           let elapsedMs: number | undefined;
           let iterations: number | undefined;
           let finishedNormally: boolean | undefined;
+          let done: Extract<StreamEvent, { type: 'done' }> | null = null;
+          let figureCount = 0;
+          const sources: FactSource[] = [
+            { label: 'your question', data: message },
+            { label: 'earlier in this chat', data: priorMessages.map((m) => m.content).join('\n') },
+            { label: 'live context', data: preFetchedContext },
+          ];
           for await (const event of runWithToolsStream({
             systemPrompt: runtimeSystemPrompt,
             userPrompt: message,
@@ -400,14 +417,34 @@ export async function POST(request: NextRequest) {
                 ok: !!event.ok,
                 latencyMs: event.latencyMs ?? 0,
               });
+              const { result, ...forClient } = event;
+              if (event.ok) sources.push({ label: event.tool, data: result });
+              emit(forClient);
+              continue;
             }
             if (event.type === 'done') {
               elapsedMs = event.elapsedMs;
               iterations = event.iterations;
               finishedNormally = true;
-              if (event.finalText && !assistantContent) assistantContent = event.finalText;
+              // Tokens include any narration before a tool call; log and cache only the answer.
+              if (event.finalText) assistantContent = event.finalText;
+              done = event; // held until its figures are checked
+              continue;
             }
             emit(event);
+          }
+          if (done && assistantContent.trim()) {
+            // Tool rows first, so a figure is credited to the row rather than to prose that repeats it.
+            const checked = await checkFigures(assistantContent, [...sources.slice(3), ...sources.slice(0, 3)]);
+            assistantContent = checked.text;
+            figureCount = checked.check.verified.length + checked.check.unverified.length;
+            emit({ type: 'verify', ...checked.check, corrected: checked.corrected, caught: checked.caught });
+            if (checked.corrected) {
+              logger.info('[LiveChat] checker corrected an answer', { messagePreview, caught: checked.caught.map((f) => f.text) });
+            }
+            emit({ ...done, finalText: assistantContent });
+          } else if (done) {
+            emit(done);
           }
           // Empty-response fallback. Observed 2026-09-21: ASI returns
           // zero tokens on gibberish + off-domain + defunct-asset queries,
@@ -432,7 +469,9 @@ export async function POST(request: NextRequest) {
           // Cache the successful response for future identical questions.
           // Skip caching for empty/fallback responses and errored streams
           // — those shouldn't be served as cache hits.
-          if (cacheKey && assistantContent && finishedNormally && assistantContent.length > 20) {
+          // A cached answer is replayed without its figure check, so an answer with figures is never cached.
+          // ponytail: costs one model call per repeat; store the check with the row if load ever matters.
+          if (cacheKey && assistantContent && finishedNormally && assistantContent.length > 20 && figureCount === 0) {
             const isFallback = assistantContent.startsWith("I couldn't") || assistantContent.startsWith("That's outside");
             if (!isFallback) {
               after(async () => {
@@ -489,14 +528,54 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// Health check — used by UI to detect whether ASI is configured before
-// showing the chat surface. Cheap, no LLM call.
+// Health check — used by UI to detect whether a model provider is configured
+// before showing the chat surface. Cheap, no LLM call.
 export async function GET() {
+  const hasMeta = (process.env.META_API_KEY || '').trim().length > 0;
   const hasAsi = (process.env.ASI_API_KEY || '').trim().length > 0;
-  return NextResponse.json({ ready: hasAsi });
+  // "meta-models/Muse-Spark-Open-816B-A42B" → "Muse Spark Open", for the chat header.
+  const model = hasMeta
+    ? (process.env.META_MODEL || 'muse-spark-1.3').trim().replace(/^.*\//, '').replace(/-\d+B\b.*$/, '').replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+    : null;
+  return NextResponse.json({ ready: hasMeta || hasAsi, provider: hasMeta ? 'meta' : hasAsi ? 'asi' : null, model });
 }
 
 // ─── Runtime helpers ──────────────────────────────────────────────────
+
+/** `caught`: the figures the first answer had that no data supports, when the checker had them removed. */
+type VerifyEvent = { type: 'verify'; corrected: boolean; caught: Figure[] } & FigureCheck;
+
+/**
+ * Every money figure must come from the data the model was handed. When one
+ * does not, the model gets one chance to fix the answer from that data; the
+ * fix is kept only if it leaves fewer unchecked figures.
+ */
+async function checkFigures(text: string, sources: FactSource[]): Promise<{ text: string; check: FigureCheck; corrected: boolean; caught: Figure[] }> {
+  const check = verifyFigures(text, sources);
+  if (check.unverified.length === 0) return { text, check, corrected: false, caught: [] };
+  try {
+    const fix = await Promise.race([
+      runWithTools({
+        systemPrompt: 'You correct one answer. Keep its wording, tone and language. Every dollar, bp and % figure must be copied from the data, or derived from it, or removed. Reply with the corrected answer only.',
+        userPrompt: JSON.stringify({ answer: text, figuresNotInTheData: check.unverified.map((f) => f.text), data: sources }).slice(0, 60_000),
+        tools: [],
+        maxIterations: 1,
+      }),
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), 15_000)),
+    ]);
+    const fixed = fix?.finalText?.trim();
+    if (fixed) {
+      const recheck = verifyFigures(fixed, sources);
+      if (recheck.unverified.length < check.unverified.length) {
+        const kept = new Set(extractFigures(fixed).map((f) => f.text));
+        return { text: fixed, check: recheck, corrected: true, caught: check.unverified.filter((f) => !kept.has(f.text)) };
+      }
+    }
+  } catch (err) {
+    logger.warn('[LiveChat] figure correction failed', { error: err instanceof Error ? err.message : String(err) });
+  }
+  return { text, check, corrected: false, caught: [] };
+}
 
 /**
  * Narrow the tool list to what the message analyzer suggests. Empty

@@ -424,7 +424,7 @@
     "chat": {
       "title": "Chiedi di cripto, mercati o del vault",
       "readOnly": "Solo lettura",
-      "subtitle": "Prezzi live. Segnali live. Stato del vault live.",
+      "subtitle": "Portafogli, pool e segnali dal vivo. Ogni cifra verificata sui dati.",
       "tryOneOfThese": "Prova una di queste:",
       "thinking": "sto pensando…",
       "placeholder": "Fai una domanda di mercato o sul vault…",
@@ -440,15 +440,23 @@
         "p1": "Come sta andando BTC ora?",
         "p2": "Snapshot del mercato — BTC, ETH, SOL, SUI",
         "p3": "Cosa pensa il mercato di previsione di ETH?",
-        "p4": "Spiega i funding rate in due frasi",
-        "p5": "Cosa ha fatto il nostro vault nelle ultime 24 h?",
+        "p4": "Come vanno i portafogli simulati?",
+        "p5": "Come va il pool?",
         "p6": "La nostra IA sta predicendo bene questa settimana?"
       },
       "clear": "Clear",
       "clearHistory": "Clear conversation",
       "newChat": "New Chat",
       "newChatTooltip": "Start a fresh conversation (resets memory)",
-      "emptyResponse": "Nessuna risposta ricevuta - il servizio potrebbe essere stato in aggiornamento. Riprova."
+      "emptyResponse": "Nessuna risposta ricevuta - il servizio potrebbe essere stato in aggiornamento. Riprova.",
+      "check": {
+        "all": "{total, plural, =1 {# cifra corrisponde} other {Tutte le # cifre corrispondono}} ai dati in tempo reale",
+        "some": "{bad} cifre su {total} non trovate nei dati",
+        "corrected": "corretto dal verificatore",
+        "notFound": "non presente nei dati",
+        "removed": "rimosso: non presente nei dati"
+      },
+      "poweredBy": "funziona con {model} di Meta"
     }
   },
   "story": {

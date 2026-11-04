@@ -24,6 +24,8 @@ export type ChatIntent =
   | 'historical'     // "BTC last week" / "ETH from ATH" / "SOL 30-day"
   | 'onchain'        // "gas fees" / "L2 TVL" / "which chain"
   | 'options'        // "IV" / "put call ratio" / "options market"
+  | 'paper_books'    // "how are the paper books" / "floor book" / "paper trading"
+  | 'research'       // "what has the research desk found" / "rules tried" / "backtests"
   | 'other';
 
 export type DeterministicRoute =
@@ -96,6 +98,12 @@ const PROTOCOLS = new Set([
 // Intent keyword clusters — regex-hit order matters, earlier wins.
 // More specific patterns MUST come first to avoid stealing broader ones.
 const INTENT_PATTERNS: Array<{ intent: ChatIntent; re: RegExp }> = [
+  // Paper books — first, so "why did the floor book lose" reaches the only
+  // tool that can see simulated rows (query_hedge_history excludes them).
+  { intent: 'research', re: /\b(research\s+desk|the\s+desk|rules?\s+(tried|tested)|backtests?|find\s+(an\s+|any\s+)?edge|(has|have|did)\s+(muse|the\s+model|you)\s+(tried|tested|found|learned)|what\s+(has|did)\s+it\s+(tried|tested|found|learned))\b/i },
+  { intent: 'paper_books', re: /\b(paper\s*(books?|trad\w*|results?)|simulat\w*\s+(books?|trad\w*)|(floor|ladder|lead|trend|oracle|gated)\s*(books?|trader)|the\s+books|(?<!order\s)books?)\b/i },
+  // Deposit pools — before 'lookup', so "how is the SUI pool" reads our pool, not the coin.
+  { intent: 'vault_state', re: /\b((our|the|sui|solana|usdc|community|deposit|test)\s+pools?|pool\s+(nav|tvl|value|balance|share\s*price|members?))\b/i },
   // Options — very specific, must come before generic 'market'
   // "implied vol" / "implied volatility" — vol\w* so "volatility" also matches
   // (previously \bvol\b required a word boundary after "vol" which "volatility"
@@ -110,7 +118,7 @@ const INTENT_PATTERNS: Array<{ intent: ChatIntent; re: RegExp }> = [
   { intent: 'news', re: /\b(news|trending|hot\s+right\s+now|what.s\s+trending|any\s+news|breaking\s+news|new\s+(coin|launch|listing))\b/i },
   // Diagnose asset move — specific, must come before generic 'diagnose'
   { intent: 'diagnose_move', re: /\b(why\s+is\s+\w+\s+(pumping|dumping|up|down|rising|falling|moving|mooning|crashing|rallying)|what.s\s+(moving|driving|pushing)\s+\w+|catalyst\s+for)\b/i },
-  { intent: 'advise', re: /\b(should\s+(i|we)|worth\s+(buying|selling)|good\s+(time|move)|time\s+to\s+(buy|sell|enter|exit))\b/i },
+  { intent: 'advise', re: /\b(should\s+(i|we)|worth\s+(buying|selling)|good\s+(time|move|buy|sell)|(a\s+)?(buy|sell)\s+(now|today|this\s+week)|time\s+to\s+(buy|sell|enter|exit)|long\s+or\s+short|short\s+or\s+long|bullish\s+or\s+bearish)\b/i },
   { intent: 'diagnose', re: /\b(why\s+(did|is|are|has|does)|what\s+went\s+wrong|what\s+happened|explain\s+the\s+(loss|drop|dip|crash|move))\b/i },
   { intent: 'compare', re: /\b(compare|vs\.?|versus|better|stronger|weaker|between\s+\w+\s+and)\b/i },
   { intent: 'defi', re: /\b(tvl|total\s+value\s+locked|defi|protocol|yield|apy|apr)\b/i },
@@ -217,7 +225,8 @@ export function analyzeMessage(text: string): MessageAnalysis {
       suggestedTools.push('query_hedge_history', 'get_asset_context', 'query_recent_interpretations', 'get_cron_state');
       break;
     case 'advise':
-      suggestedTools.push('get_asset_context', 'get_prediction_signal', 'query_postmortem_stats');
+      // The books are the evidence on whether trading a signal pays; advice questions get them, never a call.
+      suggestedTools.push('get_asset_context', 'get_prediction_signal', 'query_postmortem_stats', 'get_paper_books');
       break;
     case 'explain':
       // Concept questions rarely need tools; leave empty so LLM leans on knowledge
@@ -226,7 +235,7 @@ export function analyzeMessage(text: string): MessageAnalysis {
       suggestedTools.push('get_broader_market', 'get_fear_greed_index', 'get_market_snapshot');
       break;
     case 'vault_state':
-      suggestedTools.push('query_hedge_history', 'get_treasury_state', 'query_postmortem_stats', 'get_asset_context');
+      suggestedTools.push('get_pools', 'query_hedge_history', 'get_treasury_state', 'query_postmortem_stats', 'get_asset_context');
       break;
     case 'sentiment':
       suggestedTools.push('get_fear_greed_index', 'get_prediction_signal', 'get_broader_market');
@@ -248,6 +257,12 @@ export function analyzeMessage(text: string): MessageAnalysis {
       // get_asset_context (which has no IV) and tells the user the tool
       // is unavailable. Narrowing forces the correct call.
       suggestedTools.push('get_options_data');
+      break;
+    case 'research':
+      suggestedTools.push('get_research_desk');
+      break;
+    case 'paper_books':
+      suggestedTools.push('get_paper_books', 'get_asset_context');
       break;
     case 'diagnose_move':
       // Multi-tool chain: context + news + funding for causal narrative
