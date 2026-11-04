@@ -19,6 +19,8 @@ export const FEE_BPS_PER_SIDE = 6.5;
 /** Resting-order fee. The venue lists 0.5 bp; the books assume double. */
 export const MAKER_FEE_BPS_PER_SIDE = Number(process.env.PAPER_MAKER_FEE_BPS || 1);
 export const FUNDING_APR = 0.11;
+/** A book that holds the coin itself (TrendTrader): one swap fee a side covering spread, no funding. */
+export const SPOT_FEE_BPS_PER_SIDE = 10;
 const SECONDS_PER_YEAR = 365 * 24 * 60 * 60;
 
 /**

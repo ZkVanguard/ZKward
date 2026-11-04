@@ -43,6 +43,10 @@ describe('markOpenRow', () => {
     expect(markOpenRow(row({ execution: 'resting' }), 4000, NOW).markUsd).toBeCloseTo(-0.1 - 1000 * 0.11 / 8760, 6);
   });
 
+  it('the trend book holds spot: its swap fee, no slippage, no funding', () => {
+    expect(markOpenRow(row({ portfolio_id: -10, created_at: new Date(NOW - 30 * 86_400_000) }), 4400, NOW).markUsd).toBeCloseTo(100 - 1, 6);
+  });
+
   it('a strategy book past its stop or its time limit is overdue; inside both it is not', () => {
     expect(markOpenRow(row(), 3800, NOW).overdue).toMatch(/past its stop/);
     expect(markOpenRow(row(), 3990, NOW).overdue).toBeNull();

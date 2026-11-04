@@ -71,12 +71,14 @@ export async function readFloorProof(marks: ReadonlyMap<string, number>, nowMs: 
 
 /** The scoreboard's floor field: the plain book, and its ladder-sized twin once it has started. */
 export async function floorScoreboardText(marks: ReadonlyMap<string, number>, nowMs: number = Date.now()): Promise<string | null> {
-  const [plain, twin] = await Promise.all([
+  const [plain, twin, trend] = await Promise.all([
     readFloorProof(marks, nowMs, 'floor-trader:state'),
     readFloorProof(marks, nowMs, 'floor-ladder-trader:state'),
+    readFloorProof(marks, nowMs, 'trend-trader:state'),
   ]);
   const parts: string[] = [];
   if (plain) parts.push(`**Plain (×3):** ${floorProofLine(plain)}`);
   if (twin) parts.push(`**Ladder-sized twin:** ${floorProofLine(twin)}`);
+  if (trend) parts.push(`**Trend (25%, 100-day average):** ${floorProofLine(trend)}`);
   return parts.length ? parts.join('\n') : null;
 }
