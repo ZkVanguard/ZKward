@@ -93,6 +93,25 @@ describe('paper-book questions', () => {
   });
 });
 
+describe('research-desk questions', () => {
+  it.each([
+    'what has the research desk found?',
+    'which rules has Muse tried so far',
+    'can you find an edge?',
+    'show me the backtests',
+  ])('"%s" reaches get_research_desk', async (q) => {
+    const { analyzeMessage } = await import('@/lib/services/ai/message-analyzer');
+    const a = analyzeMessage(q);
+    expect(a.intent).toBe('research');
+    expect(a.suggestedTools[0]).toBe('get_research_desk');
+  });
+
+  it('is never served from the response cache', async () => {
+    const { isCacheable } = await import('@/lib/db/chat-response-cache');
+    expect(isCacheable('research', false)).toBe(false);
+  });
+});
+
 describe('get_paper_books', () => {
   const stats = { trades: 4, wins: 3, losses: 1, realizedUsd: -2.5, avgBp: -6, takeProfits: 3, stops: 1, timeLimits: 0 };
 

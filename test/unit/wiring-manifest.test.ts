@@ -53,6 +53,7 @@ describe('learning-loop write paths are wired', () => {
     { fn: 'recordInterpretation', definedIn: 'lib/db/signal-interpretations.ts' },
     { fn: 'recordSourceOutcome', definedIn: 'lib/services/ai/source-calibrator.ts' },
     { fn: 'recordOutcome', definedIn: 'lib/services/ai/probability-calibrator.ts' },
+    { fn: 'runResearchRound', definedIn: 'lib/services/ai/research-desk.ts' },
   ];
 
   for (const { fn, definedIn } of manifest) {
