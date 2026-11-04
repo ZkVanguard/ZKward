@@ -392,6 +392,7 @@ export async function POST(request: NextRequest) {
           let iterations: number | undefined;
           let finishedNormally: boolean | undefined;
           let done: Extract<StreamEvent, { type: 'done' }> | null = null;
+          let figureCount = 0;
           const sources: FactSource[] = [
             { label: 'your question', data: message },
             { label: 'earlier in this chat', data: priorMessages.map((m) => m.content).join('\n') },
@@ -433,6 +434,7 @@ export async function POST(request: NextRequest) {
             // Tool rows first, so a figure is credited to the row rather than to prose that repeats it.
             const checked = await checkFigures(assistantContent, [...sources.slice(3), ...sources.slice(0, 3)]);
             assistantContent = checked.text;
+            figureCount = checked.check.verified.length + checked.check.unverified.length;
             emit({ type: 'verify', ...checked.check, corrected: checked.corrected, caught: checked.caught });
             if (checked.corrected) {
               logger.info('[LiveChat] checker corrected an answer', { messagePreview, caught: checked.caught.map((f) => f.text) });
@@ -464,7 +466,9 @@ export async function POST(request: NextRequest) {
           // Cache the successful response for future identical questions.
           // Skip caching for empty/fallback responses and errored streams
           // — those shouldn't be served as cache hits.
-          if (cacheKey && assistantContent && finishedNormally && assistantContent.length > 20) {
+          // A cached answer is replayed without its figure check, so an answer with figures is never cached.
+          // ponytail: costs one model call per repeat; store the check with the row if load ever matters.
+          if (cacheKey && assistantContent && finishedNormally && assistantContent.length > 20 && figureCount === 0) {
             const isFallback = assistantContent.startsWith("I couldn't") || assistantContent.startsWith("That's outside");
             if (!isFallback) {
               after(async () => {
