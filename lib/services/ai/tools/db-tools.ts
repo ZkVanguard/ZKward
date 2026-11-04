@@ -61,7 +61,7 @@ const PAPER_BOOKS = [
   { id: -7, name: 'LeadTrader', tests: 'one ledger source (Kalshi, BTC and ETH) held to its 240-minute horizon' },
   { id: -8, name: 'FloorTrader', tests: 'long BTC and ETH sized to keep the book above 90% of its peak; no signal' },
   { id: -9, name: 'FloorLadderTrader', tests: 'the floor rule sized by the move the strike ladder prices' },
-  { id: -10, name: 'TrendTrader', tests: 'BTC and ETH held while above their 100-day average; not started yet, so it has no trades' },
+  { id: -10, name: 'TrendTrader', tests: 'BTC and ETH, each held as spot at 12.5% of the book while its last daily close is above its 100-day average, decided once a day; few trades by design' },
 ] as const;
 
 export const getPaperBooks: AgentTool<

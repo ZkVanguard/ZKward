@@ -32,7 +32,7 @@ jest.mock('@/lib/services/market-data/unified-price-provider', () => ({
 }));
 jest.mock('@/lib/utils/logger', () => ({ logger: { info: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn() } }));
 
-import { decisionDay, runTrendTick, spotClose, spotOpen, targetLots, trendOn, TREND_PORTFOLIO_ID } from '@/lib/services/paper-trader/TrendTrader';
+import { dailyCloses, decisionDay, runTrendTick, spotClose, spotOpen, targetLots, trendOn, TREND_PORTFOLIO_ID } from '@/lib/services/paper-trader/TrendTrader';
 
 const DAY = 86_400_000;
 const NOW = Date.parse('2026-10-23T00:10:00Z'); // past 00:05 UTC: yesterday's candle has closed
@@ -106,5 +106,33 @@ describe('a day of the book', () => {
     expect(s.bought).toBe(23);
     const next = await runTrendTick(NOW + 60_000, async () => rising);
     expect(next.bought).toBe(1);
+  });
+});
+
+describe('dailyCloses', () => {
+  it('returns closed days oldest first and drops the day still open', async () => {
+    const DAY = 86_400;
+    const now = Date.UTC(2026, 10, 4, 18); // 18:00 UTC: today's candle is still open
+    const today = Date.UTC(2026, 10, 4) / 1000;
+    const rows = [[today, 0, 0, 0, 30, 0], [today - DAY, 0, 0, 0, 20, 0], [today - 2 * DAY, 0, 0, 0, 10, 0]];
+    const fetchMock = jest.fn(async () => ({ ok: true, json: async () => rows }));
+    const real = global.fetch;
+    global.fetch = fetchMock as unknown as typeof fetch;
+    try {
+      expect(await dailyCloses('BTC', 2, now)).toEqual([10, 20]);
+      expect(String((fetchMock.mock.calls[0] as unknown[])[0])).toContain('BTC-USD');
+    } finally {
+      global.fetch = real;
+    }
+  });
+
+  it('throws on a failed read instead of returning nothing', async () => {
+    const real = global.fetch;
+    global.fetch = (async () => ({ ok: false, status: 451 })) as unknown as typeof fetch;
+    try {
+      await expect(dailyCloses('ETH', 100, Date.now())).rejects.toThrow('HTTP 451');
+    } finally {
+      global.fetch = real;
+    }
   });
 });
