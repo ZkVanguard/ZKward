@@ -25,6 +25,7 @@ export type ChatIntent =
   | 'onchain'        // "gas fees" / "L2 TVL" / "which chain"
   | 'options'        // "IV" / "put call ratio" / "options market"
   | 'paper_books'    // "how are the paper books" / "floor book" / "paper trading"
+  | 'research'       // "what has the research desk found" / "rules tried" / "backtests"
   | 'other';
 
 export type DeterministicRoute =
@@ -99,6 +100,7 @@ const PROTOCOLS = new Set([
 const INTENT_PATTERNS: Array<{ intent: ChatIntent; re: RegExp }> = [
   // Paper books — first, so "why did the floor book lose" reaches the only
   // tool that can see simulated rows (query_hedge_history excludes them).
+  { intent: 'research', re: /\b(research\s+desk|the\s+desk|rules?\s+(tried|tested)|backtests?|find\s+(an\s+|any\s+)?edge|(has|have|did)\s+(muse|the\s+model|you)\s+(tried|tested|found|learned)|what\s+(has|did)\s+it\s+(tried|tested|found|learned))\b/i },
   { intent: 'paper_books', re: /\b(paper\s*(books?|trad\w*|results?)|simulat\w*\s+(books?|trad\w*)|(floor|ladder|lead|trend|oracle|gated)\s*(books?|trader)|the\s+books|(?<!order\s)books?)\b/i },
   // Deposit pools — before 'lookup', so "how is the SUI pool" reads our pool, not the coin.
   { intent: 'vault_state', re: /\b((our|the|sui|solana|usdc|community|deposit|test)\s+pools?|pool\s+(nav|tvl|value|balance|share\s*price|members?))\b/i },
@@ -255,6 +257,9 @@ export function analyzeMessage(text: string): MessageAnalysis {
       // get_asset_context (which has no IV) and tells the user the tool
       // is unavailable. Narrowing forces the correct call.
       suggestedTools.push('get_options_data');
+      break;
+    case 'research':
+      suggestedTools.push('get_research_desk');
       break;
     case 'paper_books':
       suggestedTools.push('get_paper_books', 'get_asset_context');

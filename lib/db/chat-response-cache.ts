@@ -156,6 +156,6 @@ export async function setCachedResponse(
 export function isCacheable(intent: string, hasPriorMessages: boolean): boolean {
   if (hasPriorMessages) return false; // follow-ups depend on context
   // Personal, time-sensitive, or event-anchored intents — always fresh
-  if (['vault_state', 'paper_books', 'diagnose', 'diagnose_move'].includes(intent)) return false;
+  if (['vault_state', 'paper_books', 'research', 'diagnose', 'diagnose_move'].includes(intent)) return false;
   return true;
 }

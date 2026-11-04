@@ -179,6 +179,17 @@ export const getPools: AgentTool<
   },
 };
 
+export const getResearchDesk: AgentTool<Record<string, never>, unknown> = {
+  name: 'get_research_desk',
+  description:
+    'The research desk, where this model proposes trading rules each round and code tests them on daily BTC and ETH closes net of costs. Returns how many rules were tried, the leading rule with its training score and its score on the held-out year the model never saw, whether it passes the bar (which rises with every rule tried), our live trend rule scored the same way, and the latest rules. edgeT is the t-statistic of the timing over simply holding the same share: about 2 or more is evidence, near 0 is none.',
+  parameters: { type: 'object', properties: {}, additionalProperties: false },
+  async execute() {
+    const { readDesk } = await import('@/lib/services/ai/research-desk');
+    return readDesk();
+  },
+};
+
 export const queryHedgeHistory: AgentTool<
   { asset?: string; hours?: number; status?: 'active' | 'closed'; limit?: number },
   Array<{
