@@ -7,16 +7,20 @@
  *   2. If model returns tool_calls, execute each, append observations
  *   3. Loop until finish_reason=stop or maxIterations
  *
- * ## Provider chain (ASI-only — this stack has no OpenAI dependency)
+ * ## Provider chain (this stack has no OpenAI dependency)
  *
  *   1. Injected client (tests)
- *   2. ASI:One — Fetch.ai's LLM, OpenAI-compat API. Tool-use capable.
+ *   2. Meta Model API — Muse Spark, OpenAI-compat chat completions with
+ *      tool use (only tool_choice "auto" is accepted).
+ *      ENV: META_API_KEY. Model: META_MODEL (default muse-spark-1.3).
+ *      URL: META_API_URL (default https://api.meta.ai/v1).
+ *   3. ASI:One — Fetch.ai's LLM, OpenAI-compat API. Tool-use capable.
  *      ENV: ASI_API_KEY. Model: ASI_MODEL (default asi1-mini).
  *      URL: ASI_API_URL (default https://api.asi1.ai/v1).
- *   3. No-op — key not set, callers get empty finalText.
+ *   4. No-op — no key set, callers get empty finalText.
  *
- * The `openai` npm package is used as a THIN CLIENT for ASI's OpenAI-
- * compat API (custom baseURL). We never call api.openai.com.
+ * The `openai` npm package is used as a THIN CLIENT for these OpenAI-
+ * compat APIs (custom baseURL). We never call api.openai.com.
  *
  * ## Why not the fine-tuned Qwen 2.5 7B
  *
@@ -53,11 +57,18 @@ interface ResolvedProvider {
   name: string;
 }
 
-/** Resolve provider from env. ASI-only — this stack does NOT use OpenAI. */
-async function resolveProvider(): Promise<ResolvedProvider | null> {
+/** Resolve provider from env: Meta when its key is set, else ASI. Never OpenAI. */
+export async function resolveProvider(): Promise<ResolvedProvider | null> {
+  const metaKey = (process.env.META_API_KEY || '').trim();
   const asiKey = (process.env.ASI_API_KEY || '').trim();
-  if (!asiKey) return null;
+  if (!metaKey && !asiKey) return null;
   const OpenAI = (await import('openai')).default;
+  if (metaKey) {
+    const metaUrl = (process.env.META_API_URL || 'https://api.meta.ai/v1').trim();
+    const metaModel = (process.env.META_MODEL || 'muse-spark-1.3').trim();
+    const raw = new OpenAI({ apiKey: metaKey, baseURL: metaUrl });
+    return { client: raw as unknown as ChatClient, model: metaModel, name: 'meta' };
+  }
   const asiUrl = (process.env.ASI_API_URL || 'https://api.asi1.ai/v1').trim();
   const asiModel = (process.env.ASI_MODEL || 'asi1-mini').trim();
   const raw = new OpenAI({ apiKey: asiKey, baseURL: asiUrl });
@@ -134,7 +145,8 @@ export type StreamEvent =
   | { type: 'iteration'; n: number }
   | { type: 'token'; delta: string }
   | { type: 'tool_start'; tool: string; argsPreview: string }
-  | { type: 'tool_end'; tool: string; ok: boolean; latencyMs: number; error?: string }
+  // `result` is for the server (the figure check); the chat route strips it before streaming.
+  | { type: 'tool_end'; tool: string; ok: boolean; latencyMs: number; error?: string; result?: unknown }
   | { type: 'done'; elapsedMs: number; iterations: number; finalText: string }
   | { type: 'error'; message: string };
 
@@ -171,9 +183,18 @@ interface AccumulatedToolCall {
   argumentsJson: string;
 }
 
+// Muse Spark sometimes ends a turn with "I'll pull the records…" and no tool
+// call. One nudge makes it act; a second such turn is taken as the answer.
+// ponytail: phrase match, not a classifier; widen the pattern if a provider words it differently.
+const PROMISE_TO_ACT = /\b(I'll|I will|let me|pulling|checking|fetching|looking up)\b/i;
+export const NUDGE_TO_ACT = 'Do it now: call the tool you need, then answer from its result.';
+export function isPromiseToAct(text: string, toolsOffered: number): boolean {
+  return toolsOffered > 0 && text.length < 300 && PROMISE_TO_ACT.test(text);
+}
+
 /** Main entry point. Returns text + everything the agent looked up. */
 export async function runWithTools(opts: RunWithToolsOptions): Promise<RunWithToolsResult> {
-  const tools = opts.tools ?? DEFAULT_AGENT_TOOLS;
+  let tools = opts.tools ?? DEFAULT_AGENT_TOOLS;
   const maxIterations = opts.maxIterations ?? DEFAULT_MAX_ITERATIONS;
 
   let client: ChatClient;
@@ -186,7 +207,7 @@ export async function runWithTools(opts: RunWithToolsOptions): Promise<RunWithTo
   } else {
     const resolved = await resolveProvider();
     if (!resolved) {
-      logger.warn('[ToolRunner] ASI_API_KEY unset — tool-use disabled, returning no-op');
+      logger.warn('[ToolRunner] META_API_KEY and ASI_API_KEY unset — tool-use disabled, returning no-op');
       return {
         finalText: '',
         invocations: [],
@@ -209,12 +230,14 @@ export async function runWithTools(opts: RunWithToolsOptions): Promise<RunWithTo
     { role: 'user', content: opts.userPrompt },
   ];
 
-  const openAiTools = toolsToOpenAiSchema(tools);
+  let openAiTools = toolsToOpenAiSchema(tools);
   const invocations: ToolInvocation[] = [];
   let finishedNormally = false;
   let finalText = '';
+  let limit = maxIterations;
+  let nudged = false;
 
-  for (let iter = 1; iter <= maxIterations; iter++) {
+  for (let iter = 1; iter <= limit; iter++) {
     const resp = await client.chat.completions.create({
       model,
       messages,
@@ -233,6 +256,15 @@ export async function runWithTools(opts: RunWithToolsOptions): Promise<RunWithTo
     });
 
     if (choice.finish_reason === 'stop' || !msg.tool_calls || msg.tool_calls.length === 0) {
+      if (!nudged && !msg.tool_calls?.length && isPromiseToAct(msg.content ?? '', tools.length)) {
+        nudged = true;
+        limit++;
+        messages.push({ role: 'user', content: NUDGE_TO_ACT });
+        // It may have promised a tool the router did not offer; offer every read-only tool.
+        tools = [...tools, ...DEFAULT_AGENT_TOOLS.filter((t) => !tools.some((o) => o.name === t.name))];
+        openAiTools = toolsToOpenAiSchema(tools);
+        continue;
+      }
       finalText = msg.content ?? '';
       finishedNormally = true;
       return { finalText, invocations, iterations: iter, finishedNormally };
@@ -335,12 +367,12 @@ export async function* runWithToolsStream(
   opts: RunWithToolsOptions,
 ): AsyncGenerator<StreamEvent, void, void> {
   const started = Date.now();
-  const tools = opts.tools ?? DEFAULT_AGENT_TOOLS;
+  let tools = opts.tools ?? DEFAULT_AGENT_TOOLS;
   const maxIterations = opts.maxIterations ?? DEFAULT_MAX_ITERATIONS;
 
   const resolved = await resolveProvider();
   if (!resolved) {
-    logger.warn('[ToolRunner:stream] ASI_API_KEY unset — no-op stream');
+    logger.warn('[ToolRunner:stream] META_API_KEY and ASI_API_KEY unset — no-op stream');
     yield {
       type: 'done',
       elapsedMs: Date.now() - started,
@@ -360,10 +392,12 @@ export async function* runWithToolsStream(
     ...(opts.priorMessages ?? []).map((m) => ({ role: m.role, content: m.content })),
     { role: 'user', content: opts.userPrompt },
   ];
-  const openAiTools = toolsToOpenAiSchema(tools);
+  let openAiTools = toolsToOpenAiSchema(tools);
   let finalText = '';
+  let limit = maxIterations;
+  let nudged = false;
 
-  for (let iter = 1; iter <= maxIterations; iter++) {
+  for (let iter = 1; iter <= limit; iter++) {
     yield { type: 'iteration', n: iter };
 
     let stream;
@@ -435,6 +469,15 @@ export async function* runWithToolsStream(
     });
 
     if (toolCalls.length === 0 || finishReason === 'stop') {
+      if (!nudged && toolCalls.length === 0 && isPromiseToAct(assistantContent, tools.length)) {
+        nudged = true;
+        limit++;
+        messages.push({ role: 'user', content: NUDGE_TO_ACT });
+        // It may have promised a tool the router did not offer; offer every read-only tool.
+        tools = [...tools, ...DEFAULT_AGENT_TOOLS.filter((t) => !tools.some((o) => o.name === t.name))];
+        openAiTools = toolsToOpenAiSchema(tools);
+        continue;
+      }
       finalText = assistantContent;
       yield {
         type: 'done',
@@ -511,7 +554,7 @@ export async function* runWithToolsStream(
       const latencyMs = Date.now() - t0;
 
       if (result.ok) {
-        yield { type: 'tool_end', tool: tool.name, ok: true, latencyMs };
+        yield { type: 'tool_end', tool: tool.name, ok: true, latencyMs, result: result.result };
         messages.push({
           role: 'tool',
           tool_call_id: call.id,

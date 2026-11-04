@@ -37,6 +37,9 @@ import {
   getCronStateSnapshot,
   queryPostmortemStats,
   getTreasuryStateTool,
+  getPaperBooks,
+  getPools,
+  getResearchDesk,
 } from './tools/db-tools';
 import {
   getAssetPrice,
@@ -69,6 +72,9 @@ export const DEFAULT_AGENT_TOOLS: AgentTool[] = [
   getCronStateSnapshot,
   queryPostmortemStats,
   getTreasuryStateTool,
+  getPaperBooks,            // simulated books: record + open positions from rows
+  getPools,                 // deposit pools: NAV and share price from snapshots
+  getResearchDesk,          // rules the model proposed, tested in code, with the held-out year
   getBroaderMarket,
   getDefiLlamaTvl,
   getFearGreedIndex,

@@ -156,6 +156,8 @@ export async function GET(request: NextRequest): Promise<NextResponse<MasterCron
     // updates its heartbeat, heartbeat-monitor detects the stale-cron gap and
     // fires a Discord KILL. Added 2026-09-20 during the recovery from the
     // 24h jobs.zkward.com HMAC-secret-mismatch outage.
+    // One research round every 15 minutes (self-claimed); returns 202 and runs the model in after().
+    { name: 'Research Desk',            path: '/api/cron/research-desk' },
     { name: 'Heartbeat Monitor',        path: '/api/cron/heartbeat-monitor', timeoutMs: 15_000 },
   ];
 
