@@ -106,13 +106,23 @@ export function spotClose(pos: SimulatedPosition, exitPrice: number, now: number
 
 // ── reads ──
 
-/** Closed daily closes, oldest first, from a large exchange's public candles. Throws on a failed read. */
+/**
+ * Closed daily closes, oldest first, from a large exchange's public USD candles. Throws on a failed read.
+ * The source must answer from the production region (US): the USDT candles used first refuse US addresses.
+ */
 export async function dailyCloses(asset: string, days: number, now: number): Promise<number[]> {
-  const res = await fetch(`https://api.binance.com/api/v3/klines?symbol=${asset}USDT&interval=1d&limit=${days + 2}`, { signal: AbortSignal.timeout(8000) });
+  const DAY = 86_400_000;
+  // A few spare days: the source can miss a day, and trendOn needs `days` closes.
+  const start = new Date(now - (days + 5) * DAY).toISOString();
+  const res = await fetch(
+    `https://api.exchange.coinbase.com/products/${asset}-USD/candles?granularity=86400&start=${start}&end=${new Date(now).toISOString()}`,
+    { headers: { 'User-Agent': 'zkward' }, signal: AbortSignal.timeout(8000) },
+  );
   if (!res.ok) throw new Error(`daily candles ${asset}: HTTP ${res.status}`);
-  const rows = (await res.json()) as Array<[number, string, string, string, string, string, number]>;
+  // [open time in s, low, high, open, close, volume], newest first; the day still open is dropped.
+  const rows = (await res.json()) as number[][];
   if (!Array.isArray(rows)) throw new Error(`daily candles ${asset}: not a list`);
-  return rows.filter((k) => Number(k[6]) < now).map((k) => Number(k[4]));
+  return rows.filter((c) => c[0] * 1000 + DAY <= now).sort((a, b) => a[0] - b[0]).map((c) => Number(c[4]));
 }
 
 async function markPrice(asset: string): Promise<number | null> {
