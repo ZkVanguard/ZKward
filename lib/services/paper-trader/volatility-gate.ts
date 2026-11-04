@@ -73,24 +73,29 @@ export async function getRealizedVolPct(currency: 'BTC' | 'ETH'): Promise<number
   }
 }
 
-/** Realized volatility for SOL/XRP/DOGE — computed from Binance's
- *  1h klines (last 24h). Free public API. Returns annualized vol %.
- *  Cache 5min TTL to match Deribit's cadence. */
-export async function getBinanceRealizedVolPct(asset: string): Promise<number | null> {
-  const now = Date.now();
-  const cacheKey = `binance:${asset}`;
+/** Realized volatility for SOL/XRP/DOGE from the last 24 closed hourly USD
+ *  candles, annualized, in %. The source must answer from the production
+ *  region (US): the USDT perp candles read before refuse US addresses, so
+ *  every read failed open. Cache 5min TTL to match the BTC/ETH cadence. */
+export async function getHourlyRealizedVolPct(asset: string, now: number = Date.now()): Promise<number | null> {
+  const cacheKey = `hourly:${asset}`;
   const cached = cache.get(cacheKey);
   if (cached && now - cached.fetchedAt < CACHE_TTL_MS) return cached.vol;
   try {
     const resp = await fetch(
-      `https://fapi.binance.com/fapi/v1/klines?symbol=${asset}USDT&interval=1h&limit=24`,
-      { signal: AbortSignal.timeout(4000) },
+      `https://api.exchange.coinbase.com/products/${asset}-USD/candles?granularity=3600`,
+      { headers: { 'User-Agent': 'zkward' }, signal: AbortSignal.timeout(4000) },
     );
     if (!resp.ok) return null;
+    // [open time in s, low, high, open, close, volume], newest first; the hour still open is dropped.
     const raw = (await resp.json()) as unknown;
-    // klines format: [openTime, open, high, low, close, volume, ...]
-    if (!Array.isArray(raw) || raw.length < 6) return null;
-    const closes = raw.map((k) => parseFloat((k as unknown[])[4] as string)).filter(Number.isFinite);
+    if (!Array.isArray(raw)) return null;
+    const closes = (raw as number[][])
+      .filter((c) => Array.isArray(c) && c[0] * 1000 + 3_600_000 <= now)
+      .sort((a, b) => a[0] - b[0])
+      .slice(-25)
+      .map((c) => Number(c[4]))
+      .filter((x) => Number.isFinite(x) && x > 0);
     if (closes.length < 6) return null;
     // Log returns → stdev × sqrt(365 × 24) for annualized vol
     const rets: number[] = [];
@@ -99,13 +104,12 @@ export async function getBinanceRealizedVolPct(asset: string): Promise<number | 
     }
     const mean = rets.reduce((a, b) => a + b, 0) / rets.length;
     const variance = rets.reduce((a, b) => a + (b - mean) ** 2, 0) / rets.length;
-    const hourlyVol = Math.sqrt(variance);
-    const annualVol = hourlyVol * Math.sqrt(365 * 24) * 100;
+    const annualVol = Math.sqrt(variance) * Math.sqrt(365 * 24) * 100;
     if (!Number.isFinite(annualVol) || annualVol <= 0) return null;
     cache.set(cacheKey, { vol: annualVol, fetchedAt: now });
     return annualVol;
   } catch (e) {
-    logger.debug('[VolGate] Binance klines fetch failed (fail-open)', {
+    logger.debug('[VolGate] hourly candles fetch failed (fail-open)', {
       asset, error: errMsg(e),
     });
     return null;
@@ -117,7 +121,7 @@ export async function getBinanceRealizedVolPct(asset: string): Promise<number | 
  *
  *  Coverage:
  *    - BTC + ETH: Deribit's implied vol index (most reliable, options-implied)
- *    - SOL, XRP, DOGE + others: Binance 1h klines → realized vol
+ *    - SOL, XRP, DOGE + others: hourly USD candles → realized vol
  *
  *  Fail-open on any error. */
 export async function lowVolatilityRejection(asset: string): Promise<string | null> {
@@ -126,7 +130,7 @@ export async function lowVolatilityRejection(asset: string): Promise<string | nu
   if (upper === 'BTC' || upper === 'ETH') {
     vol = await getRealizedVolPct(upper);
   } else {
-    vol = await getBinanceRealizedVolPct(upper);
+    vol = await getHourlyRealizedVolPct(upper);
   }
   if (vol == null) return null; // fail-open on fetch failure
   if (vol >= MIN_ANNUAL_VOL_PCT) return null;
