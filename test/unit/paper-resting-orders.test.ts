@@ -43,7 +43,7 @@ jest.mock('@/lib/db/postgres', () => ({
 }));
 jest.mock('@/lib/services/paper-trader/volatility-gate', () => ({
   getRealizedVolPct: jest.fn(async () => 60),
-  getBinanceRealizedVolPct: jest.fn(async () => 60),
+  getHourlyRealizedVolPct: jest.fn(async () => 60),
   lowVolatilityRejection: jest.fn(async () => null),
 }));
 

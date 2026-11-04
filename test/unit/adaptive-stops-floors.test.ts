@@ -10,7 +10,7 @@
  */
 jest.mock('../../lib/services/paper-trader/volatility-gate', () => ({
   getRealizedVolPct: jest.fn(async () => null),
-  getBinanceRealizedVolPct: jest.fn(async () => null),
+  getHourlyRealizedVolPct: jest.fn(async () => null),
 }));
 
 import { computeAdaptiveThresholds } from '../../lib/services/paper-trader/adaptive-stops';
