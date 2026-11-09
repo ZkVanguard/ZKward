@@ -24,6 +24,9 @@ jobs:
       uses: actions/checkout@v4
       with:
         submodules: true
+
+    - name: Malware signature scan (before anything from the repo runs)
+      run: node scripts/security-scan.cjs
       
     - name: Setup Bun
       uses: oven-sh/setup-bun@v2
@@ -84,6 +87,9 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
+    - name: Malware signature scan (before anything from the repo runs)
+      run: node scripts/security-scan.cjs
+
     - name: Setup Python
       uses: actions/setup-python@v5
       with:
@@ -118,6 +124,9 @@ jobs:
       uses: actions/checkout@v4
       with:
         submodules: true
+
+    - name: Malware signature scan (before anything from the repo runs)
+      run: node scripts/security-scan.cjs
       
     - name: Setup Bun
       uses: oven-sh/setup-bun@v2
@@ -150,6 +159,9 @@ jobs:
       uses: actions/checkout@v4
       with:
         submodules: true
+
+    - name: Malware signature scan (before anything from the repo runs)
+      run: node scripts/security-scan.cjs
       
     - name: Setup Node.js
       uses: actions/setup-node@v4
