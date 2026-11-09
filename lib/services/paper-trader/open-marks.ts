@@ -11,6 +11,7 @@ import { query } from '@/lib/db/postgres';
 import { getCronStateStrict, setCronState } from '@/lib/db/cron-state';
 import { logger } from '@/lib/utils/logger';
 import { PAPER_TARGET_MAX_HOLD_MIN } from './config';
+import { FEE_BPS_PER_SIDE, MAKER_FEE_BPS_PER_SIDE, computeFeeUsd, computeGrossPnl, computeSlippageUsd, fundingForHold } from './simulated-executor';
 
 const MARKED_BOOKS = [-3, -4, -5, -7, -8, -9];
 /** Books with a stop and a time limit. The others close at a horizon or by a rule. */
@@ -30,12 +31,16 @@ interface OpenRow {
   notional_value: string;
   stop_loss: string | null;
   created_at: Date;
+  /** 'resting' or 'resting-entry' when the entry filled as a resting order (maker fee, no slippage). */
+  execution?: string | null;
 }
 
 export interface OpenMark {
   orderId: string;
   portfolioId: number;
+  /** The price move in the position's direction; the stop is checked against it. */
   markBp: number;
+  /** The result if valued now: the price move less the opening fee and slippage, with funding to date, as the books value it. */
   markUsd: number;
   /** Why the position is past its exit, or null. */
   overdue: string | null;
@@ -46,7 +51,11 @@ export function markOpenRow(row: OpenRow, mark: number, nowMs: number): OpenMark
   const entry = Number(row.entry_price);
   const long = row.side.toUpperCase() === 'LONG';
   const markBp = ((long ? mark / entry : entry / mark) - 1) * 10_000;
-  const markUsd = (markBp / 10_000) * Number(row.notional_value);
+  const notional = Number(row.notional_value);
+  const resting = /^resting/.test(row.execution ?? '');
+  const openCost = computeFeeUsd(notional, resting ? MAKER_FEE_BPS_PER_SIDE : FEE_BPS_PER_SIDE) + (resting ? 0 : computeSlippageUsd(notional, row.asset));
+  const funding = fundingForHold(notional, row.asset, long ? 'LONG' : 'SHORT', row.created_at.getTime(), nowMs);
+  const markUsd = computeGrossPnl(long ? 'LONG' : 'SHORT', entry, mark, notional) - openCost + funding;
   let overdue: string | null = null;
   if (STRATEGY_BOOKS.has(row.portfolio_id)) {
     const stop = row.stop_loss === null ? NaN : Number(row.stop_loss);
@@ -62,7 +71,7 @@ export async function markOpenPaperPositions(
   nowMs: number = Date.now(),
 ): Promise<{ marked: number; overdue: string[] }> {
   const rows = await query<OpenRow>(
-    `SELECT order_id, portfolio_id, asset, side, entry_price, notional_value, stop_loss, created_at
+    `SELECT order_id, portfolio_id, asset, side, entry_price, notional_value, stop_loss, created_at, metadata->>'execution' AS execution
        FROM hedges WHERE status = 'active' AND portfolio_id = ANY($1::int[])`,
     [MARKED_BOOKS],
   );
