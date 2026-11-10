@@ -6,9 +6,12 @@ on:
   pull_request:
     branches: [ main, develop ]
 
+permissions:
+  contents: read
+
 env:
   NODE_VERSION: '24.x'
-  BUN_VERSION: 'latest'
+  BUN_VERSION: '1.3.5'
 
 jobs:
   test:
@@ -21,7 +24,7 @@ jobs:
     
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       with:
         submodules: true
 
@@ -29,12 +32,12 @@ jobs:
       run: git fetch --no-tags --depth=1 origin main && git show FETCH_HEAD:scripts/security-scan.cjs | node -
       
     - name: Setup Bun
-      uses: oven-sh/setup-bun@v2
+      uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
       with:
         bun-version: ${{ env.BUN_VERSION }}
     
     - name: Setup Node.js ${{ matrix.node-version }}
-      uses: actions/setup-node@v4
+      uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
       with:
         node-version: ${{ matrix.node-version }}
     
@@ -70,7 +73,7 @@ jobs:
         NODE_TLS_REJECT_UNAUTHORIZED: '0'
     
     - name: Upload coverage
-      uses: codecov/codecov-action@v4
+      uses: codecov/codecov-action@b9fd7d16f6d7d1b5d2bec1a2887e65ceed900238 # v4
       if: matrix.node-version == '24.x'
       continue-on-error: true
       with:
@@ -85,13 +88,13 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
     - name: Malware signature scan (scanner from main, nothing from this checkout runs)
       run: git fetch --no-tags --depth=1 origin main && git show FETCH_HEAD:scripts/security-scan.cjs | node -
 
     - name: Setup Python
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
       with:
         python-version: '3.11'
 
@@ -102,7 +105,7 @@ jobs:
       run: python -m pytest zkp/tests -q
 
     - name: Setup Bun
-      uses: oven-sh/setup-bun@v2
+      uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
       with:
         bun-version: ${{ env.BUN_VERSION }}
 
@@ -121,7 +124,7 @@ jobs:
     
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       with:
         submodules: true
 
@@ -129,12 +132,12 @@ jobs:
       run: git fetch --no-tags --depth=1 origin main && git show FETCH_HEAD:scripts/security-scan.cjs | node -
       
     - name: Setup Bun
-      uses: oven-sh/setup-bun@v2
+      uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
       with:
         bun-version: ${{ env.BUN_VERSION }}
     
     - name: Setup Node.js
-      uses: actions/setup-node@v4
+      uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
       with:
         node-version: ${{ env.NODE_VERSION }}
     
@@ -156,7 +159,7 @@ jobs:
     
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       with:
         submodules: true
 
@@ -164,7 +167,7 @@ jobs:
       run: git fetch --no-tags --depth=1 origin main && git show FETCH_HEAD:scripts/security-scan.cjs | node -
       
     - name: Setup Node.js
-      uses: actions/setup-node@v4
+      uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
       with:
         node-version: ${{ env.NODE_VERSION }}
     
@@ -176,7 +179,7 @@ jobs:
       continue-on-error: true
     
     - name: Run Snyk security scan
-      uses: snyk/actions/node@master
+      uses: snyk/actions/node@11b673cfb4b0dc0d860a1323caa199d54950dcce # master on 2026-11-09
       continue-on-error: true
       env:
         SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
