@@ -61,7 +61,7 @@ const PAPER_BOOKS = [
   { id: -7, name: 'LeadTrader', tests: 'one ledger source (Kalshi, BTC and ETH) held to its 240-minute horizon' },
   { id: -8, name: 'FloorTrader', tests: 'long BTC and ETH sized to keep the book above 90% of its peak; no signal' },
   { id: -9, name: 'FloorLadderTrader', tests: 'the floor rule sized by the move the strike ladder prices' },
-  { id: -10, name: 'TrendTrader', tests: 'BTC and ETH held while above their 100-day average; not started yet, so it has no trades' },
+  { id: -10, name: 'TrendTrader', tests: 'BTC and ETH, each held as spot at 12.5% of the book while its last daily close is above its 100-day average, decided once a day; few trades by design' },
 ] as const;
 
 export const getPaperBooks: AgentTool<
@@ -76,7 +76,7 @@ export const getPaperBooks: AgentTool<
 > = {
   name: 'get_paper_books',
   description:
-    'Simulated (paper) books: for each one, what it tests, its closed trades over the lookback (count, wins, realized USD, average trade in bp of notional) net of fees, slippage and funding, and its open positions marked to market before exit costs, read from its rows. These are simulations, never real returns. A win rate means nothing without the average trade.',
+    'Simulated (paper) books: for each one, what it tests, its closed trades over the lookback (count, wins, realized USD, average trade in bp of notional) net of fees, slippage and funding, and its open positions marked to market net of the opening costs and funding so far but before the exit cost, read from its rows. These are simulations, never real returns. A win rate means nothing without the average trade.',
   parameters: {
     type: 'object',
     properties: {

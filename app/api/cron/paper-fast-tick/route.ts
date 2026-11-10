@@ -71,6 +71,19 @@ async function handle(request: NextRequest) {
 async function runStages(): Promise<Record<string, string>> {
   const results: Record<string, string> = {};
 
+  // First, so every book below is charged the venue's measured funding.
+  try {
+    const { loadFundingHistory } = await import('@/lib/services/paper-trader/funding-rate');
+    const f = await loadFundingHistory();
+    const coins = Object.entries(f.hours).filter(([, h]) => h.length);
+    results.funding = coins.length
+      ? `${coins.map(([c, h]) => `${c} ${h.length} h`).join(', ')} of venue funding (read ${new Date(f.checkedAt).toISOString().slice(11, 16)})`
+      : 'no venue funding kept yet: 11% a year assumed';
+  } catch (e) {
+    results.funding = `error: ${errMsg(e).slice(0, 80)}`;
+    logger.warn('[PaperFastTick] funding load failed (non-fatal)', { error: errMsg(e) });
+  }
+
   try {
     const { PaperTrader } = await import('@/lib/services/paper-trader/PaperTrader');
     const r = await PaperTrader.runTick();
@@ -149,6 +162,18 @@ async function runStages(): Promise<Record<string, string>> {
   } catch (e) {
     results.floorLadder = `error: ${errMsg(e).slice(0, 80)}`;
     logger.warn('[PaperFastTick] floor twin tick failed (non-fatal)', { error: errMsg(e) });
+  }
+
+  // The slow trend book (portfolio -10): holds a coin while it is above its 100-day average.
+  try {
+    const { TrendTrader } = await import('@/lib/services/paper-trader/TrendTrader');
+    const s = await TrendTrader.runTick(Date.now());
+    results.trend = s.skipped
+      ? `skipped — ${s.skipped}`
+      : `value ${s.valueUsd.toFixed(0)}, exposure ${s.exposureUsd.toFixed(0)} in ${s.lots} lots, bought ${s.bought}, sold ${s.sold}${s.decided ? `; decided ${s.decided}` : ''}`;
+  } catch (e) {
+    results.trend = `error: ${errMsg(e).slice(0, 80)}`;
+    logger.warn('[PaperFastTick] trend tick failed (non-fatal)', { error: errMsg(e) });
   }
 
   // The daily ladder's forecasts and their results, for the public scorecard.

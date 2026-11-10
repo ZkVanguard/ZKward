@@ -19,6 +19,8 @@ export const FEE_BPS_PER_SIDE = 6.5;
 /** Resting-order fee. The venue lists 0.5 bp; the books assume double. */
 export const MAKER_FEE_BPS_PER_SIDE = Number(process.env.PAPER_MAKER_FEE_BPS || 1);
 export const FUNDING_APR = 0.11;
+/** A book that holds the coin itself (TrendTrader): one swap fee a side covering spread, no funding. */
+export const SPOT_FEE_BPS_PER_SIDE = 10;
 const SECONDS_PER_YEAR = 365 * 24 * 60 * 60;
 
 /**
@@ -151,9 +153,50 @@ export function computeFeeUsd(notionalUsd: number, feeBps: number = FEE_BPS_PER_
 }
 
 /**
+ * The venue's hourly funding, loaded by funding-rate.ts: per coin, settlement
+ * times and a running sum of the rates, so a position pays exactly the hours
+ * it was open. Without it a coin is charged FUNDING_APR (11% a year, about
+ * twice what longs paid on the venue from 2025-07 to 2026-10).
+ */
+const fundingHistory = new Map<string, { times: number[]; cum: number[]; meanRate: number }>();
+
+export function setFundingHistory(hours: Record<string, Array<[number, number]>>): void {
+  fundingHistory.clear();
+  for (const [asset, rows] of Object.entries(hours)) {
+    if (!rows?.length) continue;
+    const times: number[] = [], cum: number[] = [];
+    let sum = 0;
+    for (const [t, r] of rows) { sum += r; times.push(t); cum.push(sum); }
+    fundingHistory.set(asset.toUpperCase(), { times, cum, meanRate: sum / rows.length });
+  }
+}
+
+/** Running sum of the settlements up to and including time t. */
+function cumAt(h: { times: number[]; cum: number[] }, t: number): number {
+  let lo = 0, hi = h.times.length - 1, idx = -1;
+  while (lo <= hi) { const mid = (lo + hi) >> 1; if (h.times[mid] <= t) { idx = mid; lo = mid + 1; } else hi = mid - 1; }
+  return idx < 0 ? 0 : h.cum[idx];
+}
+
+/**
+ * The funding a position paid (negative) or collected over (openedAt, now]:
+ * the hourly settlements in that span, signed by side; the part before the
+ * kept history at its average rate; FUNDING_APR for a coin with no history.
+ */
+export function fundingForHold(notionalUsd: number, asset: string, side: Side, openedAt: number, nowMs: number): number {
+  const h = fundingHistory.get(asset.toUpperCase());
+  if (!h) return computeFundingUsd(notionalUsd, side, nowMs - openedAt);
+  if (nowMs <= openedAt) return 0;
+  const first = h.times[0];
+  const beforeHours = openedAt < first ? (Math.min(first, nowMs) - openedAt) / 3_600_000 : 0;
+  const rateSum = beforeHours * h.meanRate + (nowMs > first ? cumAt(h, nowMs) - cumAt(h, Math.max(openedAt, first - 1)) : 0);
+  return (side === 'LONG' ? -1 : 1) * notionalUsd * rateSum;
+}
+
+/**
  * Funding paid/collected over the hold period, signed from the position's
- * perspective (negative = position paid). LONG pays under positive-funding
- * regime (typical bull-market perp); SHORT collects. Symmetric abs value.
+ * perspective (negative = position paid). A positive rate means longs pay and
+ * shorts collect; a negative one the reverse.
  */
 export function computeFundingUsd(
   notionalUsd: number,
@@ -220,7 +263,7 @@ export function simulateClose(
     position.notionalUsd,
   );
   const closeFeeUsd = computeFeeUsd(position.notionalUsd, resting ? MAKER_FEE_BPS_PER_SIDE : FEE_BPS_PER_SIDE);
-  const fundingUsd = computeFundingUsd(position.notionalUsd, position.side, holdMs);
+  const fundingUsd = fundingForHold(position.notionalUsd, position.asset, position.side, position.openedAt, nowMs);
   const slippageUsd =
     (position.slippageOpenUsd ?? 0) + (resting ? 0 : computeSlippageUsd(position.notionalUsd, position.asset));
   const realizedPnlUsd =
@@ -258,8 +301,7 @@ export function markToMarket(
     markPrice,
     position.notionalUsd,
   );
-  const holdMs = Math.max(0, nowMs - position.openedAt);
-  const fundingAccruedUsd = computeFundingUsd(position.notionalUsd, position.side, holdMs);
+  const fundingAccruedUsd = fundingForHold(position.notionalUsd, position.asset, position.side, position.openedAt, nowMs);
   return {
     unrealizedPnlUsd:
       gross - position.openFeeUsd - (position.slippageOpenUsd ?? 0) + fundingAccruedUsd,
