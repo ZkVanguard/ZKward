@@ -25,7 +25,7 @@
 
 import { logger } from '@/lib/utils/logger';
 import { errMsg } from '@/lib/utils/error-handler';
-import { getRealizedVolPct, getBinanceRealizedVolPct } from './volatility-gate';
+import { getRealizedVolPct, getHourlyRealizedVolPct } from './volatility-gate';
 
 // Static config from env, used as fallback when vol data is unavailable.
 const STATIC_STOP_LOSS_PCT = Number(process.env.PAPER_TRADER_STOP_LOSS_PCT || 0.012);
@@ -83,7 +83,7 @@ async function annualVolFor(asset: string): Promise<number | null> {
   if (upper === 'BTC' || upper === 'ETH') {
     return getRealizedVolPct(upper);
   }
-  return getBinanceRealizedVolPct(upper);
+  return getHourlyRealizedVolPct(upper);
 }
 
 /**
