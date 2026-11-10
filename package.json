@@ -69,11 +69,11 @@
     "local:rerun": "powershell -ExecutionPolicy Bypass -File scripts/local-ai.ps1 rerun",
     "local:tray": "powershell -ExecutionPolicy Bypass -WindowStyle Hidden -File scripts/local-ai-tray.ps1",
     "ai:train:full": "bash scripts/ai-training/run-training-pipeline.sh",
-    "predev": "node scripts/security-scan.cjs",
+    "predev": "git show origin/main:scripts/security-scan.cjs | node -",
     "dev": "cross-env NODE_OPTIONS=--no-deprecation next dev",
     "build": "cross-env NODE_OPTIONS=\"--no-deprecation --max-old-space-size=8192\" next build --webpack",
     "build:full": "bun run compile && bun run build",
-    "prestart": "node scripts/security-scan.cjs",
+    "prestart": "git show origin/main:scripts/security-scan.cjs | node -",
     "start": "bun run agents:start"
   },
   "overrides": {

@@ -25,8 +25,8 @@ jobs:
       with:
         submodules: true
 
-    - name: Malware signature scan (before anything from the repo runs)
-      run: node scripts/security-scan.cjs
+    - name: Malware signature scan (scanner from main, nothing from this checkout runs)
+      run: git fetch --no-tags --depth=1 origin main && git show FETCH_HEAD:scripts/security-scan.cjs | node -
       
     - name: Setup Bun
       uses: oven-sh/setup-bun@v2
@@ -87,8 +87,8 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Malware signature scan (before anything from the repo runs)
-      run: node scripts/security-scan.cjs
+    - name: Malware signature scan (scanner from main, nothing from this checkout runs)
+      run: git fetch --no-tags --depth=1 origin main && git show FETCH_HEAD:scripts/security-scan.cjs | node -
 
     - name: Setup Python
       uses: actions/setup-python@v5
@@ -125,8 +125,8 @@ jobs:
       with:
         submodules: true
 
-    - name: Malware signature scan (before anything from the repo runs)
-      run: node scripts/security-scan.cjs
+    - name: Malware signature scan (scanner from main, nothing from this checkout runs)
+      run: git fetch --no-tags --depth=1 origin main && git show FETCH_HEAD:scripts/security-scan.cjs | node -
       
     - name: Setup Bun
       uses: oven-sh/setup-bun@v2
@@ -160,8 +160,8 @@ jobs:
       with:
         submodules: true
 
-    - name: Malware signature scan (before anything from the repo runs)
-      run: node scripts/security-scan.cjs
+    - name: Malware signature scan (scanner from main, nothing from this checkout runs)
+      run: git fetch --no-tags --depth=1 origin main && git show FETCH_HEAD:scripts/security-scan.cjs | node -
       
     - name: Setup Node.js
       uses: actions/setup-node@v4

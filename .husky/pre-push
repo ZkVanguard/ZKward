@@ -29,7 +29,9 @@ if [ "$SUPPLY_CHAIN_BYPASS" = "1" ]; then
 fi
 
 echo "🔒 pre-push: running security scan..."
-if ! node scripts/security-scan.cjs; then
+# The scanner comes from protected main: a forged branch also infects scripts/security-scan.cjs,
+# so running the checkout's own copy would run the loader instead of catching it.
+if ! git show origin/main:scripts/security-scan.cjs | node -; then
   echo ""
   echo "❌ pre-push: security scan FAILED — refusing to push."
   echo "   Investigate the flagged files. If they're genuinely clean,"
