@@ -1,0 +1,14 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+# A poisoned branch is harmless until something runs it: `next dev` reloads
+# postcss.config.js, and every npm or bun script runs repository code. Scan the
+# moment new code lands, so the warning comes before anything executes it.
+# The scanner comes from protected main: a forged branch also infects scripts/security-scan.cjs,
+# so running the checkout's own copy would run the loader instead of catching it.
+if ! git show origin/main:scripts/security-scan.cjs | node - >/dev/null 2>&1; then
+  echo ""
+  echo "🚨 MALWARE SIGNATURE IN THIS CHECKOUT. Do not run dev, build, test or any script here."
+  echo "   Run: git show origin/main:scripts/security-scan.cjs | node -   to see the flagged files."
+  echo ""
+fi
