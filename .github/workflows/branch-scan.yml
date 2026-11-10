@@ -1,0 +1,42 @@
+name: Branch malware scan
+
+# ci.yml only runs for main, develop and pull requests; forged pushes landed on other branches.
+# A failed run emails the account that pushed.
+on:
+  push:
+    branches: ['**']
+  schedule:
+    - cron: '17 6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pushed-commit:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 1
+      # The scanner comes from protected main: a forged commit rewrites its own copy too.
+      - run: git fetch --no-tags --depth=1 origin main && git show FETCH_HEAD:scripts/security-scan.cjs | node -
+
+  # Runs from main's copy of this file, so a push that deletes the workflow on its branch is still swept.
+  all-branches:
+    if: github.event_name != 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 1
+      - name: Loader layout on any branch (code, 200+ blanks, more code on one line)
+        run: |
+          git fetch --no-tags --depth=1 origin '+refs/heads/*:refs/remotes/origin/*'
+          refs=$(git for-each-ref --format='%(refname)' refs/remotes/origin)
+          hits=$(git grep -lE -e '[[:blank:]]{200,}[^[:blank:]]' $refs -- '*.js' '*.cjs' '*.mjs' '*.ts' '*.jsx' '*.tsx' || true)
+          echo "branches swept: $(echo "$refs" | wc -l)"
+          if [ -n "$hits" ]; then echo "$hits"; exit 1; fi

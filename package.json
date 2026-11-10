@@ -29,7 +29,7 @@
     "security:scan": "node scripts/security-scan.cjs",
     "security:supply-chain": "node scripts/verify-supply-chain.cjs",
     "verify:frontend": "node scripts/verify-frontend.cjs",
-    "prebuild": "node scripts/fetch-private-modules.cjs && node scripts/security-scan.cjs && node scripts/verify-supply-chain.cjs && node scripts/verify-frontend.cjs",
+    "prebuild": "node scripts/security-scan.cjs && node scripts/fetch-private-modules.cjs && node scripts/verify-supply-chain.cjs && node scripts/verify-frontend.cjs",
     "clean": "rimraf dist coverage .hardhat cache",
     "compile": "hardhat compile",
     "compile:circuits": "bun run scripts/utils/generate-circuits.ts",
@@ -69,9 +69,11 @@
     "local:rerun": "powershell -ExecutionPolicy Bypass -File scripts/local-ai.ps1 rerun",
     "local:tray": "powershell -ExecutionPolicy Bypass -WindowStyle Hidden -File scripts/local-ai-tray.ps1",
     "ai:train:full": "bash scripts/ai-training/run-training-pipeline.sh",
+    "predev": "git show origin/main:scripts/security-scan.cjs | node -",
     "dev": "cross-env NODE_OPTIONS=--no-deprecation next dev",
     "build": "cross-env NODE_OPTIONS=\"--no-deprecation --max-old-space-size=8192\" next build --webpack",
     "build:full": "bun run compile && bun run build",
+    "prestart": "git show origin/main:scripts/security-scan.cjs | node -",
     "start": "bun run agents:start"
   },
   "overrides": {
