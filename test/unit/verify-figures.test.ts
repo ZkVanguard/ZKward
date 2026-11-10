@@ -31,6 +31,11 @@ describe('verifyFigures', () => {
     expect(r.verified.find((f) => f.text === '$40.62')?.source).toMatch(/^gap between/);
   });
 
+  it('reads the desk trading cost as bp, not as a percentage', () => {
+    const desk = [{ label: 'get_research_desk', data: { rulesTried: 1840, costPerChangeBp: 10, barEdgeT: 3.88 } }];
+    expect(verifyFigures('Tested net of 10bp per change.', desk).unverified).toEqual([]);
+  });
+
   it('reports a figure that is in no source', () => {
     const r = verifyFigures('FloorTrader made $5,000 last month, a 12% return.', sources);
     expect(r.unverified.map((f) => f.text)).toEqual(['$5,000', '12%']);

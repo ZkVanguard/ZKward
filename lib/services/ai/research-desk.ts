@@ -363,7 +363,7 @@ export async function readDesk() {
     models: [...new Set(trials.map((t) => t.model))],
     trainingYears: `${day(TRAIN_START)} to ${day(TRAIN_END)}`,
     heldOutFrom: day(TRAIN_END),
-    costBpPerChange: COST_BP,
+    costPerChangeBp: COST_BP,
     barEdgeT: bar,
     leader: leader && heldOut
       ? {
