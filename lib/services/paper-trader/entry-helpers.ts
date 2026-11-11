@@ -33,8 +33,6 @@ import {
   PAPER_STAKE_PCT,
   PAPER_LEVERAGE,
   PAPER_SKIP_STRONG_SIGNALS,
-  PAPER_CALIBRATED_MIN_WIN_RATE,
-  PAPER_CALIBRATED_RANK_MIN_N,
   PAPER_HALT_ENTRIES_IN_CHOP,
   PAPER_CHOP_STAKE_MULT,
   PAPER_PROBE_STAKE_MULT,
@@ -50,7 +48,6 @@ import {
   signalQualityRejection,
   appendSignalHistory,
 } from './signal-quality';
-import { assetSideBlacklistRejection } from './asset-side-blacklist';
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -60,7 +57,7 @@ export interface PickedCandidate {
   score: number;
   side: Side;
   regime?: 'TRENDING_UP' | 'TRENDING_DOWN' | 'CHOP' | null;
-  /** Why the entry trades at probe stake (blacklisted pair / STRONG signal). */
+  /** Why the entry trades at probe stake (a STRONG signal). */
   probe?: string | null;
   /** Hold horizon the ledger measured an edge at; null = heuristic hold. */
   holdHorizonMin?: number | null;
@@ -136,9 +133,9 @@ const recommendationToSide = (rec: string): Side | null => {
  * scoring candidate that survives every filter, or a skip reason.
  *
  * Filter order per candidate: recommendationToSide → signal-quality
- * (majority + stability) → concurrency (dedup + cluster) → blacklist →
- * calibrator → caller gates. STRONG signals and blacklisted pairs pass as
- * probes (sized down in sizeCandidate), not skips.
+ * (majority + stability) → concurrency (dedup + cluster) → ledger
+ * admission → caller gates. STRONG signals pass as probes (sized down in
+ * sizeCandidate), not skips.
  *
  * The signal-history append happens for the winning candidate so future
  * ticks have data for the stability filter — but only for the winner
@@ -194,30 +191,11 @@ export async function selectCandidate(
   }
   const holdPlan = (asset: string) => assetHoldPlan(ledgerCells, asset, undefined, recentCells);
 
-  // L6 — Multi-armed bandit multiplier on the candidate score. Historically
-  // profitable (asset, side) arms get their score boosted, chronic losers
-  // suppressed. Cold-start arms (<3 trades) return neutral 1.0 so the
-  // regular signal picker still gets to explore.
-  const { getArmMultiplier } = await import('./bandit');
-  const { calibrate } = await import('@/lib/services/ai/probability-calibrator');
-
-  // Fix K (2026-09-26) — rank candidates by CALIBRATED empirical win rate
-  // (fee-adjusted), not raw aggregator score. Historical audit showed raw
-  // confidence has no monotonic relationship with actual win rate:
-  //   raw 60-64 conf → 23.2% wr, raw 70-74 → 38.4% wr, raw 80-84 → 23.8% wr.
-  // The old code ranked by raw score, then GATED at pCalibrated < 0.50.
-  // That preferred high-raw-conf/low-actual-win over low-raw-conf/high-
-  // actual-win. Now: precompute calibrated prob per candidate, USE it as
-  // the rank key, and gate at the fee-adjusted threshold (default 0.53).
-  // Falls back to raw score when the (asset, side, bucket) has < min-N
-  // data — bootstrap window before empirical dominates.
-  const rankedCandidates: Array<{
-    asset: string;
-    prediction: AggregatedPrediction;
-    score: number;
-    calibratedProb: number | null;
-    calibrationN: number;
-  }> = [];
+  // Rank by the aggregator's own score, nudged by the ledger's hold plan.
+  // Per-trade learners (a coin-and-side bandit, a confidence calibrator)
+  // used to reorder this list from 6-40 trades each: win rates set by the
+  // exits, not by the signal.
+  const rankedCandidates: Array<{ asset: string; prediction: AggregatedPrediction; score: number }> = [];
   if (concurrencyFilter) {
     for (const [candidateAsset, pred] of Object.entries(scan.all)) {
       if (pred.confidence < effectiveMinConf) continue;
@@ -225,44 +203,13 @@ export async function selectCandidate(
       if (pred.sources.length < PAPER_MIN_SOURCES) continue;
       const rawScore = PredictionAggregatorService.scoreOpportunity(pred);
       if (rawScore <= 0) continue;
-      const side = recommendationToSide(pred.recommendation);
-      const armMult = side ? await getArmMultiplier(candidateAsset, side).catch(() => 1) : 1;
-      // Calibrated probability lookup — cheap cron_state read.
-      let calibratedProb: number | null = null;
-      let calibrationN = 0;
-      if (side) {
-        try {
-          // 'paper' namespace — self-calibrate on paper's own outcomes (Fix O).
-          const cal = await calibrate({ asset: candidateAsset, side, rawConfidencePct: pred.confidence, namespace: 'paper' });
-          calibratedProb = cal.pCalibrated;
-          calibrationN = cal.nHistory;
-        } catch { /* fall back to raw */ }
-      }
-      // Rank score: when we have real data, use calibrated prob × 100 so
-      // it competes on the same numeric scale as raw score. Multiply by
-      // bandit arm boost so historically-profitable arms still bubble up.
       const plan = holdPlan(candidateAsset).plan;
       const ledgerMult = plan ? Math.max(0.5, Math.min(1.5, plan.hitRate / 0.5)) : 1;
-      const rankScore = (calibratedProb !== null && calibrationN >= PAPER_CALIBRATED_RANK_MIN_N
-        ? calibratedProb * 100 * armMult
-        : rawScore * armMult) * ledgerMult;
-      rankedCandidates.push({ asset: candidateAsset, prediction: pred, score: rankScore, calibratedProb, calibrationN });
+      rankedCandidates.push({ asset: candidateAsset, prediction: pred, score: rawScore * ledgerMult });
     }
     rankedCandidates.sort((a, b) => b.score - a.score);
   } else {
-    // Legacy path: apply bandit boost to scan.best too so both paths agree.
-    const side = recommendationToSide(scan.best.prediction.recommendation);
-    const armMult = side ? await getArmMultiplier(scan.best.asset, side).catch(() => 1) : 1;
-    let calibratedProb: number | null = null;
-    let calibrationN = 0;
-    if (side) {
-      try {
-        const cal = await calibrate({ asset: scan.best.asset, side, rawConfidencePct: scan.best.prediction.confidence, namespace: 'paper' });
-        calibratedProb = cal.pCalibrated;
-        calibrationN = cal.nHistory;
-      } catch { /* fall back to raw */ }
-    }
-    rankedCandidates.push({ ...scan.best, score: scan.best.score * armMult, calibratedProb, calibrationN });
+    rankedCandidates.push(scan.best);
   }
 
   let lastSkipReason = 'no edge above gates';
@@ -304,37 +251,6 @@ export async function selectCandidate(
       continue;
     }
 
-    // Fix L (2026-09-26) — asset-side lifetime blacklist. Catches
-    // (asset, side) pairs where EVERY conf bucket bleeds (e.g. BTC LONG
-    // at 26% lifetime wr / -$24k across 114 trades). Broader than
-    // Fix K's per-bucket gate. A hit sizes the trade at probe stake
-    // (sizeCandidate) so the pair keeps producing the evidence that can
-    // clear it; only a probe stake of 0 blocks outright.
-    const blacklistReject = await assetSideBlacklistRejection(cand.asset, candSide);
-    if (blacklistReject && PAPER_PROBE_STAKE_MULT <= 0) {
-      logger.info('[PaperTrader] Fix L rejected candidate', { asset: cand.asset, side: candSide, reason: blacklistReject });
-      lastSkipReason = blacklistReject;
-      continue;
-    }
-
-    // Fix K (2026-09-26) — fee-adjusted calibrated-probability gate.
-    // Uses the pre-computed calibrated prob attached during ranking (no
-    // second cron_state read per candidate). Threshold raised from the
-    // pre-Fix-K 0.50 to PAPER_CALIBRATED_MIN_WIN_RATE (default 0.53) to
-    // cover 3× lev + 13bp round-trip fees + slight adverse-selection
-    // margin. Below 53% empirical wins → net loss even when trades
-    // marginally "win" by close.
-    if (
-      cand.calibratedProb !== null
-      && cand.calibrationN >= PAPER_CALIBRATED_RANK_MIN_N
-      && cand.calibratedProb < PAPER_CALIBRATED_MIN_WIN_RATE
-    ) {
-      const reason = `calibrator (${cand.asset} ${candSide}): bucket win-rate ${(cand.calibratedProb * 100).toFixed(0)}% (n=${cand.calibrationN}) below fee-adj ${(PAPER_CALIBRATED_MIN_WIN_RATE * 100).toFixed(0)}%`;
-      logger.info('[PaperTrader] Fix K rejected candidate', { asset: cand.asset, side: candSide, calibratedProb: cand.calibratedProb, n: cand.calibrationN });
-      lastSkipReason = reason;
-      continue;
-    }
-
     // Extra caller-supplied gate (streak / trend / vol / regret) —
     // was AFTER selection previously, meaning a top-pick rejection
     // aborted the tick instead of trying the next-best candidate.
@@ -358,7 +274,7 @@ export async function selectCandidate(
         ...cand,
         side: candSide,
         regime: currentRegime,
-        probe: blacklistReject ?? strongProbe,
+        probe: strongProbe,
         holdHorizonMin: PAPER_LEDGER_GATE ? plan?.horizonMin ?? null : null,
         ledgerHitRate: plan?.hitRate ?? null,
       },

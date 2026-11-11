@@ -28,7 +28,6 @@ import {
 import type { SimulatedPosition } from '@/lib/services/paper-trader/simulated-executor';
 import { markToMarket } from '@/lib/services/paper-trader/simulated-executor';
 import { getLivePrice } from '@/lib/services/market-data/unified-price-provider';
-import { CALIBRATION_EPOCH } from '@/lib/services/ai/source-calibrator';
 import { withOriginCache } from '@/lib/utils/origin-cache';
 
 export const runtime = 'nodejs';
@@ -36,74 +35,6 @@ export const runtime = 'nodejs';
 // whose background regeneration never landed — prod served the deploy-time
 // snapshot for 10h (2026-09-30). CDN caching comes from the Cache-Control
 // header set below (15 s fresh, then stale while it refreshes).
-
-interface BanditArm {
-  key: string;
-  wins: number;
-  trades: number;
-  totalRewardPct: number;
-  lastPulledAt: number;
-}
-interface SourceCal {
-  n: number;
-  wins: number;
-}
-
-/** Summarizes the learning subsystems for the dashboard paper-pool tab.
- *  All reads are cron_state fetches — cheap, no external calls. */
-async function loadLearningSnapshot() {
-  try {
-    const bandit = (await getCronState<Record<string, BanditArm>>('paper-trader:bandit:arms')) ?? {};
-    const arms = Object.values(bandit)
-      .filter((a) => a && a.trades > 0)
-      .map((a) => ({
-        key: a.key,
-        wins: a.wins,
-        trades: a.trades,
-        winPct: a.trades > 0 ? (a.wins / a.trades) * 100 : 0,
-        avgRewardPct: a.trades > 0 ? (a.totalRewardPct / a.trades) * 100 : 0,
-      }))
-      .sort((a, b) => b.avgRewardPct - a.avgRewardPct);
-
-    // Source calibrator entries under trader:source-cal:{key}. Load in one
-    // query — the LIKE scan is bounded (~200 keys total across all sources).
-    const rows = await query<{ key: string; value: SourceCal }>(
-      `SELECT key, value FROM cron_state WHERE key LIKE 'trader:source-cal:%'`,
-    );
-    const sources = rows
-      .filter((r) => (r.value as unknown as { epoch?: string })?.epoch === CALIBRATION_EPOCH)
-      .map((r) => {
-        const v = r.value as unknown as SourceCal;
-        const n = Number(v?.n ?? 0);
-        const wins = Number(v?.wins ?? 0);
-        return {
-          key: r.key.replace('trader:source-cal:', ''),
-          obs: n,
-          wins,
-          hitPct: n > 0 ? (wins / n) * 100 : 0,
-          killed: n >= 15 && wins / n < 0.4,
-        };
-      })
-      .filter((s) => s.obs >= 5)
-      .sort((a, b) => b.hitPct - a.hitPct);
-
-    return {
-      bandit: {
-        armCount: arms.length,
-        arms,
-      },
-      sources: {
-        total: sources.length,
-        killed: sources.filter((s) => s.killed).length,
-        top: sources.slice(0, 10),
-        bottom: [...sources].reverse().slice(0, 10),
-      },
-    };
-  } catch (e) {
-    logger.debug('[paper-trader/status] loadLearningSnapshot failed', { error: errMsg(e) });
-    return { bandit: { armCount: 0, arms: [] }, sources: { total: 0, killed: 0, top: [], bottom: [] } };
-  }
-}
 
 interface ClosedTradeRow {
   id: number;
@@ -296,7 +227,6 @@ async function handleGet(_req: NextRequest): Promise<NextResponse> {
       })),
       perAsset,
       navSeries: series ?? [],
-      learning: await loadLearningSnapshot(),
     });
     // Edge cache: 15 s fresh, then served stale while it refreshes in the background.
     // Frontend polls every 30s so cache hits ~50% of loads at zero

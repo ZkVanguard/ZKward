@@ -77,7 +77,7 @@ export interface SimulatedFillParams {
 }
 
 export interface SourceSnapshot {
-  key: string;             // normalized (see source-calibrator.normalizeSourceKey)
+  key: string;             // normalized (see source-keys.normalizeSourceKey)
   direction: 'UP' | 'DOWN' | 'NEUTRAL';
 }
 

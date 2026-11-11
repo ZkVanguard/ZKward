@@ -1,6 +1,6 @@
 /**
  * Sleeve trader: portfolio-margin sizing, entry gating, stop close,
- * stats + learning dispatch under the 'solana' namespace.
+ * stats.
  */
 import { describe, it, expect, beforeEach, jest } from '@jest/globals';
 
@@ -23,19 +23,16 @@ jest.mock('@/lib/services/market-data/PredictionAggregatorService', () => ({
   },
 }));
 
-jest.mock('@/lib/services/ai/source-calibrator', () => ({
+jest.mock('@/lib/services/ai/source-keys', () => ({
   normalizeSourceKey: (n: string) => n,
-  recordSourceOutcome: jest.fn(async () => undefined),
 }));
 
 const createHedge = jest.fn(async () => ({}));
 jest.mock('@/lib/db/hedges', () => ({ createHedge: (...a: unknown[]) => createHedge(...a) }));
 
 const settle = jest.fn(async (): Promise<boolean | undefined> => undefined);
-const learn = jest.fn(async () => undefined);
 jest.mock('@/lib/services/paper-trader/close-pipeline', () => ({
   settleHedgeRow: (...a: unknown[]) => settle(...a),
-  recordCloseLearning: (...a: unknown[]) => learn(...a),
 }));
 
 import { runSolanaSleeveTick } from '@/lib/services/solana/SolanaSleeveTrader';
@@ -114,7 +111,7 @@ describe('runSolanaSleeveTick', () => {
     expect(state.get('solana-pool:sleeve-position')).toBeUndefined();
   });
 
-  it('holds an open position and tracks peak, then closes on stop with stats + solana-namespace learning', async () => {
+  it('holds an open position and tracks peak, then closes on stop with stats', async () => {
     mockPreds = { BTC: pred('UP', 90) };
     mockMark = 100;
     await runSolanaSleeveTick(1000, 0); // opens BTC LONG @100, stop 97.5
@@ -128,13 +125,6 @@ describe('runSolanaSleeveTick', () => {
     expect(closed.action).toBe('closed');
     expect(settle).toHaveBeenCalledWith(
       expect.objectContaining({ reason: expect.stringContaining('stop-loss') }),
-    );
-    expect(learn).toHaveBeenCalledWith(
-      expect.anything(),
-      97.4,
-      expect.any(Number),
-      120_000,
-      expect.objectContaining({ calibratorNamespace: 'solana' }),
     );
     const stats = state.get('solana-pool:sleeve-stats') as { trades: number; wins: number };
     expect(stats.trades).toBe(1);
@@ -162,7 +152,6 @@ describe('runSolanaSleeveTick', () => {
     settle.mockResolvedValueOnce(false);
     const lost = await runSolanaSleeveTick(1000, 120_000);
     expect(lost.action).toBe('idle');
-    expect(learn).not.toHaveBeenCalled();
     expect(state.get('solana-pool:sleeve-stats')).toBeUndefined();
     expect(state.get('solana-pool:sleeve-position')).toBeNull();
   });

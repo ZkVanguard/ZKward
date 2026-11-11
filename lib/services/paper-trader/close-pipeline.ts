@@ -3,7 +3,7 @@
  *
  * Extracted 2026-09-29 (audit R3): PaperTrader (-3), PaperGatedTrader (-4)
  * and OracleTrader (-5) each carried a near-identical copy of "close a
- * position" — learning callbacks, hedges-row settlement, close-reason
+ * position" — hedges-row settlement and close-reason
  * categorization. Three copies already produced one real bug (gated's
  * NULL close_reason class) and silently diverged on funding_paid (gated
  * never wrote it — unified here: every book settles funding).
@@ -29,69 +29,6 @@ export function categorizeCloseReason(rawReason: string): string {
   if (r.includes('halt')) return 'halt';
   if (r.includes('rebalance')) return 'rebalance';
   return 'other';
-}
-
-export interface CloseLearningOpts {
-  /** probability-calibrator namespace; omit to skip calibrator write. */
-  calibratorNamespace?: string;
-  /** record (asset, side) bandit arm reward. Default true when notional > 0. */
-  bandit?: boolean;
-  /** score sourceSnapshot directions via source-calibrator. Default true. */
-  sourceOutcomes?: boolean;
-}
-
-/**
- * Learning callbacks shared by the strategy books. Every step is
- * individually non-fatal — learning must never block settlement.
- */
-export async function recordCloseLearning(
-  pos: SimulatedPosition,
-  exitPrice: number,
-  realizedPnlUsd: number,
-  now: number,
-  opts: CloseLearningOpts = {},
-): Promise<void> {
-  const actualDir: 'UP' | 'DOWN' | 'NEUTRAL' =
-    exitPrice > pos.entryPrice ? 'UP' : exitPrice < pos.entryPrice ? 'DOWN' : 'NEUTRAL';
-
-  if (opts.sourceOutcomes !== false && pos.sourceSnapshot && pos.sourceSnapshot.length > 0) {
-    try {
-      const { recordSourceOutcome } = await import('@/lib/services/ai/source-calibrator');
-      await Promise.all(
-        pos.sourceSnapshot.map((s) =>
-          recordSourceOutcome({
-            sourceKey: s.key,
-            sourceDirection: s.direction,
-            actualDirection: actualDir,
-          }).catch(() => undefined),
-        ),
-      );
-    } catch { /* non-fatal */ }
-  }
-
-  if (opts.bandit !== false && pos.notionalUsd > 0) {
-    try {
-      const { recordArmOutcome } = await import('./bandit');
-      await recordArmOutcome(pos.asset, pos.side, realizedPnlUsd / pos.notionalUsd, now);
-    } catch { /* non-fatal */ }
-  }
-
-  if (
-    opts.calibratorNamespace &&
-    pos.entryConfidence !== undefined &&
-    (pos.side === 'LONG' || pos.side === 'SHORT')
-  ) {
-    try {
-      const { recordOutcome } = await import('@/lib/services/ai/probability-calibrator');
-      await recordOutcome({
-        asset: pos.asset,
-        side: pos.side,
-        openConfidencePct: pos.entryConfidence,
-        realizedPnl: realizedPnlUsd,
-        namespace: opts.calibratorNamespace,
-      });
-    } catch { /* non-fatal */ }
-  }
 }
 
 export interface SettleHedgeRowArgs {

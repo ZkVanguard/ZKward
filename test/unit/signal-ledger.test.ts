@@ -19,7 +19,7 @@ jest.mock('@/lib/services/market-data/unified-price-provider', () => ({
 
 import { query } from '@/lib/db/postgres';
 import { getMultiSourceValidatedPrice } from '@/lib/services/market-data/unified-price-provider';
-import { buildSnapshotRows, gateSource, SHADOW_SOURCE } from '@/lib/services/market-data/signal-ledger';
+import { buildSnapshotRows, gateSource } from '@/lib/services/market-data/signal-ledger';
 import { resolveExpiredSignals } from '@/lib/db/signal-outcomes';
 
 const mockQuery = query as jest.MockedFunction<typeof query>;
@@ -78,15 +78,6 @@ describe('buildSnapshotRows', () => {
       expect(rows.filter((r) => r.asset === 'ETH').map(src)).toEqual(['on_chain:fundingB']);
     });
 
-    it('records the shadow vote beside the live one, and not when it has no direction', () => {
-      const shadow = { BTC: { direction: 'DOWN' as const, confidence: 61, probability: 55 }, ETH: { direction: 'NEUTRAL' as const, confidence: 30 } };
-      const rows = buildSnapshotRows(scanAll, prices, NOW, identityKey, [60], { shadow });
-      const v2 = rows.filter((r) => r.source === SHADOW_SOURCE);
-      expect(v2).toHaveLength(1);
-      expect(v2[0]).toMatchObject({ asset: 'BTC', direction: 'DOWN', confidence: 61, entryPrice: 65_000 });
-      expect(rows.find((r) => r.asset === 'BTC' && r.source === 'aggregate')?.direction).toBe('UP');
-    });
-
     it('a gate row carries the direction of the signal it refused', () => {
       const rows = buildSnapshotRows(scanAll, prices, NOW, identityKey, [60], { gateRefusals: { BTC: ['low-volatility', 'majority'], ETH: ['majority'] } });
       const gates = rows.filter((r) => r.source.startsWith('gate:'));
@@ -95,11 +86,11 @@ describe('buildSnapshotRows', () => {
       // ETH has no directional signal: there is nothing for a gate to refuse.
     });
 
-    it('shadow and gate rows stop at four hours; the day-long horizon keeps only what it had', () => {
-      const extras = { shadow: { BTC: { direction: 'UP' as const, confidence: 70 } }, gateRefusals: { BTC: ['majority'] } };
+    it('gate rows stop at four hours; the day-long horizon keeps only what it had', () => {
+      const extras = { gateRefusals: { BTC: ['majority'] } };
       const rows = buildSnapshotRows(scanAll, prices, NOW, identityKey, [240, 1440], extras);
-      const extra = rows.filter((r) => r.source === SHADOW_SOURCE || r.source.startsWith('gate:'));
-      expect(extra.map((r) => r.horizonMin)).toEqual([240, 240]);
+      const extra = rows.filter((r) => r.source.startsWith('gate:'));
+      expect(extra.map((r) => r.horizonMin)).toEqual([240]);
       expect(rows.some((r) => r.horizonMin === 1440 && r.source === 'aggregate')).toBe(true);
     });
   });

@@ -106,35 +106,6 @@ export const PAPER_ROLLING_LOSS_HALT_HOURS = Number(
   process.env.PAPER_TRADER_ROLLING_LOSS_HALT_HOURS || 4,
 );
 
-// Fix K (2026-09-26) — calibrated-probability-driven ranking + gating.
-//
-// The probability-calibrator learns per-(asset, side, conf-bucket) actual
-// win rate. Historically the paper trader USED it only as a binary
-// gate ("skip if calibrated < 50%"), and RANKED candidates by raw
-// aggregator score. But raw score is broken — bucket 80-84 was 23.8% wr,
-// bucket 70-74 was 38.4% wr (data 2026-09-25). Ranking by raw meant
-// picking high-conf/low-win-rate signals over low-conf/high-win-rate.
-//
-// This bumps the gate to a fee-adjusted breakeven and switches ranking
-// to calibrated probability when enough data exists.
-//
-// Threshold math: 3× leverage, 13bp round-trip fees, ~55/45 avg win/loss
-// dollar asymmetry → breakeven around 53% win rate. Everything below
-// bleeds after fees.
-export const PAPER_CALIBRATED_MIN_WIN_RATE = Number(
-  process.env.PAPER_TRADER_CALIBRATED_MIN_WIN_RATE || 0.53,
-);
-// Min bucket samples before calibrated prob replaces raw score as rank
-// key AND before the 53% gate fires. Shrinkage vs coverage tradeoff at
-// PRIOR_STRENGTH=10: n=5 → raw contributes 67% weight (gate toothless),
-// n=20 → raw 33% (catches worst buckets), n=50 → raw 17% (ideal but few
-// buckets meet it). Bumped 5 → 20 on 2026-09-26 after audit showed a
-// 40%-actual-wr bucket at conf=70 was calibrating to 0.60 and passing
-// the 53% gate. Push to 50 once lifetime trades > 1000.
-export const PAPER_CALIBRATED_RANK_MIN_N = Number(
-  process.env.PAPER_TRADER_CALIBRATED_RANK_MIN_N || 20,
-);
-
 // CHOP trades at reduced stake rather than halting: the classifier defaults
 // to CHOP whenever BTC vol < 45%, so a full halt locks the book out for most
 // market hours and leaves no samples to measure. The 30-min flip-age gate
@@ -147,48 +118,8 @@ export const PAPER_CHOP_STAKE_MULT = Math.min(
   Math.max(0, Number(process.env.PAPER_TRADER_CHOP_STAKE_MULT ?? 0.25)),
 );
 
-// Fix L (2026-09-26) — asset-side hard blacklist based on lifetime
-// empirical hit rate. Deep-dive audit showed 5 of 9 (asset,side) pairs
-// bleed 97% of the total loss:
-//   BTC LONG  114 tr / 26% wr / -$24k  ← 34% of bleed
-//   ETH SHORT  70 tr / 33% wr / -$20k
-//   SOL LONG   32 tr / 34% wr / -$14k
-//   BTC SHORT  36 tr / 22% wr / -$11k
-//   SOL SHORT  15 tr / 27% wr /  -$3k
-// The 3 winners (XRP LONG/SHORT, DOGE SHORT) net +$2k. Fix L blocks
-// any (asset,side) whose lifetime win rate is below MIN_WR AND has
-// at least MIN_N closed trades of evidence. Cold pairs pass through.
-//
-// Complements Fix K (calibrator per-bucket) — Fix L is a BROADER
-// per-pair filter that catches asset-sides where every conf bucket
-// bleeds. Cache the pair list for 30 min so we don't hit the DB
-// every candidate.
-export const PAPER_ASSET_SIDE_BLACKLIST_MIN_WR = Number(
-  process.env.PAPER_TRADER_ASSET_SIDE_BLACKLIST_MIN_WR || 0.40,
-);
-export const PAPER_ASSET_SIDE_BLACKLIST_MIN_N = Number(
-  process.env.PAPER_TRADER_ASSET_SIDE_BLACKLIST_MIN_N || 20,
-);
-export const PAPER_ASSET_SIDE_BLACKLIST_CACHE_TTL_MS = Number(
-  process.env.PAPER_TRADER_ASSET_SIDE_BLACKLIST_CACHE_TTL_MS || 30 * 60_000,
-);
-// Fix O (2026-09-27) — seeded blacklist priors. The pre-9/22 hedges rows
-// that justified Fix L (379 trades: BTC LONG 26% wr / -$24k etc.) were
-// deleted from the DB, so the "lifetime" blacklist restarted from zero
-// evidence and the known-toxic pairs traded freely for 4 more days
-// (BTC SHORT re-bled at 22% wr before reaching MIN_N again). These
-// pairs stay blocked until POST-reset data reaches MIN_N samples; once
-// n >= MIN_N the empirical win rate decides, so a genuinely reformed
-// pair earns its way back in. Format: 'ASSET:SIDE,ASSET:SIDE'.
-export const PAPER_ASSET_SIDE_BLACKLIST_SEEDS: ReadonlySet<string> = new Set(
-  (process.env.PAPER_TRADER_ASSET_SIDE_BLACKLIST_SEEDS
-    ?? 'BTC:LONG,BTC:SHORT,ETH:SHORT,SOL:LONG,SOL:SHORT')
-    .split(',')
-    .map((s) => s.trim().toUpperCase())
-    .filter((s) => /^[A-Z0-9]+:(LONG|SHORT)$/.test(s)),
-);
-// Entries the book holds evidence against — a blacklisted pair, or a
-// distrusted STRONG signal (PAPER_SKIP_STRONG_SIGNALS) — trade at this
+// Entries the book holds evidence against (a distrusted STRONG signal,
+// PAPER_SKIP_STRONG_SIGNALS; an unproven ledger verdict) trade at this
 // fraction of stake instead of being blocked. A hard block can never lift:
 // the only evidence that could clear it is the trades it prevents (BTC sat
 // at n=18 < 20 with both sides shut, 2026-09-30). 0 restores the blocks.
@@ -217,9 +148,7 @@ export const PAPER_PROBE_STAKE_MULT = Math.min(
  * Fix N (2026-09-26): 3% → 1.5%. Deep-dive audit showed fee cost is
  * $117/trade avg on 379 lifetime trades = $44k of the $71k total bleed.
  * Halving stake halves fee cost too. With 33% win rate + 1.4× loss/win
- * ratio, we need 55% wr to overcome $117/trade fees. Trade smaller
- * until Fix L (asset-side blacklist) + Fix K (calibrator ranking)
- * lift the win rate to fee-breakeven.
+ * ratio, we need 55% wr to overcome $117/trade fees.
  */
 export const PAPER_MAX_STAKE_PCT = Number(
   process.env.PAPER_TRADER_MAX_STAKE_PCT || 0.015,

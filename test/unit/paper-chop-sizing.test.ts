@@ -83,13 +83,13 @@ describe('chop-regime sizing', () => {
   });
 });
 
-describe('probe sizing (blacklisted pair / STRONG signal)', () => {
+describe('probe sizing (STRONG signal)', () => {
   const capped = (mult: number) => Math.min(NAV * PAPER_STAKE_PCT * mult, NAV * PAPER_MAX_STAKE_PCT);
 
-  it('a blacklisted pair trades at probe stake instead of being blocked', async () => {
+  it('a distrusted STRONG signal trades at probe stake instead of being blocked', async () => {
     expect(PAPER_PROBE_STAKE_MULT).toBe(0.25);
     const full = await sizeCandidate(pick('TRENDING_UP'), NAV, 1);
-    const probe = await sizeCandidate(pick('TRENDING_UP', 'asset-side-blacklist: BTC LONG'), NAV, 1);
+    const probe = await sizeCandidate(pick('TRENDING_UP', 'STRONG signal (BTC LONG)'), NAV, 1);
     expect(full.probeStakeMult).toBe(1);
     expect(probe.probeStakeMult).toBe(0.25);
     expect(probe.stakeUsd).toBeCloseTo(capped(0.25), 6);
@@ -97,7 +97,7 @@ describe('probe sizing (blacklisted pair / STRONG signal)', () => {
   });
 
   it('probe and chop stack', async () => {
-    const both = await sizeCandidate(pick('CHOP', 'asset-side-blacklist: BTC SHORT'), NAV, 1);
+    const both = await sizeCandidate(pick('CHOP', 'STRONG signal (BTC SHORT)'), NAV, 1);
     expect(both.stakeUsd).toBeCloseTo(capped(0.25 * 0.25), 6);
   });
 });

@@ -75,7 +75,7 @@ export async function ensureSignalOutcomesTable(): Promise<void> {
 }
 
 export interface RecordSignalArgs {
-  source: string;          // normalized source key (source-calibrator.normalizeSourceKey)
+  source: string;          // normalized source key (source-keys.normalizeSourceKey)
   asset: string;           // BTC / ETH / SOL / XRP / DOGE
   horizonMin: number;      // fixed evaluation horizon in minutes (30 / 60 / 240)
   marketId?: string;

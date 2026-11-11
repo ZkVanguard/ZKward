@@ -1,29 +1,15 @@
 /**
  * Contract tests for the shared close pipeline (audit R3 extraction).
- * Pins the settlement SQL shape + learning dispatch so the three (now
- * four) consuming books cannot silently diverge again.
+ * Pins the settlement SQL shape so the consuming books cannot silently
+ * diverge again.
  */
 import { describe, it, expect, beforeEach, jest } from '@jest/globals';
 
 const queryMock = jest.fn(async () => [] as unknown[]);
 jest.mock('@/lib/db/postgres', () => ({ query: (...a: unknown[]) => queryMock(...a) }));
 
-const sourceOutcome = jest.fn(async () => undefined);
-jest.mock('@/lib/services/ai/source-calibrator', () => ({
-  recordSourceOutcome: (...a: unknown[]) => sourceOutcome(...a),
-}));
-const armOutcome = jest.fn(async () => undefined);
-jest.mock('@/lib/services/paper-trader/bandit', () => ({
-  recordArmOutcome: (...a: unknown[]) => armOutcome(...a),
-}));
-const calOutcome = jest.fn(async () => undefined);
-jest.mock('@/lib/services/ai/probability-calibrator', () => ({
-  recordOutcome: (...a: unknown[]) => calOutcome(...a),
-}));
-
 import {
   categorizeCloseReason,
-  recordCloseLearning,
   settleHedgeRow,
 } from '@/lib/services/paper-trader/close-pipeline';
 import type { SimulatedPosition, SimulatedCloseResult } from '@/lib/services/paper-trader/simulated-executor';
@@ -145,26 +131,5 @@ describe('settleHedgeRow', () => {
     await expect(
       settleHedgeRow({ orderId: 'oid-6', pos: pos(), result: result(), reason: 'x' }),
     ).resolves.toBe(true);
-  });
-});
-
-describe('recordCloseLearning', () => {
-  it('dispatches all three callbacks with a namespace', async () => {
-    await recordCloseLearning(pos(), 105, 48.49, 123, { calibratorNamespace: 'paper' });
-    expect(sourceOutcome).toHaveBeenCalledTimes(2);
-    expect(sourceOutcome).toHaveBeenCalledWith(
-      expect.objectContaining({ sourceKey: 'src-a', actualDirection: 'UP' }),
-    );
-    expect(armOutcome).toHaveBeenCalledWith('BTC', 'LONG', 48.49 / 1000, 123);
-    expect(calOutcome).toHaveBeenCalledWith(
-      expect.objectContaining({ namespace: 'paper', openConfidencePct: 72, realizedPnl: 48.49 }),
-    );
-  });
-
-  it('no namespace → calibrator untouched; empty snapshot → no source calls', async () => {
-    await recordCloseLearning(pos({ sourceSnapshot: [], entryConfidence: undefined }), 95, -10, 1);
-    expect(sourceOutcome).not.toHaveBeenCalled();
-    expect(calOutcome).not.toHaveBeenCalled();
-    expect(armOutcome).toHaveBeenCalledWith('BTC', 'LONG', -10 / 1000, 1);
   });
 });

@@ -55,7 +55,6 @@ import {
 } from './aggregator-fetchers';
 import { calculateAggregation, crowdedFundingDirection } from './aggregator-math';
 import { marketImpliedDirection } from './market-implied';
-import { LEDGER_WEIGHT_HORIZON_MIN } from './ledger-cells';
 
 // ─── Types ───────────────────────────────────────────────────────────
 
@@ -785,27 +784,26 @@ export class PredictionAggregatorService {
       // earn its way back.
       const assetRawSources = sources.map((s) => ({ ...s }));
 
-      // Apply learned per-source weight multipliers BEFORE the final
-      // normalization step. When a source has no calibration history the
-      // multiplier is 1.0 (identity), so this is safe to enable pre-data.
-      // The paper-trader (chain='hedera-testnet') feeds this calibrator
-      // from every closed trade — real trader benefits from the learned
-      // weights without needing its own recording path.
+      // One judge: the feedback loop's daily verdicts weight the votes (a
+      // wrong-way source removed, a proven one lifted). The per-cell rule
+      // and the per-trade hit rates that weighted them before acted on cells
+      // the loop's false-discovery and stability checks reject.
       try {
-        const { applyCalibrationToSources } = await import('@/lib/services/ai/source-calibrator');
-        const calibrated = await applyCalibrationToSources(sources, { asset, horizonMin: LEDGER_WEIGHT_HORIZON_MIN });
-        // applyCalibrationToSources returns fresh objects with re-normalized
-        // weights already; swap the reference for downstream aggregation.
+        const [{ applyLoopVerdicts, getLoopState }, { normalizeSourceKey }] = await Promise.all([
+          import('./feedback-loop'),
+          import('@/lib/services/ai/source-keys'),
+        ]);
+        const weighted = applyLoopVerdicts(sources, await getLoopState(), asset, normalizeSourceKey);
         sources.length = 0;
-        sources.push(...calibrated);
-      } catch (calErr) {
-        // Non-fatal: fall through with hand-coded weights + local normalize.
+        sources.push(...weighted);
+      } catch (loopErr) {
+        // Base weights are what an unproven loop gives every source.
         const total = sources.reduce((sum, s) => sum + s.weight, 0);
         if (total > 0) {
           for (const s of sources) s.weight = s.weight / total;
         }
-        logger.debug('[PredictionAggregator] source calibration skipped', {
-          error: calErr instanceof Error ? calErr.message : String(calErr),
+        logger.warn('[PredictionAggregator] loop verdicts unreadable; base weights this scan', {
+          error: loopErr instanceof Error ? loopErr.message : String(loopErr),
         });
       }
 

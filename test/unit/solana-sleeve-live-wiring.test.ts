@@ -21,16 +21,14 @@ jest.mock('@/lib/services/market-data/PredictionAggregatorService', () => ({
     getPerAssetPredictions: jest.fn(async () => ({ BTC: { direction: 'UP', confidence: 80, sources: [] } })),
   },
 }));
-jest.mock('@/lib/services/ai/source-calibrator', () => ({
+jest.mock('@/lib/services/ai/source-keys', () => ({
   normalizeSourceKey: (n: string) => n,
-  recordSourceOutcome: jest.fn(async () => undefined),
 }));
 const createHedge = jest.fn(async (_row: Record<string, unknown>) => ({}));
 jest.mock('@/lib/db/hedges', () => ({ createHedge: (row: Record<string, unknown>) => createHedge(row) }));
 const settle = jest.fn(async (_a: { result: { realizedPnlUsd: number; exitPrice: number } }): Promise<boolean | undefined> => undefined);
 jest.mock('@/lib/services/paper-trader/close-pipeline', () => ({
   settleHedgeRow: (a: { result: { realizedPnlUsd: number; exitPrice: number } }) => settle(a),
-  recordCloseLearning: jest.fn(async () => undefined),
 }));
 const notify = jest.fn(async (_m: string, _l: string, _c?: Record<string, unknown>) => undefined);
 jest.mock('@/lib/utils/discord-notify', () => ({ notifyDiscord: (m: string, l: string, c?: Record<string, unknown>) => notify(m, l, c) }));
