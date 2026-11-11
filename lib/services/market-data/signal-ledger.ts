@@ -57,11 +57,9 @@ interface ScanPrediction {
   sources: ScanSource[];
 }
 
-/** The vote the feedback loop's verdicts would cast, recorded beside the live one. */
-export const SHADOW_SOURCE = 'aggregate:v2';
 export const gateSource = (gate: string): string => `gate:${gate}`;
 /**
- * Shadow and gate rows exist to be judged, and nothing judges beyond four
+ * Gate rows exist to be judged, and nothing judges beyond four
  * hours: a day-long horizon gives the loop about one window a day.
  */
 const MEASURE_ONLY_MAX_HORIZON_MIN = 240;
@@ -73,8 +71,6 @@ const MEASURE_ONLY_MAX_HORIZON_MIN = 240;
 export interface SnapshotExtras {
   /** Each coin's votes before any was weighted or removed. Without it a removed source stops being measured and can never earn its way back. */
   rawSources?: Record<string, ScanSource[]>;
-  /** The shadow vote per coin. */
-  shadow?: Record<string, Pick<ScanPrediction, 'direction' | 'confidence' | 'probability'>>;
   /** Per coin, the entry gates that would refuse its current signal. */
   gateRefusals?: Record<string, string[]>;
 }
@@ -130,19 +126,6 @@ export function buildSnapshotRows(
         });
       }
       if (horizonMin > MEASURE_ONLY_MAX_HORIZON_MIN) continue;
-      const shadow = extras.shadow?.[asset];
-      if (shadow && (shadow.direction === 'UP' || shadow.direction === 'DOWN')) {
-        rows.push({
-          source: SHADOW_SOURCE,
-          asset,
-          horizonMin,
-          windowEndTime,
-          direction: shadow.direction,
-          probability: Math.max(0, Math.min(1, (shadow.probability ?? shadow.confidence) / 100)),
-          confidence: shadow.confidence,
-          entryPrice,
-        });
-      }
       if (pred.direction === 'UP' || pred.direction === 'DOWN') {
         for (const gate of extras.gateRefusals?.[asset] ?? []) {
           rows.push({
@@ -173,20 +156,14 @@ async function gatherSnapshotExtras(
   scanAll: Record<string, ScanPrediction>,
   universe: string[],
   now: number,
-  normalizeKey: (name: string, type: string) => string,
 ): Promise<SnapshotExtras> {
   const extras: SnapshotExtras = {};
   try {
     const { PredictionAggregatorService } = await import('./PredictionAggregatorService');
     const raw = await PredictionAggregatorService.getPerAssetRawSources(universe);
     extras.rawSources = raw;
-    const [{ applyLoopVerdicts, getLoopState }, { calculateAggregation }] = await Promise.all([import('./feedback-loop'), import('./aggregator-math')]);
-    const state = await getLoopState();
-    extras.shadow = Object.fromEntries(
-      Object.entries(raw).map(([asset, sources]) => [asset, calculateAggregation(applyLoopVerdicts(sources, state, asset, normalizeKey))]),
-    );
   } catch (e) {
-    logger.warn('[SignalLedger] raw votes or shadow vote unavailable this snapshot', { error: errMsg(e) });
+    logger.warn('[SignalLedger] raw votes unavailable this snapshot', { error: errMsg(e) });
   }
   try {
     const { entryGateSetting, gateRefusals } = await import('@/lib/services/paper-trader/entry-gates');
@@ -245,7 +222,7 @@ export async function runSignalLedgerTick(now: number = Date.now()): Promise<Led
 
       const { PredictionAggregatorService } = await import('./PredictionAggregatorService');
       const { PAPER_UNIVERSE } = await import('@/lib/services/paper-trader/config');
-      const { normalizeSourceKey } = await import('@/lib/services/ai/source-calibrator');
+      const { normalizeSourceKey } = await import('@/lib/services/ai/source-keys');
       const { getMultiSourceValidatedPrice } = await import('./unified-price-provider');
 
       // Gates zeroed: the ledger observes EVERYTHING, including sources and
@@ -267,7 +244,7 @@ export async function runSignalLedgerTick(now: number = Date.now()): Promise<Led
       );
 
       const scanAll = scan.all as unknown as Record<string, ScanPrediction>;
-      const extras = await gatherSnapshotExtras(scanAll, PAPER_UNIVERSE, now, normalizeSourceKey);
+      const extras = await gatherSnapshotExtras(scanAll, PAPER_UNIVERSE, now);
       const rows = buildSnapshotRows(scanAll, priceByAsset, now, normalizeSourceKey, undefined, extras);
       // Sequential-ish in chunks — recordSignal is an idempotent single
       // INSERT; chunking keeps pool pressure bounded on a 20-row tick.

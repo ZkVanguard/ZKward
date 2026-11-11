@@ -93,8 +93,9 @@ jest.mock('@/lib/db/cron-state', () => ({
   getCronStateOr: jest.fn(async (_key: string, fallback: unknown) => fallback),
   getCronState: jest.fn(async () => null),
 }));
-jest.mock('@/lib/services/ai/source-calibrator', () => ({
-  applyCalibrationToSources: jest.fn(async (s: unknown[]) => [...s]),
+jest.mock('@/lib/services/market-data/feedback-loop', () => ({
+  getLoopState: jest.fn(async () => null),
+  applyLoopVerdicts: jest.fn((s: unknown[]) => [...s]),
 }));
 
 import { PredictionAggregatorService } from '@/lib/services/market-data/PredictionAggregatorService';

@@ -51,8 +51,8 @@ describe('learning-loop write paths are wired', () => {
     { fn: 'applyLoopVerdicts', definedIn: 'lib/services/market-data/feedback-loop.ts' },
     { fn: 'gateRefusals', definedIn: 'lib/services/paper-trader/entry-gates.ts' },
     { fn: 'recordInterpretation', definedIn: 'lib/db/signal-interpretations.ts' },
-    { fn: 'recordSourceOutcome', definedIn: 'lib/services/ai/source-calibrator.ts' },
-    { fn: 'recordOutcome', definedIn: 'lib/services/ai/probability-calibrator.ts' },
+    // probability-calibrator's recordOutcome: the live trader, its one writer since the books stopped, imports it under this name.
+    { fn: 'recordCalibrationOutcome', definedIn: 'lib/services/ai/probability-calibrator.ts' },
     { fn: 'runResearchRound', definedIn: 'lib/services/ai/research-desk.ts' },
   ];
 

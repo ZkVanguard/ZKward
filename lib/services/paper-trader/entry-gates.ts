@@ -18,13 +18,9 @@
  * admission rule (it is the loop's own verdict).
  */
 import { getCronState } from '@/lib/db/cron-state';
-import { calibrate } from '@/lib/services/ai/probability-calibrator';
 import type { AggregatedPrediction } from '@/lib/services/market-data/PredictionAggregatorService';
-import { assetSideBlacklistRejection } from './asset-side-blacklist';
 import {
   KEY_NAV,
-  PAPER_CALIBRATED_MIN_WIN_RATE,
-  PAPER_CALIBRATED_RANK_MIN_N,
   PAPER_MIN_CONFIDENCE,
   PAPER_MIN_CONSENSUS,
   PAPER_MIN_MAJORITY_PCT,
@@ -65,20 +61,12 @@ export const ENTRY_GATES: readonly EntryGate[] = [
   { name: 'min-sources', refuses: (s) => s.prediction.sources.length < PAPER_MIN_SOURCES },
   { name: 'majority', refuses: (s) => majorityAgreementPct(s.direction, s.prediction.sources) < PAPER_MIN_MAJORITY_PCT },
   { name: 'stability', refuses: async (s) => !(await isSignalStable(s.asset, s.direction)).stable },
-  {
-    name: 'calibrator',
-    refuses: async (s) => {
-      const cal = await calibrate({ asset: s.asset, side: sideOf(s.direction), rawConfidencePct: s.prediction.confidence, namespace: 'paper' });
-      return cal.nHistory >= PAPER_CALIBRATED_RANK_MIN_N && cal.pCalibrated < PAPER_CALIBRATED_MIN_WIN_RATE;
-    },
-  },
   { name: 'side-streak', refuses: async (s, e) => (await assetSideStreakRejection(s.asset, sideOf(s.direction), e.now)) !== null },
   { name: 'asset-streak', refuses: async (s, e) => (await assetStreakRejection(s.asset, e.now)) !== null },
   { name: 'low-volatility', refuses: async (s) => (await lowVolatilityRejection(s.asset)) !== null },
   { name: 'regret', refuses: async (s, e) => (await regretCooldownRejection(s.asset, sideOf(s.direction), e.nav)) !== null },
-  // The next three size a trade down to a probe rather than keep it out.
+  // The next two size a trade down to a probe rather than keep it out.
   { name: 'strong-signal', refuses: (s) => PAPER_SKIP_STRONG_SIGNALS && s.prediction.recommendation.startsWith('STRONG_') },
-  { name: 'blacklist', refuses: async (s) => (await assetSideBlacklistRejection(s.asset, sideOf(s.direction))) !== null },
   { name: 'chop', refuses: (_s, e) => e.regime === 'CHOP' },
 ];
 

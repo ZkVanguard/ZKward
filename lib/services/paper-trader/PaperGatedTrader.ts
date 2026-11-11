@@ -16,7 +16,7 @@
  *   • Same sizing          (sizeCandidate from entry-helpers)
  *   • Same exit discipline (price-anchored stop + trailing + max-hold)
  *   • ADDS agent gate      (runAgentGate from polymarket-edge-trader)
- *   • Skips rolling-drawdown kill + source-decay (raw-paper's job).
+ *   • Skips the rolling-drawdown kill (raw-paper's job).
  *   • Streak-guard: NOW ENABLED as of 2026-09-23 (scoped to portfolio
  *     -4 so learning stays isolated). Was previously skipped to keep
  *     the A/B clean, but empirical result was $130 of duplicate-setup
@@ -343,7 +343,7 @@ export class PaperGatedTrader {
       };
     }
 
-    const { normalizeSourceKey } = await import('@/lib/services/ai/source-calibrator');
+    const { normalizeSourceKey } = await import('@/lib/services/ai/source-keys');
     const plan: EntryPlan = {
       asset, side, rec, notionalUsd, signalScalar,
       conf: picked.prediction.confidence,
@@ -477,18 +477,7 @@ export class PaperGatedTrader {
     const realizedPnl = closeResult.realizedPnlUsd;
     const newNav = priorNav + realizedPnl;
 
-    // Learning-loop callbacks (all wired 2026-09-22 — gated was silently
-    // dropping every close as training data before):
-    //
-    //   1. source-calibrator: score each source's snapshot direction
-    //      against actual price move → sharpens per-source weights that
-    //      the aggregator reads on every scan.
-    //   2. bandit: record realized PnL / notional as arm reward →
-    //      biases future (asset, side) selection toward winning arms.
-    //   3. probability-calibrator: feed (asset, side, opening-conf-decile,
-    //      realizedPnl) into the shared trader:calibration:* buckets that
-    //      both live + paper read on entry.
-    const { recordCloseLearning, settleHedgeRow } = await import('./close-pipeline');
+    const { settleHedgeRow } = await import('./close-pipeline');
 
     // Settle first — analytics parity with PaperTrader, and it decides which
     // of two overlapping ticks closed the position; the loser counts nothing.
@@ -509,10 +498,6 @@ export class PaperGatedTrader {
         nav: (await getCronStateStrict<number>(KEY_NAV)) ?? priorNav,
       };
     }
-
-    await recordCloseLearning(pos, markPrice, realizedPnl, now, {
-      calibratorNamespace: 'paper',
-    });
 
     // Update state.
     stats.trades += 1;

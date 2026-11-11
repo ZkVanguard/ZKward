@@ -2,8 +2,7 @@
 
 /**
  * Paper-pool dashboard tab — one-screen view of the shadow trader's
- * PnL trajectory + how the learning subsystems (bandit, source
- * calibrator) are evolving.
+ * PnL trajectory and its recent trades.
  *
  * Data: /api/paper-trader/status (public, no auth). Same endpoint
  * that powers /paper — this panel is the dashboard-native subset.
@@ -11,7 +10,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { paperStatusQuery } from '@/lib/hooks/paper-status-query';
-import { Beaker, TrendingUp, TrendingDown, Target, Zap, Ban } from 'lucide-react';
+import { Beaker, TrendingUp, TrendingDown, Target, Zap } from 'lucide-react';
 import { SkeletonBox } from '@/components/dashboard/community-pool/Skeletons';
 
 interface StatusResp {
@@ -37,24 +36,6 @@ interface StatusResp {
     unrealizedPnlUsd?: number;
     holdSeconds: number;
   }>;
-  learning?: {
-    bandit: {
-      armCount: number;
-      arms: Array<{
-        key: string;
-        wins: number;
-        trades: number;
-        winPct: number;
-        avgRewardPct: number;
-      }>;
-    };
-    sources: {
-      total: number;
-      killed: number;
-      top: Array<{ key: string; obs: number; hitPct: number; killed: boolean }>;
-      bottom: Array<{ key: string; obs: number; hitPct: number; killed: boolean }>;
-    };
-  };
 }
 
 const fmtUsd = (n: number, digits = 0) =>
@@ -127,79 +108,6 @@ export function PaperPoolPanel() {
                 </div>
               </div>
             ))}
-          </div>
-        </div>
-      )}
-
-      {/* Learning: bandit arms */}
-      {data.learning?.bandit && data.learning.bandit.armCount > 0 && (
-        <div className="p-4 rounded-2xl bg-white border border-black/5">
-          <div className="flex items-baseline justify-between mb-3">
-            <div className="text-caption-1 font-semibold text-label-tertiary uppercase tracking-wide">Bandit arms — (asset, side) selection</div>
-            <div className="text-xs text-label-tertiary">{data.learning.bandit.armCount} arms learning</div>
-          </div>
-          <div className="space-y-1.5">
-            {data.learning.bandit.arms.map((arm) => (
-              <div key={arm.key} className="flex items-center gap-3 text-sm">
-                <div className="w-24 font-mono text-xs text-label-secondary">{arm.key}</div>
-                <div className="flex-1 h-2 rounded-full bg-black/5 overflow-hidden">
-                  <div
-                    className={arm.winPct >= 50 ? 'h-full bg-green-500' : 'h-full bg-red-500'}
-                    style={{ width: `${Math.min(100, arm.winPct)}%` }}
-                  />
-                </div>
-                <div className="text-xs tabular-nums text-label-tertiary w-20 text-right">{arm.wins}/{arm.trades} · {arm.winPct.toFixed(0)}%</div>
-                <div className={`text-xs tabular-nums w-16 text-right ${arm.avgRewardPct >= 0 ? 'text-green-700' : 'text-red-700'}`}>
-                  {arm.avgRewardPct >= 0 ? '+' : ''}{arm.avgRewardPct.toFixed(2)}%
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Learning: source calibrator */}
-      {data.learning?.sources && data.learning.sources.total > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Top */}
-          <div className="p-4 rounded-2xl bg-white border border-black/5">
-            <div className="flex items-baseline justify-between mb-3">
-              <div className="text-caption-1 font-semibold text-label-tertiary uppercase tracking-wide">Best signals</div>
-              <div className="text-xs text-label-tertiary">of {data.learning.sources.total} tracked</div>
-            </div>
-            <div className="space-y-1">
-              {data.learning.sources.top.slice(0, 8).map((s) => (
-                <div key={s.key} className="flex items-center gap-2 text-xs">
-                  <div className="flex-1 truncate font-mono text-label-secondary">{s.key}</div>
-                  <div className="w-10 text-right text-label-tertiary tabular-nums">n={s.obs}</div>
-                  <div className={`w-14 text-right tabular-nums font-medium ${s.hitPct >= 60 ? 'text-green-700' : 'text-label-primary'}`}>{s.hitPct.toFixed(1)}%</div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Bottom / killed */}
-          <div className="p-4 rounded-2xl bg-white border border-black/5">
-            <div className="flex items-baseline justify-between mb-3">
-              <div className="text-caption-1 font-semibold text-label-tertiary uppercase tracking-wide">Worst signals</div>
-              <div className="flex items-center gap-1 text-xs text-red-700">
-                <Ban className="w-3 h-3" /> {data.learning.sources.killed} killed
-              </div>
-            </div>
-            <div className="space-y-1">
-              {data.learning.sources.bottom.slice(0, 8).map((s) => (
-                <div key={s.key} className="flex items-center gap-2 text-xs">
-                  <div className="flex-1 truncate font-mono text-label-secondary">{s.key}</div>
-                  <div className="w-10 text-right text-label-tertiary tabular-nums">n={s.obs}</div>
-                  <div className={`w-14 text-right tabular-nums font-medium ${s.killed ? 'text-red-700' : s.hitPct < 40 ? 'text-orange-700' : 'text-label-primary'}`}>
-                    {s.hitPct.toFixed(1)}%{s.killed ? ' ×' : ''}
-                  </div>
-                </div>
-              ))}
-            </div>
-            <div className="mt-3 pt-3 border-t border-black/5 text-xs text-label-tertiary">
-              Sources below 40% hit rate with ≥15 observations drop to 0.05× weight.
-            </div>
           </div>
         </div>
       )}

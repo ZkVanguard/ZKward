@@ -35,10 +35,7 @@ import {
   type SourceSnapshot,
   FEE_BPS_PER_SIDE,
 } from '@/lib/services/paper-trader/simulated-executor';
-import {
-  recordCloseLearning,
-  settleHedgeRow,
-} from '@/lib/services/paper-trader/close-pipeline';
+import { settleHedgeRow } from '@/lib/services/paper-trader/close-pipeline';
 import {
   closeLive,
   flattenUntracked,
@@ -206,9 +203,6 @@ export async function runSolanaSleeveTick(
       if (current?.orderId === state.orderId) await setCronState(KEY_POSITION, null);
       return { action: 'idle', detail: 'position already closed by an overlapping tick' };
     }
-    await recordCloseLearning(pos, mark, result.realizedPnlUsd, now, {
-      calibratorNamespace: 'solana',
-    });
 
     stats.trades += 1;
     if (result.realizedPnlUsd > 0) stats.wins += 1;
@@ -273,7 +267,7 @@ export async function runSolanaSleeveTick(
     const { PredictionAggregatorService } = await import(
       '@/lib/services/market-data/PredictionAggregatorService'
     );
-    const { normalizeSourceKey } = await import('@/lib/services/ai/source-calibrator');
+    const { normalizeSourceKey } = await import('@/lib/services/ai/source-keys');
     // A single hung source once wedged this scan for 20+ minutes locally.
     // Prod's maxDuration would cap it, but the tick should own its budget:
     // no signal read in 25s → idle, retry next minute.

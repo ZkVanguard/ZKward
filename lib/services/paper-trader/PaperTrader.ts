@@ -27,7 +27,7 @@ import { positionOpen, positionUpdate, positionClose } from './concurrent';
 import { selectCandidate, priceCandidate, sizeCandidate } from './entry-helpers';
 import { createHedge } from '@/lib/db/hedges';
 import { orphanCloseIfExists } from './orphan-cleanup';
-import { recordCloseLearning, settleHedgeRow, categorizeCloseReason } from './close-pipeline';
+import { settleHedgeRow, categorizeCloseReason } from './close-pipeline';
 import { targetExitLevels, takeProfitFill } from './target-exit';
 import { checkRestingEntry, placeRestingEntry, type EntryPlan } from './resting-orders';
 import { query } from '@/lib/db/postgres';
@@ -42,10 +42,7 @@ import {
   type SourceSnapshot,
   type Side,
 } from './simulated-executor';
-import {
-  normalizeSourceKey,
-  recordSourceOutcome,
-} from '@/lib/services/ai/source-calibrator';
+import { normalizeSourceKey } from '@/lib/services/ai/source-keys';
 
 // ── Config + sizing helpers re-exported from focused modules ────────────
 // Existing external imports keep working after this refactor. New code
@@ -252,16 +249,6 @@ export class PaperTrader {
         entryHalt = (await PaperTrader.rollingDrawdownCheck(now))
           ?? (await PaperTrader.shortWindowLossCheck(now));
       }
-
-      // L4 — signal-source decay check. Runs at most hourly (gated inside),
-      // disables sources whose 30-trade win rate collapses below the floor.
-      // Fire-and-forget: even if it errors we keep trading.
-      void (async () => {
-        try {
-          const { runSourceDecayCheck } = await import('./source-decay');
-          await runSourceDecayCheck(now);
-        } catch { /* non-fatal */ }
-      })();
 
       const nav = (await getCronStateStrict<number>(KEY_NAV)) ?? PAPER_STARTING_NAV;
 
@@ -1079,12 +1066,6 @@ export class PaperTrader {
         nav: (await getCronStateStrict<number>(KEY_NAV)) ?? nav,
       };
     }
-
-    // Learning callbacks — shared pipeline (source outcomes, bandit arm,
-    // probability-calibrator in the 'paper' namespace per Fix O).
-    await recordCloseLearning(pos, exitPrice, result.realizedPnlUsd, now, {
-      calibratorNamespace: 'paper',
-    });
 
     if (orderId) await positionClose(orderId);
     await setCronState(KEY_NAV, newNav);

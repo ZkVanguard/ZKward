@@ -17,8 +17,9 @@
  *      The check is made from the rows, not from stored state: a lost or
  *      unreadable state cannot change what is in force.
  *
- * Nothing here acts. The stored state is read by the shadow vote, the
- * health endpoint and the reports.
+ * The stored state is the platform's one judge of its sources: it weights
+ * the live vote (PredictionAggregatorService), decides full size against
+ * the trading cost (tradeVerdict), and is read by the health endpoint.
  */
 import { getCronState, setCronState } from '@/lib/db/cron-state';
 import { getLedgerBucketRows, type LedgerBucketRow } from '@/lib/db/signal-outcomes';

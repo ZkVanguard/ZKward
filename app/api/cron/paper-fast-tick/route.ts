@@ -223,7 +223,6 @@ async function effectiveConfig(): Promise<Record<string, unknown>> {
       tightenFrac: c.PAPER_TIGHTEN_NOTIONAL_FRAC,
       armFrac: c.PAPER_TRAILING_ARM_NOTIONAL_FRAC,
       stopEnv: (process.env.PAPER_TRADER_STOP_LOSS_PCT || 'default').trim(),
-      seeds: c.PAPER_ASSET_SIDE_BLACKLIST_SEEDS.size,
       chopHalt: c.PAPER_HALT_ENTRIES_IN_CHOP,
       chopStakeMult: c.PAPER_CHOP_STAKE_MULT,
       probeStakeMult: c.PAPER_PROBE_STAKE_MULT,

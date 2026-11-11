@@ -158,11 +158,7 @@ async function main() {
       targetMaxHoldMin: cfg.PAPER_TARGET_MAX_HOLD_MIN,
       ledgerRecentHours: (process.env.SIGNAL_LEDGER_RECENT_HOURS || '48').trim(),
       holdHorizons: (process.env.PAPER_TRADER_HOLD_HORIZONS_MIN || '60,240').trim(),
-      calibrationEpoch: (process.env.SOURCE_CALIBRATOR_EPOCH || '2026-09-30').trim(),
       disableHalts: cfg.PAPER_DISABLE_HALTS,
-      calibratedMinWinRate: cfg.PAPER_CALIBRATED_MIN_WIN_RATE,
-      calibratedRankMinN: cfg.PAPER_CALIBRATED_RANK_MIN_N,
-      blacklistSeeds: [...cfg.PAPER_ASSET_SIDE_BLACKLIST_SEEDS].join(','),
       maxConcurrent: cfg.PAPER_MAX_CONCURRENT,
     });
   } catch (e) {
