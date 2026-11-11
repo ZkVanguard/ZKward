@@ -57,6 +57,8 @@ export function planFloorRebalance(args: {
   heldUsd: Record<string, number>;
   assets: readonly string[];
   rule?: FloorRule;
+  /** Coins the book may hold now; one marked false is sold to nothing. Absent, every coin is held. */
+  holding?: Readonly<Record<string, boolean>>;
 }): FloorPlan {
   const rule = args.rule ?? FLOOR_RULE;
   const peakUsd = Math.max(args.peakUsd, args.valueUsd);
@@ -68,7 +70,9 @@ export function planFloorRebalance(args: {
   const perAsset = Math.max(targetUsd / args.assets.length, rule.lotUsd);
   const lots: Record<string, number> = {};
   for (const asset of args.assets) {
-    const wanted = Math.trunc((perAsset - (args.heldUsd[asset] ?? 0)) / rule.lotUsd);
+    // A coin left out keeps its share in cash, as replayed: the other coin's share does not grow.
+    const due = args.holding?.[asset] === false ? 0 : perAsset;
+    const wanted = Math.trunc((due - (args.heldUsd[asset] ?? 0)) / rule.lotUsd);
     lots[asset] = Math.max(-rule.maxLotsPerTick, Math.min(rule.maxLotsPerTick, wanted)) || 0;
   }
   return { peakUsd, floorUsd: rule.floorShare * peakUsd, targetUsd, lots };

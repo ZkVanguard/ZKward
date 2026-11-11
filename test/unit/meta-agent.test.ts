@@ -120,12 +120,16 @@ describe('get_paper_books', () => {
       query: async () => [{ portfolio_id: -8, n: 25, notional: 25000, pnl: -1992.58 }],
     }));
     jest.doMock('@/lib/db/book-row-stats', () => ({ bookRowStats: async () => stats }));
+    jest.doMock('@/lib/db/cron-state', () => ({ getCronStateStrict: async () => ({ interestUsd: 12.5 }) }));
     const { getPaperBooks } = await import('@/lib/services/ai/tools/db-tools');
     const books = await getPaperBooks.execute({});
     const floor = books.find((b) => b.portfolioId === -8);
     expect(floor?.open).toEqual({ positions: 25, notionalUsd: 25000, openPnlUsd: -1992.58 });
     expect(floor?.closed.avgBp).toBe(-6);
     expect(books.find((b) => b.portfolioId === -3)?.open.positions).toBe(0);
+    // Only the core book carries interest, and it comes from its state, not its rows.
+    expect(books.find((b) => b.portfolioId === -11)?.interestUsd).toBe(12.5);
+    expect(floor?.interestUsd).toBeUndefined();
   });
 
   it.each([
@@ -160,6 +164,7 @@ describe('get_paper_books', () => {
   it('throws when a book cannot be read, never reports it empty', async () => {
     jest.doMock('@/lib/db/postgres', () => ({ query: async () => [] }));
     jest.doMock('@/lib/db/book-row-stats', () => ({ bookRowStats: async () => null }));
+    jest.doMock('@/lib/db/cron-state', () => ({ getCronStateStrict: async () => null }));
     const { getPaperBooks } = await import('@/lib/services/ai/tools/db-tools');
     await expect(getPaperBooks.execute({})).rejects.toThrow(/could not read/);
   });

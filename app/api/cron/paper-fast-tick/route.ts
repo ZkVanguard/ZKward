@@ -176,6 +176,18 @@ async function runStages(): Promise<Record<string, string>> {
     logger.warn('[PaperFastTick] trend tick failed (non-fatal)', { error: errMsg(e) });
   }
 
+  // The core book (portfolio -11): the floor rule with the trend filter, interest on the cash.
+  try {
+    const { CoreTrader } = await import('@/lib/services/paper-trader/CoreTrader');
+    const s = await CoreTrader.runTick(Date.now());
+    results.core = s.skipped
+      ? `skipped — ${s.skipped}`
+      : `value ${s.valueUsd.toFixed(0)} (interest ${s.interestUsd.toFixed(0)}), floor ${s.floorUsd.toFixed(0)}, exposure ${s.exposureUsd.toFixed(0)} in ${s.lots} lots, bought ${s.bought}, sold ${s.sold}${s.decided ? `; decided ${s.decided}` : ''}`;
+  } catch (e) {
+    results.core = `error: ${errMsg(e).slice(0, 80)}`;
+    logger.warn('[PaperFastTick] core tick failed (non-fatal)', { error: errMsg(e) });
+  }
+
   // The daily ladder's forecasts and their results, for the public scorecard.
   try {
     const { claimed } = await tryClaimCronRun('ladder-forecasts', 10 * 60_000, Date.now());
