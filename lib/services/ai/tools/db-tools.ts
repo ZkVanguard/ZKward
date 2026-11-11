@@ -62,6 +62,7 @@ const PAPER_BOOKS = [
   { id: -8, name: 'FloorTrader', tests: 'long BTC and ETH sized to keep the book above 90% of its peak; no signal' },
   { id: -9, name: 'FloorLadderTrader', tests: 'the floor rule sized by the move the strike ladder prices' },
   { id: -10, name: 'TrendTrader', tests: 'BTC and ETH, each held as spot at 12.5% of the book while its last daily close is above its 100-day average, decided once a day; few trades by design' },
+  { id: -11, name: 'CoreTrader', tests: 'the floor rule (BTC and ETH sized to keep the book above 90% of its peak) holding a coin only while it is above its 100-day average, as spot; its cash is credited an assumed 4% a year' },
 ] as const;
 
 export const getPaperBooks: AgentTool<
@@ -72,11 +73,13 @@ export const getPaperBooks: AgentTool<
     tests: string;
     closed: { trades: number; wins: number; realizedUsd: number; avgBp: number };
     open: { positions: number; notionalUsd: number; openPnlUsd: number };
+    /** CoreTrader only: interest credited to its cash since it started, which no row holds. */
+    interestUsd?: number;
   }>
 > = {
   name: 'get_paper_books',
   description:
-    'Simulated (paper) books: for each one, what it tests, its closed trades over the lookback (count, wins, realized USD, average trade in bp of notional) net of fees, slippage and funding, and its open positions marked to market net of the opening costs and funding so far but before the exit cost, read from its rows. These are simulations, never real returns. A win rate means nothing without the average trade.',
+    'Simulated (paper) books: for each one, what it tests, its closed trades over the lookback (count, wins, realized USD, average trade in bp of notional) net of fees, slippage and funding, and its open positions marked to market net of the opening costs and funding so far but before the exit cost, read from its rows. CoreTrader also reports the interest credited to its cash since it started (assumed, 4% a year, in no row): its result is closed plus open plus interest. These are simulations, never real returns. A win rate means nothing without the average trade.',
   parameters: {
     type: 'object',
     properties: {
@@ -85,13 +88,14 @@ export const getPaperBooks: AgentTool<
     additionalProperties: false,
   },
   async execute({ hours = 720 }) {
-    const [{ query }, { bookRowStats }] = await Promise.all([
+    const [{ query }, { bookRowStats }, { getCronStateStrict }] = await Promise.all([
       import('@/lib/db/postgres'),
       import('@/lib/db/book-row-stats'),
+      import('@/lib/db/cron-state'),
     ]);
     const sinceMs = Date.now() - Math.min(Math.max(1, hours), 8760) * 60 * 60 * 1000;
     const ids = PAPER_BOOKS.map((b) => b.id);
-    const [open, stats] = await Promise.all([
+    const [open, stats, core] = await Promise.all([
       query<{ portfolio_id: number; n: number; notional: number; pnl: number }>(
         `SELECT portfolio_id, COUNT(*)::int AS n,
                 COALESCE(SUM(notional_value), 0)::float8 AS notional,
@@ -102,6 +106,7 @@ export const getPaperBooks: AgentTool<
         [ids],
       ),
       Promise.all(ids.map((id) => bookRowStats(id, sinceMs))),
+      getCronStateStrict<{ interestUsd?: number }>('core-trader:state'),
     ]);
     return PAPER_BOOKS.map((b, i) => {
       const s = stats[i];
@@ -113,6 +118,7 @@ export const getPaperBooks: AgentTool<
         tests: b.tests,
         closed: { trades: s.trades, wins: s.wins, realizedUsd: s.realizedUsd, avgBp: s.avgBp },
         open: { positions: o?.n ?? 0, notionalUsd: o?.notional ?? 0, openPnlUsd: o?.pnl ?? 0 },
+        ...(b.id === -11 ? { interestUsd: Number(core?.interestUsd ?? 0) } : {}),
       };
     });
   },
