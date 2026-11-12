@@ -12,6 +12,7 @@ afterEach(() => {
   jest.resetModules();
   jest.dontMock('@/lib/db/postgres');
   jest.dontMock('@/lib/db/book-row-stats');
+  jest.dontMock('@/lib/db/cron-state');
 });
 
 describe('provider choice', () => {
@@ -167,5 +168,26 @@ describe('get_paper_books', () => {
     jest.doMock('@/lib/db/cron-state', () => ({ getCronStateStrict: async () => null }));
     const { getPaperBooks } = await import('@/lib/services/ai/tools/db-tools');
     await expect(getPaperBooks.execute({})).rejects.toThrow(/could not read/);
+  });
+});
+
+describe('get_cron_state', () => {
+  it('reads heartbeats, halts and pool peaks, and refuses the alert log and other state', async () => {
+    const read = jest.fn(async (_key: string) => 1_794_491_000_000);
+    jest.doMock('@/lib/db/cron-state', () => ({ getCronStateStrict: read }));
+    const { getCronStateSnapshot } = await import('@/lib/services/ai/tools/db-tools');
+    for (const key of ['cron:lastRun:paper-fast-tick', 'cron:haltUntil:sui-community-pool:autohedge', 'cron:haltReason:sui-community-pool', 'poolNav:peak:sui']) {
+      await expect(getCronStateSnapshot.execute({ key })).resolves.toMatchObject({ key, exists: true });
+    }
+    for (const key of ['alert-log:ring-buffer', 'discord:repeat-state', 'core-trader:state', 'x:cron:lastRun:a', '']) {
+      await expect(getCronStateSnapshot.execute({ key })).rejects.toThrow(/not readable/);
+    }
+    expect(read).toHaveBeenCalledTimes(4);
+  });
+
+  it('a failed read is an error, never a missing key', async () => {
+    jest.doMock('@/lib/db/cron-state', () => ({ getCronStateStrict: async () => { throw new Error('db down'); } }));
+    const { getCronStateSnapshot } = await import('@/lib/services/ai/tools/db-tools');
+    await expect(getCronStateSnapshot.execute({ key: 'cron:lastRun:paper-fast-tick' })).rejects.toThrow(/db down/);
   });
 });

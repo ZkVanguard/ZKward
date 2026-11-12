@@ -31,6 +31,10 @@ describe('cron cadence', () => {
     expect(staleLimitMin('agent-signal-tick')).toBe(15 * STALE_MULTIPLIER);
   });
 
+  it('the daily venue capital check is judged daily, not as silent after 20 min', () => {
+    expect(staleLimitMin('venue-capital-check')).toBe(1440 * STALE_MULTIPLIER);
+  });
+
   it('a job without a known cadence is stale after 20 min', () => {
     expect(staleLimitMin('paper-fast-tick')).toBe(20);
     expect(staleLimitMin('polymarket-edge-trader')).toBe(20);
