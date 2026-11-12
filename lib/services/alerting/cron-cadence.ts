@@ -20,6 +20,7 @@ export const EXPECTED_CADENCE_MIN: Record<string, number> = {
   'sui-community-pool':      30,
   'sui-hedge-reconcile':     60,
   'sui-collect-fees':      1440,   // daily
+  'venue-capital-check':   1440,   // daily, claimed inside bluefin-health
   'poly-discover':           60,   // best-guess; adjust when schedule confirmed
   'solana-pool':              1,
   'research-desk':           15,   // one round per 15-minute claim inside master's fanout   // 60s schedule; enabled at prod go-live 2026-09-29

@@ -9,8 +9,9 @@
  *
  *   multiplier = 3 × (normal priced move ÷ today's priced move), kept within 1.5 to 4.5
  *
- * "Normal" is the median of the readings seen so far, today's included, so
- * nothing looks ahead; until 20 readings exist the multiplier stays at 3.
+ * Every reading is the move priced over one day (movePerDay). "Normal" is the
+ * median of the readings seen so far, today's included, so nothing looks
+ * ahead; until 20 readings exist the multiplier stays at 3.
  * This is the variant replayed on 2026-10-13 (a small gain there). The two
  * books are compared on 2026-12-12 by the rule in
  * docs/_ops/TODO_POOL_FLOOR_STRATEGY_2026-10-19.md, phase 3.
@@ -30,8 +31,8 @@ const MIN_HISTORY = 20;
 const HISTORY_MAX = 500;
 
 export interface LadderSizing {
-  /** Priced moves seen so far (average of BTC and ETH, percent), oldest first. */
-  history: number[];
+  /** Priced one-day moves seen so far (average of BTC and ETH, percent), oldest first. */
+  dayMoves: number[];
   lastTryAtMs: number;
   lastOkAtMs: number;
   multiplier: number;
@@ -51,32 +52,50 @@ export function ladderMultiplier(history: number[], base: number = FLOOR_RULE.mu
   return Math.min(1.5 * base, Math.max(0.5 * base, (base * median(history)) / today));
 }
 
-/** The priced move for BTC and ETH, averaged; null when either ladder cannot be read. */
-async function readPricedMove(): Promise<number | null> {
+/**
+ * A ladder prices the move from now until it resolves, which grows with the
+ * square root of the time left. The nearest readable ladder is 12 to 84 hours
+ * out, so read raw the figure shrank through each day and jumped when the next
+ * ladder took over: the multiplier followed the clock, and the book bought
+ * lots each day and sold them at the roll. The replay read every ladder at
+ * one lead; scaling each reading to one day does the same at any lead. Null
+ * when it cannot be scaled.
+ */
+export function movePerDay(movePct: number, resolvesAtMs: number, now: number): number | null {
+  const hours = (resolvesAtMs - now) / 3_600_000;
+  return movePct > 0 && hours > 0 ? movePct * Math.sqrt(24 / hours) : null;
+}
+
+/** The one-day priced move for BTC and ETH, averaged; null when either ladder cannot be read. */
+async function readPricedMove(now: number): Promise<number | null> {
   const { getExpectedMove } = await import('@/lib/services/market-data/StrikeLadderService');
-  const [btc, eth] = await Promise.all([getExpectedMove('BTC'), getExpectedMove('ETH')].map((p) => p.catch(() => null)));
-  if (!btc || !eth || !(btc.movePct > 0) || !(eth.movePct > 0)) return null;
-  return (btc.movePct + eth.movePct) / 2;
+  const [btc, eth] = await Promise.all(
+    ['BTC', 'ETH'].map((a) =>
+      getExpectedMove(a, now).then((m) => movePerDay(m.movePct, Date.parse(m.resolvesAt), now), () => null),
+    ),
+  );
+  return btc !== null && eth !== null ? (btc + eth) / 2 : null;
 }
 
 /** Pure apart from the ladder read: the sizing step the twin runs each tick. */
 export async function ladderSizing(
   stored: Record<string, unknown> | undefined,
   now: number,
-  read: () => Promise<number | null> = readPricedMove,
+  read: (now: number) => Promise<number | null> = readPricedMove,
 ): Promise<{ multiplier: number; sizing: Record<string, unknown> }> {
   const prev: LadderSizing = {
-    history: Array.isArray(stored?.history) ? (stored!.history as number[]).filter((x) => x > 0) : [],
+    // Readings stored before 2026-11-12 (`history`) were not scaled to one day and are left behind.
+    dayMoves: Array.isArray(stored?.dayMoves) ? (stored!.dayMoves as number[]).filter((x) => x > 0) : [],
     lastTryAtMs: Number(stored?.lastTryAtMs) || 0,
     lastOkAtMs: Number(stored?.lastOkAtMs) || 0,
     multiplier: Number(stored?.multiplier) || FLOOR_RULE.multiplier,
   };
   let next = prev;
   if (now - prev.lastTryAtMs >= READ_EVERY_MS) {
-    const move = await read().catch(() => null);
+    const move = await read(now).catch(() => null);
     if (move !== null) {
-      const history = [...prev.history, move].slice(-HISTORY_MAX);
-      next = { history, lastTryAtMs: now, lastOkAtMs: now, multiplier: ladderMultiplier(history) };
+      const dayMoves = [...prev.dayMoves, move].slice(-HISTORY_MAX);
+      next = { dayMoves, lastTryAtMs: now, lastOkAtMs: now, multiplier: ladderMultiplier(dayMoves) };
     } else {
       next = { ...prev, lastTryAtMs: now };
     }

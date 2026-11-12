@@ -252,24 +252,33 @@ export const queryHedgeHistory: AgentTool<
   },
 };
 
+/**
+ * The public chat runs this tool, so it reads only what the site already shows: job heartbeats, halts and pool
+ * peaks. The alert log and the rest of cron_state hold raw error text and internal state that the risk page keeps back.
+ */
+export const CHAT_READABLE_STATE_PREFIXES = ['cron:lastRun:', 'cron:haltUntil:', 'cron:haltReason:', 'poolNav:peak:'] as const;
+
 export const getCronStateSnapshot: AgentTool<
   { key: string },
   { key: string; value: unknown; exists: boolean }
 > = {
   name: 'get_cron_state',
   description:
-    'Read one key from the cron_state table. Use for halts, peaks, ring buffers, or any state written by cron routes. Keys are namespaced strings like "cron:lastRun:sui-community-pool" or "alert-log:ring-buffer".',
+    'Read one job-state key: when a job last ran ("cron:lastRun:<job>", epoch ms), whether it is halted and why ("cron:haltUntil:<job>", "cron:haltReason:<job>", e.g. "cron:haltUntil:sui-community-pool:autohedge"), or a pool\'s peak value ("poolNav:peak:<pool>"). No other key is readable.',
   parameters: {
     type: 'object',
     properties: {
-      key: { type: 'string', description: 'Exact cron_state key' },
+      key: { type: 'string', description: 'Exact key, starting with cron:lastRun:, cron:haltUntil:, cron:haltReason: or poolNav:peak:' },
     },
     required: ['key'],
     additionalProperties: false,
   },
   async execute({ key }) {
-    const { getCronState } = await import('@/lib/db/cron-state');
-    const value = await getCronState(key);
+    if (!CHAT_READABLE_STATE_PREFIXES.some((p) => key.startsWith(p))) {
+      throw new Error(`"${key}" is not readable here; only ${CHAT_READABLE_STATE_PREFIXES.join(', ')} keys are`);
+    }
+    const { getCronStateStrict } = await import('@/lib/db/cron-state');
+    const value = await getCronStateStrict(key);
     return { key, value, exists: value !== null && value !== undefined };
   },
 };
