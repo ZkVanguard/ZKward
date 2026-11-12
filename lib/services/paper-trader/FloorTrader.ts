@@ -140,7 +140,8 @@ async function realizedUsd(portfolioId: number, sinceMs: number): Promise<number
 /** One tick of a floor book. */
 export async function runFloorBook(cfg: FloorBookConfig, now: number = Date.now()): Promise<FloorTickSummary> {
     const summary: FloorTickSummary = { bought: 0, sold: 0, lots: 0, valueUsd: 0, floorUsd: 0, exposureUsd: 0 };
-    if (cfg.disabled) return { ...summary, skipped: 'disabled' };
+    // A stopped book sells what it holds, then rests: a skipped tick would leave lots open that nothing minds.
+    if (cfg.disabled && (await openLots(cfg.portfolioId, now)).length === 0) return { ...summary, skipped: 'disabled' };
 
     const marks: Record<string, number> = {};
     for (const asset of ASSETS) {
@@ -172,6 +173,7 @@ export async function runFloorBook(cfg: FloorBookConfig, now: number = Date.now(
 
     const { multiplier, sizing } = await cfg.sizing(state.sizing, now);
     const plan = planFloorRebalance({ valueUsd, peakUsd: state.peakUsd, heldUsd, assets: ASSETS, rule: { ...FLOOR_RULE, multiplier } });
+    if (cfg.disabled) for (const asset of ASSETS) plan.lots[asset] = -lots.filter((l) => l.position.asset === asset).length;
 
     // ── Sell: oldest lots first, settled before anything is counted ──
     for (const asset of ASSETS) {
@@ -184,7 +186,7 @@ export async function runFloorBook(cfg: FloorBookConfig, now: number = Date.now(
             orderId: lot.orderId,
             pos: lot.position,
             result,
-            reason: 'floor-rebalance',
+            reason: cfg.disabled ? 'book-stopped' : 'floor-rebalance',
             analytics: false,
             extraMeta: { floorUsd: plan.floorUsd, bookValueUsd: valueUsd },
           });

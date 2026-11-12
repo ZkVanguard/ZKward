@@ -5,7 +5,7 @@
  * resting order fills only on a trade-through, the exit is a market order at
  * the reading's horizon, and a close someone else settled counts for nothing.
  */
-import { describe, it, expect, beforeEach, jest } from '@jest/globals';
+import { describe, it, expect, beforeEach, afterEach, jest } from '@jest/globals';
 
 const state = new Map<string, unknown>();
 jest.mock('@/lib/db/cron-state', () => ({
@@ -25,7 +25,7 @@ jest.mock('@/lib/services/market-data/unified-price-provider', () => ({
 jest.mock('@/lib/utils/logger', () => ({ logger: { info: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn() } }));
 
 import { LeadTrader, selectLeadEntries, LEAD_PORTFOLIO_ID, type LeadReading } from '@/lib/services/paper-trader/LeadTrader';
-import { restingFilled } from '@/lib/services/paper-trader/simulated-executor';
+import { restingFilled, simulateOpen } from '@/lib/services/paper-trader/simulated-executor';
 
 const NOW = Date.parse('2026-10-07T12:00:00Z');
 const MIN = 60_000;
@@ -243,5 +243,35 @@ describe('a failed state read', () => {
     await expect(LeadTrader.runTick(NOW)).rejects.toThrow('store down');
     expect(setCronState).not.toHaveBeenCalled();
     expect(state.get(POSITIONS)).toEqual([{ orderId: 'keep-me' }]);
+  });
+});
+
+describe('a stopped book', () => {
+  afterEach(() => { delete process.env.LEAD_TRADER_DISABLE; });
+
+  it('closes what it holds at market before its horizon, cancels what rests, takes no reading, then rests', async () => {
+    state.set(POSITIONS, [{
+      orderId: 'lead_BTC_1',
+      position: simulateOpen({ asset: 'BTC', side: 'LONG', notionalUsd: 1000, leverage: 1, entryPrice: 85_000, resting: true }, NOW - 30 * MIN),
+      closeAtMs: NOW + 200 * MIN,
+      source: 'short_term:kalshi-btc',
+    }]);
+    state.set(RESTING, [{ asset: 'ETH', side: 'SHORT', limitPrice: 2_700, readingAtMs: NOW - MIN, expiresAtMs: NOW + 10 * MIN, source: 'short_term:kalshi-eth' }]);
+    prices.BTC = 86_000;
+    query.mockResolvedValue([reading({ asset: 'ETH', source: 'short_term:kalshi-eth', entry_price: 2_700 })]);
+    process.env.LEAD_TRADER_DISABLE = '1';
+
+    const s = await LeadTrader.runTick(NOW);
+    expect(s).toMatchObject({ closed: 1, cancelled: 1, placed: 0, filled: 0, active: 0, resting: 0 });
+    expect(settleHedgeRow.mock.calls[0][0]).toMatchObject({ orderId: 'lead_BTC_1', reason: 'book-stopped' });
+    expect(query).not.toHaveBeenCalled();
+    expect(createHedge).not.toHaveBeenCalled();
+    expect(state.get(POSITIONS)).toEqual([]);
+    expect(state.get(RESTING)).toEqual([]);
+
+    jest.clearAllMocks();
+    expect(await LeadTrader.runTick(NOW + MIN)).toMatchObject({ closed: 0, placed: 0, active: 0, resting: 0 });
+    expect(query).not.toHaveBeenCalled();
+    expect(settleHedgeRow).not.toHaveBeenCalled();
   });
 });

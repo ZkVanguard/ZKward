@@ -26,7 +26,7 @@ jest.mock('@/lib/services/market-data/unified-price-provider', () => ({
 }));
 jest.mock('@/lib/utils/logger', () => ({ logger: { info: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn() } }));
 
-import { FloorTrader, FLOOR_PORTFOLIO_ID, FLOOR_START_USD } from '@/lib/services/paper-trader/FloorTrader';
+import { FloorTrader, runFloorBook, FLOOR_PORTFOLIO_ID, FLOOR_START_USD, type FloorBookConfig } from '@/lib/services/paper-trader/FloorTrader';
 import { FLOOR_RULE, floorTargetUsd, planFloorRebalance } from '@/lib/services/paper-trader/floor-rule';
 
 const NOW = Date.parse('2026-10-13T12:00:00Z');
@@ -198,5 +198,29 @@ describe('FloorTrader.runTick', () => {
     // Worth 100,000 under a floor of 108,000: the cushion is spent, and the book is not left empty.
     expect(s).toMatchObject({ floorUsd: 108_000, bought: 2, sold: 0, lots: 2 });
     expect(createHedge.mock.calls.map((c) => c[0].asset)).toEqual(['BTC', 'ETH']);
+  });
+});
+
+describe('a stopped floor book', () => {
+  const STOPPED: FloorBookConfig = {
+    portfolioId: FLOOR_PORTFOLIO_ID, stateKey: STATE, orderPrefix: 'floor', disabled: true,
+    sizing: async () => ({ multiplier: FLOOR_RULE.multiplier }),
+  };
+
+  it('sells every lot at the mark on its next tick, the one a coin the rule keeps too, and buys none', async () => {
+    started();
+    openRows = [...lots('BTC', 15, 80_000), ...lots('ETH', 15, 2_500)];
+    const s = await runFloorBook(STOPPED, NOW);
+    expect(s).toMatchObject({ sold: 30, bought: 0, lots: 0, exposureUsd: 0 });
+    expect(settleHedgeRow.mock.calls.every((c) => c[0].reason === 'book-stopped')).toBe(true);
+    expect(createHedge).not.toHaveBeenCalled();
+  });
+
+  it('holding nothing, it rests: no row and no state written', async () => {
+    started();
+    const s = await runFloorBook(STOPPED, NOW);
+    expect(s.skipped).toBe('disabled');
+    expect(createHedge).not.toHaveBeenCalled();
+    expect(setCronState).not.toHaveBeenCalled();
   });
 });
