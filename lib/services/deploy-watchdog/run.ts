@@ -11,7 +11,7 @@
  */
 import { logger } from '@/lib/utils/logger';
 import { notifyDiscord } from '@/lib/utils/discord-notify';
-import { getCronStateOr, setCronState, getCronStateByPrefix } from '@/lib/db/cron-state';
+import { getCronStateOr, setCronState, getCronStateByPrefix, deleteCronState } from '@/lib/db/cron-state';
 import { decideAlert, DRIFT_GRACE_MS } from '@/lib/services/deploy-watchdog/decide';
 import { findIntegrityViolations } from '@/lib/services/state-integrity/checks';
 import { getActiveHedges } from '@/lib/db/hedges';
@@ -20,7 +20,7 @@ const CRON_KEY_LAST_DRIFT_SHA = 'deploy-watchdog:last-drift-sha';
 const CRON_KEY_LAST_ALERT = 'deploy-watchdog:last-alert-ms';
 
 const PROD_URL = (process.env.PROD_URL || 'https://www.zkward.com').replace(/\/$/, '');
-const REPO = (process.env.DEPLOY_WATCHDOG_REPO || 'ZKward/ZKward').trim();
+const REPO = (process.env.DEPLOY_WATCHDOG_REPO || 'ZkVanguard/ZKward').trim();
 
 export interface WatchdogResult {
   ok: boolean;
@@ -45,6 +45,8 @@ async function runDeployDriftCheck(now: number): Promise<Pick<WatchdogResult, 'r
       cache: 'no-store',
     }),
   ]);
+  // An answer without a commit used to end the check quietly, so a wrong repo name (a 404) switched the alarm off.
+  if (!ghRes.ok) throw new Error(`GitHub answered ${ghRes.status} for ${REPO}`);
   const health = (await healthRes.json()) as { build?: { commit?: string } };
   const gh = (await ghRes.json()) as {
     commit?: { sha?: string; commit?: { committer?: { date?: string } } };
@@ -84,7 +86,8 @@ async function runStateIntegrityCheck(now: number): Promise<number> {
     getCronStateByPrefix('alert-response:'),
     getCronStateByPrefix('poolNav:peak:'),
     getCronStateByPrefix('stale-dust-flag:'),
-    getActiveHedges(undefined, 'sui').catch(() => []),
+    // Strict: an unread table would make every dust flag look orphaned.
+    getActiveHedges(undefined, 'sui'),
   ]);
   const activeIds = new Set<number | string>(activeHedges.map((h) => h.id));
   const entries = [
@@ -93,7 +96,13 @@ async function runStateIntegrityCheck(now: number): Promise<number> {
     ...[...peaks.entries()].map(([key, value]) => ({ key, value })),
     ...[...dustFlags.entries()].map(([key, value]) => ({ key, value })),
   ];
-  const violations = findIntegrityViolations(entries, activeIds, now);
+  const found = findIntegrityViolations(entries, activeIds, now);
+  // A dust flag only holds back closes of an open hedge. Once the hedge is closed it suppresses nothing,
+  // and reporting it raised the same warning every hour for weeks: remove it instead.
+  const orphans = found.filter((v) => v.category === 'orphan-dust-flag');
+  await Promise.all(orphans.map((v) => deleteCronState(v.key)));
+  if (orphans.length > 0) logger.info('[watchdog] removed dust flags of closed hedges', { keys: orphans.map((v) => v.key) });
+  const violations = found.filter((v) => v.category !== 'orphan-dust-flag');
   if (violations.length > 0) {
     const grouped: Record<string, number> = {};
     for (const v of violations) grouped[v.category] = (grouped[v.category] || 0) + 1;
