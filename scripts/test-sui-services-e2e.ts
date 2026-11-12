@@ -43,7 +43,6 @@ for (const ext of ['.ts', '.js', '']) {
 }
 
 // ===== Constants =====
-const SUI_RPC = 'https://fullnode.testnet.sui.io:443';
 const PACKAGE_ID = '0xb1442796d8593b552c7c27a072043639e3e6615a79ba11b87666d31b42fa283a';
 const OBJECT_IDS = {
   rwaManagerState: '0x65638c3c5a5af66c33bf06f57230f8d9972d3a5507138974dce11b1e46e85c97',
@@ -75,11 +74,8 @@ function skip(label: string, reason: string) {
 }
 
 async function suiRpc(method: string, params: unknown[]): Promise<unknown> {
-  const res = await fetch(SUI_RPC, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
-  });
+  const { suiFetchWithTimeout } = await import('../lib/services/sui/sui-rpc-utils');
+  const res = await suiFetchWithTimeout('testnet', { method: 'POST', body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }) });
   const data = await res.json();
   if (data.error) throw new Error(`RPC ${method}: ${JSON.stringify(data.error)}`);
   return data.result;

@@ -11,7 +11,7 @@
  * If SUI_FUNDER_KEY is not set, the script prints the admin address and exits
  * so you can send SUI manually from a wallet (e.g. Suiet/Slush).
  */
-const { SuiClient, getFullnodeUrl } = require('@mysten/sui/client');
+const { SuiClient } = require('@mysten/sui/client');
 const { Transaction } = require('@mysten/sui/transactions');
 const { decodeSuiPrivateKey } = require('@mysten/sui/cryptography');
 const { Ed25519Keypair } = require('@mysten/sui/keypairs/ed25519');
@@ -37,7 +37,8 @@ const norm = (v) => (v || '').toString().trim().replace(/[\r\n"']/g, '');
     process.exit(1);
   }
 
-  const c = new SuiClient({ url: getFullnodeUrl('mainnet') });
+  // No public SUI provider serves JSON-RPC any more; the site's proxy answers it from gRPC.
+  const c = new SuiClient({ url: (process.env.SUI_JSONRPC_URL || 'https://www.zkward.com/api/rpc/sui').trim() });
   const beforeBal = await c.getBalance({ owner: adminAddr });
   console.log(`Admin: ${adminAddr}`);
   console.log(`Current SUI balance: ${(Number(beforeBal.totalBalance) / 1e9).toFixed(4)} SUI`);

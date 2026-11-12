@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { readLimiter } from '@/lib/security/rate-limiter';
-import { suiRpcProviders } from '@/lib/services/sui/sui-rpc-utils';
+import { suiJsonRpcResponse } from '@/lib/services/sui/sui-grpc-bridge';
 
 export const runtime = 'nodejs';
 export const maxDuration = 15;
@@ -28,14 +28,12 @@ const UPSTREAM_RPC_URLS: Record<string, string[]> = {
   plasma: [
     'https://plasma.drpc.org',
   ],
-  // SUI: the server's provider list (fullnode.mainnet.sui.io killed JSON-RPC
-  // 2026-07 and has no browser CORS).
-  sui: suiRpcProviders('mainnet'),
-  'sui-testnet': suiRpcProviders('testnet'),
 };
 
 // Allowed chains to prevent SSRF via arbitrary chain names
-const ALLOWED_CHAINS = new Set(Object.keys(UPSTREAM_RPC_URLS));
+// SUI has no JSON-RPC provider left: its requests are answered from gRPC and GraphQL by the bridge.
+const SUI_CHAINS: Record<string, 'mainnet' | 'testnet'> = { sui: 'mainnet', 'sui-testnet': 'testnet' };
+const ALLOWED_CHAINS = new Set([...Object.keys(UPSTREAM_RPC_URLS), ...Object.keys(SUI_CHAINS)]);
 
 const RPC_TIMEOUT_MS = 8000;
 
@@ -74,8 +72,12 @@ export async function POST(
     return NextResponse.json({ error: 'Unknown chain' }, { status: 404 });
   }
 
-  const upstreams = UPSTREAM_RPC_URLS[chain];
   const body = await request.text();
+  if (SUI_CHAINS[chain]) {
+    const res = await suiJsonRpcResponse(SUI_CHAINS[chain], body);
+    return new NextResponse(await res.text(), { status: res.status, headers: { 'Content-Type': 'application/json' } });
+  }
+  const upstreams = UPSTREAM_RPC_URLS[chain];
 
   // Validate JSON-RPC request and block dangerous methods
   try {

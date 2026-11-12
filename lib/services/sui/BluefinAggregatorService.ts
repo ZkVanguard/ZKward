@@ -120,9 +120,10 @@ export class BluefinAggregatorService {
       return this.suiClient;
     }
 
-    const { createFailoverSuiClient, getFailoverStats } = await import('@/lib/services/sui/sui-failover-transport');
+    const { createFailoverSuiClient } = await import('@/lib/services/sui/sui-failover-transport');
+    const { suiGrpcUrl } = await import('@/lib/services/sui/sui-grpc-bridge');
     this.suiClient = createFailoverSuiClient(this.network);
-    const rpcUrl = getFailoverStats().activeUrl;
+    const rpcUrl = suiGrpcUrl(this.network);
 
     // H3: Verify RPC is reachable before using it for swaps (with timeout)
     try {

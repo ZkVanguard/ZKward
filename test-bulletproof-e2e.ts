@@ -8,7 +8,7 @@
  * link in the live chain so we know an unsupervised cron tick will succeed.
  */
 import 'dotenv/config';
-import { SuiClient, getFullnodeUrl } from '@mysten/sui/client';
+import { createFailoverSuiClient } from './lib/services/sui/sui-failover-transport';
 import { BluefinService } from './lib/services/sui/BluefinService';
 import {
   SUI_USDC_POOL_CONFIG,
@@ -52,7 +52,7 @@ async function main() {
   // ── 2. POOL ON-CHAIN STATE ───────────────────────────────────────────────
   sect('2. Pool on-chain state (NAV, balance, daily hedge counter)');
   const cfg = SUI_USDC_POOL_CONFIG[NETWORK];
-  const sui = new SuiClient({ url: process.env.SUI_MAINNET_RPC || getFullnodeUrl('mainnet') });
+  const sui = createFailoverSuiClient('mainnet');
   let navUsd = 0,
     contractBalance = 0,
     dailyHedgedToday = 0;

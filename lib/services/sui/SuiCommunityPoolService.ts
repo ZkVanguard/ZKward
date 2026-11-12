@@ -18,13 +18,13 @@ import { logger } from '@/lib/utils/logger';
 import { getMarketDataService } from '../market-data/RealMarketDataService';
 import {
   suiFetchWithTimeout,
-  suiRpcOrder,
   suiCachedFetch,
   invalidateSuiCache,
   SUI_STATS_TTL_MS as SUI_STATS_TTL,
   SUI_MEMBER_TTL_MS as SUI_MEMBER_TTL,
   SUI_MEMBERS_TTL_MS as SUI_MEMBERS_TTL,
 } from '@/lib/services/sui/sui-rpc-utils';
+import { suiGrpcUrl } from '@/lib/services/sui/sui-grpc-bridge';
 
 // SuiUsdcPoolService class split into its own file 2026-07-25; re-export
 // keeps the 7 caller sites unchanged.
@@ -783,7 +783,7 @@ export class SuiCommunityPoolService {
       adminCapId: this.config.adminCapId,
       feeManagerCapId: this.config.feeManagerCapId,
       network: this.network,
-      rpcUrl: suiRpcOrder(this.network)[0],
+      rpcUrl: suiGrpcUrl(this.network),
       explorerUrl: this.config.explorerUrl,
     };
   }

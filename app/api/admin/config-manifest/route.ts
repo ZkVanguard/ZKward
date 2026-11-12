@@ -24,8 +24,9 @@ import { verifyCronRequest } from '@/lib/qstash';
 import { envFlag, envFlagOnByDefault } from '@/lib/utils/env-flag';
 import {
   SUI_STATS_TTL_MS, SUI_MEMBER_TTL_MS, SUI_MEMBERS_TTL_MS,
-  SUI_RPC_TIMEOUT_MS, SUI_RPC_MAX_RETRIES, suiRpcCircuitBreaker,
+  suiRpcCircuitBreaker,
 } from '@/lib/services/sui/sui-rpc-utils';
+import { suiGrpcUrl } from '@/lib/services/sui/sui-grpc-bridge';
 import { DRIFT_GRACE_MS, KILL_ESCALATE_MS } from '@/lib/services/deploy-watchdog/decide';
 import { BLUEFIN_PAIRS } from '@/lib/services/sui/BluefinService';
 
@@ -101,8 +102,7 @@ export async function GET(req: NextRequest) {
 
     // SUI RPC infrastructure
     rpc: {
-      timeoutMs: SUI_RPC_TIMEOUT_MS,
-      maxRetries: SUI_RPC_MAX_RETRIES,
+      grpcUrl: suiGrpcUrl('mainnet'),
       circuitBreaker: {
         threshold: suiRpcCircuitBreaker.threshold,
         resetTimeoutMs: suiRpcCircuitBreaker.resetTimeout,
