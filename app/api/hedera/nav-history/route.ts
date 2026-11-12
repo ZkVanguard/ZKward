@@ -82,36 +82,32 @@ async function handleGet(request: NextRequest): Promise<NextResponse<NavHistoryR
     return NextResponse.json({ error: 'pool not deployed' }, { status: 404 });
   }
 
-  const base = 'https://testnet.mirrornode.hedera.com/api/v1';
-
+  type Log = { data: string; topics: string[]; timestamp: string; transaction_hash: string };
   // Fetch ALL contract logs and filter server-side. Mirror Node's
   // `topic0=` query filter returns 0 results in practice even when the
   // topic hash matches what unfiltered results show — a known quirk.
-  // Filtering in-code is O(n) but n is bounded by the pool's lifetime
-  // event count, which is small for the demo.
-  async function fetchAllLogs(): Promise<Array<{
-    data: string; topics: string[]; timestamp: string; transaction_hash: string;
-  }>> {
-    const url = `${base}/contracts/${pool}/results/logs?order=asc&limit=100`;
-    try {
-      const r = await fetch(url, { next: { revalidate: 30 } });
-      if (!r.ok) {
-        logger.warn('[hedera-nav-history] mirror non-ok', { url, status: r.status });
-        return [];
-      }
-      const j = (await r.json()) as { logs?: Array<{
-        data: string; topics: string[]; timestamp: string; transaction_hash: string;
-      }> };
-      return j.logs ?? [];
-    } catch (e) {
-      logger.warn('[hedera-nav-history] mirror fetch failed', {
-        url, error: e instanceof Error ? e.message : String(e),
-      });
-      return [];
+  // Every page, or an error: a failed or partial read must not look like a pool with no history.
+  async function fetchAllLogs(): Promise<Log[]> {
+    const logs: Log[] = [];
+    let path: string | null = `/api/v1/contracts/${pool}/results/logs?order=asc&limit=100`;
+    while (path) {
+      const r = await fetch(`https://testnet.mirrornode.hedera.com${path}`, { next: { revalidate: 30 } });
+      if (!r.ok) throw new Error(`mirror node HTTP ${r.status}`);
+      const j = (await r.json()) as { logs?: Log[]; links?: { next?: string | null } };
+      logs.push(...(j.logs ?? []));
+      path = j.links?.next ?? null;
     }
+    return logs;
   }
 
-  const allLogs = await fetchAllLogs();
+  let allLogs: Log[];
+  try {
+    allLogs = await fetchAllLogs();
+  } catch (e) {
+    const error = e instanceof Error ? e.message : String(e);
+    logger.warn('[hedera-nav-history] mirror read failed', { error });
+    return NextResponse.json({ error: `could not read the pool's events: ${error}` }, { status: 502 });
+  }
   const depositLogs = allLogs.filter((l) => l.topics?.[0] === TOPIC_DEPOSITED);
   const withdrawLogs = allLogs.filter((l) => l.topics?.[0] === TOPIC_WITHDRAWN);
 
@@ -176,7 +172,15 @@ async function handleGet(request: NextRequest): Promise<NextResponse<NavHistoryR
       default:    return 0;
     }
   })();
-  const filtered = points.filter((p) => new Date(p.t).getTime() >= cutoff);
+  // The value only moves on a deposit or withdrawal, so it holds between events: the window opens
+  // at the last value before it and ends at now. Without this a quiet month read as no history.
+  const before = points.filter((p) => new Date(p.t).getTime() < cutoff).at(-1);
+  const latest = points.at(-1);
+  const filtered = [
+    ...(before ? [{ ...before, t: new Date(cutoff).toISOString() }] : []),
+    ...points.filter((p) => new Date(p.t).getTime() >= cutoff),
+    ...(latest ? [{ ...latest, t: new Date(now).toISOString() }] : []),
+  ];
 
   const peak = filtered.reduce<{ t: string; sharePrice: number } | undefined>(
     (acc, p) => (acc && acc.sharePrice >= p.sharePrice ? acc : { t: p.t, sharePrice: p.sharePrice }),
