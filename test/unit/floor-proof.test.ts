@@ -47,6 +47,14 @@ describe('floorProof', () => {
     expect(line).toContain('avoided 68 % of the fall');
     expect(line).toContain('worst fall 1.9 %');
     expect(line).toContain('day 7');
+    expect(line).not.toContain('interest');
+  });
+
+  it('the core book shows its assumed interest apart from its trading, and the fall avoided is the trading part', () => {
+    const p = floorProof({ ...STATE, valueUsd: 99_905.99, interestUsd: 1_000 }, MARKS, NOW)!;
+    expect(p.interestPct).toBeCloseTo(1, 6);
+    expect(p.avoidedShare).toBeCloseTo(1 - 1.094 / 3.370, 2);
+    expect(floorProofLine(p)).toContain('−0.1 % (trading −1.1 %, assumed interest +1.0 %) vs holding −3.4 %');
   });
 });
 

@@ -17,12 +17,16 @@ export interface FloorStateView {
   valueUsd: number;
   maxDrawdown: number;
   exposureUsd: number;
+  /** Assumed interest on the cash, already inside `valueUsd`. Only the core book has it. */
+  interestUsd?: number;
 }
 
 export interface FloorProof {
   days: number;
-  /** The book's change since it started, in percent. */
+  /** The book's change since it started, in percent, interest included. */
   bookPct: number;
+  /** The part of `bookPct` that is assumed interest, not trading; null for a book without it. */
+  interestPct: number | null;
   /** Holding half BTC and half ETH from the book's start prices, in percent. */
   holdPct: number;
   coinPct: Record<string, number>;
@@ -43,13 +47,17 @@ export function floorProof(state: FloorStateView, marks: ReadonlyMap<string, num
   }
   const holdPct = ASSETS.reduce((s, a) => s + coinPct[a], 0) / ASSETS.length;
   const bookPct = (state.valueUsd / FLOOR_START_USD - 1) * 100;
+  const interestPct = typeof state.interestUsd === 'number' ? (state.interestUsd / FLOOR_START_USD) * 100 : null;
+  // The fall avoided is the rule's, so assumed interest does not count toward it.
+  const tradingPct = bookPct - (interestPct ?? 0);
   return {
     days: (nowMs - state.startedAtMs) / 86_400_000,
     bookPct,
+    interestPct,
     holdPct,
     coinPct,
     worstFallPct: state.maxDrawdown * 100,
-    avoidedShare: holdPct < 0 ? 1 - bookPct / holdPct : null,
+    avoidedShare: holdPct < 0 ? 1 - tradingPct / holdPct : null,
     exposureUsd: state.exposureUsd,
   };
 }
@@ -60,7 +68,8 @@ const pct = (v: number) => `${v >= 0 ? '+' : '−'}${Math.abs(v).toFixed(1)} %`;
 export function floorProofLine(p: FloorProof): string {
   const coins = ASSETS.map((a) => `${a} ${pct(p.coinPct[a])}`).join(', ');
   const avoided = p.avoidedShare === null ? '' : ` · avoided ${Math.round(100 * p.avoidedShare)} % of the fall`;
-  return `${pct(p.bookPct)} vs holding ${pct(p.holdPct)} (${coins})${avoided}\nworst fall ${p.worstFallPct.toFixed(1)} % · holds $${Math.round(p.exposureUsd).toLocaleString('en-US')} in coins · day ${Math.floor(p.days) + 1}`;
+  const split = p.interestPct === null ? '' : ` (trading ${pct(p.bookPct - p.interestPct)}, assumed interest ${pct(p.interestPct)})`;
+  return `${pct(p.bookPct)}${split} vs holding ${pct(p.holdPct)} (${coins})${avoided}\nworst fall ${p.worstFallPct.toFixed(1)} % · holds $${Math.round(p.exposureUsd).toLocaleString('en-US')} in coins · day ${Math.floor(p.days) + 1}`;
 }
 
 /** The live figures for one floor book's state key; null before its first tick or without marks. Throws on a failed read. */
