@@ -1,10 +1,11 @@
 /* eslint-disable */
-const { SuiClient, getFullnodeUrl } = require('@mysten/sui/client');
+const { SuiClient } = require('@mysten/sui/client');
 const { decodeSuiPrivateKey } = require('@mysten/sui/cryptography');
 const { Ed25519Keypair } = require('@mysten/sui/keypairs/ed25519');
 require('dotenv').config({ path: '.env.production' });
 
-const c = new SuiClient({ url: getFullnodeUrl('mainnet') });
+// No public SUI provider serves JSON-RPC any more; the site's proxy answers it from gRPC.
+const c = new SuiClient({ url: (process.env.SUI_JSONRPC_URL || 'https://www.zkward.com/api/rpc/sui').trim() });
 const POOL = '0xe814e0948e29d9c10b73a0e6fb23c9997ccc373bed223657ab65ff544742fb3a';
 
 const norm = (v) => (v || '').toString().trim().replace(/[\r\n"']/g, '');

@@ -186,7 +186,7 @@ async function getPrivatePortfolios(wallet: string): Promise<{
           },
         ],
       }),
-    }, 10_000);
+    });
     if (!response.ok) {
       return { position: null, warning: `Private portfolio RPC returned HTTP ${response.status}` };
     }

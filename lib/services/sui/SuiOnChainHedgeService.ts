@@ -412,7 +412,7 @@ export class SuiOnChainHedgeService {
             },
           ],
         }),
-      }, 15_000);
+      });
 
       const data = await response.json();
       const objects = data.result?.data || [];

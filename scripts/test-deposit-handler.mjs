@@ -5,7 +5,7 @@
 //   3. Build a Transaction the same way the UI does
 //   4. dryRunTransactionBlock to see if the on-chain call would succeed
 // Usage: node scripts/test-deposit-handler.mjs
-import { SuiClient, getFullnodeUrl } from '@mysten/sui/client';
+import { SuiClient } from '@mysten/sui/client';
 import { Transaction } from '@mysten/sui/transactions';
 
 const BASE = process.env.TEST_BASE || 'https://www.zkward.com';
@@ -40,7 +40,8 @@ async function main() {
   const usdcType = typeArg || usdcCoinType;
 
   // 2. Look up USDC coin objects on the sender wallet
-  const client = new SuiClient({ url: getFullnodeUrl(NETWORK) });
+  // No public SUI provider serves JSON-RPC any more; the site's proxy answers it from gRPC.
+  const client = new SuiClient({ url: `https://www.zkward.com/api/rpc/${NETWORK === 'testnet' ? 'sui-testnet' : 'sui'}` });
   const coins = await client.getCoins({ owner: SENDER, coinType: usdcType });
   const total = coins.data.reduce((s, c) => s + BigInt(c.balance), 0n);
   console.log(`→ Sender ${SENDER.slice(0, 10)}… has ${coins.data.length} USDC coin(s), total=${Number(total)/1e6} USDC`);

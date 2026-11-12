@@ -68,11 +68,9 @@ async function readOnChain(): Promise<{
 }> {
   const poolStateId = (process.env.NEXT_PUBLIC_SUI_MAINNET_USDC_POOL_STATE || process.env.NEXT_PUBLIC_SUI_MAINNET_COMMUNITY_POOL_STATE || '').trim();
   if (!poolStateId) return { reachable: false, error: 'No mainnet pool state ID in env' };
-  const rpcUrl = (process.env.SUI_MAINNET_RPC || 'https://fullnode.mainnet.sui.io:443').trim();
   try {
-    // Migrated 2026-07-29 to SuiClient (see commit 61e889cb).
-    const { SuiClient } = await import('@mysten/sui/client');
-    const client = new SuiClient({ url: rpcUrl });
+    const { createFailoverSuiClient } = await import('../lib/services/sui/sui-failover-transport');
+    const client = createFailoverSuiClient('mainnet');
     const res = await client.getObject({
       id: poolStateId,
       options: { showContent: true },

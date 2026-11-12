@@ -18,7 +18,7 @@
 import 'dotenv/config';
 import { config as loadDotenv } from 'dotenv';
 import { existsSync } from 'fs';
-import { SuiClient, getFullnodeUrl } from '@mysten/sui/client';
+import { createFailoverSuiClient } from '../lib/services/sui/sui-failover-transport';
 import { Pool } from 'pg';
 
 // Manually load .env.local since dotenv/config only loads .env
@@ -68,7 +68,7 @@ async function main() {
 
   // ── 1. On-chain pool state ────────────────────────────────────
   log('── 1. ON-CHAIN POOL STATE ──');
-  const sui = new SuiClient({ url: process.env.SUI_MAINNET_RPC?.trim() || getFullnodeUrl('mainnet') });
+  const sui = createFailoverSuiClient('mainnet');
   const obj = await sui.getObject({ id: POOL_STATE, options: { showContent: true } });
   if (!obj.data) { log(color('  ✗ pool not found', 'r')); process.exit(2); }
   const fields = (obj.data?.content as any)?.fields;

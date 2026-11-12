@@ -15,12 +15,12 @@ import { composeNavUsdc, computeSharePrice, isNavSane } from '@/lib/services/sui
 import { parseTargetAllocation, computeLiveAllocation } from '@/lib/services/sui/pool-allocation';
 import {
   suiFetchWithTimeout,
-  suiRpcOrder,
   suiCachedFetch,
   invalidateSuiCache,
   SUI_STATS_TTL_MS as SUI_STATS_TTL,
   SUI_MEMBER_TTL_MS as SUI_MEMBER_TTL,
 } from '@/lib/services/sui/sui-rpc-utils';
+import { suiGrpcUrl } from '@/lib/services/sui/sui-grpc-bridge';
 import {
   SUI_USDC_POOL_CONFIG,
   CLOCK_OBJECT_ID,
@@ -685,7 +685,7 @@ export class SuiUsdcPoolService {
       poolStateId: this.cachedUsdcPoolStateId,
       usdcCoinType: this.config.usdcCoinType,
       network: this.network,
-      rpcUrl: suiRpcOrder(this.network)[0],
+      rpcUrl: suiGrpcUrl(this.network),
       explorerUrl: this.config.explorerUrl,
       isUsdcPool: true,
     };
