@@ -50,46 +50,22 @@ interface NavHistoryChartProps {
   chain?: 'sui' | 'hedera' | 'solana';
 }
 
-// Hedera adapter fetch removed 2026-09-23 — /api/subgraph/hedera backend
-// was retired in commit 5303af22 (ETHGlobal cleanup). Callers now use the
-// Mirror Node REST endpoint directly (fallback path was already present).
-
 export function NavHistoryChart({ chain = 'sui' }: NavHistoryChartProps = {}) {
   const [window, setWindow] = useState<typeof WINDOWS[number]>(WINDOWS[1]);
 
-  // Per-chain data source:
-  //   sui    → /api/platform/nav-history (Aiven Postgres, DB-backed)
-  //   hedera → @zkward/hedera-graphql-adapter navHistory (HCS-anchored),
-  //            with /api/hedera/nav-history as a fallback for windows before
-  //            HCS started recording, and SUI as a final fallback for empty state
   const query = `window=${window.value}&bucket=${window.bucket}`;
   const primaryEndpoint =
     chain === 'hedera' ? `/api/hedera/nav-history?${query}`
     : chain === 'solana' ? `/api/solana-pool/history?${query}`
     : `/api/platform/nav-history?${query}`;
-  const fallbackEndpoint = `/api/platform/nav-history?window=${window.value}&bucket=${window.bucket}`;
 
+  // Each pool shows only its own history: another pool's figures under this pool's name read as this pool's.
   const { data, isPending: loading, error } = useQuery({
     queryKey: ['nav-history', chain, window.value, window.bucket],
-    queryFn: async (): Promise<NavHistoryResponse & { fallbackFrom?: 'sui'; sourcedFrom?: 'adapter' }> => {
-      // Hedera chain uses Mirror Node event replay via
-      // /api/hedera/nav-history. Falls back to SUI history for empty-state
-      // UX if Mirror Node has nothing. (Previously the GraphQL adapter
-      // was tried first; that backend was retired in commit 5303af22.)
+    queryFn: async (): Promise<NavHistoryResponse> => {
       const r = await fetch(primaryEndpoint);
-      const primary = (await r.json()) as NavHistoryResponse;
-      if (chain === 'hedera' && (!primary.points || primary.points.length === 0)) {
-        try {
-          const s = await fetch(fallbackEndpoint);
-          const sui = (await s.json()) as NavHistoryResponse;
-          if (sui.points && sui.points.length > 0) {
-            return { ...sui, fallbackFrom: 'sui' as const };
-          }
-        } catch {
-          /* fall through to primary result */
-        }
-      }
-      return primary;
+      if (!r.ok) throw new Error(`nav history: HTTP ${r.status}`);
+      return (await r.json()) as NavHistoryResponse;
     },
     staleTime: 30_000,
   });
@@ -98,7 +74,6 @@ export function NavHistoryChart({ chain = 'sui' }: NavHistoryChartProps = {}) {
       error: error instanceof Error ? error.message : String(error),
     });
   }
-  const usedFallback = (data as { fallbackFrom?: 'sui' } | undefined)?.fallbackFrom === 'sui';
 
   // Hedera SimpleUsdcVaultV2 uses ERC-4626-lite math with zero on-chain
   // yield accrual. Share price is mathematically pinned to $1.00 forever
@@ -186,15 +161,6 @@ export function NavHistoryChart({ chain = 'sui' }: NavHistoryChartProps = {}) {
         <div className="flex items-center gap-2 flex-wrap min-w-0">
           <TrendingUp className="w-4 h-4 text-label-primary flex-shrink-0" />
           <h2 className="text-base sm:text-[17px] font-semibold text-label-primary">{isNavMode ? 'Pool value' : 'Share price'}</h2>
-          {usedFallback && (
-            <span
-              className="text-[10px] px-2 py-0.5 rounded-full font-semibold uppercase tracking-wide"
-              style={{ background: '#4DA2FF15', color: '#4DA2FF' }}
-              title="Hedera pool is fresh; showing SUI pool history as a reference series until Hedera accumulates events."
-            >
-              Reference · SUI
-            </span>
-          )}
         </div>
         {/* flex-wrap on mobile so 'Peak' + 'First → Now' can stack instead of
             being forced onto one line + clipping. gap-y-1 gives a bit of
