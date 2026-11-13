@@ -34,6 +34,7 @@ export const PAPER_BOOKS: readonly PaperBookDef[] = [
   { id: -10, name: 'TrendTrader', tests: 'BTC and ETH, each held as spot at 12.5% of the book while its last daily close is above its 100-day average, decided once a day; few trades by design', disableFlag: 'TREND_TRADER_DISABLE' },
   { id: -11, name: 'CoreTrader', tests: 'the floor rule (BTC and ETH sized to keep the book above 90% of its peak) holding a coin only while it is above its 100-day average, as spot; its cash is credited an assumed 4% a year', disableFlag: 'CORE_TRADER_DISABLE', interestKey: 'core-trader:state' },
   { id: -12, name: 'ShortTrader', tests: 'the core rule turned down: BTC and ETH sold short on the perp, sized by the floor rule, while a coin is below its 100-day average and below its close 30 days before; cash otherwise, credited an assumed 4% a year', disableFlag: 'SHORT_TRADER_DISABLE', interestKey: 'short-trader:state' },
+  { id: -13, name: 'ProvenTrader', tests: 'the combined signal traded only while the ledger proves it above the round-trip cost, exactly as proven: resting entry at the reading price, exit at the 60-minute horizon, $1,000 at 1x', disableFlag: 'PROVEN_TRADER_DISABLE' },
 ];
 
 /** True when the book's off switch is not set. */

@@ -55,6 +55,7 @@ const BOOKS: ReadonlyArray<{ label: string; portfolioId: number; skipKey?: strin
   { label: 'TrendTrader', portfolioId: -10 },
   { label: 'CoreTrader', portfolioId: -11 },
   { label: 'ShortTrader', portfolioId: -12 },
+  { label: 'ProvenTrader', portfolioId: -13 },
 ];
 
 /** Post a paper-book message. Trades and summaries post as a card; alerts keep their context. */

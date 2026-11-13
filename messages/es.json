@@ -725,7 +725,8 @@
       "b9": "La regla de suelo dimensionada por el movimiento que valora la escalera de strikes",
       "b10": "BTC y ETH mantenidos mientras estén por encima de su media de 100 días",
       "b11": "La regla de suelo con filtro de tendencia; el efectivo gana un 4 % supuesto",
-      "b12": "Vende en corto BTC y ETH mientras caen; el efectivo gana un 4 % supuesto"
+      "b12": "Vende en corto BTC y ETH mientras caen; el efectivo gana un 4 % supuesto",
+      "b13": "La señal combinada, operada solo mientras esté probada por encima del coste; cierre a los 60 minutos"
     }
   }
 }

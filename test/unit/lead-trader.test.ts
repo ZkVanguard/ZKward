@@ -23,8 +23,15 @@ jest.mock('@/lib/services/market-data/unified-price-provider', () => ({
   getMultiSourceValidatedPrice: async (asset: string) => ({ price: prices[asset] ?? 0 }),
 }));
 jest.mock('@/lib/utils/logger', () => ({ logger: { info: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn() } }));
+const loopState = jest.fn<() => Promise<unknown>>();
+const verdict = jest.fn<(state: unknown, source: string, asset: string, costBp: number) => string>();
+jest.mock('@/lib/services/market-data/feedback-loop', () => ({
+  getLoopState: () => loopState(),
+  tradeVerdict: (s: unknown, src: string, a: string, c: number) => verdict(s, src, a, c),
+}));
 
 import { LeadTrader, selectLeadEntries, LEAD_PORTFOLIO_ID, type LeadReading } from '@/lib/services/paper-trader/LeadTrader';
+import { ProvenTrader, PROVEN_PORTFOLIO_ID, PROVEN_COST_BP } from '@/lib/services/paper-trader/ProvenTrader';
 import { restingFilled, simulateOpen } from '@/lib/services/paper-trader/simulated-executor';
 
 const NOW = Date.parse('2026-10-07T12:00:00Z');
@@ -44,6 +51,8 @@ beforeEach(() => {
   for (const k of Object.keys(prices)) delete prices[k];
   query.mockResolvedValue([]);
   settleHedgeRow.mockResolvedValue(true);
+  loopState.mockResolvedValue({ cells: {}, families: {} });
+  verdict.mockReturnValue('unproven');
 });
 
 describe('selectLeadEntries', () => {
@@ -273,5 +282,42 @@ describe('a stopped book', () => {
     expect(await LeadTrader.runTick(NOW + MIN)).toMatchObject({ closed: 0, placed: 0, active: 0, resting: 0 });
     expect(query).not.toHaveBeenCalled();
     expect(settleHedgeRow).not.toHaveBeenCalled();
+  });
+});
+
+describe('the proven book (-13)', () => {
+  const agg = (over: Partial<LeadReading> = {}) => reading({ source: 'aggregate', ...over });
+
+  it('reads the combined vote at the judge’s horizon and trades only a coin proven above the round trip', async () => {
+    query.mockResolvedValueOnce([agg(), agg({ asset: 'ETH', entry_price: 2_700, direction: 'DOWN' })]);
+    verdict.mockImplementation((_s, _src, asset) => (asset === 'BTC' ? 'proven' : 'unproven'));
+    const s = await ProvenTrader.runTick(NOW);
+    expect(query.mock.calls[0][1]).toEqual(['aggregate', 60, NOW - 5 * MIN]);
+    expect(verdict).toHaveBeenCalledWith(expect.anything(), 'aggregate', 'BTC', PROVEN_COST_BP);
+    expect(PROVEN_COST_BP).toBe(13);
+    expect(s).toMatchObject({ placed: 1, resting: 1 });
+    expect((state.get('proven-trader:resting-entries') as Array<{ asset: string }>).map((e) => e.asset)).toEqual(['BTC']);
+    expect(state.has(RESTING)).toBe(false); // the lead book's state is untouched
+  });
+
+  it('fills at the reading’s price and exits at market when the horizon is reached, under its own id', async () => {
+    query.mockResolvedValueOnce([agg()]);
+    verdict.mockReturnValue('proven');
+    await ProvenTrader.runTick(NOW);
+    prices.BTC = through(85_000, 'buy');
+    expect(await ProvenTrader.runTick(NOW + 2 * MIN)).toMatchObject({ filled: 1, active: 1 });
+    expect(createHedge.mock.calls[0][0]).toMatchObject({ portfolioId: PROVEN_PORTFOLIO_ID, entryPrice: 85_000, notionalValue: 1000 });
+    expect(String(createHedge.mock.calls[0][0].orderId)).toMatch(/^proven_BTC_/);
+    prices.BTC = 85_500;
+    expect(await ProvenTrader.runTick(NOW - 30_000 + 60 * MIN - 1)).toMatchObject({ closed: 0, active: 1 });
+    expect(await ProvenTrader.runTick(NOW - 30_000 + 60 * MIN)).toMatchObject({ closed: 1, active: 0 });
+    expect(settleHedgeRow.mock.calls[0][0]).toMatchObject({ reason: 'horizon-expiry' });
+  });
+
+  it('an unreadable judgment trades nothing and does not stop the tick', async () => {
+    query.mockResolvedValueOnce([agg()]);
+    loopState.mockRejectedValue(new Error('store down'));
+    await expect(ProvenTrader.runTick(NOW)).resolves.toMatchObject({ placed: 0, resting: 0 });
+    expect(createHedge).not.toHaveBeenCalled();
   });
 });

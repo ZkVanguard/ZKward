@@ -41,20 +41,51 @@ export const LEAD_PORTFOLIO_ID = -7;
 const CHAIN = 'hedera-testnet';
 
 const env = (name: string, fallback: string) => (process.env[name] || '').trim() || fallback;
-const SOURCE_LIKE = env('LEAD_TRADER_SOURCE_LIKE', '%kalshi%');
-const HOLD_MIN = Number(env('LEAD_TRADER_HOLD_MIN', '240'));
-const ASSETS = env('LEAD_TRADER_ASSETS', 'BTC,ETH').split(',').map((a) => a.trim().toUpperCase()).filter(Boolean);
-const STAKE_USD = Number(env('LEAD_TRADER_STAKE_USD', '1000'));
 const LEVERAGE = 1;
 // A reading's price is the price when it was recorded. Resting an order at a
 // stale price is a different trade, so only readings from the last few
 // minutes qualify; after downtime the watermark still moves past the rest.
 const MAX_READING_AGE_MS = Number(env('LEAD_TRADER_MAX_READING_AGE_MIN', '5')) * 60_000;
 
-const KEY_POSITIONS = 'lead-trader:active-positions';
-const KEY_RESTING = 'lead-trader:resting-entries';
-const KEY_WATERMARK = 'lead-trader:reading-watermark';
-const KEY_STATS = 'lead-trader:stats';
+/**
+ * What makes one ledger-reading book differ from another: everything else is
+ * the same entry, hold and exit. ProvenTrader.ts (-13) runs this code on the
+ * combined vote at the judge's horizon.
+ */
+export interface LeadBook {
+  name: string;
+  portfolioId: number;
+  /** Prefix of its cron_state keys. */
+  keyPrefix: string;
+  orderPrefix: string;
+  /** `signal_outcomes.source` pattern it trades. */
+  sourceLike: string;
+  holdMin: number;
+  assets: readonly string[];
+  stakeUsd: number;
+  disableFlag: string;
+  /** Whether a fresh reading for this asset may be traded now; absent, every reading may. */
+  admit?: (asset: string, now: number) => Promise<boolean>;
+}
+
+const LEAD: LeadBook = {
+  name: 'LeadTrader',
+  portfolioId: LEAD_PORTFOLIO_ID,
+  keyPrefix: 'lead-trader',
+  orderPrefix: 'lead',
+  sourceLike: env('LEAD_TRADER_SOURCE_LIKE', '%kalshi%'),
+  holdMin: Number(env('LEAD_TRADER_HOLD_MIN', '240')),
+  assets: env('LEAD_TRADER_ASSETS', 'BTC,ETH').split(',').map((a) => a.trim().toUpperCase()).filter(Boolean),
+  stakeUsd: Number(env('LEAD_TRADER_STAKE_USD', '1000')),
+  disableFlag: 'LEAD_TRADER_DISABLE',
+};
+
+const keysOf = (book: LeadBook) => ({
+  positions: `${book.keyPrefix}:active-positions`,
+  resting: `${book.keyPrefix}:resting-entries`,
+  watermark: `${book.keyPrefix}:reading-watermark`,
+  stats: `${book.keyPrefix}:stats`,
+});
 
 interface LeadPosition {
   orderId: string;
@@ -98,11 +129,12 @@ export function selectLeadEntries(
   readings: LeadReading[],
   now: number,
   busyAssets: Set<string>,
+  assets: readonly string[] = LEAD.assets,
 ): Array<{ reading: LeadReading; side: Side }> {
   const byAsset = new Map<string, { reading: LeadReading; side: Side }>();
   for (const reading of readings) {
     const asset = (reading.asset || '').toUpperCase();
-    if (!ASSETS.includes(asset) || busyAssets.has(asset)) continue;
+    if (!assets.includes(asset) || busyAssets.has(asset)) continue;
     const side: Side | null = reading.direction === 'UP' ? 'LONG' : reading.direction === 'DOWN' ? 'SHORT' : null;
     if (!side) continue;
     if (!Number.isFinite(reading.entry_price) || reading.entry_price <= 0) continue;
@@ -131,139 +163,146 @@ async function markPrice(asset: string): Promise<number | null> {
 
 const emptyStats = (): LeadStats => ({ trades: 0, wins: 0, cumRealizedUsd: 0, placed: 0, filled: 0 });
 
-export class LeadTrader {
-  static async runTick(now: number = Date.now()): Promise<LeadTickSummary> {
-    const summary: LeadTickSummary = { placed: 0, filled: 0, cancelled: 0, closed: 0, active: 0, resting: 0 };
-    const stopped = /^(1|true|yes|on)$/i.test(env('LEAD_TRADER_DISABLE', ''));
+/** One tick of a ledger-reading book. */
+export async function runLeadBook(book: LeadBook, now: number = Date.now()): Promise<LeadTickSummary> {
+  const KEY = keysOf(book);
+  const summary: LeadTickSummary = { placed: 0, filled: 0, cancelled: 0, closed: 0, active: 0, resting: 0 };
+  const stopped = /^(1|true|yes|on)$/i.test(env(book.disableFlag, ''));
 
-    let positions = ((await getCronStateStrict<LeadPosition[]>(KEY_POSITIONS)) ?? []).filter(Boolean);
-    let resting = ((await getCronStateStrict<RestingLeadEntry[]>(KEY_RESTING)) ?? []).filter(Boolean);
-    // A stopped book closes what it holds at market, cancels what rests and places nothing; then it rests.
-    // A skipped tick would leave positions open with no exit.
-    if (stopped && positions.length + resting.length === 0) return summary;
-    const stats = { ...emptyStats(), ...((await getCronStateStrict<LeadStats>(KEY_STATS)) ?? {}) };
-    let statsChanged = false;
+  let positions = ((await getCronStateStrict<LeadPosition[]>(KEY.positions)) ?? []).filter(Boolean);
+  let resting = ((await getCronStateStrict<RestingLeadEntry[]>(KEY.resting)) ?? []).filter(Boolean);
+  // A stopped book closes what it holds at market, cancels what rests and places nothing; then it rests.
+  // A skipped tick would leave positions open with no exit.
+  if (stopped && positions.length + resting.length === 0) return summary;
+  const stats = { ...emptyStats(), ...((await getCronStateStrict<LeadStats>(KEY.stats)) ?? {}) };
+  let statsChanged = false;
 
-    // ── Close: horizon reached → market order at the validated mark ──
-    for (const pos of positions.filter((p) => stopped || now >= p.closeAtMs)) {
-      try {
-        const price = await markPrice(pos.position.asset);
-        if (!price) continue; // no trustworthy price this tick: try again next tick
-        const result = simulateClose(pos.position, price, now);
-        const { settleHedgeRow } = await import('./close-pipeline');
-        const settled = await settleHedgeRow({
-          orderId: pos.orderId,
-          pos: pos.position,
-          result,
-          reason: stopped ? 'book-stopped' : 'horizon-expiry',
-          analytics: false,
-          extraMeta: { source: pos.source, holdMin: HOLD_MIN, execution: 'resting-entry' },
-        });
-        positions = positions.filter((p) => p.orderId !== pos.orderId);
-        if (settled === false) continue; // another tick already closed it: count nothing
-        stats.trades += 1;
-        if (result.realizedPnlUsd > 0) stats.wins += 1;
-        stats.cumRealizedUsd += result.realizedPnlUsd;
-        statsChanged = true;
-        summary.closed += 1;
-      } catch (e) {
-        logger.warn('[LeadTrader] close failed (retry next tick)', { orderId: pos.orderId, error: errMsg(e) });
-      }
-    }
-
-    // ── Resting entries: filled, still waiting, or lapsed ──
-    const stillResting: RestingLeadEntry[] = [];
-    for (const entry of resting) {
-      if (stopped || now >= entry.expiresAtMs) {
-        summary.cancelled += 1;
-        continue;
-      }
-      let mark: number | null = null;
-      try {
-        mark = await markPrice(entry.asset);
-      } catch {
-        mark = null;
-      }
-      if (!mark || !restingFilled(entry.side === 'LONG' ? 'buy' : 'sell', entry.limitPrice, mark, entry.asset)) {
-        stillResting.push(entry);
-        continue;
-      }
-      const position = simulateOpen(
-        { asset: entry.asset, side: entry.side, notionalUsd: STAKE_USD * LEVERAGE, leverage: LEVERAGE, entryPrice: entry.limitPrice, resting: true },
-        now,
-      );
-      const orderId = `lead_${entry.asset}_${Math.floor(entry.readingAtMs / 1000)}`;
-      try {
-        await createHedge({
-          orderId,
-          portfolioId: LEAD_PORTFOLIO_ID,
-          asset: entry.asset,
-          market: `${entry.asset}-PERP`,
-          side: entry.side,
-          size: position.size,
-          notionalValue: position.notionalUsd,
-          leverage: LEVERAGE,
-          entryPrice: entry.limitPrice,
-          simulationMode: true,
-          reason: `lead: ${entry.source.slice(0, 60)} | hold ${HOLD_MIN}min | resting entry`,
-          predictionMarket: 'signal-ledger',
-          chain: CHAIN,
-        });
-        positions.push({ orderId, position, closeAtMs: entry.readingAtMs + HOLD_MIN * 60_000, source: entry.source });
-        stats.filled += 1;
-        statsChanged = true;
-        summary.filled += 1;
-      } catch (e) {
-        // The order is gone either way: a row that could not be written must not become an untracked position.
-        logger.warn('[LeadTrader] open failed (entry dropped)', { orderId, error: errMsg(e) });
-      }
-    }
-    resting = stillResting;
-
-    // ── New readings since the watermark ──
+  // ── Close: horizon reached → market order at the validated mark ──
+  for (const pos of positions.filter((p) => stopped || now >= p.closeAtMs)) {
     try {
-      const watermark = Number((await getCronStateStrict<number>(KEY_WATERMARK)) ?? 0) || now - MAX_READING_AGE_MS;
-      const rows = stopped ? [] : await query<LeadReading>(
-        `SELECT source, asset, direction, entry_price::float8 AS entry_price,
-                (window_end_time - horizon_min * 60000)::float8 AS reading_at_ms
-         FROM signal_outcomes
-         WHERE source LIKE $1 AND horizon_min = $2
-           AND (window_end_time - horizon_min * 60000) > $3
-         ORDER BY window_end_time ASC
-         LIMIT 50`,
-        [SOURCE_LIKE, HOLD_MIN, watermark],
-      );
-      if (rows.length > 0) {
-        // The watermark moves over everything scanned, used or not, so the scan stays small.
-        await setCronState(KEY_WATERMARK, Math.max(...rows.map((r) => Number(r.reading_at_ms))));
-        const busy = new Set<string>([...positions.map((p) => p.position.asset), ...resting.map((r) => r.asset)]);
-        for (const { reading, side } of selectLeadEntries(rows, now, busy)) {
-          resting.push({
-            asset: reading.asset,
-            side,
-            limitPrice: reading.entry_price,
-            readingAtMs: reading.reading_at_ms,
-            expiresAtMs: now + PAPER_RESTING_ENTRY_WAIT_MIN * 60_000,
-            source: reading.source,
-          });
-          stats.placed += 1;
-          statsChanged = true;
-          summary.placed += 1;
-        }
-      }
+      const price = await markPrice(pos.position.asset);
+      if (!price) continue; // no trustworthy price this tick: try again next tick
+      const result = simulateClose(pos.position, price, now);
+      const { settleHedgeRow } = await import('./close-pipeline');
+      const settled = await settleHedgeRow({
+        orderId: pos.orderId,
+        pos: pos.position,
+        result,
+        reason: stopped ? 'book-stopped' : 'horizon-expiry',
+        analytics: false,
+        extraMeta: { source: pos.source, holdMin: book.holdMin, execution: 'resting-entry' },
+      });
+      positions = positions.filter((p) => p.orderId !== pos.orderId);
+      if (settled === false) continue; // another tick already closed it: count nothing
+      stats.trades += 1;
+      if (result.realizedPnlUsd > 0) stats.wins += 1;
+      stats.cumRealizedUsd += result.realizedPnlUsd;
+      statsChanged = true;
+      summary.closed += 1;
     } catch (e) {
-      logger.warn('[LeadTrader] reading scan failed (non-fatal)', { error: errMsg(e) });
+      logger.warn(`[${book.name}] close failed (retry next tick)`, { orderId: pos.orderId, error: errMsg(e) });
     }
+  }
 
-    await setCronState(KEY_POSITIONS, positions);
-    await setCronState(KEY_RESTING, resting);
-    if (statsChanged) await setCronState(KEY_STATS, stats);
-
-    summary.active = positions.length;
-    summary.resting = resting.length;
-    if (summary.placed + summary.filled + summary.cancelled + summary.closed > 0) {
-      logger.info('[LeadTrader] tick', { ...summary });
+  // ── Resting entries: filled, still waiting, or lapsed ──
+  const stillResting: RestingLeadEntry[] = [];
+  for (const entry of resting) {
+    if (stopped || now >= entry.expiresAtMs) {
+      summary.cancelled += 1;
+      continue;
     }
-    return summary;
+    let mark: number | null = null;
+    try {
+      mark = await markPrice(entry.asset);
+    } catch {
+      mark = null;
+    }
+    if (!mark || !restingFilled(entry.side === 'LONG' ? 'buy' : 'sell', entry.limitPrice, mark, entry.asset)) {
+      stillResting.push(entry);
+      continue;
+    }
+    const position = simulateOpen(
+      { asset: entry.asset, side: entry.side, notionalUsd: book.stakeUsd * LEVERAGE, leverage: LEVERAGE, entryPrice: entry.limitPrice, resting: true },
+      now,
+    );
+    const orderId = `${book.orderPrefix}_${entry.asset}_${Math.floor(entry.readingAtMs / 1000)}`;
+    try {
+      await createHedge({
+        orderId,
+        portfolioId: book.portfolioId,
+        asset: entry.asset,
+        market: `${entry.asset}-PERP`,
+        side: entry.side,
+        size: position.size,
+        notionalValue: position.notionalUsd,
+        leverage: LEVERAGE,
+        entryPrice: entry.limitPrice,
+        simulationMode: true,
+        reason: `${book.orderPrefix}: ${entry.source.slice(0, 60)} | hold ${book.holdMin}min | resting entry`,
+        predictionMarket: 'signal-ledger',
+        chain: CHAIN,
+      });
+      positions.push({ orderId, position, closeAtMs: entry.readingAtMs + book.holdMin * 60_000, source: entry.source });
+      stats.filled += 1;
+      statsChanged = true;
+      summary.filled += 1;
+    } catch (e) {
+      // The order is gone either way: a row that could not be written must not become an untracked position.
+      logger.warn(`[${book.name}] open failed (entry dropped)`, { orderId, error: errMsg(e) });
+    }
+  }
+  resting = stillResting;
+
+  // ── New readings since the watermark ──
+  try {
+    const watermark = Number((await getCronStateStrict<number>(KEY.watermark)) ?? 0) || now - MAX_READING_AGE_MS;
+    const rows = stopped ? [] : await query<LeadReading>(
+      `SELECT source, asset, direction, entry_price::float8 AS entry_price,
+              (window_end_time - horizon_min * 60000)::float8 AS reading_at_ms
+       FROM signal_outcomes
+       WHERE source LIKE $1 AND horizon_min = $2
+         AND (window_end_time - horizon_min * 60000) > $3
+       ORDER BY window_end_time ASC
+       LIMIT 50`,
+      [book.sourceLike, book.holdMin, watermark],
+    );
+    if (rows.length > 0) {
+      // The watermark moves over everything scanned, used or not, so the scan stays small.
+      await setCronState(KEY.watermark, Math.max(...rows.map((r) => Number(r.reading_at_ms))));
+      const busy = new Set<string>([...positions.map((p) => p.position.asset), ...resting.map((r) => r.asset)]);
+      for (const { reading, side } of selectLeadEntries(rows, now, busy, book.assets)) {
+        if (book.admit && !(await book.admit(reading.asset, now))) continue;
+        resting.push({
+          asset: reading.asset,
+          side,
+          limitPrice: reading.entry_price,
+          readingAtMs: reading.reading_at_ms,
+          expiresAtMs: now + PAPER_RESTING_ENTRY_WAIT_MIN * 60_000,
+          source: reading.source,
+        });
+        stats.placed += 1;
+        statsChanged = true;
+        summary.placed += 1;
+      }
+    }
+  } catch (e) {
+    logger.warn(`[${book.name}] reading scan failed (non-fatal)`, { error: errMsg(e) });
+  }
+
+  await setCronState(KEY.positions, positions);
+  await setCronState(KEY.resting, resting);
+  if (statsChanged) await setCronState(KEY.stats, stats);
+
+  summary.active = positions.length;
+  summary.resting = resting.length;
+  if (summary.placed + summary.filled + summary.cancelled + summary.closed > 0) {
+    logger.info(`[${book.name}] tick`, { ...summary });
+  }
+  return summary;
+}
+
+export class LeadTrader {
+  static runTick(now: number = Date.now()): Promise<LeadTickSummary> {
+    return runLeadBook(LEAD, now);
   }
 }

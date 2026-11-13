@@ -725,7 +725,8 @@
       "b9": "La regola del pavimento dimensionata dal movimento prezzato dalla scala di strike",
       "b10": "BTC ed ETH tenuti finché sono sopra la media a 100 giorni",
       "b11": "La regola del pavimento con filtro di tendenza; la liquidità rende un 4% ipotizzato",
-      "b12": "Va short su BTC ed ETH mentre scendono; la liquidità rende un 4% ipotizzato"
+      "b12": "Va short su BTC ed ETH mentre scendono; la liquidità rende un 4% ipotizzato",
+      "b13": "Il segnale combinato, operato solo finché è provato sopra il costo; chiusura a 60 minuti"
     }
   }
 }
