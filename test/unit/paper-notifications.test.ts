@@ -43,6 +43,7 @@ import {
   scoreboardEmbed,
   evidenceLine,
   EVIDENCE_FIELD,
+  groupOpenRows,
   statsLine,
   type Scoreboard,
 } from '@/lib/services/paper-trader/notifications';
@@ -264,5 +265,36 @@ describe('scoreboard', () => {
     mockOpen.mockRejectedValue(new Error('db down'));
     await expect(postPaperScoreboardIfDue(NOW)).resolves.toBeUndefined();
     expect(mockNotify).not.toHaveBeenCalled();
+  });
+
+  it('covers every book that is switched on, not only the signal books', async () => {
+    process.env.FLOOR_TRADER_DISABLE = '1';
+    try {
+      mockOpen.mockResolvedValue([{ portfolioId: -12, asset: 'BTC', side: 'SHORT', openedAtMs: NOW - 60 * 60_000, entryPrice: 85_000, notionalUsd: 1000 }]);
+      await postPaperScoreboardIfDue(NOW);
+      const ids = mockOpen.mock.calls[0][0] as number[];
+      expect(ids).toEqual(expect.arrayContaining([-3, -4, -10, -11, -12]));
+      expect(ids).not.toContain(-8);
+      const embed = mockNotify.mock.calls[0][3];
+      expect(field(embed, 'ShortTrader · 24 h')).toBeDefined();
+      expect(field(embed, 'FloorTrader · 24 h')).toBeUndefined();
+      expect(field(embed, 'Open positions (running, before exit costs)')).toContain('🔴 SHORT **BTC** at $85,000.00 → $84,496.28');
+    } finally {
+      delete process.env.FLOOR_TRADER_DISABLE;
+    }
+  });
+
+  it('merges a book’s lots of one coin into one line whose result is the sum of its lots', () => {
+    const lots = [
+      { book: 'ShortTrader', asset: 'BTC', side: 'SHORT', ageMin: 30, entryPrice: 80_000, notionalUsd: 1000, markPrice: 76_000 },
+      { book: 'ShortTrader', asset: 'BTC', side: 'SHORT', ageMin: 10, entryPrice: 76_000, notionalUsd: 1000, markPrice: 76_000 },
+    ];
+    const [merged] = groupOpenRows(lots);
+    expect(merged).toMatchObject({ lots: 2, notionalUsd: 2000, ageMin: 30 });
+    // $50 on the first lot, nothing on the second: the merged line must say $50 on $2,000.
+    const sumUsd = lots.reduce((s, l) => s + (l.notionalUsd * (l.entryPrice - l.markPrice)) / l.entryPrice, 0);
+    expect((merged.notionalUsd * (merged.entryPrice - 76_000)) / merged.entryPrice).toBeCloseTo(sumUsd, 6);
+    expect(field(scoreboardEmbed(board({ open: lots, books: [] }), NOW), 'Open positions (running, before exit costs)'))
+      .toBe('🔴 SHORT **BTC** ×2 lots ($2,000) at $77,948.72 → $76,000.00 · **+250 bp** (+$50.00) · 30 min · ShortTrader');
   });
 });

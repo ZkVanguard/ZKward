@@ -28,6 +28,7 @@ import {
 } from 'chart.js';
 import { Line } from 'react-chartjs-2';
 import { ClosedTradeList } from '@/components/dashboard/ClosedTradeList';
+import { PaperBooksTable } from '@/components/dashboard/PaperBooksTable';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Filler, Legend);
 
@@ -187,6 +188,8 @@ export default function PaperTraderPage() {
             &nbsp;·&nbsp; Universe: {status.config.universe.join(', ')}
           </p>
         </header>
+
+        <PaperBooksTable />
 
         {/* Top-line NAV */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">

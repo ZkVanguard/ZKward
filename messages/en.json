@@ -698,5 +698,34 @@
     "statusHedges": "It is not yet attached to live hedges.",
     "statusChain": "Nothing is verified on-chain.",
     "readMore": "Read the full account in the whitepaper"
+  },
+  "paperBooks": {
+    "title": "All paper books",
+    "subtitle": "Every simulated book from its rows: trades closed in the last 30 days, open positions at their current mark, and assumed interest shown apart. All net of fees, slippage and funding.",
+    "book": "Book",
+    "status": "Status",
+    "running": "Running",
+    "off": "Off",
+    "trades": "Trades (30 d)",
+    "booked": "Booked (30 d)",
+    "open": "Open now",
+    "openOn": "on {notional}",
+    "interest": "Interest (assumed)",
+    "result": "Trading result",
+    "total": "All books",
+    "note": "Trading result is booked plus open. Interest is assumed at 4% a year on idle cash, is earned nowhere yet, and is never counted in the trading result.",
+    "error": "Could not load the books: {error}",
+    "tests": {
+      "b3": "Signal strategy; opens only signals the ledger has proven",
+      "b4": "The same strategy with its entry gates removed",
+      "b5": "Every fresh model interpretation at its own horizon",
+      "b6": "A sleeve sized off the Solana test pool",
+      "b7": "One source (Kalshi) held to its 4-hour horizon",
+      "b8": "Long BTC and ETH, kept above 90% of the book's peak",
+      "b9": "The floor rule sized by the strike ladder's priced move",
+      "b10": "BTC and ETH held while above their 100-day average",
+      "b11": "The floor rule with the trend filter; cash earns an assumed 4%",
+      "b12": "Shorts BTC and ETH while they fall; cash earns an assumed 4%"
+    }
   }
 }

@@ -698,5 +698,34 @@
     "statusHedges": "Non è ancora applicato alle coperture reali.",
     "statusChain": "Nulla viene verificato sulla blockchain.",
     "readMore": "Leggi il resoconto completo nel whitepaper"
+  },
+  "paperBooks": {
+    "title": "Tutti i portafogli simulati",
+    "subtitle": "Ogni portafoglio simulato dalle sue righe: operazioni chiuse negli ultimi 30 giorni, posizioni aperte al prezzo attuale e interessi ipotizzati mostrati a parte. Tutto al netto di commissioni, slippage e funding.",
+    "book": "Portafoglio",
+    "status": "Stato",
+    "running": "Attivo",
+    "off": "Spento",
+    "trades": "Operazioni (30 g)",
+    "booked": "Realizzato (30 g)",
+    "open": "Aperto ora",
+    "openOn": "su {notional}",
+    "interest": "Interessi (ipotizzati)",
+    "result": "Risultato di trading",
+    "total": "Tutti i portafogli",
+    "note": "Il risultato di trading è il realizzato più l’aperto. Gli interessi sono ipotizzati al 4% annuo sulla liquidità inattiva, non sono ancora guadagnati da nessuna parte e non rientrano mai nel risultato di trading.",
+    "error": "Impossibile caricare i portafogli: {error}",
+    "tests": {
+      "b3": "Strategia sui segnali; apre solo segnali provati dal registro",
+      "b4": "La stessa strategia senza i filtri di ingresso",
+      "b5": "Ogni nuova interpretazione del modello al proprio orizzonte",
+      "b6": "Una quota dimensionata sul pool di test Solana",
+      "b7": "Una fonte (Kalshi) tenuta fino al suo orizzonte di 4 ore",
+      "b8": "Long su BTC ed ETH, sopra il 90% del picco del portafoglio",
+      "b9": "La regola del pavimento dimensionata dal movimento prezzato dalla scala di strike",
+      "b10": "BTC ed ETH tenuti finché sono sopra la media a 100 giorni",
+      "b11": "La regola del pavimento con filtro di tendenza; la liquidità rende un 4% ipotizzato",
+      "b12": "Va short su BTC ed ETH mentre scendono; la liquidità rende un 4% ipotizzato"
+    }
   }
 }

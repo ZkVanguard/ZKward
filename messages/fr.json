@@ -698,5 +698,34 @@
     "statusHedges": "Il n'est pas encore appliqué aux couvertures réelles.",
     "statusChain": "Rien n'est vérifié sur la chaîne.",
     "readMore": "Lire le compte rendu complet dans le livre blanc"
+  },
+  "paperBooks": {
+    "title": "Tous les portefeuilles simulés",
+    "subtitle": "Chaque portefeuille simulé d’après ses lignes : opérations clôturées sur les 30 derniers jours, positions ouvertes à leur cours actuel et intérêts supposés affichés à part. Le tout net des frais, du glissement et du financement.",
+    "book": "Portefeuille",
+    "status": "Statut",
+    "running": "Actif",
+    "off": "Arrêté",
+    "trades": "Opérations (30 j)",
+    "booked": "Réalisé (30 j)",
+    "open": "Ouvert",
+    "openOn": "sur {notional}",
+    "interest": "Intérêts (supposés)",
+    "result": "Résultat de trading",
+    "total": "Tous les portefeuilles",
+    "note": "Le résultat de trading est le réalisé plus l’ouvert. Les intérêts sont supposés à 4 % par an sur la trésorerie inutilisée, ne sont encore gagnés nulle part et ne comptent jamais dans le résultat de trading.",
+    "error": "Impossible de charger les portefeuilles : {error}",
+    "tests": {
+      "b3": "Stratégie de signaux ; n’ouvre que les signaux prouvés par le registre",
+      "b4": "La même stratégie sans ses filtres d’entrée",
+      "b5": "Chaque nouvelle interprétation du modèle à son propre horizon",
+      "b6": "Une poche dimensionnée sur le pool de test Solana",
+      "b7": "Une source (Kalshi) tenue jusqu’à son horizon de 4 heures",
+      "b8": "Long BTC et ETH, maintenu au-dessus de 90 % du pic du portefeuille",
+      "b9": "La règle plancher dimensionnée par le mouvement que price l’échelle de strikes",
+      "b10": "BTC et ETH détenus tant qu’ils sont au-dessus de leur moyenne à 100 jours",
+      "b11": "La règle plancher avec filtre de tendance ; la trésorerie rapporte 4 % supposés",
+      "b12": "Vend BTC et ETH à découvert tant qu’ils baissent ; la trésorerie rapporte 4 % supposés"
+    }
   }
 }
