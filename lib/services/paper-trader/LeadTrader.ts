@@ -50,7 +50,6 @@ const LEVERAGE = 1;
 // stale price is a different trade, so only readings from the last few
 // minutes qualify; after downtime the watermark still moves past the rest.
 const MAX_READING_AGE_MS = Number(env('LEAD_TRADER_MAX_READING_AGE_MIN', '5')) * 60_000;
-const DISABLED = /^(1|true|yes|on)$/i.test(env('LEAD_TRADER_DISABLE', ''));
 
 const KEY_POSITIONS = 'lead-trader:active-positions';
 const KEY_RESTING = 'lead-trader:resting-entries';
@@ -135,15 +134,18 @@ const emptyStats = (): LeadStats => ({ trades: 0, wins: 0, cumRealizedUsd: 0, pl
 export class LeadTrader {
   static async runTick(now: number = Date.now()): Promise<LeadTickSummary> {
     const summary: LeadTickSummary = { placed: 0, filled: 0, cancelled: 0, closed: 0, active: 0, resting: 0 };
-    if (DISABLED) return summary;
+    const stopped = /^(1|true|yes|on)$/i.test(env('LEAD_TRADER_DISABLE', ''));
 
     let positions = ((await getCronStateStrict<LeadPosition[]>(KEY_POSITIONS)) ?? []).filter(Boolean);
     let resting = ((await getCronStateStrict<RestingLeadEntry[]>(KEY_RESTING)) ?? []).filter(Boolean);
+    // A stopped book closes what it holds at market, cancels what rests and places nothing; then it rests.
+    // A skipped tick would leave positions open with no exit.
+    if (stopped && positions.length + resting.length === 0) return summary;
     const stats = { ...emptyStats(), ...((await getCronStateStrict<LeadStats>(KEY_STATS)) ?? {}) };
     let statsChanged = false;
 
     // ── Close: horizon reached → market order at the validated mark ──
-    for (const pos of positions.filter((p) => now >= p.closeAtMs)) {
+    for (const pos of positions.filter((p) => stopped || now >= p.closeAtMs)) {
       try {
         const price = await markPrice(pos.position.asset);
         if (!price) continue; // no trustworthy price this tick: try again next tick
@@ -153,7 +155,7 @@ export class LeadTrader {
           orderId: pos.orderId,
           pos: pos.position,
           result,
-          reason: 'horizon-expiry',
+          reason: stopped ? 'book-stopped' : 'horizon-expiry',
           analytics: false,
           extraMeta: { source: pos.source, holdMin: HOLD_MIN, execution: 'resting-entry' },
         });
@@ -172,7 +174,7 @@ export class LeadTrader {
     // ── Resting entries: filled, still waiting, or lapsed ──
     const stillResting: RestingLeadEntry[] = [];
     for (const entry of resting) {
-      if (now >= entry.expiresAtMs) {
+      if (stopped || now >= entry.expiresAtMs) {
         summary.cancelled += 1;
         continue;
       }
@@ -221,7 +223,7 @@ export class LeadTrader {
     // ── New readings since the watermark ──
     try {
       const watermark = Number((await getCronStateStrict<number>(KEY_WATERMARK)) ?? 0) || now - MAX_READING_AGE_MS;
-      const rows = await query<LeadReading>(
+      const rows = stopped ? [] : await query<LeadReading>(
         `SELECT source, asset, direction, entry_price::float8 AS entry_price,
                 (window_end_time - horizon_min * 60000)::float8 AS reading_at_ms
          FROM signal_outcomes
