@@ -698,5 +698,34 @@
     "statusHedges": "Todavía no se aplica a coberturas reales.",
     "statusChain": "Nada se verifica en la cadena.",
     "readMore": "Lee el informe completo en el whitepaper"
+  },
+  "paperBooks": {
+    "title": "Todos los libros simulados",
+    "subtitle": "Cada libro simulado a partir de sus registros: operaciones cerradas en los últimos 30 días, posiciones abiertas a su precio actual e intereses supuestos mostrados aparte. Todo neto de comisiones, deslizamiento y financiación.",
+    "book": "Libro",
+    "status": "Estado",
+    "running": "Activo",
+    "off": "Apagado",
+    "trades": "Operaciones (30 d)",
+    "booked": "Cerrado (30 d)",
+    "open": "Abierto ahora",
+    "openOn": "sobre {notional}",
+    "interest": "Interés (supuesto)",
+    "result": "Resultado de trading",
+    "total": "Todos los libros",
+    "note": "El resultado de trading es lo cerrado más lo abierto. El interés se supone al 4 % anual sobre el efectivo ocioso, aún no se gana en ningún sitio y nunca se cuenta en el resultado de trading.",
+    "error": "No se pudieron cargar los libros: {error}",
+    "tests": {
+      "b3": "Estrategia de señales; solo abre señales que el registro ha probado",
+      "b4": "La misma estrategia sin sus filtros de entrada",
+      "b5": "Cada nueva interpretación del modelo en su propio horizonte",
+      "b6": "Una cartera dimensionada según el pool de prueba de Solana",
+      "b7": "Una fuente (Kalshi) mantenida hasta su horizonte de 4 horas",
+      "b8": "Largo en BTC y ETH, por encima del 90 % del máximo del libro",
+      "b9": "La regla de suelo dimensionada por el movimiento que valora la escalera de strikes",
+      "b10": "BTC y ETH mantenidos mientras estén por encima de su media de 100 días",
+      "b11": "La regla de suelo con filtro de tendencia; el efectivo gana un 4 % supuesto",
+      "b12": "Vende en corto BTC y ETH mientras caen; el efectivo gana un 4 % supuesto"
+    }
   }
 }

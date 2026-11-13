@@ -64,12 +64,15 @@ export function floorProof(state: FloorStateView, marks: ReadonlyMap<string, num
 
 const pct = (v: number) => `${v >= 0 ? '+' : '−'}${Math.abs(v).toFixed(1)} %`;
 
-/** One scoreboard line: `−1.1 % vs holding −3.4 % (BTC −1.9 %, ETH −4.8 %) · avoided 68 % of the fall · worst fall 1.9 % · day 7`. */
-export function floorProofLine(p: FloorProof): string {
+/**
+ * One scoreboard line: `−1.1 % vs holding −3.4 % (BTC −1.9 %, ETH −4.8 %) · avoided 68 % of the fall · worst fall 1.9 % · day 7`.
+ * A book whose trading gained while holding fell (the short book) says so, not "avoided 120 % of the fall".
+ */
+export function floorProofLine(p: FloorProof, held = 'in coins'): string {
   const coins = ASSETS.map((a) => `${a} ${pct(p.coinPct[a])}`).join(', ');
-  const avoided = p.avoidedShare === null ? '' : ` · avoided ${Math.round(100 * p.avoidedShare)} % of the fall`;
+  const avoided = p.avoidedShare === null ? '' : p.avoidedShare > 1 ? ' · gained while the coins fell' : ` · avoided ${Math.round(100 * p.avoidedShare)} % of the fall`;
   const split = p.interestPct === null ? '' : ` (trading ${pct(p.bookPct - p.interestPct)}, assumed interest ${pct(p.interestPct)})`;
-  return `${pct(p.bookPct)}${split} vs holding ${pct(p.holdPct)} (${coins})${avoided}\nworst fall ${p.worstFallPct.toFixed(1)} % · holds $${Math.round(p.exposureUsd).toLocaleString('en-US')} in coins · day ${Math.floor(p.days) + 1}`;
+  return `${pct(p.bookPct)}${split} vs holding ${pct(p.holdPct)} (${coins})${avoided}\nworst fall ${p.worstFallPct.toFixed(1)} % · holds $${Math.round(p.exposureUsd).toLocaleString('en-US')} ${held} · day ${Math.floor(p.days) + 1}`;
 }
 
 /** The live figures for one floor book's state key; null before its first tick or without marks. Throws on a failed read. */
@@ -78,18 +81,26 @@ export async function readFloorProof(marks: ReadonlyMap<string, number>, nowMs: 
   return state ? floorProof(state, marks, nowMs) : null;
 }
 
-/** The scoreboard's floor field: the plain book, and its ladder-sized twin once it has started. */
+/** The rule books on the scoreboard, each with the state its figures are read from. */
+const PROOF_BOOKS = [
+  { id: -8, label: 'Plain (×3)', stateKey: 'floor-trader:state', held: 'in coins' },
+  { id: -9, label: 'Ladder-sized twin', stateKey: 'floor-ladder-trader:state', held: 'in coins' },
+  { id: -10, label: 'Trend (25%, 100-day average)', stateKey: 'trend-trader:state', held: 'in coins' },
+  { id: -11, label: 'Core (floor + trend, 4% on cash)', stateKey: 'core-trader:state', held: 'in coins' },
+  { id: -12, label: 'Short (falling coins sold short, 4% on cash)', stateKey: 'short-trader:state', held: 'short' },
+] as const;
+
+/** The scoreboard's rule-book field: every rule book that is switched on and has started. */
 export async function floorScoreboardText(marks: ReadonlyMap<string, number>, nowMs: number = Date.now()): Promise<string | null> {
-  const [plain, twin, trend, core] = await Promise.all([
-    readFloorProof(marks, nowMs, 'floor-trader:state'),
-    readFloorProof(marks, nowMs, 'floor-ladder-trader:state'),
-    readFloorProof(marks, nowMs, 'trend-trader:state'),
-    readFloorProof(marks, nowMs, 'core-trader:state'),
-  ]);
-  const parts: string[] = [];
-  if (plain) parts.push(`**Plain (×3):** ${floorProofLine(plain)}`);
-  if (twin) parts.push(`**Ladder-sized twin:** ${floorProofLine(twin)}`);
-  if (trend) parts.push(`**Trend (25%, 100-day average):** ${floorProofLine(trend)}`);
-  if (core) parts.push(`**Core (floor + trend, 4% on cash):** ${floorProofLine(core)}`);
+  const { PAPER_BOOKS, bookRunning } = await import('./books-summary');
+  const shown = PROOF_BOOKS.filter((b) => {
+    const def = PAPER_BOOKS.find((d) => d.id === b.id);
+    return def ? bookRunning(def) : true;
+  });
+  const proofs = await Promise.all(shown.map((b) => readFloorProof(marks, nowMs, b.stateKey)));
+  const parts = shown.flatMap((b, i) => {
+    const p = proofs[i];
+    return p ? [`**${b.label}:** ${floorProofLine(p, b.held)}`] : [];
+  });
   return parts.length ? parts.join('\n') : null;
 }

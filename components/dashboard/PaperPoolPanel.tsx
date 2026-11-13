@@ -12,6 +12,7 @@ import { useQuery } from '@tanstack/react-query';
 import { paperStatusQuery } from '@/lib/hooks/paper-status-query';
 import { Beaker, TrendingUp, TrendingDown, Target, Zap } from 'lucide-react';
 import { SkeletonBox } from '@/components/dashboard/community-pool/Skeletons';
+import { PaperBooksTable } from '@/components/dashboard/PaperBooksTable';
 
 interface StatusResp {
   nav: {
@@ -77,6 +78,8 @@ export function PaperPoolPanel() {
           </div>
         </div>
       </div>
+
+      <PaperBooksTable />
 
       {/* NAV + result top strip */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">

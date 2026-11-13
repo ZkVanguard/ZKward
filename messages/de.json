@@ -698,5 +698,34 @@
     "statusHedges": "Er wird noch nicht auf echte Absicherungen angewendet.",
     "statusChain": "Nichts wird auf der Blockchain verifiziert.",
     "readMore": "Den vollständigen Bericht im Whitepaper lesen"
+  },
+  "paperBooks": {
+    "title": "Alle Papierbücher",
+    "subtitle": "Jedes simulierte Buch aus seinen Zeilen: in den letzten 30 Tagen geschlossene Trades, offene Positionen zum aktuellen Kurs und angenommene Zinsen getrennt ausgewiesen. Alles nach Gebühren, Slippage und Funding.",
+    "book": "Buch",
+    "status": "Status",
+    "running": "Aktiv",
+    "off": "Aus",
+    "trades": "Trades (30 T)",
+    "booked": "Gebucht (30 T)",
+    "open": "Jetzt offen",
+    "openOn": "auf {notional}",
+    "interest": "Zinsen (angenommen)",
+    "result": "Handelsergebnis",
+    "total": "Alle Bücher",
+    "note": "Das Handelsergebnis ist Gebuchtes plus Offenes. Zinsen werden mit 4 % pro Jahr auf ungenutztes Guthaben angenommen, sind noch nirgends verdient und zählen nie zum Handelsergebnis.",
+    "error": "Bücher konnten nicht geladen werden: {error}",
+    "tests": {
+      "b3": "Signalstrategie; eröffnet nur Signale, die das Ledger belegt hat",
+      "b4": "Dieselbe Strategie ohne ihre Einstiegsfilter",
+      "b5": "Jede neue Modellinterpretation in ihrem eigenen Horizont",
+      "b6": "Eine Tranche, bemessen am Solana-Testpool",
+      "b7": "Eine Quelle (Kalshi), gehalten bis zu ihrem 4-Stunden-Horizont",
+      "b8": "Long BTC und ETH, über 90 % des Buchhöchststands gehalten",
+      "b9": "Die Floor-Regel, bemessen an der Bewegung, die die Strike-Leiter einpreist",
+      "b10": "BTC und ETH, gehalten solange über ihrem 100-Tage-Durchschnitt",
+      "b11": "Die Floor-Regel mit Trendfilter; Guthaben erhält angenommene 4 %",
+      "b12": "Shortet BTC und ETH, solange sie fallen; Guthaben erhält angenommene 4 %"
+    }
   }
 }

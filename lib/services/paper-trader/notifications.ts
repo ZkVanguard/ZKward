@@ -41,11 +41,21 @@ const RED = 0xef4444;
 const GREY = 0x64748b;
 export const MARKET_FIELD = 'Market · signal lean, price, 24 h change';
 
-/** The books the scoreboard covers: label, portfolio id, and the cron_state keys that explain a quiet book. */
-const BOOKS = [
+/**
+ * The books the scoreboard covers when switched on: label, portfolio id, and for the signal books the
+ * cron_state keys that explain a quiet book. Until 2026-11-13 it covered only the two signal books, which
+ * open nothing while no signal is proven, so the books holding money never appeared.
+ */
+const BOOKS: ReadonlyArray<{ label: string; portfolioId: number; skipKey?: string; restingKey?: string }> = [
   { label: 'PaperTrader', portfolioId: -3, skipKey: 'paper-trader:last-skip', restingKey: 'paper-trader:resting-entry' },
   { label: 'PaperGated', portfolioId: -4, skipKey: 'paper-gated-trader:last-skip', restingKey: 'paper-gated-trader:resting-entry' },
-] as const;
+  { label: 'LeadTrader', portfolioId: -7 },
+  { label: 'FloorTrader', portfolioId: -8 },
+  { label: 'FloorLadderTrader', portfolioId: -9 },
+  { label: 'TrendTrader', portfolioId: -10 },
+  { label: 'CoreTrader', portfolioId: -11 },
+  { label: 'ShortTrader', portfolioId: -12 },
+];
 
 /** Post a paper-book message. Trades and summaries post as a card; alerts keep their context. */
 export async function notifyPaper(
@@ -184,6 +194,32 @@ export interface OpenRow {
   notionalUsd: number;
   /** Live mark; absent when no fresh price was available. */
   markPrice?: number;
+  /** Lots merged into this line; absent for one position. */
+  lots?: number;
+}
+
+/**
+ * One line per book, coin and side: a floor-sized book holds dozens of $1,000 lots. The entry is the
+ * size-weighted price (notional over coins held), so the merged line's result equals the sum of its lots.
+ */
+export function groupOpenRows(rows: readonly OpenRow[]): OpenRow[] {
+  const groups = new Map<string, OpenRow[]>();
+  for (const r of rows) {
+    const key = `${r.book}|${r.asset}|${r.side}`;
+    groups.set(key, [...(groups.get(key) ?? []), r]);
+  }
+  return [...groups.values()].map((g) => {
+    if (g.length === 1) return g[0];
+    const notionalUsd = g.reduce((s, r) => s + r.notionalUsd, 0);
+    const coins = g.reduce((s, r) => s + (r.entryPrice > 0 ? r.notionalUsd / r.entryPrice : 0), 0);
+    return {
+      ...g[0],
+      entryPrice: coins > 0 ? notionalUsd / coins : 0,
+      notionalUsd,
+      ageMin: Math.max(...g.map((r) => r.ageMin)),
+      lots: g.length,
+    };
+  });
 }
 
 export interface ScoreboardBook {
@@ -207,7 +243,7 @@ export interface Scoreboard {
 }
 
 export const EVIDENCE_FIELD = 'Signal evidence (ledger)';
-export const FLOOR_FIELD = 'Floor book · protect and grow, against holding BTC + ETH';
+export const FLOOR_FIELD = 'Rule books · against holding BTC + ETH';
 
 /** One line for the scoreboard from the feedback loop's stored judgment. */
 export function evidenceLine(s: { day: string; counts: { cellsJudged: number; familiesJudged: number; proven: number; wrongWay: number; pending: number } }): string {
@@ -224,7 +260,8 @@ function marketLine(m: MarketRow): string {
 }
 
 function openLine(p: OpenRow): string {
-  const head = `${sideMark(p.side)} **${p.asset}** at ${price(p.entryPrice)}`;
+  const lots = p.lots ? ` ×${p.lots} lots ($${Math.round(p.notionalUsd).toLocaleString('en-US')})` : '';
+  const head = `${sideMark(p.side)} **${p.asset}**${lots} at ${price(p.entryPrice)}`;
   if (!p.markPrice) return `${head} · ${p.ageMin} min · ${p.book}`;
   const bp = favourBp(p.side, p.entryPrice, p.markPrice);
   return `${head} → ${price(p.markPrice)} · **${signed(bp, 0)} bp** (${usd((p.notionalUsd * bp) / 10_000)}) · ${p.ageMin} min · ${p.book}`;
@@ -243,7 +280,7 @@ export function scoreboardEmbed(s: Scoreboard, now: number): DiscordEmbed {
   const openNet = marked.reduce((sum, p) => sum + (p.notionalUsd * favourBp(p.side, p.entryPrice, p.markPrice as number)) / 10_000, 0);
   const total = dayNet + openNet;
 
-  const openLines = s.open.map(openLine);
+  const openLines = groupOpenRows(s.open).map(openLine);
   for (const b of s.books) {
     if (b.resting) openLines.push(`⏳ ${b.resting.side} **${b.resting.asset}** resting at ${price(b.resting.limitPrice)} · ${b.label}`);
   }
@@ -322,14 +359,20 @@ export async function postPaperScoreboardIfDue(now: number = Date.now()): Promis
     const longSince = Math.max(now - 7 * DAY_MS, sessionStart);
     const longLabel = longSince > now - 7 * DAY_MS ? `since ${new Date(longSince).toISOString().slice(0, 10)}` : '7 d';
 
-    const [positions, market] = await Promise.all([bookOpenPositions(BOOKS.map((b) => b.portfolioId)), readMarket()]);
+    // Only books that are switched on: a stopped book's last result is in its rows, not on the board.
+    const { PAPER_BOOKS, bookRunning } = await import('./books-summary');
+    const covered = BOOKS.filter((b) => {
+      const def = PAPER_BOOKS.find((d) => d.id === b.portfolioId);
+      return def ? bookRunning(def) : true;
+    });
+    const [positions, market] = await Promise.all([bookOpenPositions(covered.map((b) => b.portfolioId)), readMarket()]);
     const books: ScoreboardBook[] = await Promise.all(
-      BOOKS.map(async (b) => {
+      covered.map(async (b) => {
         const [day, long, skip, resting] = await Promise.all([
           bookRowStats(b.portfolioId, now - DAY_MS),
           bookRowStats(b.portfolioId, longSince),
-          getCronState<{ at: number; reason: string }>(b.skipKey).catch(() => null),
-          getCronState<{ plan?: { asset: string; side: string }; limitPrice?: number; expiresAt?: number }>(b.restingKey).catch(() => null),
+          b.skipKey ? getCronState<{ at: number; reason: string }>(b.skipKey).catch(() => null) : null,
+          b.restingKey ? getCronState<{ plan?: { asset: string; side: string }; limitPrice?: number; expiresAt?: number }>(b.restingKey).catch(() => null) : null,
         ]);
         return {
           label: b.label,
@@ -343,7 +386,7 @@ export async function postPaperScoreboardIfDue(now: number = Date.now()): Promis
       }),
     );
     const open: OpenRow[] = positions.map((p) => ({
-      book: BOOKS.find((b) => b.portfolioId === p.portfolioId)?.label ?? String(p.portfolioId),
+      book: covered.find((b) => b.portfolioId === p.portfolioId)?.label ?? String(p.portfolioId),
       asset: p.asset,
       side: p.side,
       ageMin: Math.round((now - p.openedAtMs) / 60_000),

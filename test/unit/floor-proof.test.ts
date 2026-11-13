@@ -58,6 +58,20 @@ describe('floorProof', () => {
   });
 });
 
+describe('the short book', () => {
+  it('a gain while holding fell reads as a gain, and its exposure as short', () => {
+    const p = floorProof(
+      { startedAtMs: NOW - 86_400_000, startPrices: { BTC: 80_000, ETH: 2_500 }, valueUsd: 101_000, maxDrawdown: 0.002, exposureUsd: 28_000, interestUsd: 10 },
+      new Map([['BTC', 76_000], ['ETH', 2_375]]),
+      NOW,
+    )!;
+    const line = floorProofLine(p, 'short');
+    expect(line).toContain('gained while the coins fell');
+    expect(line).not.toContain('avoided');
+    expect(line).toContain('holds $28,000 short');
+  });
+});
+
 describe('the scoreboard', () => {
   it('shows the floor line when there is one, and nothing when there is not', () => {
     const base = { market: [], open: [], books: [], longLabel: '7 d' };
