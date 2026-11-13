@@ -17,7 +17,11 @@ interface BooksResp {
   books: PaperBookSummary[];
 }
 
-const usd = (n: number) => `${n < 0 ? '−' : ''}${Math.abs(n).toLocaleString(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })}`;
+// Rounded first, so a loss under 50 cents reads $0, not −$0.
+const usd = (n: number) => {
+  const r = Math.round(n);
+  return `${r < 0 ? '−' : ''}${Math.abs(r).toLocaleString(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })}`;
+};
 const tone = (n: number) => (n > 0.5 ? 'text-green-700' : n < -0.5 ? 'text-red-700' : 'text-label-secondary');
 
 /** Trading result: what closed plus what is open at its mark. Interest is never part of it. */
@@ -50,13 +54,13 @@ export function PaperBooksTable() {
         <table className="w-full min-w-[640px] text-sm tabular-nums">
           <thead>
             <tr className="text-left text-caption-1 uppercase tracking-wide text-label-tertiary">
-              <th className="py-2 pr-3 font-medium">{t('book')}</th>
-              <th className="py-2 pr-3 font-medium">{t('status')}</th>
-              <th className="py-2 pr-3 font-medium text-right">{t('trades')}</th>
-              <th className="py-2 pr-3 font-medium text-right">{t('booked')}</th>
-              <th className="py-2 pr-3 font-medium text-right">{t('open')}</th>
-              <th className="py-2 pr-3 font-medium text-right">{t('interest')}</th>
-              <th className="py-2 font-medium text-right">{t('result')}</th>
+              <th className="py-2 pr-3 font-medium whitespace-nowrap min-w-[200px]">{t('book')}</th>
+              <th className="py-2 pr-3 font-medium whitespace-nowrap">{t('status')}</th>
+              <th className="py-2 pr-3 font-medium text-right whitespace-nowrap">{t('trades')}</th>
+              <th className="py-2 pr-3 font-medium text-right whitespace-nowrap">{t('booked')}</th>
+              <th className="py-2 pr-3 font-medium text-right whitespace-nowrap">{t('open')}</th>
+              <th className="py-2 pr-3 font-medium text-right whitespace-nowrap">{t('interest')}</th>
+              <th className="py-2 font-medium text-right whitespace-nowrap">{t('result')}</th>
             </tr>
           </thead>
           <tbody>
@@ -68,12 +72,12 @@ export function PaperBooksTable() {
                     <div className="font-medium text-label-primary">{b.name}</div>
                     <div className="text-xs text-label-tertiary">{t(`tests.b${-b.portfolioId}`)}</div>
                   </td>
-                  <td className="py-2 pr-3">
+                  <td className="py-2 pr-3 whitespace-nowrap">
                     <span className={b.running ? 'text-green-700 font-medium' : 'text-label-tertiary'}>{b.running ? t('running') : t('off')}</span>
                   </td>
-                  <td className="py-2 pr-3 text-right">{b.closed.trades}</td>
-                  <td className={`py-2 pr-3 text-right ${tone(b.closed.realizedUsd)}`}>{b.closed.trades ? usd(b.closed.realizedUsd) : '—'}</td>
-                  <td className="py-2 pr-3 text-right">
+                  <td className="py-2 pr-3 text-right whitespace-nowrap">{b.closed.trades}</td>
+                  <td className={`py-2 pr-3 text-right whitespace-nowrap ${tone(b.closed.realizedUsd)}`}>{b.closed.trades ? usd(b.closed.realizedUsd) : '—'}</td>
+                  <td className="py-2 pr-3 text-right whitespace-nowrap">
                     {b.open.positions ? (
                       <>
                         <div className={tone(b.open.openPnlUsd)}>{usd(b.open.openPnlUsd)}</div>
@@ -83,15 +87,15 @@ export function PaperBooksTable() {
                       <span className="text-label-tertiary">—</span>
                     )}
                   </td>
-                  <td className="py-2 pr-3 text-right text-label-secondary">{b.interestUsd !== undefined ? usd(b.interestUsd) : '—'}</td>
-                  <td className={`py-2 text-right font-semibold ${tone(result)}`}>{usd(result)}</td>
+                  <td className="py-2 pr-3 text-right whitespace-nowrap text-label-secondary">{b.interestUsd !== undefined ? usd(b.interestUsd) : '—'}</td>
+                  <td className={`py-2 text-right whitespace-nowrap font-semibold ${tone(result)}`}>{usd(result)}</td>
                 </tr>
               );
             })}
             <tr className="border-t-2 border-black/10 font-semibold">
               <td className="py-2 pr-3 text-label-primary" colSpan={5}>{t('total')}</td>
-              <td className="py-2 pr-3 text-right text-label-secondary">{usd(interestTotal)}</td>
-              <td className={`py-2 text-right ${tone(tradingTotal)}`}>{usd(tradingTotal)}</td>
+              <td className="py-2 pr-3 text-right whitespace-nowrap text-label-secondary">{usd(interestTotal)}</td>
+              <td className={`py-2 text-right whitespace-nowrap ${tone(tradingTotal)}`}>{usd(tradingTotal)}</td>
             </tr>
           </tbody>
         </table>
