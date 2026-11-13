@@ -26,12 +26,15 @@ const settleHedgeRow = jest.fn(async (a: { orderId: string }) => {
   return true;
 });
 jest.mock('@/lib/services/paper-trader/close-pipeline', () => ({ settleHedgeRow: (a: never) => settleHedgeRow(a) }));
+const prices: Record<string, number> = {};
 jest.mock('@/lib/services/market-data/unified-price-provider', () => ({
-  getMultiSourceValidatedPrice: async (asset: string) => ({ price: asset === 'BTC' ? 80_000 : 2_500 }),
+  getMultiSourceValidatedPrice: async (asset: string) => ({ price: prices[asset] }),
 }));
 jest.mock('@/lib/utils/logger', () => ({ logger: { info: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn() } }));
 
-import { CORE_PORTFOLIO_ID, interestFor, runCoreTick, type CoreState } from '@/lib/services/paper-trader/CoreTrader';
+import { CORE_PORTFOLIO_ID, CORE_START_USD, interestFor, runCoreBook, runCoreTick, type CoreBook, type CoreState } from '@/lib/services/paper-trader/CoreTrader';
+import { SHORT_PORTFOLIO_ID, runShortTick, shortOn } from '@/lib/services/paper-trader/ShortTrader';
+import { trendOn } from '@/lib/services/paper-trader/TrendTrader';
 import { planFloorRebalance } from '@/lib/services/paper-trader/floor-rule';
 
 const DAY = 86_400_000;
@@ -40,7 +43,7 @@ const rising = Array.from({ length: 101 }, (_, i) => 100 + i);
 const falling = Array.from({ length: 101 }, (_, i) => 300 - i);
 const core = () => state.get('core-trader:state') as CoreState;
 
-beforeEach(() => { jest.clearAllMocks(); state.clear(); rows.length = 0; });
+beforeEach(() => { jest.clearAllMocks(); state.clear(); rows.length = 0; prices.BTC = 80_000; prices.ETH = 2_500; });
 
 describe('the rule', () => {
   it('interest: 4% a year on the cash, nothing on no cash or no time', () => {
@@ -95,6 +98,59 @@ describe('the book', () => {
     const s = await runCoreTick(NOW + DAY, async (a: string) => (a === 'BTC' ? falling : rising));
     expect(s.sold).toBe(5);
     expect(settleHedgeRow).toHaveBeenCalledTimes(5);
+    expect(rows.filter((r) => r.asset === 'BTC')).toHaveLength(0);
+  });
+
+  it('a stopped book closes what it holds, then rests', async () => {
+    await runCoreTick(NOW, async () => rising);
+    const stopped: CoreBook = {
+      name: 'CoreTrader', portfolioId: CORE_PORTFOLIO_ID, stateKey: 'core-trader:state', orderPrefix: 'core', disabled: true,
+      side: 'LONG', decide: (c) => trendOn(c), because: '',
+    };
+    const s = await runCoreBook(stopped, NOW + DAY, async () => rising);
+    expect(s).toMatchObject({ sold: 10, bought: 0, lots: 0 });
+    expect(settleHedgeRow.mock.calls.every((c) => (c[0] as { reason: string }).reason === 'book-stopped')).toBe(true);
+    expect((await runCoreBook(stopped, NOW + DAY + 60_000, async () => rising)).skipped).toBe('disabled');
+  });
+});
+
+describe('the short book (-12)', () => {
+  // 70 flat days, then a month's bounce that stays under the average.
+  const bounced = [...Array(70).fill(300), ...Array.from({ length: 31 }, (_, i) => 150 + i)];
+
+  it('shorts a coin below its 100-day average that is also below its close 30 days before', () => {
+    expect(shortOn(falling)?.on).toBe(true);
+    expect(shortOn(bounced)?.on).toBe(false); // under the average, but up on the month
+    expect(shortOn(rising)?.on).toBe(false);
+    expect(shortOn(falling.slice(-99))).toBeNull(); // too few closes to decide
+  });
+
+  it('sells perp lots short under its own id, apart from the core book', async () => {
+    const s = await runShortTick(NOW, async () => falling);
+    expect(s.bought).toBe(10);
+    expect(s.decided).toMatch(/BTC ON/);
+    expect(rows.every((r) => r.portfolio === SHORT_PORTFOLIO_ID && /^short_/.test(r.order_id) && /-PERP$/.test(r.market))).toBe(true);
+    expect(createHedge.mock.calls.every((c) => (c[0] as unknown as { side: string }).side === 'SHORT')).toBe(true);
+    expect(state.has('core-trader:state')).toBe(false);
+  });
+
+  it('earns when the coins fall: ten lots short, both coins down 10%', async () => {
+    await runShortTick(NOW, async () => falling);
+    prices.BTC = 72_000;
+    prices.ETH = 2_250;
+    const s = await runShortTick(NOW + DAY, async () => falling);
+    // $100 a lot before costs; the open fee and slippage take under a dollar a lot.
+    const traded = s.valueUsd - s.interestUsd - CORE_START_USD;
+    expect(traded).toBeGreaterThan(990);
+    expect(traded).toBeLessThan(1_000);
+  });
+
+  it('holds nothing while the coins rise, and covers a coin the day it stops falling', async () => {
+    expect((await runShortTick(NOW, async () => rising)).bought).toBe(0);
+    state.clear();
+    await runShortTick(NOW, async () => falling);
+    const s = await runShortTick(NOW + DAY, async (a: string) => (a === 'BTC' ? bounced : falling));
+    expect(s.sold).toBe(5);
     expect(rows.filter((r) => r.asset === 'BTC')).toHaveLength(0);
   });
 });
