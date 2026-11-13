@@ -327,7 +327,7 @@ class LLMProvider {
       // SMART FEATURE: Fetch real portfolio data for context-aware responses.
       // Use the caller's wallet from `context.address` when available so the
       // LLM sees THEIR portfolio, not the server wallet. Chat callers
-      // (ChatInterface, EnhancedChat, simulator) always pass address in
+      // (ChatInterface, EnhancedChat) always pass address in
       // context; falls back to server wallet for agent-flow callers.
       let portfolioContext = '';
       let portfolioAssets: string[] = [];
