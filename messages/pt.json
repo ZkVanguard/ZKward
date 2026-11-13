@@ -725,7 +725,8 @@
       "b9": "A regra de piso dimensionada pelo movimento precificado na escada de strikes",
       "b10": "BTC e ETH mantidos enquanto acima da média de 100 dias",
       "b11": "A regra de piso com filtro de tendência; o caixa rende 4% presumidos",
-      "b12": "Vende BTC e ETH a descoberto enquanto caem; o caixa rende 4% presumidos"
+      "b12": "Vende BTC e ETH a descoberto enquanto caem; o caixa rende 4% presumidos",
+      "b13": "O sinal combinado, operado só enquanto comprovado acima do custo; fechamento aos 60 minutos"
     }
   }
 }

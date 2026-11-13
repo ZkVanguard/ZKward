@@ -16,6 +16,7 @@
  *  -10  TrendTrader, BTC and ETH held while above their 100-day average (TREND_PORTFOLIO_ID in TrendTrader.ts)
  *  -11  CoreTrader, the floor rule with the trend filter and interest on the cash (CORE_PORTFOLIO_ID in CoreTrader.ts)
  *  -12  ShortTrader, the core rule turned down: short while a coin falls (SHORT_PORTFOLIO_ID in ShortTrader.ts)
+ *  -13  ProvenTrader, the combined signal traded only while proven above cost, at its horizon (PROVEN_PORTFOLIO_ID in ProvenTrader.ts)
  */
 export const COMMUNITY_POOL_PORTFOLIO_ID = -1;
 export const SUI_COMMUNITY_POOL_PORTFOLIO_ID = -2;

@@ -34,7 +34,7 @@ afterEach(() => { delete process.env.FLOOR_TRADER_DISABLE; });
 describe('readPaperBooks', () => {
   it('lists every book with its closed trades, open rows and, where it has one, its interest', async () => {
     const books = await readPaperBooks(720, NOW);
-    expect(books.map((b) => b.portfolioId)).toEqual([-3, -4, -5, -6, -7, -8, -9, -10, -11, -12]);
+    expect(books.map((b) => b.portfolioId)).toEqual([-3, -4, -5, -6, -7, -8, -9, -10, -11, -12, -13]);
     expect(bookRowStats).toHaveBeenCalledWith(-8, NOW - 720 * 3_600_000);
     const short = books.find((b) => b.name === 'ShortTrader')!;
     expect(short.open).toEqual({ positions: 28, notionalUsd: 28_000, openPnlUsd: -27.4 });

@@ -139,6 +139,17 @@ async function runStages(): Promise<Record<string, string>> {
     logger.warn('[PaperFastTick] lead tick failed (non-fatal)', { error: errMsg(e) });
   }
 
+  // The proven book (portfolio -13): the combined vote, traded at the judge's
+  // horizon only while the judge rates it above the round trip.
+  try {
+    const { ProvenTrader } = await import('@/lib/services/paper-trader/ProvenTrader');
+    const s = await ProvenTrader.runTick(Date.now());
+    results.proven = `placed ${s.placed}, filled ${s.filled}, cancelled ${s.cancelled}, closed ${s.closed}, active ${s.active}, resting ${s.resting}`;
+  } catch (e) {
+    results.proven = `error: ${errMsg(e).slice(0, 80)}`;
+    logger.warn('[PaperFastTick] proven tick failed (non-fatal)', { error: errMsg(e) });
+  }
+
   // Floor book (portfolio -8): holds BTC and ETH by the floor rule, with no
   // signal. Last, so a slow price read here delays no book that trades one.
   try {

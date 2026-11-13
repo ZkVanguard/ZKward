@@ -725,7 +725,8 @@
       "b9": "The floor rule sized by the strike ladder's priced move",
       "b10": "BTC and ETH held while above their 100-day average",
       "b11": "The floor rule with the trend filter; cash earns an assumed 4%",
-      "b12": "Shorts BTC and ETH while they fall; cash earns an assumed 4%"
+      "b12": "Shorts BTC and ETH while they fall; cash earns an assumed 4%",
+      "b13": "The combined signal, traded only while proven above cost, exited at its 60-minute horizon"
     }
   }
 }

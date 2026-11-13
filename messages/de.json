@@ -725,7 +725,8 @@
       "b9": "Die Floor-Regel, bemessen an der Bewegung, die die Strike-Leiter einpreist",
       "b10": "BTC und ETH, gehalten solange über ihrem 100-Tage-Durchschnitt",
       "b11": "Die Floor-Regel mit Trendfilter; Guthaben erhält angenommene 4 %",
-      "b12": "Shortet BTC und ETH, solange sie fallen; Guthaben erhält angenommene 4 %"
+      "b12": "Shortet BTC und ETH, solange sie fallen; Guthaben erhält angenommene 4 %",
+      "b13": "Das kombinierte Signal, nur gehandelt, solange es über den Kosten belegt ist; Ausstieg nach 60 Minuten"
     }
   }
 }
