@@ -328,9 +328,12 @@ type GrpcExecuted = {
 type TxOptions = { showEffects?: boolean; showEvents?: boolean; showBalanceChanges?: boolean; showInput?: boolean; showObjectChanges?: boolean; showRawInput?: boolean; showRawEffects?: boolean };
 
 const TX_MASK = { paths: ['digest', 'transaction', 'signatures', 'effects', 'events', 'balance_changes', 'checkpoint', 'timestamp'] };
-// Execute and simulate answer with the transaction one level down; simulate adds the command outputs.
-const EXEC_MASK = { paths: TX_MASK.paths.map((x) => `transaction.${x}`) };
-const SIM_MASK = { paths: [...EXEC_MASK.paths, 'command_outputs'] };
+// Execute reads its mask against the executed transaction itself: the mainnet node refuses `transaction.effects`
+// and the like with "invalid read_mask path" (measured 2026-11-13), which failed every signed transaction.
+// Simulate answers with the transaction one level down and adds the command outputs.
+const EXEC_MASK = TX_MASK;
+const SIM_MASK = { paths: [...TX_MASK.paths.map((x) => `transaction.${x}`), 'command_outputs'] };
+export const GRPC_MASKS = { tx: TX_MASK, exec: EXEC_MASK, sim: SIM_MASK } as const;
 
 function errorText(e: GrpcError | undefined): string {
   if (!e) return 'unknown failure';
