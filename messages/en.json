@@ -704,6 +704,7 @@
     "status": "Status",
     "running": "Running",
     "off": "Off",
+    "onVenue": "Solana testnet",
     "trades": "Trades (30 d)",
     "booked": "Booked (30 d)",
     "open": "Open now",

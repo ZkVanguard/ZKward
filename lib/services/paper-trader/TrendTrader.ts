@@ -24,6 +24,7 @@ import { createHedge } from '@/lib/db/hedges';
 import { logger } from '@/lib/utils/logger';
 import { errMsg } from '@/lib/utils/error-handler';
 import { SPOT_FEE_BPS_PER_SIDE, computeGrossPnl, type SimulatedCloseResult, type SimulatedPosition } from './simulated-executor';
+import { bookActor, onVenue, reconcileVenueBook, venueBookValueUsd, venueCloseLot, venueOpenLot, VENUE_EXECUTION, VENUE_ORDERS_PER_TICK } from './venue-books';
 
 export const TREND_PORTFOLIO_ID = -10;
 export const TREND_START_USD = 100_000;
@@ -49,6 +50,8 @@ export interface TrendState {
   decidedDay: string | null;
   /** What the last decision saw and wanted, per coin. */
   trend: Record<string, { on: boolean; close: number; average: number; lots: number }>;
+  /** Since the book moved to the venue's test network: when, and the simulated result it carried over. */
+  venue?: { since: number; carriedUsd: number };
 }
 
 export interface TrendTickSummary {
@@ -131,16 +134,25 @@ async function markPrice(asset: string): Promise<number | null> {
   return v.price && v.price > 0 ? v.price : null;
 }
 
-interface Lot { orderId: string; position: SimulatedPosition }
+interface Lot { orderId: string; position: SimulatedPosition; venue: boolean }
 
 async function openLots(now: number): Promise<Lot[]> {
-  const rows = await query<{ order_id: string; asset: string; entry: number; notional: number; held_ms: number }>(
-    `SELECT order_id, asset, entry_price::float8 AS entry, notional_value::float8 AS notional,
-            (EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - created_at)) * 1000)::float8 AS held_ms
+  const rows = await query<{ order_id: string; asset: string; entry: number; notional: number; size: number; held_ms: number; execution: string | null; venue_fee: number | null }>(
+    `SELECT order_id, asset, entry_price::float8 AS entry, notional_value::float8 AS notional, size::float8 AS size,
+            (EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - created_at)) * 1000)::float8 AS held_ms,
+            metadata->>'execution' AS execution, (metadata->>'venueOpenFeeUsd')::float8 AS venue_fee
        FROM hedges WHERE portfolio_id = $1 AND status = 'active' ORDER BY created_at, order_id`,
     [TREND_PORTFOLIO_ID],
   );
-  return rows.map((r) => ({ orderId: r.order_id, position: spotOpen(r.asset, Number(r.notional), Number(r.entry), now - Math.max(0, Number(r.held_ms) || 0)) }));
+  return rows.map((r) => {
+    const openedAt = now - Math.max(0, Number(r.held_ms) || 0);
+    if (r.execution !== VENUE_EXECUTION) return { orderId: r.order_id, position: spotOpen(r.asset, Number(r.notional), Number(r.entry), openedAt), venue: false };
+    // A venue lot is the venue's fill (a perp long at 1x): its size, price and fee as the row recorded them.
+    return {
+      orderId: r.order_id, venue: true,
+      position: { asset: r.asset, side: 'LONG' as const, entryPrice: Number(r.entry), size: Number(r.size), notionalUsd: Number(r.notional), leverage: 1, openedAt, openFeeUsd: Number(r.venue_fee) || 0, slippageOpenUsd: 0 },
+    };
+  });
 }
 
 async function realizedUsd(sinceMs: number): Promise<number> {
@@ -176,7 +188,33 @@ export async function runTrendTick(now: number = Date.now(), closesOf: typeof da
   }
 
   let lots = await openLots(now);
-  const valueUsd = TREND_START_USD + (await realizedUsd(state.startedAtMs)) + lots.reduce((s, l) => s + spotValue(l.position, marks[l.position.asset as Asset]!), 0);
+  const venue = onVenue(TREND_PORTFOLIO_ID);
+  const { settleHedgeRow } = await import('./close-pipeline');
+  if (venue) {
+    // Moving to the venue: lots held before close at the mark as they were kept; trading waits until all have.
+    for (const lot of lots.filter((l) => !l.venue)) {
+      try {
+        const settled = await settleHedgeRow({ orderId: lot.orderId, pos: lot.position, result: spotClose(lot.position, marks[lot.position.asset as Asset]!, now), reason: 'moved-to-venue', analytics: false });
+        lots = lots.filter((l) => l.orderId !== lot.orderId);
+        if (settled !== false) summary.sold += 1;
+      } catch (e) {
+        logger.warn('[TrendTrader] move to the venue: close failed (retry next tick)', { orderId: lot.orderId, error: errMsg(e) });
+      }
+    }
+    if (lots.some((l) => !l.venue)) return { ...summary, skipped: 'moving to the venue' };
+    const rec = await reconcileVenueBook(TREND_PORTFOLIO_ID, lots, now);
+    for (const { lot, result } of rec.closed) {
+      await settleHedgeRow({ orderId: lot.orderId, pos: lot.position, result, reason: 'trend-off', analytics: false });
+      lots = lots.filter((l) => l.orderId !== lot.orderId);
+      summary.sold += 1;
+    }
+    if (rec.flattened.length) logger.warn('[TrendTrader] venue exposure no row owned was flattened', { flattened: rec.flattened });
+    if (!state.venue) state = { ...state, venue: { since: now, carriedUsd: await realizedUsd(state.startedAtMs) } };
+  }
+  // On the venue the book is worth what its subaccount holds; in simulation, its rows at the mark.
+  const valueUsd = venue && state.venue
+    ? await venueBookValueUsd(TREND_PORTFOLIO_ID, TREND_START_USD, state.venue.carriedUsd)
+    : TREND_START_USD + (await realizedUsd(state.startedAtMs)) + lots.reduce((s, l) => s + spotValue(l.position, marks[l.position.asset as Asset]!), 0);
 
   // ── the daily decision ──
   const day = decisionDay(now);
@@ -202,13 +240,16 @@ export async function runTrendTick(now: number = Date.now(), closesOf: typeof da
   }
 
   // ── keep the lots at the decision's target: sells settle before anything is counted; a failed buy retries next tick ──
+  let venueOrders = 0;
   for (const a of ASSETS) {
     const want = state.trend[a]?.lots ?? 0;
     const held = lots.filter((l) => l.position.asset === a);
     for (const lot of held.slice(0, Math.max(0, held.length - want))) {
+      if (lot.venue && venueOrders >= VENUE_ORDERS_PER_TICK) break;
+      if (lot.venue) venueOrders += 1;
       try {
-        const { settleHedgeRow } = await import('./close-pipeline');
-        const settled = await settleHedgeRow({ orderId: lot.orderId, pos: lot.position, result: spotClose(lot.position, marks[a]!, now), reason: 'trend-off', analytics: false, extraMeta: { bookValueUsd: valueUsd } });
+        const result = lot.venue ? await venueCloseLot(TREND_PORTFOLIO_ID, lot.position, lot.orderId, now) : spotClose(lot.position, marks[a]!, now);
+        const settled = await settleHedgeRow({ orderId: lot.orderId, pos: lot.position, result, reason: 'trend-off', analytics: false, extraMeta: { bookValueUsd: valueUsd } });
         lots = lots.filter((l) => l.orderId !== lot.orderId);
         if (settled === false) continue;
         summary.sold += 1;
@@ -217,16 +258,19 @@ export async function runTrendTick(now: number = Date.now(), closesOf: typeof da
       }
     }
     for (let i = held.length; i < want; i++) {
-      const position = spotOpen(a, TREND_RULE.lotUsd, marks[a]!, now);
+      if (venue && venueOrders >= VENUE_ORDERS_PER_TICK) break;
+      if (venue) venueOrders += 1;
       const orderId = `trend_${a}_${Math.floor(now / 1000)}_${i}`;
       try {
+        const position = venue ? await venueOpenLot(TREND_PORTFOLIO_ID, a, 'LONG', TREND_RULE.lotUsd, orderId, now) : spotOpen(a, TREND_RULE.lotUsd, marks[a]!, now);
         await createHedge({
-          orderId, portfolioId: TREND_PORTFOLIO_ID, asset: a, market: `${a}-SPOT`, side: 'LONG', size: position.size,
-          notionalValue: position.notionalUsd, leverage: 1, entryPrice: marks[a]!, simulationMode: true,
-          reason: `trend: ${a} ${state.trend[a]?.close.toFixed(0)} above its ${TREND_RULE.averageDays}-day average ${state.trend[a]?.average.toFixed(0)}`,
+          orderId, portfolioId: TREND_PORTFOLIO_ID, asset: a, market: `${a}-${venue ? 'PERP' : 'SPOT'}`, side: 'LONG', size: position.size,
+          notionalValue: position.notionalUsd, leverage: 1, entryPrice: position.entryPrice, simulationMode: true,
+          reason: `trend: ${a} ${state.trend[a]?.close.toFixed(0)} above its ${TREND_RULE.averageDays}-day average ${state.trend[a]?.average.toFixed(0)}${venue ? ' | venue test network' : ''}`,
           chain: CHAIN,
+          ...(venue ? { metadata: { execution: VENUE_EXECUTION, venueAccount: bookActor(TREND_PORTFOLIO_ID).account, venueOpenFeeUsd: position.openFeeUsd } } : {}),
         });
-        lots.push({ orderId, position });
+        lots.push({ orderId, position, venue });
         summary.bought += 1;
       } catch (e) {
         logger.warn('[TrendTrader] open failed (lot not bought)', { orderId, error: errMsg(e) });

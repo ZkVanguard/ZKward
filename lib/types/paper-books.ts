@@ -5,6 +5,8 @@ export interface PaperBookSummary {
   tests: string;
   /** False when the book's off switch is set. */
   running: boolean;
+  /** True when the book places real orders on the perp venue's Solana test network instead of simulating them. */
+  venue: boolean;
   closed: { trades: number; wins: number; realizedUsd: number; avgBp: number };
   /** Open rows marked to market net of the opening costs and funding so far, before the exit cost. */
   open: { positions: number; notionalUsd: number; openPnlUsd: number };

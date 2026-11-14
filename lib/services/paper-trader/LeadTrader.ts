@@ -35,6 +35,7 @@ import { logger } from '@/lib/utils/logger';
 import { errMsg } from '@/lib/utils/error-handler';
 import { simulateOpen, simulateClose, restingFilled, type Side, type SimulatedPosition } from './simulated-executor';
 import { PAPER_RESTING_ENTRY_WAIT_MIN } from './config';
+import { bookActor, onVenue, reconcileVenueBook, venueCloseLot, venueEntryState, venuePlaceEntry, VENUE_EXECUTION, VENUE_ORDERS_PER_TICK } from './venue-books';
 
 export const LEAD_PORTFOLIO_ID = -7;
 // isPaperHedge() recognises this chain, which keeps the rows out of live accounting.
@@ -92,6 +93,8 @@ interface LeadPosition {
   position: SimulatedPosition;
   closeAtMs: number;
   source: string;
+  /** Filled on the venue's test network: its close is a venue order too. */
+  venue?: boolean;
 }
 
 interface RestingLeadEntry {
@@ -102,6 +105,8 @@ interface RestingLeadEntry {
   readingAtMs: number;
   expiresAtMs: number;
   source: string;
+  /** Our id of the post-only limit order resting on the venue, when the book trades there. */
+  venueOrderId?: string;
 }
 
 interface LeadStats {
@@ -176,29 +181,47 @@ export async function runLeadBook(book: LeadBook, now: number = Date.now()): Pro
   if (stopped && positions.length + resting.length === 0) return summary;
   const stats = { ...emptyStats(), ...((await getCronStateStrict<LeadStats>(KEY.stats)) ?? {}) };
   let statsChanged = false;
+  const venue = onVenue(book.portfolioId);
+  const { settleHedgeRow } = await import('./close-pipeline');
+  const count = (realizedPnlUsd: number) => {
+    stats.trades += 1;
+    if (realizedPnlUsd > 0) stats.wins += 1;
+    stats.cumRealizedUsd += realizedPnlUsd;
+    statsChanged = true;
+    summary.closed += 1;
+  };
 
-  // ── Close: horizon reached → market order at the validated mark ──
+  // On the venue, the rows and the venue hold the same position before anything trades.
+  if (venue) {
+    const rec = await reconcileVenueBook(book.portfolioId, positions.filter((p) => p.venue), now);
+    for (const { lot, result } of rec.closed) {
+      const settled = await settleHedgeRow({ orderId: lot.orderId, pos: lot.position, result, reason: 'horizon-expiry', analytics: false, extraMeta: { holdMin: book.holdMin, execution: VENUE_EXECUTION } });
+      positions = positions.filter((p) => p.orderId !== lot.orderId);
+      if (settled !== false) count(result.realizedPnlUsd);
+    }
+    if (rec.flattened.length) logger.warn(`[${book.name}] venue exposure no row owned was flattened`, { flattened: rec.flattened });
+  }
+
+  // ── Close: horizon reached → market order (a venue order when the position is on the venue) ──
+  let venueCloses = 0;
   for (const pos of positions.filter((p) => stopped || now >= p.closeAtMs)) {
+    if (pos.venue && venueCloses >= VENUE_ORDERS_PER_TICK) break;
+    if (pos.venue) venueCloses += 1;
     try {
-      const price = await markPrice(pos.position.asset);
-      if (!price) continue; // no trustworthy price this tick: try again next tick
-      const result = simulateClose(pos.position, price, now);
-      const { settleHedgeRow } = await import('./close-pipeline');
+      const price = pos.venue ? null : await markPrice(pos.position.asset);
+      if (!pos.venue && !price) continue; // no trustworthy price this tick: try again next tick
+      const result = pos.venue ? await venueCloseLot(book.portfolioId, pos.position, pos.orderId, now) : simulateClose(pos.position, price!, now);
       const settled = await settleHedgeRow({
         orderId: pos.orderId,
         pos: pos.position,
         result,
         reason: stopped ? 'book-stopped' : 'horizon-expiry',
         analytics: false,
-        extraMeta: { source: pos.source, holdMin: book.holdMin, execution: 'resting-entry' },
+        extraMeta: { source: pos.source, holdMin: book.holdMin, execution: pos.venue ? VENUE_EXECUTION : 'resting-entry' },
       });
       positions = positions.filter((p) => p.orderId !== pos.orderId);
       if (settled === false) continue; // another tick already closed it: count nothing
-      stats.trades += 1;
-      if (result.realizedPnlUsd > 0) stats.wins += 1;
-      stats.cumRealizedUsd += result.realizedPnlUsd;
-      statsChanged = true;
-      summary.closed += 1;
+      count(result.realizedPnlUsd);
     } catch (e) {
       logger.warn(`[${book.name}] close failed (retry next tick)`, { orderId: pos.orderId, error: errMsg(e) });
     }
@@ -207,6 +230,30 @@ export async function runLeadBook(book: LeadBook, now: number = Date.now()): Pro
   // ── Resting entries: filled, still waiting, or lapsed ──
   const stillResting: RestingLeadEntry[] = [];
   for (const entry of resting) {
+    if (entry.venueOrderId) {
+      // A post-only order resting on the venue: filled is a position at its real fill; lapsed is cancelled there.
+      try {
+        const st = await venueEntryState(book.portfolioId, entry.asset, entry.side, entry.venueOrderId, stopped || now >= entry.expiresAtMs, now);
+        if (st.state === 'resting') { stillResting.push(entry); continue; }
+        if (st.state === 'gone') { summary.cancelled += 1; continue; }
+        await createHedge({
+          orderId: entry.venueOrderId, portfolioId: book.portfolioId, asset: entry.asset, market: `${entry.asset}-PERP`, side: entry.side,
+          size: st.position.size, notionalValue: st.position.notionalUsd, leverage: LEVERAGE, entryPrice: st.position.entryPrice, simulationMode: true,
+          reason: `${book.orderPrefix}: ${entry.source.slice(0, 60)} | hold ${book.holdMin}min | resting entry | venue test network`,
+          predictionMarket: 'signal-ledger', chain: CHAIN,
+          metadata: { execution: VENUE_EXECUTION, venueAccount: bookActor(book.portfolioId).account, venueOpenFeeUsd: st.position.openFeeUsd },
+        });
+        positions.push({ orderId: entry.venueOrderId, position: st.position, closeAtMs: entry.readingAtMs + book.holdMin * 60_000, source: entry.source, venue: true });
+        stats.filled += 1;
+        statsChanged = true;
+        summary.filled += 1;
+      } catch (e) {
+        // Kept: the next tick reads the order again; reconciliation catches a fill no row recorded.
+        stillResting.push(entry);
+        logger.warn(`[${book.name}] venue entry check failed (retry next tick)`, { orderId: entry.venueOrderId, error: errMsg(e) });
+      }
+      continue;
+    }
     if (stopped || now >= entry.expiresAtMs) {
       summary.cancelled += 1;
       continue;
@@ -272,6 +319,17 @@ export async function runLeadBook(book: LeadBook, now: number = Date.now()): Pro
       const busy = new Set<string>([...positions.map((p) => p.position.asset), ...resting.map((r) => r.asset)]);
       for (const { reading, side } of selectLeadEntries(rows, now, busy, book.assets)) {
         if (book.admit && !(await book.admit(reading.asset, now))) continue;
+        let venueOrderId: string | undefined;
+        if (venue) {
+          // The resting order is a real post-only limit at the reading's price; the venue refuses one that would take.
+          venueOrderId = `${book.orderPrefix}_${reading.asset}_${Math.floor(reading.reading_at_ms / 1000)}`;
+          try {
+            await venuePlaceEntry(book.portfolioId, reading.asset, side, book.stakeUsd * LEVERAGE, reading.entry_price, venueOrderId);
+          } catch (e) {
+            logger.warn(`[${book.name}] venue entry refused`, { orderId: venueOrderId, error: errMsg(e) });
+            continue;
+          }
+        }
         resting.push({
           asset: reading.asset,
           side,
@@ -279,6 +337,7 @@ export async function runLeadBook(book: LeadBook, now: number = Date.now()): Pro
           readingAtMs: reading.reading_at_ms,
           expiresAtMs: now + PAPER_RESTING_ENTRY_WAIT_MIN * 60_000,
           source: reading.source,
+          ...(venueOrderId ? { venueOrderId } : {}),
         });
         stats.placed += 1;
         statsChanged = true;

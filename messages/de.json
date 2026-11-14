@@ -704,6 +704,7 @@
     "status": "Status",
     "running": "Aktiv",
     "off": "Aus",
+    "onVenue": "Solana-Testnetz",
     "trades": "Trades (30 T)",
     "booked": "Gebucht (30 T)",
     "open": "Jetzt offen",

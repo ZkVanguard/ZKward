@@ -29,7 +29,8 @@ import {
   getAssociatedTokenAddressSync,
 } from './spl';
 import { assertEndpointOnCluster, solanaRpcUrl } from './rpc';
-import { base58Encode, isMainnet } from './cluster';
+import { isMainnet } from './cluster';
+import { base58Encode } from '@/lib/utils/base58';
 
 let cached: Keypair | null = null;
 

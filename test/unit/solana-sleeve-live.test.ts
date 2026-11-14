@@ -23,7 +23,7 @@ const venue = {
   mark: 82_000,
   orders: [] as Array<{ symbol: string; side: string; size: number; reduceOnly: boolean; orderId: string }>,
 };
-jest.mock('@/lib/services/solana/perp-venue', () => ({
+jest.mock('@/lib/services/venue/perp-venue', () => ({
   perpNetwork: () => 'testnet',
   perpVenueConfigured: () => venue.configured,
   getMarket: jest.fn(async (symbol: string) => ({ symbol, lotSize: 0.00001, minOrderUsd: 10, maxLeverage: 50 })),

@@ -704,6 +704,7 @@
     "status": "상태",
     "running": "가동 중",
     "off": "꺼짐",
+    "onVenue": "Solana 테스트넷",
     "trades": "거래 수 (30일)",
     "booked": "확정 손익 (30일)",
     "open": "현재 보유",

@@ -704,6 +704,7 @@
     "status": "状态",
     "running": "运行中",
     "off": "已关闭",
+    "onVenue": "Solana 测试网",
     "trades": "交易数（30 天）",
     "booked": "已实现（30 天）",
     "open": "当前持仓",
