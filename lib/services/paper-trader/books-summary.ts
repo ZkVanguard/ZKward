@@ -38,6 +38,15 @@ export const PAPER_BOOKS: readonly PaperBookDef[] = [
   { id: -13, name: 'ProvenTrader', tests: 'the combined signal traded only while the ledger proves it above the round-trip cost, exactly as proven: resting entry at the reading price, exit at the 60-minute horizon, $1,000 at 1x', disableFlag: 'PROVEN_TRADER_DISABLE' },
 ];
 
+/**
+ * True when the book places real orders on the venue's test network: listed in PAPER_VENUE_BOOKS, or the Solana
+ * sleeve with its own live switch on (it trades the configured test account through sleeve-live.ts).
+ */
+export function bookOnVenue(id: number, env: NodeJS.ProcessEnv = process.env): boolean {
+  if (venueBookIds(env).has(id)) return true;
+  return id === -6 && envFlag('SOLANA_SLEEVE_LIVE_ENABLED', env) && (env.SOLANA_PERPS_NETWORK || '').trim().toLowerCase() === 'testnet';
+}
+
 /** True when the book's off switch is not set. */
 export function bookRunning(def: PaperBookDef, env: NodeJS.ProcessEnv = process.env): boolean {
   return !def.disableFlag || !envFlag(def.disableFlag, env);
@@ -74,7 +83,7 @@ export async function readPaperBooks(hours = 720, now: number = Date.now()): Pro
       name: b.name,
       tests: b.tests,
       running: bookRunning(b),
-      venue: venueBookIds().has(b.id),
+      venue: bookOnVenue(b.id),
       closed: { trades: s.trades, wins: s.wins, realizedUsd: s.realizedUsd, avgBp: s.avgBp },
       open: { positions: Number(o?.n ?? 0), notionalUsd: Number(o?.notional ?? 0), openPnlUsd: Number(o?.pnl ?? 0) },
       ...(b.interestKey ? { interestUsd: Number(interest[i]?.interestUsd ?? 0) } : {}),
