@@ -112,6 +112,10 @@ export class PaperGatedTrader {
       const nav = (await getCronStateStrict<number>(KEY_NAV)) ?? PAPER_STARTING_NAV;
       const active = await getCronStateStrict<SimulatedPosition>(KEY_POSITION);
       const orderId = await getCronStateStrict<string>(KEY_ORDER_ID);
+      // On the venue, exposure no held position owns is flattened before anything else.
+      const { flattenVenueOrphans } = await import('./venue-books');
+      const flattened = await flattenVenueOrphans(PORTFOLIO_ID, active?.venue && orderId ? [{ orderId, position: active }] : [], now);
+      if (flattened.length) logger.warn('[PaperGatedTrader] venue exposure no position owned was flattened', { flattened });
 
       result = active
         ? await PaperGatedTrader.handleActive(active, nav, now, orderId ?? undefined)
@@ -397,11 +401,13 @@ export class PaperGatedTrader {
       ? markPrice * (1 - stopFrac)
       : markPrice * (1 + stopFrac));
 
+    const orderId = `${ORDER_ID_PREFIX}${asset}_${Math.floor(now / 1000)}`;
+    const { openOnVenueOrSimulate, bookActor, VENUE_EXECUTION } = await import('./venue-books');
     const position: SimulatedPosition = {
-      ...simulateOpen(
+      ...(await openOnVenueOrSimulate(PORTFOLIO_ID, { asset, side, notionalUsd, orderId, now }, () => simulateOpen(
         { asset, side, notionalUsd, leverage: PAPER_LEVERAGE, entryPrice: markPrice, resting },
         now,
-      ),
+      ))),
       sourceSnapshot,
       peakUnrealizedPnl: 0,
       entryConfidence: conf,
@@ -411,7 +417,6 @@ export class PaperGatedTrader {
       ...(target ? { takeProfitPrice: target.takeProfitPrice } : {}),
     };
 
-    const orderId = `${ORDER_ID_PREFIX}${asset}_${Math.floor(now / 1000)}`;
     await setCronState(KEY_POSITION, position);
     await setCronState(KEY_ORDER_ID, orderId);
 
@@ -433,9 +438,9 @@ export class PaperGatedTrader {
         market: `${asset}-PERP`,
         side,
         size: position.size,
-        notionalValue: notionalUsd,
+        notionalValue: position.notionalUsd,
         leverage: PAPER_LEVERAGE,
-        entryPrice: markPrice,
+        entryPrice: position.entryPrice,
         stopLoss: stopLossPrice,
         takeProfit: target?.takeProfitPrice,
         simulationMode: true,
@@ -444,7 +449,8 @@ export class PaperGatedTrader {
         chain: CHAIN,
         metadata: {
           holdPlan: holdPlanMeta(maxHoldMin, plan.holdHorizonMin, plan.ledgerHitRate),
-          execution: resting ? 'resting' : 'market',
+          execution: position.venue ? VENUE_EXECUTION : resting ? 'resting' : 'market',
+          ...(position.venue ? { venueAccount: bookActor(PORTFOLIO_ID).account, venueOpenFeeUsd: position.openFeeUsd } : {}),
         },
       });
     } catch (e) {
@@ -473,7 +479,9 @@ export class PaperGatedTrader {
     orderId?: string,
     resting: boolean = false,
   ): Promise<TickResult> {
-    const closeResult = simulateClose(pos, markPrice, now, resting);
+    // A venue position closes with a venue order; its result is the venue's fill.
+    const { closeOnVenueOrSimulate } = await import('./venue-books');
+    const closeResult = await closeOnVenueOrSimulate(PORTFOLIO_ID, pos, orderId, now, () => simulateClose(pos, markPrice, now, resting));
     const realizedPnl = closeResult.realizedPnlUsd;
     const newNav = priorNav + realizedPnl;
 
