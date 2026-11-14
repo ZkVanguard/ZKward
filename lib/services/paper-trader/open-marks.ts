@@ -33,8 +33,10 @@ interface OpenRow {
   notional_value: string;
   stop_loss: string | null;
   created_at: Date;
-  /** 'resting' or 'resting-entry' when the entry filled as a resting order (maker fee, no slippage). */
+  /** 'resting' or 'resting-entry' when the entry filled as a resting order (maker fee, no slippage); 'venue-testnet' when the venue filled it. */
   execution?: string | null;
+  /** The fee the venue charged on the open, for a row the venue filled. */
+  venue_open_fee?: string | null;
 }
 
 export interface OpenMark {
@@ -55,10 +57,15 @@ export function markOpenRow(row: OpenRow, mark: number, nowMs: number): OpenMark
   const markBp = ((long ? mark / entry : entry / mark) - 1) * 10_000;
   const notional = Number(row.notional_value);
   const resting = /^resting/.test(row.execution ?? '');
-  const spot = SPOT_BOOKS.has(row.portfolio_id);
-  const openCost = spot
-    ? computeFeeUsd(notional, SPOT_FEE_BPS_PER_SIDE)
-    : computeFeeUsd(notional, resting ? MAKER_FEE_BPS_PER_SIDE : FEE_BPS_PER_SIDE) + (resting ? 0 : computeSlippageUsd(notional, row.asset));
+  // A venue row is a perp the venue filled: its open cost is the fee the venue charged, with no simulated slippage.
+  const venue = row.execution === 'venue-testnet';
+  const spot = SPOT_BOOKS.has(row.portfolio_id) && !venue;
+  const openCost = venue
+    ? Number(row.venue_open_fee) || 0
+    : spot
+      ? computeFeeUsd(notional, SPOT_FEE_BPS_PER_SIDE)
+      : computeFeeUsd(notional, resting ? MAKER_FEE_BPS_PER_SIDE : FEE_BPS_PER_SIDE) + (resting ? 0 : computeSlippageUsd(notional, row.asset));
+  // Funding on an open venue row is the measured hourly history until its close books the venue's own payments.
   const funding = spot ? 0 : fundingForHold(notional, row.asset, long ? 'LONG' : 'SHORT', row.created_at.getTime(), nowMs);
   const markUsd = computeGrossPnl(long ? 'LONG' : 'SHORT', entry, mark, notional) - openCost + funding;
   let overdue: string | null = null;
@@ -76,7 +83,7 @@ export async function markOpenPaperPositions(
   nowMs: number = Date.now(),
 ): Promise<{ marked: number; overdue: string[] }> {
   const rows = await query<OpenRow>(
-    `SELECT order_id, portfolio_id, asset, side, entry_price, notional_value, stop_loss, created_at, metadata->>'execution' AS execution
+    `SELECT order_id, portfolio_id, asset, side, entry_price, notional_value, stop_loss, created_at, metadata->>'execution' AS execution, metadata->>'venueOpenFeeUsd' AS venue_open_fee
        FROM hedges WHERE status = 'active' AND portfolio_id = ANY($1::int[])`,
     [MARKED_BOOKS],
   );

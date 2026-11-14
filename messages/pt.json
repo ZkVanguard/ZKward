@@ -704,6 +704,7 @@
     "status": "Estado",
     "running": "Ativo",
     "off": "Desligado",
+    "onVenue": "Testnet da Solana",
     "trades": "Operações (30 d)",
     "booked": "Realizado (30 d)",
     "open": "Aberto agora",

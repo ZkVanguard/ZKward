@@ -19,8 +19,8 @@ import {
   getMarket,
   submitMarketOrder,
   __resetPerpSignerForTests,
-} from '@/lib/services/solana/perp-venue';
-import { base58Decode, base58Encode } from '@/lib/services/solana/cluster';
+} from '@/lib/services/venue/perp-venue';
+import { base58Decode, base58Encode } from '@/lib/utils/base58';
 
 const ENV = ['SOLANA_PERPS_NETWORK', 'SOLANA_PERPS_ACCOUNT', 'SOLANA_PERPS_SIGNER_SECRET'] as const;
 const saved: Record<string, string | undefined> = {};

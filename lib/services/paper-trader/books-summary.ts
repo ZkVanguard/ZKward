@@ -9,6 +9,7 @@
  * books that held money were invisible.
  */
 import { envFlag } from '@/lib/utils/env-flag';
+import { venueBookIds } from './venue-books';
 import type { PaperBookSummary } from '@/lib/types/paper-books';
 
 export type { PaperBookSummary };
@@ -73,6 +74,7 @@ export async function readPaperBooks(hours = 720, now: number = Date.now()): Pro
       name: b.name,
       tests: b.tests,
       running: bookRunning(b),
+      venue: venueBookIds().has(b.id),
       closed: { trades: s.trades, wins: s.wins, realizedUsd: s.realizedUsd, avgBp: s.avgBp },
       open: { positions: Number(o?.n ?? 0), notionalUsd: Number(o?.notional ?? 0), openPnlUsd: Number(o?.pnl ?? 0) },
       ...(b.interestKey ? { interestUsd: Number(interest[i]?.interestUsd ?? 0) } : {}),

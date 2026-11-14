@@ -21,7 +21,8 @@ jest.mock('@/lib/db/postgres', () => ({
   }),
 }));
 
-import { solanaCluster, isMainnet, base58Encode, expectedGenesisHash } from '@/lib/services/solana/cluster';
+import { solanaCluster, isMainnet, expectedGenesisHash } from '@/lib/services/solana/cluster';
+import { base58Encode } from '@/lib/utils/base58';
 import { solanaRpcUrls, solanaPublicRpcUrl, assertEndpointOnCluster } from '@/lib/services/solana/rpc';
 import * as db from '@/lib/db/solana-pool';
 import { mintTestTokens } from '@/lib/services/solana/signer';

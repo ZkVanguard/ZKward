@@ -74,6 +74,7 @@ export function PaperBooksTable() {
                   </td>
                   <td className="py-2 pr-3 whitespace-nowrap">
                     <span className={b.running ? 'text-green-700 font-medium' : 'text-label-tertiary'}>{b.running ? t('running') : t('off')}</span>
+                    {b.venue && <div className="text-xs text-label-tertiary">{t('onVenue')}</div>}
                   </td>
                   <td className="py-2 pr-3 text-right whitespace-nowrap">{b.closed.trades}</td>
                   <td className={`py-2 pr-3 text-right whitespace-nowrap ${tone(b.closed.realizedUsd)}`}>{b.closed.trades ? usd(b.closed.realizedUsd) : '—'}</td>

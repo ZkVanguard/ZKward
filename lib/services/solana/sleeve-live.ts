@@ -30,7 +30,7 @@ import {
   submitMarketOrder,
   type PerpPosition,
   type PerpSide,
-} from './perp-venue';
+} from '@/lib/services/venue/perp-venue';
 
 const KEY_GUARD = 'solana-pool:sleeve-live-guard';
 const FILL_POLLS = 10;

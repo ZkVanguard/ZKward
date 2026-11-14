@@ -31,6 +31,7 @@ import { errMsg } from '@/lib/utils/error-handler';
 import { FLOOR_RULE, planFloorRebalance } from './floor-rule';
 import { dailyCloses, decisionDay, spotClose, spotOpen, spotValue, trendOn, TREND_RULE } from './TrendTrader';
 import { markToMarket, simulateClose, simulateOpen, type Side, type SimulatedCloseResult, type SimulatedPosition } from './simulated-executor';
+import { bookActor, onVenue, reconcileVenueBook, venueBookValueUsd, venueCloseLot, venueOpenLot, VENUE_EXECUTION, VENUE_ORDERS_PER_TICK } from './venue-books';
 
 export const CORE_PORTFOLIO_ID = -11;
 export const CORE_START_USD = 100_000;
@@ -85,6 +86,8 @@ export interface CoreState {
   /** UTC day (YYYY-MM-DD) of the last trend decision. */
   decidedDay: string | null;
   trend: Record<string, TrendReading>;
+  /** Since the book moved to the venue's test network: when, and the simulated result it carried over. */
+  venue?: { since: number; carriedUsd: number };
 }
 
 export interface CoreTickSummary {
@@ -110,7 +113,7 @@ async function markPrice(asset: string): Promise<number | null> {
   return v.price && v.price > 0 ? v.price : null;
 }
 
-interface Lot { orderId: string; position: SimulatedPosition }
+interface Lot { orderId: string; position: SimulatedPosition; venue: boolean }
 
 function lotOpen(book: CoreBook, asset: string, notionalUsd: number, price: number, openedAt: number): SimulatedPosition {
   return book.side === 'LONG'
@@ -126,16 +129,22 @@ function lotClose(book: CoreBook, pos: SimulatedPosition, mark: number, now: num
 }
 
 async function openLots(book: CoreBook, now: number): Promise<Lot[]> {
-  const rows = await query<{ order_id: string; asset: string; entry: number; notional: number; held_ms: number }>(
-    `SELECT order_id, asset, entry_price::float8 AS entry, notional_value::float8 AS notional,
-            (EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - created_at)) * 1000)::float8 AS held_ms
+  const rows = await query<{ order_id: string; asset: string; entry: number; notional: number; size: number; held_ms: number; execution: string | null; venue_fee: number | null }>(
+    `SELECT order_id, asset, entry_price::float8 AS entry, notional_value::float8 AS notional, size::float8 AS size,
+            (EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - created_at)) * 1000)::float8 AS held_ms,
+            metadata->>'execution' AS execution, (metadata->>'venueOpenFeeUsd')::float8 AS venue_fee
        FROM hedges WHERE portfolio_id = $1 AND status = 'active' ORDER BY created_at, order_id`,
     [book.portfolioId],
   );
-  return rows.map((r) => ({
-    orderId: r.order_id,
-    position: lotOpen(book, r.asset, Number(r.notional), Number(r.entry), now - Math.max(0, Number(r.held_ms) || 0)),
-  }));
+  return rows.map((r) => {
+    const openedAt = now - Math.max(0, Number(r.held_ms) || 0);
+    if (r.execution !== VENUE_EXECUTION) return { orderId: r.order_id, position: lotOpen(book, r.asset, Number(r.notional), Number(r.entry), openedAt), venue: false };
+    // A venue lot is the venue's fill: its size, price and fee as the row recorded them.
+    return {
+      orderId: r.order_id, venue: true,
+      position: { asset: r.asset, side: book.side, entryPrice: Number(r.entry), size: Number(r.size), notionalUsd: Number(r.notional), leverage: 1, openedAt, openFeeUsd: Number(r.venue_fee) || 0, slippageOpenUsd: 0 },
+    };
+  });
 }
 
 async function realizedUsd(book: CoreBook, sinceMs: number): Promise<number> {
@@ -172,10 +181,40 @@ export async function runCoreBook(book: CoreBook, now: number = Date.now(), clos
   }
 
   let lots = await openLots(book, now);
+  const venue = onVenue(book.portfolioId);
+  const { settleHedgeRow } = await import('./close-pipeline');
+  if (venue) {
+    // Moving to the venue: lots held before close at the mark as they were kept; trading waits until all have.
+    for (const lot of lots.filter((l) => !l.venue)) {
+      try {
+        const settled = await settleHedgeRow({
+          orderId: lot.orderId, pos: lot.position, result: lotClose(book, lot.position, marks[lot.position.asset as Asset]!, now),
+          reason: 'moved-to-venue', analytics: false,
+        });
+        lots = lots.filter((l) => l.orderId !== lot.orderId);
+        if (settled !== false) summary.sold += 1;
+      } catch (e) {
+        logger.warn(`[${book.name}] move to the venue: close failed (retry next tick)`, { orderId: lot.orderId, error: errMsg(e) });
+      }
+    }
+    if (lots.some((l) => !l.venue)) return { ...summary, skipped: 'moving to the venue' };
+    // The rows and the venue hold the same position before anything trades.
+    const rec = await reconcileVenueBook(book.portfolioId, lots, now);
+    for (const { lot, result } of rec.closed) {
+      await settleHedgeRow({ orderId: lot.orderId, pos: lot.position, result, reason: `${book.orderPrefix}-rebalance`, analytics: false });
+      lots = lots.filter((l) => l.orderId !== lot.orderId);
+      summary.sold += 1;
+    }
+    if (rec.flattened.length) logger.warn(`[${book.name}] venue exposure no row owned was flattened`, { flattened: rec.flattened });
+    if (!state.venue) state = { ...state, venue: { since: now, carriedUsd: await realizedUsd(book, state.startedAtMs) } };
+  }
   // A short lot's margin is its notional at 1x, so it leaves the cash like a spot purchase does.
   const heldUsd: Record<string, number> = {};
   for (const l of lots) heldUsd[l.position.asset] = (heldUsd[l.position.asset] ?? 0) + l.position.size * marks[l.position.asset as Asset]!;
-  const tradedUsd = CORE_START_USD + (await realizedUsd(book, state.startedAtMs)) + lots.reduce((s, l) => s + lotValue(book, l.position, marks[l.position.asset as Asset]!, now), 0);
+  // On the venue the book is worth what its subaccount holds; in simulation, its rows at the mark.
+  const tradedUsd = venue && state.venue
+    ? await venueBookValueUsd(book.portfolioId, CORE_START_USD, state.venue.carriedUsd)
+    : CORE_START_USD + (await realizedUsd(book, state.startedAtMs)) + lots.reduce((s, l) => s + lotValue(book, l.position, marks[l.position.asset as Asset]!, now), 0);
   const cashUsd = tradedUsd + state.interestUsd - Object.values(heldUsd).reduce((a, b) => a + b, 0);
   const interestUsd = state.interestUsd + interestFor(cashUsd, now - state.updatedAtMs);
   const valueUsd = tradedUsd + interestUsd;
@@ -205,14 +244,20 @@ export async function runCoreBook(book: CoreBook, now: number = Date.now(), clos
   // A coin is held on its decision, never by default: before the first decision nothing is.
   const holding = Object.fromEntries(ASSETS.map((a) => [a, !book.disabled && state!.trend[a]?.on === true]));
   const plan = planFloorRebalance({ valueUsd, peakUsd: state.peakUsd, heldUsd, assets: ASSETS, holding });
+  let venueOrders = 0;
 
   for (const a of ASSETS) {
     // Sells first, oldest lots first, settled before anything is counted.
-    for (const lot of lots.filter((l) => l.position.asset === a).slice(0, Math.max(0, -plan.lots[a]))) {
+    // A coin off its decision is sold to nothing. The plan counts dollars in whole lots, so lots worth a little
+    // under $1,000 each (a fill above the mark, a long after a fall) would otherwise leave one behind.
+    const held = lots.filter((l) => l.position.asset === a);
+    for (const lot of held.slice(0, holding[a] ? Math.max(0, -plan.lots[a]) : held.length)) {
+      if (lot.venue && venueOrders >= VENUE_ORDERS_PER_TICK) break;
+      if (lot.venue) venueOrders += 1;
       try {
-        const { settleHedgeRow } = await import('./close-pipeline');
+        const result = lot.venue ? await venueCloseLot(book.portfolioId, lot.position, lot.orderId, now) : lotClose(book, lot.position, marks[a]!, now);
         const settled = await settleHedgeRow({
-          orderId: lot.orderId, pos: lot.position, result: lotClose(book, lot.position, marks[a]!, now),
+          orderId: lot.orderId, pos: lot.position, result,
           reason: book.disabled ? 'book-stopped' : `${book.orderPrefix}-rebalance`,
           analytics: false, extraMeta: { floorUsd: plan.floorUsd, bookValueUsd: valueUsd, trendOn: holding[a] },
         });
@@ -224,16 +269,21 @@ export async function runCoreBook(book: CoreBook, now: number = Date.now(), clos
       }
     }
     for (let i = 0; i < plan.lots[a]; i++) {
-      const position = lotOpen(book, a, FLOOR_RULE.lotUsd, marks[a]!, now);
+      if (venue && venueOrders >= VENUE_ORDERS_PER_TICK) break;
+      if (venue) venueOrders += 1;
       const orderId = `${book.orderPrefix}_${a}_${Math.floor(now / 1000)}_${i}`;
       try {
+        // On the venue the lot is its real fill; a fill that never shows leaves no row, and the next tick's
+        // reconciliation flattens whatever the venue holds beyond the rows.
+        const position = venue ? await venueOpenLot(book.portfolioId, a, book.side, FLOOR_RULE.lotUsd, orderId, now) : lotOpen(book, a, FLOOR_RULE.lotUsd, marks[a]!, now);
         await createHedge({
-          orderId, portfolioId: book.portfolioId, asset: a, market: `${a}-${book.side === 'LONG' ? 'SPOT' : 'PERP'}`, side: book.side,
-          size: position.size, notionalValue: position.notionalUsd, leverage: 1, entryPrice: marks[a]!, simulationMode: true,
-          reason: `${book.orderPrefix}: book ${valueUsd.toFixed(0)} over floor ${plan.floorUsd.toFixed(0)}, ${a} ${book.because}`,
+          orderId, portfolioId: book.portfolioId, asset: a, market: `${a}-${venue || book.side === 'SHORT' ? 'PERP' : 'SPOT'}`, side: book.side,
+          size: position.size, notionalValue: position.notionalUsd, leverage: 1, entryPrice: position.entryPrice, simulationMode: true,
+          reason: `${book.orderPrefix}: book ${valueUsd.toFixed(0)} over floor ${plan.floorUsd.toFixed(0)}, ${a} ${book.because}${venue ? ' | venue test network' : ''}`,
           chain: CHAIN,
+          ...(venue ? { metadata: { execution: VENUE_EXECUTION, venueAccount: bookActor(book.portfolioId).account, venueOpenFeeUsd: position.openFeeUsd } } : {}),
         });
-        lots.push({ orderId, position });
+        lots.push({ orderId, position, venue });
         summary.bought += 1;
       } catch (e) {
         // No row, no lot: the next tick reads the rows and opens what is still missing.

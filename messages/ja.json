@@ -704,6 +704,7 @@
     "status": "状態",
     "running": "稼働中",
     "off": "停止",
+    "onVenue": "Solana テストネット",
     "trades": "取引数（30日）",
     "booked": "確定損益（30日）",
     "open": "現在の保有",

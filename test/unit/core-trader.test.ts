@@ -101,6 +101,14 @@ describe('the book', () => {
     expect(rows.filter((r) => r.asset === 'BTC')).toHaveLength(0);
   });
 
+  it('a coin that turns off is sold to nothing, even after it fell and its lots are worth under $1,000 each', async () => {
+    await runCoreTick(NOW, async () => rising);
+    prices.BTC = 72_000; // −10%: five lots now read as 4.5 lots of $1,000
+    const s = await runCoreTick(NOW + DAY, async (a: string) => (a === 'BTC' ? falling : rising));
+    expect(rows.filter((r) => r.asset === 'BTC')).toHaveLength(0);
+    expect(s.sold).toBeGreaterThanOrEqual(5);
+  });
+
   it('a stopped book closes what it holds, then rests', async () => {
     await runCoreTick(NOW, async () => rising);
     const stopped: CoreBook = {

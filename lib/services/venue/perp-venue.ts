@@ -19,7 +19,7 @@
  * error here, never a zero.
  */
 import * as crypto from 'crypto';
-import { base58Decode, base58Encode } from './cluster';
+import { base58Decode, base58Encode } from '@/lib/utils/base58';
 
 export type PerpNetwork = 'mainnet' | 'testnet';
 export type PerpSide = 'LONG' | 'SHORT';
@@ -65,23 +65,35 @@ export function signingMessage(type: string, data: Record<string, unknown>, time
   return JSON.stringify(sortKeysDeep({ timestamp, expiry_window: expiryWindow, type, data }));
 }
 
-interface Signer {
+export interface Signer {
   publicKey: string;
   sign(message: string): string;
+}
+
+/** Who a write is for and who signs it: the configured account by default, or a paper book's subaccount. */
+export interface VenueActor {
+  account: string;
+  signer: Signer;
 }
 
 let cachedSigner: Signer | null = null;
 
 /** The 32-byte seed from either keypair format wallets export: a JSON byte array or base58. */
-function seedFromSecret(raw: string): Uint8Array {
+export function seedFromSecret(raw: string): Uint8Array {
   const bytes = raw.startsWith('[') ? new Uint8Array(JSON.parse(raw) as number[]) : base58Decode(raw);
   if (bytes.length !== 64 && bytes.length !== 32) throw new Error('SOLANA_PERPS_SIGNER_SECRET is not an Ed25519 key');
   return bytes.slice(0, 32);
 }
 
 export function signerFromSecret(raw: string): Signer {
+  return signerFromSeed(seedFromSecret(raw));
+}
+
+/** An Ed25519 signer from its 32-byte seed; its public key is the Solana address. */
+export function signerFromSeed(seed: Uint8Array): Signer {
+  if (seed.length !== 32) throw new Error('an Ed25519 seed is 32 bytes');
   const key = crypto.createPrivateKey({
-    key: Buffer.concat([Buffer.from('302e020100300506032b657004220420', 'hex'), Buffer.from(seedFromSecret(raw))]),
+    key: Buffer.concat([Buffer.from('302e020100300506032b657004220420', 'hex'), Buffer.from(seed)]),
     format: 'der',
     type: 'pkcs8',
   });
@@ -98,6 +110,11 @@ function signer(): Signer {
   if (!raw) throw new Error('SOLANA_PERPS_SIGNER_SECRET not configured');
   cachedSigner = signerFromSecret(raw);
   return cachedSigner;
+}
+
+/** The configured account, signing with the configured key. */
+export function configuredActor(): VenueActor {
+  return { account: perpAccount(), signer: signer() };
 }
 
 /** The request body for a signed operation: the signature header beside the operation's own fields. */
@@ -151,6 +168,8 @@ export interface PerpMarket {
   /** Smallest order, in dollars. */
   minOrderUsd: number;
   maxLeverage: number;
+  /** Limit prices are multiples of this. */
+  tickSize: number;
 }
 
 export async function getMarket(symbol: string): Promise<PerpMarket> {
@@ -162,7 +181,15 @@ export async function getMarket(symbol: string): Promise<PerpMarket> {
     lotSize: num(row.lot_size, 'lot_size'),
     minOrderUsd: num(row.min_order_size, 'min_order_size'),
     maxLeverage: num(row.max_leverage, 'max_leverage'),
+    tickSize: num(row.tick_size, 'tick_size'),
   };
+}
+
+/** A price on the market's tick, as the venue's string, rounded toward the side that makes the order rest, never cross. */
+export function priceOnTick(price: number, tickSize: number, side: PerpSide): string {
+  const ticks = side === 'LONG' ? Math.floor(price / tickSize + 1e-9) : Math.ceil(price / tickSize - 1e-9);
+  const decimals = Math.max(0, Math.ceil(-Math.log10(tickSize)));
+  return (ticks * tickSize).toFixed(decimals);
 }
 
 export async function getMarkPrice(symbol: string): Promise<number> {
@@ -234,6 +261,7 @@ export async function submitMarketOrder(args: {
   reduceOnly: boolean;
   orderId: string;
   slippagePercent?: number;
+  as?: VenueActor;
 }): Promise<{ orderId: number }> {
   const data = {
     symbol: args.symbol,
@@ -246,9 +274,133 @@ export async function submitMarketOrder(args: {
   const r = await call<Record<string, unknown>>(
     'POST',
     '/api/v1/orders/create_market',
-    signedBody('create_market_order', data, { account: perpAccount(), signer: signer() }),
+    signedBody('create_market_order', data, args.as ?? configuredActor()),
   );
   return { orderId: num(r.order_id, 'order_id') };
+}
+
+/** A resting limit order. `ALO` only adds liquidity: the venue refuses it rather than let it take. */
+export async function submitLimitOrder(args: {
+  symbol: string;
+  side: PerpSide;
+  size: number;
+  price: string;
+  tif: 'GTC' | 'ALO' | 'IOC';
+  reduceOnly: boolean;
+  orderId: string;
+  as?: VenueActor;
+}): Promise<{ orderId: number }> {
+  const data = {
+    symbol: args.symbol,
+    price: args.price,
+    amount: String(args.size),
+    side: args.side === 'LONG' ? 'bid' : 'ask',
+    tif: args.tif,
+    reduce_only: args.reduceOnly,
+    client_order_id: clientOrderId(args.orderId),
+  };
+  const r = await call<Record<string, unknown>>('POST', '/api/v1/orders/create', signedBody('create_order', data, args.as ?? configuredActor()));
+  return { orderId: num(r.order_id, 'order_id') };
+}
+
+/** Cancel one of our orders by our own order id. */
+export async function cancelOrder(args: { symbol: string; orderId: string; as?: VenueActor }): Promise<void> {
+  const data = { symbol: args.symbol, client_order_id: clientOrderId(args.orderId) };
+  await call('POST', '/api/v1/orders/cancel', signedBody('cancel_order', data, args.as ?? configuredActor()));
+}
+
+export async function setLeverage(symbol: string, leverage: number, as: VenueActor = configuredActor()): Promise<void> {
+  await call('POST', '/api/v1/account/leverage', signedBody('update_leverage', { symbol, leverage }, as));
+}
+
+/**
+ * Make `sub` a subaccount of `main`. Both consent: the subaccount signs the main account's address, and the
+ * main account signs that signature.
+ */
+export async function createSubaccount(main: VenueActor, sub: Signer, now: number = Date.now()): Promise<void> {
+  const subSignature = sub.sign(signingMessage('subaccount_initiate', { account: main.account }, now, EXPIRY_WINDOW_MS));
+  const mainSignature = main.signer.sign(signingMessage('subaccount_confirm', { signature: subSignature }, now, EXPIRY_WINDOW_MS));
+  await call('POST', '/api/v1/account/subaccount/create', {
+    main_account: main.account,
+    subaccount: sub.publicKey,
+    main_signature: mainSignature,
+    sub_signature: subSignature,
+    timestamp: now,
+    expiry_window: EXPIRY_WINDOW_MS,
+  });
+}
+
+/** Move collateral between a main account and its subaccount, inside the venue. */
+export async function transferFunds(from: VenueActor, toAccount: string, amountUsd: number): Promise<void> {
+  if (!(amountUsd > 0)) throw new Error('perp venue: a transfer needs a positive amount');
+  await call('POST', '/api/v1/account/subaccount/transfer', signedBody('transfer_funds', { to_account: toAccount, amount: amountUsd.toFixed(2) }, from));
+}
+
+// ── Fills, orders and funding, as the venue recorded them ────────────
+
+export interface VenueFill {
+  /** Our order's id on the venue (UUID derived by clientOrderId). */
+  clientOrderId: string | null;
+  symbol: string;
+  /** open_long, close_long, open_short, close_short. */
+  side: string;
+  size: number;
+  price: number;
+  feeUsd: number;
+  atMs: number;
+}
+
+export async function getFills(account: string, limit = 200): Promise<VenueFill[]> {
+  const rows = await call<Array<Record<string, unknown>>>('GET', `/api/v1/trades/history?account=${encodeURIComponent(account)}&limit=${limit}`);
+  return rows.map((r) => ({
+    clientOrderId: typeof r.client_order_id === 'string' ? r.client_order_id : null,
+    symbol: String(r.symbol),
+    side: String(r.side),
+    size: num(r.amount, 'amount'),
+    price: num(r.price, 'price'),
+    feeUsd: num(r.fee, 'fee'),
+    atMs: num(r.created_at, 'created_at'),
+  }));
+}
+
+export interface VenueOrder {
+  clientOrderId: string | null;
+  symbol: string;
+  status: string;
+  size: number;
+  filledSize: number;
+  avgPrice: number | null;
+}
+
+export async function getOrderHistory(account: string, limit = 200): Promise<VenueOrder[]> {
+  const rows = await call<Array<Record<string, unknown>>>('GET', `/api/v1/orders/history?account=${encodeURIComponent(account)}&limit=${limit}`);
+  return rows.map((r) => ({
+    clientOrderId: typeof r.client_order_id === 'string' ? r.client_order_id : null,
+    symbol: String(r.symbol),
+    status: String(r.order_status),
+    size: num(r.amount, 'amount'),
+    filledSize: num(r.filled_amount, 'filled_amount'),
+    avgPrice: r.average_filled_price == null || r.average_filled_price === '' ? null : num(r.average_filled_price, 'average_filled_price'),
+  }));
+}
+
+export interface VenueFunding {
+  symbol: string;
+  /** Tokens of the position that paid or received it. */
+  positionSize: number;
+  /** Dollars, as the venue reports them: received positive, paid negative. */
+  payoutUsd: number;
+  atMs: number;
+}
+
+export async function getFundingHistory(account: string, limit = 500): Promise<VenueFunding[]> {
+  const rows = await call<Array<Record<string, unknown>>>('GET', `/api/v1/funding/history?account=${encodeURIComponent(account)}&limit=${limit}`);
+  return rows.map((r) => ({
+    symbol: String(r.symbol),
+    positionSize: num(r.amount, 'amount'),
+    payoutUsd: num(r.payout, 'payout'),
+    atMs: num(r.created_at, 'created_at'),
+  }));
 }
 
 /** Test hook: forget the cached signer after the environment changes. */
