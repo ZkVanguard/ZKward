@@ -15,7 +15,7 @@ const state: Record<string, unknown> = {};
 jest.mock('@/lib/db/cron-state', () => ({ getCronStateStrict: async (k: string) => state[k] ?? null }));
 jest.mock('@/lib/utils/logger', () => ({ logger: { info: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn() } }));
 
-import { PAPER_BOOKS, bookRunning, readPaperBooks } from '@/lib/services/paper-trader/books-summary';
+import { PAPER_BOOKS, bookOnVenue, bookRunning, readPaperBooks } from '@/lib/services/paper-trader/books-summary';
 import { GET } from '@/app/api/paper-trader/books/route';
 
 const NOW = Date.parse('2026-11-13T18:00:00Z');
@@ -50,6 +50,13 @@ describe('readPaperBooks', () => {
     expect(books.find((b) => b.portfolioId === -8)!.running).toBe(false);
     expect(books.find((b) => b.portfolioId === -12)!.running).toBe(true);
     expect(bookRunning({ id: -3, name: 'x', tests: '' }, { FLOOR_TRADER_DISABLE: '1' })).toBe(true);
+  });
+
+  it('a book is on the venue when listed, and the sleeve when its own live switch is on, on the test network only', () => {
+    expect(bookOnVenue(-12, { SOLANA_PERPS_NETWORK: 'testnet', PAPER_VENUE_BOOKS: '-12' })).toBe(true);
+    expect(bookOnVenue(-6, { SOLANA_PERPS_NETWORK: 'testnet', SOLANA_SLEEVE_LIVE_ENABLED: '1' })).toBe(true);
+    expect(bookOnVenue(-6, { SOLANA_PERPS_NETWORK: 'mainnet', SOLANA_SLEEVE_LIVE_ENABLED: '1' })).toBe(false);
+    expect(bookOnVenue(-3, { SOLANA_PERPS_NETWORK: 'testnet', SOLANA_SLEEVE_LIVE_ENABLED: '1' })).toBe(false);
   });
 
   it('an unread record is an error, never a book with zero trades', async () => {
