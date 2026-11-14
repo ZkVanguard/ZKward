@@ -69,16 +69,28 @@ const DEPS: VenueDeps = { getOrderHistory, getFills, sleep: (ms) => new Promise(
 
 const isRateLimit = (e: unknown) => /HTTP 429/.test(e instanceof Error ? e.message : String(e));
 
+/** A venue read, with a rate limit (HTTP 429) waited out a few times before it counts as a failure. */
+async function patiently<T>(read: () => Promise<T>, deps: VenueDeps, tries = 4): Promise<T> {
+  for (let i = 1; ; i++) {
+    try {
+      return await read();
+    } catch (e) {
+      if (!isRateLimit(e) || i >= tries) throw e;
+      await deps.sleep(POLL_MS * i);
+    }
+  }
+}
+
 /** One of our orders on the venue, or null if the venue has no such order. A rate limit is waited out. */
 async function findOrder(account: string, orderId: string, deps: VenueDeps): Promise<VenueOrder | null> {
   const cid = clientOrderId(orderId);
-  return (await deps.getOrderHistory(account, 200)).find((o) => o.clientOrderId === cid) ?? null;
+  return (await patiently(() => deps.getOrderHistory(account, 200), deps)).find((o) => o.clientOrderId === cid) ?? null;
 }
 
 /** Size, volume-weighted price and fee of one order's fills; null while the fills do not add up to its filled size. */
 async function fillsOf(account: string, orderId: string, filledSize: number, deps: VenueDeps): Promise<{ size: number; price: number; feeUsd: number } | null> {
   const cid = clientOrderId(orderId);
-  const fills = (await deps.getFills(account, 200)).filter((f: VenueFill) => f.clientOrderId === cid);
+  const fills = (await patiently(() => deps.getFills(account, 200), deps)).filter((f: VenueFill) => f.clientOrderId === cid);
   const size = fills.reduce((s, f) => s + f.size, 0);
   if (!(size > 0) || Math.abs(size - filledSize) > 1e-9 * Math.max(1, size)) return null;
   return { size, price: fills.reduce((s, f) => s + f.size * f.price, 0) / size, feeUsd: fills.reduce((s, f) => s + f.feeUsd, 0) };
@@ -120,7 +132,7 @@ export async function venueOpenLot(portfolioId: number, asset: string, side: Sid
 
 /** A lot's share of the subaccount's funding payments on its coin while it was open. */
 export async function lotFundingUsd(account: string, pos: Pick<SimulatedPosition, 'asset' | 'size' | 'openedAt'>, now: number, deps = { getFundingHistory }): Promise<number> {
-  const payments = await deps.getFundingHistory(account, 500);
+  const payments = await patiently(() => deps.getFundingHistory(account, 500), DEPS);
   return payments
     .filter((p) => p.symbol === pos.asset && p.atMs > pos.openedAt && p.atMs <= now && p.positionSize > 0)
     .reduce((s, p) => s + p.payoutUsd * Math.min(1, pos.size / p.positionSize), 0);
@@ -164,15 +176,25 @@ export interface VenueLot { orderId: string; position: SimulatedPosition }
 export async function reconcileVenueBook(portfolioId: number, lots: readonly VenueLot[], now: number, deps: VenueDeps = DEPS): Promise<{ closed: Array<{ lot: VenueLot; result: SimulatedCloseResult }>; flattened: string[] }> {
   const actor = bookActor(portfolioId);
   const closed: Array<{ lot: VenueLot; result: SimulatedCloseResult }> = [];
+  // One read of the account's orders for every lot (a read per lot hit the venue's rate limit), and its fills only
+  // when a close is found.
+  const orders = lots.length ? await patiently(() => deps.getOrderHistory(actor.account, 200), deps) : [];
+  const byId = new Map(orders.map((o) => [o.clientOrderId, o]));
+  let fills: VenueFill[] | null = null;
   for (const lot of lots) {
-    const order = await findOrder(actor.account, closeOrderIdOf(lot.orderId), deps);
+    const cid = clientOrderId(closeOrderIdOf(lot.orderId));
+    const order = byId.get(cid);
     if (!order || !FINISHED.has(order.status) || !(order.filledSize > 0)) continue;
-    const fill = await fillsOf(actor.account, closeOrderIdOf(lot.orderId), order.filledSize, deps);
-    if (fill) closed.push({ lot, result: closeResult(lot.position, fill, await lotFundingUsd(actor.account, lot.position, now), now) });
+    fills ??= await patiently(() => deps.getFills(actor.account, 200), deps);
+    const mine = fills.filter((f) => f.clientOrderId === cid);
+    const size = mine.reduce((s, f) => s + f.size, 0);
+    if (!(size > 0) || Math.abs(size - order.filledSize) > 1e-9 * Math.max(1, size)) continue;
+    const fill = { size, price: mine.reduce((s, f) => s + f.size * f.price, 0) / size, feeUsd: mine.reduce((s, f) => s + f.feeUsd, 0) };
+    closed.push({ lot, result: closeResult(lot.position, fill, await lotFundingUsd(actor.account, lot.position, now), now) });
   }
   const open = lots.filter((l) => !closed.some((c) => c.lot.orderId === l.orderId));
   const flattened: string[] = [];
-  for (const p of await getPositions(actor.account)) {
+  for (const p of await patiently(() => getPositions(actor.account), deps)) {
     const rows = open.filter((l) => l.position.asset === p.symbol);
     const rowsSigned = rows.reduce((s, l) => s + (l.position.side === 'LONG' ? 1 : -1) * l.position.size, 0);
     const venueSigned = (p.side === 'LONG' ? 1 : -1) * p.size;

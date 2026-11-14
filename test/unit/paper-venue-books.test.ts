@@ -144,6 +144,22 @@ describe('the venue and the rows hold the same position', () => {
     expect(r.flattened).toEqual(['BTC LONG 0.0003']);
   });
 
+  it('reads the account’s orders once for every lot, and waits out a rate limit instead of failing the tick', async () => {
+    getPositions.mockResolvedValue([{ symbol: 'BTC', side: 'LONG', size: 0.0024, entryPrice: 64_000 }]);
+    const lots = Array.from({ length: 12 }, (_, i) => lot(`short_BTC_1_${i}`));
+    const d = deps([[]], []);
+    let reads = 0;
+    let limited = false;
+    d.getOrderHistory = (async () => {
+      reads += 1;
+      if (!limited) { limited = true; throw new Error('perp venue /api/v1/orders/history: HTTP 429'); }
+      return [];
+    }) as VenueDeps['getOrderHistory'];
+    const r = await reconcileVenueBook(-12, lots, NOW, d);
+    expect(reads).toBe(2); // one refused by the rate limit, one answered: not one per lot
+    expect(r).toEqual({ closed: [], flattened: [] });
+  });
+
   it('a venue holding exactly the rows is left alone', async () => {
     getPositions.mockResolvedValue([{ symbol: 'BTC', side: 'LONG', size: 0.0002, entryPrice: 64_000 }]);
     const r = await reconcileVenueBook(-11, [lot('core_BTC_1_0')], NOW, deps([[]], []));
