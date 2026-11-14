@@ -24,7 +24,6 @@ export const Footer = memo(function Footer() {
               <ul className="space-y-3">
                 <li><Link href="/dashboard" className={LINK_CLASS}>{t('dashboard')}</Link></li>
                 <li><Link href="/agents" className={LINK_CLASS}>{t('agents')}</Link></li>
-                <li><Link href="/simulator" className={LINK_CLASS}>{t('simulator')}</Link></li>
                 <li><Link href="/dashboard?tab=pool" className={LINK_CLASS}>{t('pools')}</Link></li>
                 <li><Link href="/whitepaper" className={LINK_CLASS}>{t('documentation')}</Link></li>
                 <li><Link href="/story" className={LINK_CLASS}>{t('story')}</Link></li>

@@ -72,7 +72,7 @@ export const Navbar = memo(function Navbar() {
   }, []);
 
   // Five links, no more. Home is implicit via the logo, so it earns no
-  // slot. ZK / RWA / Simulator stay reachable by URL and from footer,
+  // slot. ZK and RWA stay reachable by URL and from footer,
   // but they compete with the primary five and lose. Vault is the
   // money page, Agents is the tech, Whitepaper is the receipt,
   // Story is the human hook, FAQ closes the loop.

@@ -27,7 +27,6 @@ export async function GET() {
 - [Six-agent system](${base}/agents): Lead, Risk, Hedging, Reporting, Price Monitor, SUI Pool. Trades above $100K need a 2-of-3 vote.
 - [Zero-knowledge](${base}/zk): Make a real hedge policy proof and check it; states what the proof system is and is not today.
 - [Real-world assets](${base}/rwa): Custodian-signed attestations bind portfolios to off-chain assets, private by default.
-- [Simulator](${base}/simulator): Backtest the strategy against historical drawdowns.
 
 ## Key facts
 

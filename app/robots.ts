@@ -4,8 +4,7 @@ import type { MetadataRoute } from 'next';
 // Most of /api is per-user or non-indexable; disallow the tree but ALLOW
 // the two icon routes because Google Search Console's knowledge-panel
 // grader crawls them for the Organization schema logo.
-// /dashboard and /paper are per-user surfaces. /simulator is a public
-// demo and is indexable.
+// /dashboard and /paper are per-user surfaces.
 export default function robots(): MetadataRoute.Robots {
   const baseUrl = (process.env.NEXT_PUBLIC_BASE_URL || 'https://zkward.com').replace(/\/$/, '');
   return {
