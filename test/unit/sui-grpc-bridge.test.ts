@@ -8,7 +8,7 @@ import { describe, it, expect, jest } from '@jest/globals';
 import { bcs } from '@mysten/sui/bcs';
 import { deriveDynamicFieldID } from '@mysten/sui/utils';
 import {
-  callSuiJsonRpc, encodeMove, normalizedType, plainJson, renderEffects, renderMove, renderOwner, shortType, type Layout,
+  callSuiJsonRpc, encodeMove, GRPC_MASKS, normalizedType, plainJson, renderEffects, renderMove, renderOwner, shortType, type Layout,
 } from '@/lib/services/sui/sui-grpc-bridge';
 
 const A = `0x${'ab'.repeat(32)}`;
@@ -122,6 +122,19 @@ describe('Move signatures for the transaction builder', () => {
     expect(normalizedType(pool, 2)).toEqual({ MutableReference: { Struct: { address: A, module: 'pool', name: 'Pool', typeArguments: [{ TypeParameter: 0 }] } } });
     expect(normalizedType({ type: 9, typeParameterInstantiation: [{ type: 3, typeParameterInstantiation: [] }] })).toEqual({ Vector: 'U8' });
     expect(normalizedType({ type: 6, typeParameterInstantiation: [] }, 1)).toEqual({ Reference: 'U64' });
+  });
+});
+
+describe('read masks, as the mainnet node accepts them (measured 2026-11-13)', () => {
+  it('execute asks for fields of the executed transaction itself: a `transaction.` path is refused and fails every signed transaction', () => {
+    expect(GRPC_MASKS.exec.paths).toEqual(['digest', 'transaction', 'signatures', 'effects', 'events', 'balance_changes', 'checkpoint', 'timestamp']);
+    expect(GRPC_MASKS.exec.paths.some((p) => p.includes('.'))).toBe(false);
+  });
+
+  it('simulate asks for them one level down, plus the command outputs', () => {
+    expect(GRPC_MASKS.sim.paths).toContain('transaction.effects');
+    expect(GRPC_MASKS.sim.paths).toContain('command_outputs');
+    expect(GRPC_MASKS.sim.paths.filter((p) => p !== 'command_outputs').every((p) => p.startsWith('transaction.'))).toBe(true);
   });
 });
 

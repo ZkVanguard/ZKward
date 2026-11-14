@@ -53,8 +53,14 @@ export class AgentOrchestrator {
       || process.env.SERVER_WALLET_PRIVATE_KEY
       || process.env.PRIVATE_KEY)?.trim();
     if (privateKey) {
-      this.signer = new ethers.Wallet(privateKey, this.provider);
-      logger.info('AgentOrchestrator: Signer initialized');
+      try {
+        this.signer = new ethers.Wallet(privateKey, this.provider);
+        logger.info('AgentOrchestrator: Signer initialized');
+      } catch {
+        // A key that is not an EVM key used to throw here and stop every agent cycle (none ran from
+        // 2026-09-22): run read-only, as with no key. The error text carries the value, so it is not logged.
+        logger.warn('AgentOrchestrator: the private key is not a usable EVM key; agents run in read-only mode');
+      }
     } else {
       logger.warn('AgentOrchestrator: No private key found, agents will run in read-only mode');
     }
