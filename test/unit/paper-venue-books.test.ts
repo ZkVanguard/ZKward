@@ -10,6 +10,8 @@ const submitLimitOrder = jest.fn<(a: Record<string, unknown>) => Promise<{ order
 const cancelOrder = jest.fn<(a: Record<string, unknown>) => Promise<void>>(async () => {});
 const getPositions = jest.fn<(account: string) => Promise<Array<{ symbol: string; side: 'LONG' | 'SHORT'; size: number; entryPrice: number }>>>(async () => []);
 const getFundingHistory = jest.fn<(account: string, limit?: number) => Promise<Array<{ symbol: string; positionSize: number; payoutUsd: number; atMs: number }>>>(async () => []);
+const getOrderHistory = jest.fn<(account: string, limit?: number) => Promise<unknown[]>>(async () => []);
+const getFills = jest.fn<(account: string, limit?: number) => Promise<unknown[]>>(async () => []);
 jest.mock('@/lib/services/venue/perp-venue', () => {
   const actual = jest.requireActual('@/lib/services/venue/perp-venue') as Record<string, unknown>;
   return {
@@ -22,13 +24,15 @@ jest.mock('@/lib/services/venue/perp-venue', () => {
     cancelOrder: (a: Record<string, unknown>) => cancelOrder(a),
     getPositions: (a: string) => getPositions(a),
     getFundingHistory: (a: string, l?: number) => getFundingHistory(a, l),
+    getOrderHistory: (a: string, l?: number) => getOrderHistory(a, l),
+    getFills: (a: string, l?: number) => getFills(a, l),
   };
 });
 
 import { clientOrderId, signerFromSecret, type VenueFill, type VenueOrder } from '@/lib/services/venue/perp-venue';
 import {
-  bookActor, closeOrderIdOf, lotFundingUsd, reconcileVenueBook, settledFill, venueBookIds, venueCloseLot, venueEntryState,
-  type VenueDeps,
+  bookActor, closeOnVenueOrSimulate, closeOrderIdOf, lotFundingUsd, openOnVenueOrSimulate, reconcileVenueBook, settledFill, venueBookIds,
+  venueCloseLot, venueEntryState, type VenueDeps,
 } from '@/lib/services/paper-trader/venue-books';
 import type { SimulatedPosition } from '@/lib/services/paper-trader/simulated-executor';
 
@@ -155,5 +159,33 @@ describe('a resting entry on the venue', () => {
     expect(cancelOrder).toHaveBeenCalledWith(expect.objectContaining({ symbol: 'BTC', orderId: 'p1' }));
     const filled = await venueEntryState(-13, 'BTC', 'LONG', 'p1', false, NOW, deps([[order('p1')]], [fill('p1', { feeUsd: 0.002 })]));
     expect(filled).toMatchObject({ state: 'filled', position: { entryPrice: 65_000, size: 0.0002, openFeeUsd: 0.002, side: 'LONG' } });
+  });
+});
+
+describe('the signal books', () => {
+  const simulated = { asset: 'BTC', side: 'LONG' as const, entryPrice: 65_000, size: 0.01538, notionalUsd: 1000, leverage: 1, openedAt: NOW, openFeeUsd: 0.65, slippageOpenUsd: 0.1 };
+
+  it('off the venue they simulate; on it the position is the venue fill, marked as such', async () => {
+    const simulate = jest.fn(() => simulated);
+    expect(await openOnVenueOrSimulate(-3, { asset: 'BTC', side: 'LONG', notionalUsd: 1000, orderId: 'paper_BTC_1', now: NOW }, simulate)).toBe(simulated);
+
+    process.env.PAPER_VENUE_BOOKS = '-3';
+    process.env.SOLANA_PERPS_ACCOUNT = signerFromSecret(SECRET).publicKey;
+    try {
+      getOrderHistory.mockResolvedValue([order('paper_BTC_1', { size: 0.01538, filledSize: 0.01538 })]);
+      getFills.mockResolvedValue([fill('paper_BTC_1', { size: 0.01538, price: 65_010, feeUsd: 0.4 })]);
+      const p = await openOnVenueOrSimulate(-3, { asset: 'BTC', side: 'LONG', notionalUsd: 1000, orderId: 'paper_BTC_1', now: NOW }, simulate);
+      expect(p).toMatchObject({ venue: true, entryPrice: 65_010, size: 0.01538, openFeeUsd: 0.4, slippageOpenUsd: 0 });
+      expect(simulate).toHaveBeenCalledTimes(1);
+      expect(submitMarketOrder).toHaveBeenCalledWith(expect.objectContaining({ symbol: 'BTC', side: 'LONG', reduceOnly: false, orderId: 'paper_BTC_1' }));
+    } finally {
+      delete process.env.SOLANA_PERPS_ACCOUNT;
+    }
+  });
+
+  it('a venue position never closes by simulation, and needs its order id', async () => {
+    const simulate = jest.fn(() => { throw new Error('simulated'); });
+    await expect(closeOnVenueOrSimulate(-3, { ...simulated, venue: true }, undefined, NOW, simulate)).rejects.toThrow(/order id/);
+    expect(simulate).not.toHaveBeenCalled();
   });
 });

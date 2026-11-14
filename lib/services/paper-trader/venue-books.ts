@@ -228,3 +228,32 @@ export async function venueEntryState(
     position: { asset, side, entryPrice: fill.price, size: fill.size, notionalUsd: fill.size * fill.price, leverage: 1, openedAt: now, openFeeUsd: fill.feeUsd, slippageOpenUsd: 0 },
   };
 }
+
+// ── The signal books (PaperTrader -3, PaperGated -4) ─────────────────
+
+/**
+ * Open on the venue when the book trades there, else simulate: the position has the same shape either way.
+ * The signal books decide when exactly as before (their resting entry and target fire on their trade-through
+ * rule); on the venue the order then goes out as a real market order, at the venue's fill and taker fee.
+ */
+export async function openOnVenueOrSimulate(
+  portfolioId: number, args: { asset: string; side: Side; notionalUsd: number; orderId: string; now: number }, simulate: () => SimulatedPosition,
+): Promise<SimulatedPosition> {
+  if (!onVenue(portfolioId)) return simulate();
+  return { ...(await venueOpenLot(portfolioId, args.asset, args.side, args.notionalUsd, args.orderId, args.now)), venue: true };
+}
+
+/** Close a venue position with a venue order (under its own close id), a simulated one by simulation. */
+export async function closeOnVenueOrSimulate(
+  portfolioId: number, pos: SimulatedPosition, orderId: string | undefined, now: number, simulate: () => SimulatedCloseResult,
+): Promise<SimulatedCloseResult> {
+  if (!pos.venue) return simulate();
+  if (!orderId) throw new Error('venue: a venue position needs its order id to close');
+  return venueCloseLot(portfolioId, pos, orderId, now);
+}
+
+/** Flatten venue exposure no held position owns (an open whose fill was never recorded). */
+export async function flattenVenueOrphans(portfolioId: number, held: readonly VenueLot[], now: number): Promise<string[]> {
+  if (!onVenue(portfolioId)) return [];
+  return (await reconcileVenueBook(portfolioId, held, now)).flattened;
+}

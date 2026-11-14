@@ -302,6 +302,10 @@ export class PaperTrader {
     const { PAPER_MAX_CONCURRENT } = await import('./config');
 
     const active = await loadActivePositions();
+    // On the venue, exposure no held position owns is flattened before anything else.
+    const { flattenVenueOrphans } = await import('./venue-books');
+    const flattened = await flattenVenueOrphans(PAPER_PORTFOLIO_ID, active.filter((e) => e.position.venue).map((e) => ({ orderId: e.orderId, position: e.position })), now);
+    if (flattened.length) logger.warn('[PaperTrader] venue exposure no position owned was flattened', { flattened });
     let currentNav = nav;
     let lastActionResult: TickResult = { action: 'skipped', reason: 'no-op tick', nav };
     let closesThisTick = 0;
@@ -801,11 +805,13 @@ export class PaperTrader {
     const stopFrac = (await computeAdaptiveThresholds(asset, { holdWindowMin: maxHoldMin })).stopLossPct;
     const stopLossPrice = target?.stopLossPrice ?? (side === 'LONG' ? markPrice * (1 - stopFrac) : markPrice * (1 + stopFrac));
 
+    const orderId = `paper_${asset}_${Math.floor(now / 1000)}`;
+    const { openOnVenueOrSimulate, bookActor, VENUE_EXECUTION } = await import('./venue-books');
     const position: SimulatedPosition = {
-      ...simulateOpen(
+      ...(await openOnVenueOrSimulate(PAPER_PORTFOLIO_ID, { asset, side, notionalUsd, orderId, now }, () => simulateOpen(
         { asset, side, notionalUsd, leverage: PAPER_LEVERAGE, entryPrice: markPrice, resting },
         now,
-      ),
+      ))),
       sourceSnapshot,
       peakUnrealizedPnl: 0,
       entryConfidence: conf,
@@ -815,7 +821,6 @@ export class PaperTrader {
       ...(target ? { takeProfitPrice: target.takeProfitPrice } : {}),
     };
 
-    const orderId = `paper_${asset}_${Math.floor(now / 1000)}`;
     // positionOpen picks the storage slot (concurrent array vs legacy
     // single) based on PAPER_MAX_CONCURRENT.
     await positionOpen({ orderId, position });
@@ -841,9 +846,9 @@ export class PaperTrader {
         market: `${asset}-PERP`,
         side,
         size: position.size,
-        notionalValue: notionalUsd,
+        notionalValue: position.notionalUsd,
         leverage: PAPER_LEVERAGE,
-        entryPrice: markPrice,
+        entryPrice: position.entryPrice,
         stopLoss: stopLossPrice,
         takeProfit: target?.takeProfitPrice,
         simulationMode: true,
@@ -852,7 +857,8 @@ export class PaperTrader {
         chain: PAPER_CHAIN,
         metadata: {
           holdPlan: holdPlanMeta(maxHoldMin, plan.holdHorizonMin, plan.ledgerHitRate),
-          execution: resting ? 'resting' : 'market',
+          execution: position.venue ? VENUE_EXECUTION : resting ? 'resting' : 'market',
+          ...(position.venue ? { venueAccount: bookActor(PAPER_PORTFOLIO_ID).account, venueOpenFeeUsd: position.openFeeUsd } : {}),
         },
       });
     } catch (e) {
@@ -1040,9 +1046,6 @@ export class PaperTrader {
     passedOrderId?: string,
     resting: boolean = false,
   ): Promise<TickResult> {
-    const result = simulateClose(pos, exitPrice, now, resting);
-    const newNav = nav + result.realizedPnlUsd;
-
     // Passed-in orderId is the source of truth. In legacy mode it may
     // be undefined (older call sites); fall back to KEY_ORDER_ID for
     // back-compat. Concurrent mode always provides the arg.
@@ -1050,6 +1053,10 @@ export class PaperTrader {
     // skipped the DB UPDATE and left rows status='active' after closing
     // in memory (observed on paper_XRP_1789759203).
     const orderId = passedOrderId ?? (await getCronStateStrict<string>(KEY_ORDER_ID)) ?? undefined;
+    // A venue position closes with a venue order; its result is the venue's fill.
+    const { closeOnVenueOrSimulate } = await import('./venue-books');
+    const result = await closeOnVenueOrSimulate(PAPER_PORTFOLIO_ID, pos, orderId, now, () => simulateClose(pos, exitPrice, now, resting));
+    const newNav = nav + result.realizedPnlUsd;
     // Read before settling: a failed read after it would lose this close from the counter.
     const stats = await loadStats(newNav, now);
 

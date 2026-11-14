@@ -115,6 +115,8 @@ export interface SimulatedPosition {
   // handleActive uses this instead of the static PAPER_MAX_HOLD_MIN so
   // strong signals earn more time to develop past the fee floor.
   maxHoldMin?: number;
+  /** Opened on the perp venue's test network (venue-books.ts): its close is a venue order too. */
+  venue?: boolean;
   // Per-position stop-loss price computed from the adaptive-vol
   // threshold at open and locked to the entry price so the check is
   // deterministic per tick against live mark (independent of NAV drift
